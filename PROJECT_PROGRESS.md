@@ -93,6 +93,8 @@
 - 后端 Hegel/Epicurus 已提交并修复 CORS、Trusted Host、root_path/代理头、wildcard+credentials 禁止校验和子路径反代说明；Carson 复审通过。
 - 前端 Anscombe 已提交并修复 Vite base、React Router basename、API base/path 配置；Boyle 审计通过。
 - 总 agent 已按业务路径集成 T-0017/T-0018 到 `dev`。
+- 推送 CORS 与子路径配置集成 `75c11f7` 后已读取 GitHub Actions run `27874100947`：Backend checks 与 Frontend checks 均通过。
+- 已启动集成测试 agent Maxwell 基于最新 `dev` 重跑真实前后端联调，重点验证 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置。
 
 ### 阻塞与风险
 
@@ -129,6 +131,7 @@
 - T-0016 还需额外给出 `https://域名/xxx` 访问形态风险结论；如当前配置不支持子路径部署，需要分派前端/部署修复。
 - 已分派 T-0017/T-0018：后端修 CORS/Trusted Host/root_path/代理配置，前端修子路径部署、router basename 和 API base 策略；修复后重新做真实浏览器联调。
 - 推送 T-0017/T-0018 集成后读取 GitHub Actions；通过后重新运行 T-0016 真实浏览器联调，重点验证 CORS 和 `https://域名/xxx` 子路径配置。
+- 等待 T-0016-rerun 结果；如通过则记录阶段 1 认证后基础管理闭环，如失败继续分派精确修复。
 
 ### 验证
 

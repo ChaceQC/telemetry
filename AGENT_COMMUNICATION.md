@@ -124,6 +124,8 @@ closed      已关闭
 | 2026-06-20 | T-0017 | 后端开发/审计 agent | 后端 CORS 与代理路径配置通过 | Hegel 提交 `01b8d5b`，Epicurus 提交 `e78836f` 修复 CORS wildcard+credentials 校验和子路径反代说明；Carson 复审通过 | done |
 | 2026-06-20 | T-0018 | 前端开发/审计 agent | 前端子路径部署配置通过 | Anscombe 提交 `fc6c955`，支持 Vite base、Router basename、API base/path 配置；Boyle 审计通过 | done |
 | 2026-06-20 | T-0017/T-0018 | 总 agent | CORS 和子路径配置集成 | 总 agent 已按业务路径集成后端 `01b8d5b`/`e78836f` 与前端 `fc6c955` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
+| 2026-06-20 | CI | 总 agent | CORS 和子路径配置 Actions 通过 | push `75c11f7` 触发 run `27874100947`，Backend checks 与 Frontend checks 均通过 | done |
+| 2026-06-20 | T-0016 | 总 agent | 重新启动真实联调 | 已启动集成测试 agent Maxwell，基于最新 `dev` 重跑 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置验证 | testing |
 | 2026-06-20 | 部署 | 用户 | 明确生产访问路径形态 | 生产访问必须支持 `https://域名/xxx`；已要求联调 agent 额外检查前端路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代不要假设裸 IP、端口直连或仅根路径 | doing |
 
 ## 6. 测试记录
