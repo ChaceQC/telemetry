@@ -139,6 +139,10 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | RBAC 进展记录 Actions 通过 | push `7b03b1a` 触发 run `27877147290`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0020 | 代码审计 agent | RBAC 后端基础审计未通过 | Kierkegaard 审计 `57a16e9` 发现 1 个 P1：项目创建与创建者 admin 授权不在同一事务，授权失败会留下无 owner 项目；2 个 P2：服务创建可探测无权限环境 ID 是否存在，且缺少两个关键回归测试。当前不得集成到 `dev` | blocked |
 | 2026-06-20 | T-0020-fix | 总 agent | 启动 RBAC 审计问题修复 | 已启动后端开发 agent Mendel 修复 `57a16e9` 审计问题，范围限定在后端 worktree `feature/backend-dev`：统一项目创建与授权事务、消除服务创建跨项目环境存在性探测、补回归测试并更新后端进度/契约 | doing |
+| 2026-06-20 | CI | 总 agent | RBAC 审计问题记录 Actions 通过 | push `b9a8f2b` 触发 run `27877286278`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0020 | 后端测试 agent | RBAC 真实 MySQL 补验通过 | Halley 在 `57a16e9` 上完成真实 MySQL 补验：Alembic `upgrade head -> downgrade base -> upgrade head` 通过，RBAC 外键/唯一约束/role check 生效，真实 MySQL TestClient 覆盖普通用户隔离、viewer/editor/admin、superuser、停用用户；临时库已清理，未泄露凭据。该补验不替代后续 `76ad5b7` 事务修复复验 | done |
+| 2026-06-20 | T-0020-fix | 后端开发 agent | RBAC 审计修复完成 | Mendel 已提交并 push `76ad5b7` 到 `feature/backend-dev`：项目创建与创建者 admin 授权改为同一事务，服务创建按 `(environment_id, project_id)` 校验避免跨项目环境存在性泄露，并补回归测试；本地验证 pytest、ruff、mypy、diff check 通过 | audit |
+| 2026-06-20 | T-0020-fix | 总 agent | 启动 RBAC 修复复审与 MySQL 事务补验 | 已启动代码审计 agent Hilbert 复审 `76ad5b7`；已启动后端测试 agent Feynman 在真实 MySQL 临时库补验事务回滚和跨项目环境 ID 不泄露行为 | testing |
 
 ## 6. 测试记录
 
@@ -200,7 +204,7 @@ closed      已关闭
 | 2026-06-20 | T-0014 | feature/backend-dev | dev | 后端开发 agent Pasteur | `1fe0d62` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal | `57a16e9` 审计未通过，需先修复事务边界、服务创建越权探测和回归测试；修复复审通过后再由总 agent 按业务路径集成 | blocked |
-| 2026-06-20 | T-0020-fix | feature/backend-dev | dev | 后端开发 agent Mendel | 修复 `57a16e9` 审计 P1/P2 中；完成后需复审和真实 MySQL 补验结论，再由总 agent 决定集成 | doing |
+| 2026-06-20 | T-0020-fix | feature/backend-dev | dev | 后端开发 agent Mendel | `76ad5b7` 已完成并推送；等待 Hilbert 复审和 Feynman 真实 MySQL 事务补验，通过后由总 agent 按业务路径集成 | audit |
 
 ## 10. 决策记录
 
