@@ -48,7 +48,7 @@ closed      已关闭
 | T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
-| T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | testing | audit | audit |
 
 ## 4. API 契约登记
 
@@ -153,6 +153,9 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | RBAC 后端基础集成 Actions 通过 | push `7b30d28` 触发 run `27878169567`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | CI | 总 agent | RBAC 集成结果记录 Actions 通过 | push `7a47c70` 触发 run `27878217319`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；存在官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | T-0021 | 总 agent | 启动 API Key 后端基础任务 | 阶段 1 项目级 RBAC 已集成并通过 CI；下一步启动后端开发 agent 在 `feature/backend-dev` 推进 API Key 创建与撤销后端基础。范围：API Key 只保存哈希、创建时只返回一次明文 key、撤销/列表接口需项目 admin 权限，后续摄入 API 使用该 key 鉴权 | doing |
+| 2026-06-20 | CI | 总 agent | API Key 任务登记 Actions 通过 | push `a3b7b6f` 触发 run `27878281991`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0021 | 后端开发 agent | API Key 后端基础完成 | Lorentz 已提交并 push `8c2349b` 到 `feature/backend-dev`：新增 `api_keys` 模型/迁移、API Key repository/service/schema/routes、项目 admin 管理权限、创建时一次性返回明文 key、仅保存 hash/prefix，并提供 `ApiKeyService.verify_key`；本地验证 pytest 68 passed/2 skipped、ruff、mypy、SQLite Alembic 升降级通过；总 agent 读取 `feature/backend-dev` Actions run 列表，未发现本次 push 触发的 run | audit |
+| 2026-06-20 | T-0021 | 总 agent | 启动 API Key 审计与真实 MySQL 补验 | 已启动代码审计 agent Descartes 只读审计 `8c2349b`；已启动后端测试 agent Confucius 使用真实 MySQL 临时库补验迁移、约束、权限、撤销和 verify 行为，要求不泄露凭据或 API Key 明文 | testing |
 
 ## 6. 测试记录
 
@@ -214,7 +217,7 @@ closed      已关闭
 | 2026-06-20 | T-0014 | feature/backend-dev | dev | 后端开发 agent Pasteur | `1fe0d62` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent | API Key 创建与撤销后端基础开发中；完成后需测试、审计，并由总 agent 按业务路径集成 | doing |
+| 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz | `8c2349b` 已完成并推送；等待代码审计 agent Descartes 和真实 MySQL 补验 agent Confucius 结论，通过后由总 agent 按业务路径集成 | audit |
 
 ## 10. 决策记录
 

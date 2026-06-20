@@ -111,6 +111,7 @@
 - 推送 `T-0020` 集成提交 `7b30d28` 后已读取 GitHub Actions run `27878169567`：Backend checks 与 Frontend checks 均通过。
 - 推送 RBAC 集成 CI 结果记录 `7a47c70` 后已读取 GitHub Actions run `27878217319`：Backend checks 与 Frontend checks 均通过；官方 action Node.js 20 runtime 弃用注解不阻塞。
 - 已登记 `T-0021` 阶段 1 API Key 创建与撤销后端基础任务，后续由后端开发 agent 在独立后端 worktree 推进；边界为 API Key 只保存哈希、创建时只返回一次明文 key、撤销/列表接口需要项目 `admin` 权限，数据摄入使用 API Key 鉴权留给后续摄入任务。
+- `T-0021` 后端开发 agent Lorentz 已提交并推送 `8c2349b` 到 `feature/backend-dev`：新增 API Key 模型/迁移、repository/service/schema/routes、项目 admin 管理权限、一次性明文 key 响应、hash/prefix 持久化和 verify 入口；等待代码审计和真实 MySQL 补验结论。
 
 ### 阻塞与风险
 
@@ -154,6 +155,7 @@
 - `T-0020` 已进入进行中：优先实现后端团队/角色/项目成员权限基础，为 API Key 创建撤销、摄入鉴权和阶段 1“越权请求被拒绝”验收打底。
 - 阶段 1 项目级 RBAC 后端基础已集成并通过 CI；下一步推进 API Key 创建/撤销后端基础，让后续数据上报可用 API Key 鉴权。
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
+- 等待 `T-0021` 代码审计 agent Descartes 和真实 MySQL 补验 agent Confucius 结论；通过后由总 agent 按业务路径集成到 `dev`。
 
 ### 验证
 
@@ -201,3 +203,5 @@
 - Hegel 归档真实 MySQL 回归测试补丁后验证通过：`uv run pytest tests/test_management_api.py tests/test_permissions.py` 39 passed/2 skipped，`uv run pytest` 63 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
 - GitHub Actions run `27878169567` 已通过：T-0020 集成后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27878217319` 已通过：RBAC 集成 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27878281991` 已通过：API Key 任务登记提交后的 Backend checks 与 Frontend checks 均为 success。
+- `T-0021` 后端开发自测由 Lorentz 在后端 worktree 完成：`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，SQLite Alembic `upgrade head -> downgrade base` 通过，`git diff --check` 通过；总 agent 已读取 `feature/backend-dev` Actions run 列表，未发现 `8c2349b` 对应 run。
