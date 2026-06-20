@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 最小事件摄入 API，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs 摄入 API 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -300,7 +300,7 @@ GET /health
 
 ## 数据摄入 API
 
-当前阶段提供最小事件摄入入口，用于闭环“API Key 可用于数据上报”。摄入接口不接受登录态 JWT，也不接受客户端传入 `project_id`；后端只从 API Key 校验结果推导 `project_id` 和 `api_key_id`，并写入 `ingest_records`。支持两种鉴权头：
+当前阶段提供 events、metrics 和 logs 摄入入口，用于闭环“API Key 可用于数据上报”。摄入接口不接受登录态 JWT，也不接受客户端传入 `project_id`；后端只从 API Key 校验结果推导 `project_id` 和 `api_key_id`，并写入 `ingest_records`。支持两种鉴权头：
 
 - `Authorization: Bearer <api_key>`
 - `X-API-Key: <api_key>`
@@ -311,6 +311,8 @@ GET /health
 | --- | --- | --- |
 | `POST` | `/api/v1/ingest/events` | 摄入单条事件，成功返回 accepted receipt |
 | `POST` | `/api/v1/ingest/batch` | 批量摄入事件，当前仅支持 `events` 数组 |
+| `POST` | `/api/v1/ingest/metrics` | 批量摄入指标 datapoints，当前使用 `metrics` 数组 |
+| `POST` | `/api/v1/ingest/logs` | 批量摄入日志记录，当前使用 `logs` 数组 |
 
 单条事件请求体：
 
@@ -348,6 +350,80 @@ GET /health
 
 批量规则：`events` 至少 1 条、最多 100 条；批量 JSON 序列化后不超过 256 KiB。
 
+指标请求体：
+
+```json
+{
+  "metrics": [
+    {
+      "name": "http.server.duration",
+      "value": 12.5,
+      "timestamp": "2026-06-21T00:00:00Z",
+      "unit": "ms",
+      "type": "histogram",
+      "source": "api",
+      "tags": {
+        "route": "/health"
+      },
+      "payload": {
+        "bucket": "p95"
+      }
+    }
+  ]
+}
+```
+
+指标规则：`metrics` 至少 1 条、最多 100 条；整体 JSON 序列化后不超过 256 KiB。单条字段规则：
+
+| 字段 | 规则 |
+| --- | --- |
+| `name` | 必填，1 到 128 字符，匹配 `^[A-Za-z0-9][A-Za-z0-9._:-]*$` |
+| `value` | 必填，有限数值；`NaN`、`Infinity`、`-Infinity` 返回 `422` |
+| `timestamp` | 可选，ISO 8601 时间；入库为 `occurred_at` |
+| `unit` | 可选，最长 32 字符 |
+| `type` | 可选，最长 64 字符，匹配 `^[A-Za-z0-9][A-Za-z0-9._:-]*$` |
+| `source` | 可选，最长 128 字符 |
+| `tags` | 可选对象，任意层级不得包含非有限数值 |
+| `payload` | 可选对象，任意层级不得包含非有限数值 |
+
+日志请求体：
+
+```json
+{
+  "logs": [
+    {
+      "level": "info",
+      "message": "deployment finished",
+      "timestamp": "2026-06-21T00:00:00Z",
+      "logger": "deploy.worker",
+      "source": "worker",
+      "trace_id": "trace-1",
+      "span_id": "span-1",
+      "attributes": {
+        "service": "api"
+      },
+      "payload": {
+        "duration_ms": 42
+      }
+    }
+  ]
+}
+```
+
+日志规则：`logs` 至少 1 条、最多 100 条；整体 JSON 序列化后不超过 256 KiB。单条字段规则：
+
+| 字段 | 规则 |
+| --- | --- |
+| `level` | 必填，1 到 32 字符，匹配 `^[A-Za-z][A-Za-z0-9._:-]*$` |
+| `message` | 必填，1 到 8192 字符 |
+| `timestamp` | 可选，ISO 8601 时间；入库为 `occurred_at` |
+| `logger` | 可选，最长 128 字符 |
+| `source` | 可选，最长 128 字符 |
+| `trace_id` | 可选，最长 128 字符 |
+| `span_id` | 可选，最长 128 字符 |
+| `attributes` | 可选对象，任意层级不得包含非有限数值 |
+| `payload` | 可选对象，任意层级不得包含非有限数值 |
+
 单条成功响应：`202 Accepted`
 
 ```json
@@ -382,9 +458,11 @@ GET /health
 | 状态码 | 场景 |
 | --- | --- |
 | `401` | 缺少 API Key、API Key 无效或已撤销 |
-| `422` | 请求体字段格式错误、出现额外字段、缺失 payload、payload 超限、payload 含非有限数值或批量条数/大小超限 |
+| `422` | 请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长或批量条数/大小超限 |
 
-安全边界：摄入接口当前只做最小持久化，不开放读取/列表接口；不会把客户端 payload 中的 `project_id` 作为项目归属，若 `project_id` 出现在顶层请求体会因额外字段返回 `422`，若出现在 `payload` 内仅作为业务载荷保存，不影响归属；`payload` 内任意层级的 `NaN`、`Infinity` 或 `-Infinity` 均返回 `422`。当前尚未实现限流、审计日志、摄入统计、metrics/logs/traces 专用 schema 或 ClickHouse/MongoDB 写入。
+持久化映射：events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`。三类记录都复用 `ingest_records` 的 `source`、`payload`、`occurred_at` 和 `received_at` 字段，后续可按存储策略再拆分到专用时序/日志后端。
+
+安全边界：摄入接口当前只做最小持久化，不开放读取/列表接口；不会把客户端 payload、tags 或 attributes 中的 `project_id` 作为项目归属，若 `project_id` 出现在顶层请求体会因额外字段返回 `422`，若出现在嵌套业务载荷内仅保存为业务字段，不影响归属；嵌套业务载荷任意层级的 `NaN`、`Infinity` 或 `-Infinity` 均返回 `422`。当前尚未实现限流、审计日志、摄入统计、traces 专用 schema 或 ClickHouse/MongoDB 写入。
 
 ## 目录结构
 

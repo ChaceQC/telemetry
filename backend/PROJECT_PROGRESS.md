@@ -512,3 +512,31 @@
 - 已运行 `uv run mypy .`，结果：67 个源文件无类型错误。
 - 已使用 `sqlite:///./tmp-t0022-ingest.db` 运行 `uv run alembic -x database_url=sqlite:///./tmp-t0022-ingest.db upgrade head` 和 `uv run alembic -x database_url=sqlite:///./tmp-t0022-ingest.db downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0023 阶段 2 metrics/logs 专用摄入 API 基础
+
+### 已完成
+
+- 新增 `POST /api/v1/ingest/metrics`，支持 `metrics` 数组批量摄入，字段覆盖 `name`、`value`、`timestamp`、`unit`、`type`、`tags`、`source` 和 `payload`。
+- 新增 `POST /api/v1/ingest/logs`，支持 `logs` 数组批量摄入，字段覆盖 `level`、`message`、`timestamp`、`logger`、`source`、`trace_id`、`span_id`、`attributes` 和 `payload`。
+- 复用 T-0022 的 API Key 鉴权依赖；项目归属仍只来自 API Key，上报顶层 `project_id` 被 Pydantic extra forbid 拒绝，嵌套 `payload`、`tags`、`attributes` 内同名字段仅作为业务载荷。
+- 复用 `ingest_records` 最小持久化：events 使用 `kind=event`、metrics 使用 `kind=metric`、logs 使用 `kind=log`；metrics 的 `event_type` 映射为 metric name，logs 的 `event_type` 映射为 level。
+- 增加 metrics/logs 校验：批量最多 100 条、整体 JSON 不超过 256 KiB；metrics `value`、`tags`、`payload` 拒绝 `NaN`/`Infinity`/`-Infinity`；logs `message` 最长 8192 字符，`attributes`、`payload` 拒绝非有限数值。
+- 扩展 `backend/tests/test_ingest_api.py`，覆盖有效 metrics/logs 摄入、缺失/无效/撤销 API Key、payload validation、project binding、顶层 `project_id` 被拒绝、metrics value 和嵌套业务载荷非有限数值拒绝，并保持 events 测试通过。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 metrics/logs 摄入契约、持久化映射、安全边界和验证边界。
+- 审计修复：metrics `value` 改为 strict numeric 校验，拒绝字符串和布尔值被 Pydantic 静默转换为数值，并补对应 `422` 回归测试；合法 int/float 仍可摄入，非有限数值仍被拒绝。
+
+### 阻塞与风险
+
+- Godel 已在真实 MySQL 临时库补验 migration head/downgrade、外键、JSON 字段、索引、metrics/logs 写入、撤销 API Key 后拒绝摄入和 validation；后续仍需在引入 ClickHouse/MongoDB/Redis 后补对应存储链路专项验证。
+- 当前仍是最小摄入持久化，尚未实现限流、审计日志、摄入统计、读取/查询接口、traces schema 或 ClickHouse/MongoDB 等专用存储策略。
+- 后续若引入结构化日志，必须继续脱敏 `Authorization`、`X-API-Key`、API Key 明文和 payload 中可能存在的敏感字段。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py`，结果：20 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告；包含 metrics `value` 字符串/布尔值拒绝回归测试。
+- 已运行 `uv run pytest`，结果：89 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：67 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：67 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

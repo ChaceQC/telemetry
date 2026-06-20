@@ -142,6 +142,8 @@
 - `T-0023` 真实 MySQL/接口补验 agent Godel 已验证 Alembic 升降级、`ingest_records` JSON/索引/外键、metrics/logs 有效写入、缺失/无效/撤销 API Key、项目绑定、嵌套 `project_id` 保留业务字段、非有限数值和边界 validation 均通过；临时库已清理且未泄露凭据或 API Key 明文。
 - 推送 metrics/logs 摄入审计补验记录提交 `4a9a4e1` 后已读取 GitHub Actions run `27880667752`：Backend checks 与 Frontend checks 均通过。
 - `T-0023-fix` 修复 agent Parfit 因 502 中断，后端 worktree 检查干净且仍停在 `50c8f17`；已关闭 Parfit 并重派 Franklin 修复 metrics `value` strict numeric 校验与测试。
+- `T-0023-fix` 修复 agent Franklin 也因 502 中断且后端 worktree 干净；总 agent 在后端 worktree 直接完成小范围修复并推送 `6bf0024`，metrics `value` 在 Pydantic 转换前拒绝字符串/布尔等非 JSON number，并补 `422` 回归测试；后端子进度记录提交 `09425a7`。已启动 Carson 复审最新 `feature/backend-dev`。
+- `T-0023-fix` 复审 agent Carson 因 502 中断，已关闭；总 agent 本地只读复审最新 `feature/backend-dev`，确认 `6bf0024` 仅改 schema/test、`09425a7` 仅改后端进度，`tests/test_ingest_api.py` 20 passed，额外 Pydantic 探针确认字符串/布尔 value 被拒且合法 int/float 通过，`git diff --check` 干净；结论为可集成。
 
 ### 阻塞与风险
 
@@ -192,7 +194,7 @@
 - `T-0023` 已进入进行中：先实现 metrics/logs 专用摄入 API，再安排代码审计和真实 MySQL/接口补验。
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
-- 等待 Franklin 完成 `T-0023-fix`；修复提交后启动复审，确认通过后按业务路径集成到 `dev`。
+- `T-0023` 已具备集成条件：下一步按业务路径从 `feature/backend-dev` 恢复 `50c8f17`、`6bf0024`、`09425a7` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，推送后读取 Actions。
 
 ### 验证
 
@@ -261,3 +263,5 @@
 - GitHub Actions run `27880497822` 已通过：metrics/logs 摄入进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - James 审计 `50c8f17` 未通过，列出 P2 metrics value 非 strict numeric 问题；Godel 在同一提交上完成真实 MySQL/接口补验，通过 `uv run pytest tests/test_ingest_api.py` 20 passed、`uv run pytest` 89 passed/2 skipped、ruff、format check、mypy，以及真实 MySQL 升降级和接口流验证。
 - GitHub Actions run `27880667752` 已通过：metrics/logs 摄入审计补验记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- 总 agent 在后端 worktree 验证 `6bf0024` 修复：`uv run pytest tests/test_ingest_api.py` 20 passed，`uv run pytest` 89 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
+- 总 agent 本地复审 `6bf0024`：Pydantic 探针确认 metrics `value` 为字符串或布尔值时校验失败，合法 float/int 通过；`tests/test_ingest_api.py` 20 passed。

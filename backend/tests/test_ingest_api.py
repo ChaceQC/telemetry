@@ -1,7 +1,8 @@
 from argparse import Namespace
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
@@ -77,6 +78,51 @@ def create_api_key(client: TestClient, project_id: object, auth_headers: dict[st
     return cast(str, response.json()["api_key"])
 
 
+def create_ingest_api_key(
+    client: TestClient,
+    *,
+    username: str,
+    project_key: str,
+) -> tuple[dict[str, object], str, dict[str, str]]:
+    admin_headers = create_auth_headers(client, username=username)
+    project = create_project(client, admin_headers, project_key)
+    raw_key = create_api_key(client, project["id"], admin_headers)
+    return project, raw_key, admin_headers
+
+
+def metric_payload() -> dict[str, Any]:
+    return {
+        "metrics": [
+            {
+                "name": "http.server.duration",
+                "value": 12.5,
+                "unit": "ms",
+                "type": "histogram",
+                "source": "api",
+                "tags": {"route": "/health"},
+                "payload": {"bucket": "p95"},
+            }
+        ]
+    }
+
+
+def log_payload() -> dict[str, Any]:
+    return {
+        "logs": [
+            {
+                "level": "info",
+                "message": "deployment finished",
+                "logger": "deploy.worker",
+                "source": "worker",
+                "trace_id": "trace-1",
+                "span_id": "span-1",
+                "attributes": {"service": "api"},
+                "payload": {"duration_ms": 42},
+            }
+        ]
+    }
+
+
 def test_ingest_event_accepts_bearer_api_key_and_binds_project() -> None:
     client = build_client()
     admin_headers = create_auth_headers(client, username="admin")
@@ -135,6 +181,129 @@ def test_ingest_batch_accepts_x_api_key_header() -> None:
     ]
 
 
+def test_ingest_metrics_accepts_datapoints_and_binds_project() -> None:
+    client = build_client()
+    first_project, raw_key, _ = create_ingest_api_key(
+        client,
+        username="metrics-admin",
+        project_key="metrics-project",
+    )
+    second_headers = create_auth_headers(client, username="metrics-other")
+    second_project = create_project(client, second_headers, "metrics-other-project")
+
+    response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "http.server.duration",
+                    "value": 12.5,
+                    "unit": "ms",
+                    "type": "histogram",
+                    "source": "api",
+                    "tags": {
+                        "route": "/health",
+                        "project_id": second_project["id"],
+                    },
+                    "payload": {"bucket": "p95"},
+                },
+                {
+                    "name": "jobs.completed",
+                    "value": 2,
+                    "source": "worker",
+                    "payload": {"project_id": second_project["id"]},
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["accepted_count"] == 2
+    assert [receipt["project_id"] for receipt in body["receipts"]] == [
+        first_project["id"],
+        first_project["id"],
+    ]
+    assert [receipt["kind"] for receipt in body["receipts"]] == ["metric", "metric"]
+    assert [receipt["type"] for receipt in body["receipts"]] == [
+        "http.server.duration",
+        "jobs.completed",
+    ]
+
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        records = list(session.scalars(select(IngestRecordModel).order_by(IngestRecordModel.id)))
+
+    assert len(records) == 2
+    assert {record.project_id for record in records} == {first_project["id"]}
+    assert [record.kind for record in records] == ["metric", "metric"]
+    assert records[0].event_type == "http.server.duration"
+    assert records[0].payload["value"] == 12.5
+    assert records[0].payload["tags"]["project_id"] == second_project["id"]
+    assert records[1].payload["payload"]["project_id"] == second_project["id"]
+
+
+def test_ingest_logs_accepts_records_and_binds_project() -> None:
+    client = build_client()
+    first_project, raw_key, _ = create_ingest_api_key(
+        client,
+        username="logs-admin",
+        project_key="logs-project",
+    )
+    second_headers = create_auth_headers(client, username="logs-other")
+    second_project = create_project(client, second_headers, "logs-other-project")
+
+    response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"X-API-Key": raw_key},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "deployment finished",
+                    "logger": "deploy.worker",
+                    "source": "worker",
+                    "trace_id": "trace-1",
+                    "span_id": "span-1",
+                    "attributes": {
+                        "service": "api",
+                        "project_id": second_project["id"],
+                    },
+                    "payload": {"duration_ms": 42},
+                },
+                {
+                    "level": "error",
+                    "message": "retry failed",
+                    "payload": {"project_id": second_project["id"]},
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["accepted_count"] == 2
+    assert [receipt["project_id"] for receipt in body["receipts"]] == [
+        first_project["id"],
+        first_project["id"],
+    ]
+    assert [receipt["kind"] for receipt in body["receipts"]] == ["log", "log"]
+    assert [receipt["type"] for receipt in body["receipts"]] == ["info", "error"]
+
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        records = list(session.scalars(select(IngestRecordModel).order_by(IngestRecordModel.id)))
+
+    assert len(records) == 2
+    assert {record.project_id for record in records} == {first_project["id"]}
+    assert [record.kind for record in records] == ["log", "log"]
+    assert records[0].event_type == "info"
+    assert records[0].payload["message"] == "deployment finished"
+    assert records[0].payload["attributes"]["project_id"] == second_project["id"]
+    assert records[1].payload["payload"]["project_id"] == second_project["id"]
+
+
 def test_ingest_rejects_missing_invalid_and_revoked_api_key() -> None:
     client = build_client()
     admin_headers = create_auth_headers(client, username="admin")
@@ -164,6 +333,55 @@ def test_ingest_rejects_missing_invalid_and_revoked_api_key() -> None:
         "/api/v1/ingest/events",
         headers={"Authorization": f"Bearer {raw_key}"},
         json={"type": "deployment", "payload": {}},
+    )
+
+    assert missing_response.status_code == 401
+    assert missing_response.json()["detail"] == "缺少 API Key"
+    assert invalid_response.status_code == 401
+    assert invalid_response.json()["detail"] == "API Key 无效或已撤销"
+    assert revoke_response.status_code == 200
+    assert revoked_response.status_code == 401
+    assert revoked_response.json()["detail"] == "API Key 无效或已撤销"
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        ("/api/v1/ingest/metrics", metric_payload()),
+        ("/api/v1/ingest/logs", log_payload()),
+    ],
+)
+def test_ingest_metrics_and_logs_reject_missing_invalid_and_revoked_api_key(
+    path: str,
+    payload: dict[str, Any],
+) -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username=f"auth-{path.rsplit('/', maxsplit=1)[-1]}",
+        project_key=f"auth-{path.rsplit('/', maxsplit=1)[-1]}-project",
+    )
+
+    missing_response = client.post(path, json=payload)
+    invalid_response = client.post(
+        path,
+        headers={"Authorization": "Bearer tlm_invalid"},
+        json=payload,
+    )
+
+    api_keys_response = client.get(
+        f"/api/v1/projects/{project['id']}/api-keys",
+        headers=admin_headers,
+    )
+    api_key_id = api_keys_response.json()[0]["id"]
+    revoke_response = client.post(
+        f"/api/v1/projects/{project['id']}/api-keys/{api_key_id}/revoke",
+        headers=admin_headers,
+    )
+    revoked_response = client.post(
+        path,
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json=payload,
     )
 
     assert missing_response.status_code == 401
@@ -206,6 +424,122 @@ def test_ingest_rejects_invalid_payload_and_client_project_id() -> None:
     assert oversized_payload_response.status_code == 422
     assert project_override_response.status_code == 422
     assert missing_payload_response.status_code == 422
+
+
+def test_ingest_metrics_rejects_invalid_payload_and_client_project_id() -> None:
+    client = build_client()
+    _, raw_key, _ = create_ingest_api_key(
+        client,
+        username="metrics-validation",
+        project_key="metrics-validation-project",
+    )
+
+    invalid_name_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "bad name", "value": 1}]},
+    )
+    missing_value_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "cpu.usage"}]},
+    )
+    string_value_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "cpu.usage", "value": "12.5"}]},
+    )
+    bool_value_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "cpu.usage", "value": True}]},
+    )
+    too_many_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": f"metric.{index}", "value": index} for index in range(101)]},
+    )
+    oversized_payload_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "cpu.usage",
+                    "value": 1,
+                    "payload": {"blob": "x" * (256 * 1024)},
+                }
+            ]
+        },
+    )
+    project_override_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"project_id": 999, **metric_payload()},
+    )
+
+    assert invalid_name_response.status_code == 422
+    assert missing_value_response.status_code == 422
+    assert string_value_response.status_code == 422
+    assert bool_value_response.status_code == 422
+    assert too_many_response.status_code == 422
+    assert oversized_payload_response.status_code == 422
+    assert project_override_response.status_code == 422
+
+
+def test_ingest_logs_rejects_invalid_payload_and_client_project_id() -> None:
+    client = build_client()
+    _, raw_key, _ = create_ingest_api_key(
+        client,
+        username="logs-validation",
+        project_key="logs-validation-project",
+    )
+
+    invalid_level_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "bad level", "message": "hello"}]},
+    )
+    missing_message_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "info"}]},
+    )
+    long_message_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "info", "message": "x" * (8 * 1024 + 1)}]},
+    )
+    too_many_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "info", "message": str(index)} for index in range(101)]},
+    )
+    oversized_payload_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "hello",
+                    "payload": {"blob": "x" * (256 * 1024)},
+                }
+            ]
+        },
+    )
+    project_override_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"project_id": 999, **log_payload()},
+    )
+
+    assert invalid_level_response.status_code == 422
+    assert missing_message_response.status_code == 422
+    assert long_message_response.status_code == 422
+    assert too_many_response.status_code == 422
+    assert oversized_payload_response.status_code == 422
+    assert project_override_response.status_code == 422
 
 
 def test_ingest_rejects_non_finite_payload_values() -> None:
@@ -253,6 +587,65 @@ def test_ingest_batch_rejects_non_finite_payload_values() -> None:
             '{"type":"deploy.finished","payload":{"duration_ms":-Infinity}}'
             "]}"
         ),
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_status_code"),
+    [
+        ('{"metrics":[{"name":"cpu.usage","value":NaN}]}', 422),
+        ('{"metrics":[{"name":"cpu.usage","value":Infinity}]}', 422),
+        ('{"metrics":[{"name":"cpu.usage","value":1,"tags":{"bad":-Infinity}}]}', 422),
+        ('{"metrics":[{"name":"cpu.usage","value":1,"payload":{"bad":NaN}}]}', 422),
+    ],
+)
+def test_ingest_metrics_rejects_non_finite_values(
+    body: str,
+    expected_status_code: int,
+) -> None:
+    client = build_client()
+    _, raw_key, _ = create_ingest_api_key(
+        client,
+        username=f"metrics-nonfinite-{abs(hash(body))}",
+        project_key=f"metrics-nonfinite-{abs(hash(body))}",
+    )
+
+    response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={
+            "Authorization": f"Bearer {raw_key}",
+            "Content-Type": "application/json",
+        },
+        content=body,
+    )
+
+    assert response.status_code == expected_status_code
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '{"logs":[{"level":"info","message":"hello","attributes":{"bad":NaN}}]}',
+        '{"logs":[{"level":"info","message":"hello","payload":{"bad":Infinity}}]}',
+    ],
+)
+def test_ingest_logs_rejects_non_finite_values(body: str) -> None:
+    client = build_client()
+    _, raw_key, _ = create_ingest_api_key(
+        client,
+        username=f"logs-nonfinite-{abs(hash(body))}",
+        project_key=f"logs-nonfinite-{abs(hash(body))}",
+    )
+
+    response = client.post(
+        "/api/v1/ingest/logs",
+        headers={
+            "Authorization": f"Bearer {raw_key}",
+            "Content-Type": "application/json",
+        },
+        content=body,
     )
 
     assert response.status_code == 422

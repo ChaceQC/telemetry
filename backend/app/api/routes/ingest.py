@@ -8,6 +8,8 @@ from app.schemas.ingest import (
     IngestBatchCreate,
     IngestBatchResponse,
     IngestEventCreate,
+    IngestLogsCreate,
+    IngestMetricsCreate,
     IngestReceiptResponse,
 )
 from app.services.api_keys import ApiKeyVerification
@@ -55,5 +57,37 @@ def ingest_batch(
     ingest_service: Annotated[IngestService, Depends(get_ingest_service)],
 ) -> IngestBatchResponse:
     accepted = ingest_service.ingest_batch(context=context, batch=payload)
+    receipts = [_receipt_response(record) for record in accepted.records]
+    return IngestBatchResponse(accepted_count=len(receipts), receipts=receipts)
+
+
+@router.post(
+    "/metrics",
+    response_model=IngestBatchResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="批量摄入指标数据点",
+)
+def ingest_metrics(
+    payload: IngestMetricsCreate,
+    context: Annotated[ApiKeyVerification, Depends(get_ingest_api_key_context)],
+    ingest_service: Annotated[IngestService, Depends(get_ingest_service)],
+) -> IngestBatchResponse:
+    accepted = ingest_service.ingest_metrics(context=context, batch=payload)
+    receipts = [_receipt_response(record) for record in accepted.records]
+    return IngestBatchResponse(accepted_count=len(receipts), receipts=receipts)
+
+
+@router.post(
+    "/logs",
+    response_model=IngestBatchResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="批量摄入日志记录",
+)
+def ingest_logs(
+    payload: IngestLogsCreate,
+    context: Annotated[ApiKeyVerification, Depends(get_ingest_api_key_context)],
+    ingest_service: Annotated[IngestService, Depends(get_ingest_service)],
+) -> IngestBatchResponse:
+    accepted = ingest_service.ingest_logs(context=context, batch=payload)
     receipts = [_receipt_response(record) for record in accepted.records]
     return IngestBatchResponse(accepted_count=len(receipts), receipts=receipts)
