@@ -6,15 +6,17 @@ services:
     container_name: telemetry-mysql-dev
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-telemetry}
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
       TZ: Asia/Shanghai
     ports:
       - "${MYSQL_HOST:-127.0.0.1}:${MYSQL_PORT:-23316}:3306"
     volumes:
       - telemetry-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -49,16 +51,20 @@ services:
     container_name: telemetry-mongodb-dev
     restart: unless-stopped
     environment:
-      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-telemetry}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:?MONGODB_DATABASE is required}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:?MONGODB_ROOT_USER is required}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:?MONGODB_ROOT_PASSWORD is required}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:?MONGODB_DATABASE is required}
+      MONGODB_USER: ${MONGODB_USER:?MONGODB_USER is required}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD:?MONGODB_PASSWORD is required}
       TZ: Asia/Shanghai
     ports:
       - "${MONGODB_HOST:-127.0.0.1}:${MONGODB_PORT:-27018}:27017"
     volumes:
       - telemetry-mongodb-data:/data/db
+      - ./docker/mongodb/init-app-user.js:/docker-entrypoint-initdb.d/10-init-app-user.js:ro
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" || exit 1"]
+      test: ["CMD-SHELL", "mongosh --quiet -u \"$${MONGO_INITDB_ROOT_USERNAME}\" -p \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -18,6 +18,7 @@
 ├── backend/                  # 后端目录，后端 agent 维护
 ├── frontend/                 # 前端目录，前端 agent 维护
 ├── agents/                   # agent 角色说明和运行时日志
+├── docker/                   # 本地开发数据库初始化脚本
 ├── scripts/                  # 协作和初始化脚本
 ├── .env.example              # 本地开发环境变量示例
 ├── docker-compose.dev.yml    # 本地数据库服务 Compose 草案
@@ -56,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-AgentWorktrees.ps1
 Copy-Item .env.example .env
 ```
 
-3. 按需调整 `.env` 中端口、host 和本地数据库占位配置。
+3. 按需调整 `.env` 中端口、host 和本地数据库占位配置；示例中的数据库密码仅用于本地开发占位，不得用于生产。
 4. 启动本地数据库服务：
 
 ```powershell
@@ -129,6 +130,8 @@ http://127.0.0.1:28117
 
 `docker-compose.dev.yml` 只包含 MySQL、ClickHouse、MongoDB 和 Redis 等本地开发依赖服务。后端、前端和 Nginx 不在本轮 Compose 草案中托管。
 
+MySQL 会使用 `.env` 中的 `MYSQL_ROOT_PASSWORD`、`MYSQL_DATABASE`、`MYSQL_USER` 和 `MYSQL_PASSWORD` 初始化 root 与应用用户。MongoDB 会使用 `MONGODB_ROOT_USER`、`MONGODB_ROOT_PASSWORD` 创建 root 用户，并通过 `docker/mongodb/init-app-user.js` 使用 `MONGODB_DATABASE`、`MONGODB_USER` 和 `MONGODB_PASSWORD` 创建应用库读写用户。
+
 启动：
 
 ```powershell
@@ -154,4 +157,4 @@ docker compose -f docker-compose.dev.yml down
 
 ## 安全边界
 
-`.env.example` 不包含密钥。真实 `.env`、证书私钥、数据库 dump、上传文件、依赖目录和构建产物不得提交。数据库服务在开发 Compose 中绑定 `127.0.0.1`，不作为公网入口。
+`.env.example` 只包含本地开发占位凭据，不包含真实密钥。真实 `.env`、证书私钥、数据库 dump、上传文件、依赖目录和构建产物不得提交。数据库服务在开发 Compose 中绑定 `127.0.0.1`，不作为公网入口。

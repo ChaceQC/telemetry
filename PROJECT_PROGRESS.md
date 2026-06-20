@@ -34,7 +34,11 @@
 - 新增根 `.env.example`，覆盖 `APP_VERSION`、前后端端口、host、API base URL、CORS、公开入口和 MySQL、ClickHouse、MongoDB、Redis 占位配置；示例文件不包含真实密钥。
 - 新增 `docker-compose.dev.yml` 开发环境草案，包含 MySQL、ClickHouse、MongoDB、Redis，并按项目约定映射到 `127.0.0.1` 的非常见端口；Nginx 未进入 Compose。
 - 新增 `.github/workflows/ci.yml` 基础 CI 草案，分别规划后端 ruff、mypy、pytest 和前端 lint、typecheck、test；当前会在对应骨架文件缺失时跳过对应 job。
-- 已在 `agents/runtime/README.md` 追加总 agent 运行时日志，记录项目级基础设施变更、验证边界和提交状态。
+- 此前曾在 `agents/runtime/README.md` 追加总 agent 运行时日志；本轮已按审计要求移出，后续具体执行事件只写入对应 `*.log.md` 文件。
+- 修复 `T-0005` 基础设施审计未通过问题：`.env.example` 改为提供非真实的本地开发占位凭据，`docker-compose.dev.yml` 使用同一组 MySQL/MongoDB 变量初始化 root 和应用用户。
+- 新增 `docker/mongodb/init-app-user.js`，用于 MongoDB 容器首次初始化时创建 `MONGODB_DATABASE` 下的应用读写用户。
+- 清理 `agents/runtime/README.md` 中混入的具体执行日志，README 仅保留目录规则、写入约束和推荐事件格式；本次审计修复事件改记入 `agents/runtime/code-audit-agent.log.md`。
+- 更新根 `README.md`，补充开发占位凭据说明、MySQL/MongoDB 用户初始化闭环和安全边界。
 
 ### 进行中
 
@@ -51,7 +55,7 @@
 - 前端 `T-0004` 当前审计未通过，主要风险集中在端口/监听配置、分支门禁记录、根进度同步、测试覆盖、Node LTS 固定和 FastAPI `detail` 错误解析。
 - 根工作树存在被 `.gitignore` 排除的历史本地产物和缓存，例如 `frontend/node_modules`、`frontend/dist`、后端虚拟环境和测试缓存；本轮不会提交这些产物。
 - 当前 `dev` 分支中的 `frontend/` 与 `backend/` 尚未包含完整骨架文件，CI 草案会检测并跳过缺失项目；后续合入前后端分支后需要复查 CI 命令与实际脚本名称。
-- `.env.example` 中数据库密码类变量为空占位，本地运行 Compose 前需要在未提交的 `.env` 中设置真实凭据或接受开发容器空密码策略；生产环境不得使用空密码。
+- `.env.example` 中 MySQL/MongoDB 密码为公开的本地开发占位值，只用于可预期的开发容器初始化；生产环境必须在未提交的 `.env` 或部署密钥系统中设置真实强凭据。
 
 ### 下一步
 
@@ -59,7 +63,7 @@
 - 等待前端开发子 agent Rawls 完成 `T-0004` 审计修复；修复后由总 agent 重新启动代码审计 agent。
 - 保持根工作树只处理项目级汇总、部署、CI 和集成；前端与后端实现继续通过独立 worktree 推进。
 - 在前后端骨架合入 `dev` 后，补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致。
-- 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，并记录服务健康状态。
+- 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 
 ### 验证
 
@@ -82,3 +86,5 @@
 - 按用户要求，本轮未运行前端或后端测试、构建、lint 或服务启动命令。
 - 已执行 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，仅验证 Compose 配置展开，未启动容器。
 - 本轮未执行 Docker Compose 容器启动验证；后续需在允许启动本地数据库服务时补验。
+- 已再次执行 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，验证 MySQL/MongoDB 凭据变量、MongoDB 初始化脚本挂载和 Compose 配置展开通过；未启动容器。
+- 按用户边界，本次 `T-0005` 审计修复未运行前端或后端测试、构建、lint 或服务启动命令。
