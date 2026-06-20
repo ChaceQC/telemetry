@@ -47,6 +47,15 @@ class IngestRepository(Protocol):
         records: list[IngestRecordCreate],
     ) -> list[IngestRecord]: ...
 
+    def record_rejected(
+        self,
+        *,
+        project_id: int,
+        api_key_id: int,
+        kind: IngestKind,
+        source: str | None,
+    ) -> None: ...
+
     def list_stats(
         self,
         *,
@@ -151,6 +160,40 @@ class SqlAlchemyIngestRepository:
             IngestStatModel.source,
         ).limit(limit)
         return [_ingest_stat_record(model) for model in self._session.scalars(statement)]
+
+    def record_rejected(
+        self,
+        *,
+        project_id: int,
+        api_key_id: int,
+        kind: IngestKind,
+        source: str | None,
+    ) -> None:
+        bucket_start = _minute_bucket(datetime.now(UTC))
+        normalized_source = source or ""
+        stat = self._session.scalar(
+            select(IngestStatModel).where(
+                IngestStatModel.bucket_start == bucket_start,
+                IngestStatModel.project_id == project_id,
+                IngestStatModel.api_key_id == api_key_id,
+                IngestStatModel.kind == kind.value,
+                IngestStatModel.source == normalized_source,
+            )
+        )
+        if stat is None:
+            self._session.add(
+                IngestStatModel(
+                    bucket_start=bucket_start,
+                    project_id=project_id,
+                    api_key_id=api_key_id,
+                    kind=kind.value,
+                    source=normalized_source,
+                    rejected_count=1,
+                )
+            )
+        else:
+            stat.rejected_count += 1
+        flush_or_commit(self._session)
 
     def _increment_accepted_stats(self, records: list[IngestRecordCreate]) -> None:
         grouped_stats: dict[tuple[datetime, int, int, IngestKind, str], tuple[int, int]] = (

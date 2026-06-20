@@ -366,3 +366,27 @@
 - 总 agent 在后端 worktree 验证 `T-0027`：`uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py` 39 passed，`uv run pytest` 103 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - 总 agent 在根仓库后端验证 `T-0027`：`uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py` 39 passed，`uv run pytest` 103 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - GitHub Actions run `27883821780` 已通过：T-0027 Redis 摄入限流后端集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27883878073` 已通过：T-0027 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+
+## 2026-06-21 T-0028 摄入失败统计基础
+
+### 已完成
+
+- 已登记 `T-0028` 阶段 2 摄入失败统计基础任务；目标是让 `ingest_stats.rejected_count` 从预留字段推进到可测试路径，先覆盖已验证 API Key 后能明确归属项目/API Key 的拒绝请求。
+- 后端分支 `4eceeca` 已完成摄入失败统计基础：新增 repository/service 的 `record_rejected()`，请求体验证失败和限流拒绝会在 API Key 验证成功后累加 `rejected_count`。
+- 缺失、无效或撤销 API Key 的请求仍不统计，保持缺少可信项目/API Key 维度时不写统计的安全边界。
+- 总 agent 本地复审未发现 P0/P1/P2；已按业务路径恢复统计写入、validation handler、限流拒绝记录、测试、README、后端进度和契约草案到 `dev`，未直接 merge feature 分支历史。
+
+### 阻塞与风险
+
+- 缺失 API Key、无效 API Key、撤销 API Key 等请求当前缺少可信项目/API Key 维度，本小步暂不统计，避免为统计而引入可枚举或伪造归属风险。
+- 失败统计仍写入关系库，不直接同步 ClickHouse；真实 MySQL 并发更新后续补验。
+
+### 下一步
+
+- 推送 T-0028 集成后读取 Actions 并记录结果；随后继续真实 Redis/MySQL 容器补验或进入阶段 3 查询 API 小步。
+
+### 验证
+
+- 总 agent 在后端 worktree 验证 `T-0028`：`uv run pytest tests/test_ingest_api.py` 27 passed，`uv run pytest` 106 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- 总 agent 在根仓库后端验证 `T-0028`：`uv run pytest tests/test_ingest_api.py` 27 passed，`uv run pytest` 106 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。

@@ -661,3 +661,28 @@
 - 已运行 `uv run ruff format --check .`，结果：72 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：72 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0028 摄入失败统计基础
+
+### 已完成
+
+- 新增 `IngestRepository.record_rejected()` 和 `IngestService.record_rejected()`，按当前分钟桶、项目、API Key、kind 和 source 聚合累加 `rejected_count`。
+- API Key 验证成功后会把可信 context 保存到 request state；请求体验证失败时，FastAPI validation handler 会按 ingest 路径记录 rejected 统计。
+- 摄入 API Key 限流拒绝时记录 rejected 统计，并保持原有 `429` 和 `Retry-After` 响应契约。
+- 缺失、无效或撤销 API Key 的请求仍不统计，避免在缺少可信项目/API Key 维度时引入可枚举或伪造归属风险。
+- 更新 README 和后端契约草案，记录 rejected 统计覆盖范围和剩余边界。
+- 补充回归测试覆盖请求体验证失败、限流拒绝会累加 `rejected_count`，以及无效 API Key 不产生统计。
+
+### 阻塞与风险
+
+- 限流拒绝发生在请求体解析前，当前按 `event` 维度记录；metrics/logs 的限流拒绝精确 kind 可在后续通过路径感知依赖补强。
+- 失败统计仍写入关系库，不同步 ClickHouse；真实 MySQL 并发更新后续补验。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py`，结果：27 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run mypy .`，结果：72 个源文件无类型错误。
+- 已运行 `uv run pytest`，结果：106 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff format --check .`，结果：72 个文件已格式化。
+- 已运行 `git diff --check`，结果：通过。

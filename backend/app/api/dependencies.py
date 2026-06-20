@@ -10,6 +10,7 @@ from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.ingest import SqlAlchemyIngestRepository
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
+from app.schemas.ingest import IngestKind
 from app.services.api_keys import ApiKeyService, ApiKeyVerification
 from app.services.auth import AuthConfigurationError, AuthenticationError, AuthService
 from app.services.ingest import IngestService
@@ -85,12 +86,16 @@ def get_ingest_api_key_context(
             detail="API Key 无效或已撤销",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    request.state.ingest_api_key_context = context
     try:
         rate_limiter.check(
             key=f"rate_limit:api_key:{context.api_key_id}",
             now=getattr(request.state, "rate_limit_now", None),
         )
     except RateLimitExceededError as error:
+        with request.app.state.db_session_factory() as session:
+            ingest_service = IngestService(SqlAlchemyIngestRepository(session))
+            ingest_service.record_rejected(context=context, kind=IngestKind.event)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="摄入请求过于频繁",

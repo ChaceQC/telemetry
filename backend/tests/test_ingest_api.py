@@ -248,6 +248,92 @@ def test_ingest_stats_are_recorded_and_listed_for_project_member() -> None:
     assert stats[0]["bucket_start"].startswith("2026-06-20T10:23:00")
 
 
+def test_ingest_stats_record_rejected_validation_after_api_key_verification() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-rejected-validation",
+        project_key="stats-rejected-validation-project",
+    )
+
+    rejected_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "bad type", "payload": {}},
+    )
+    stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert rejected_response.status_code == 422
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert len(stats) == 1
+    assert stats[0]["accepted_count"] == 0
+    assert stats[0]["rejected_count"] == 1
+    assert stats[0]["bytes_count"] == 0
+
+
+def test_ingest_stats_record_rejected_rate_limit_after_api_key_verification() -> None:
+    client = build_rate_limited_client(limit_per_minute=1)
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-rejected-rate",
+        project_key="stats-rejected-rate-project",
+    )
+
+    accepted_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"attempt": 1}},
+    )
+    rejected_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"attempt": 2}},
+    )
+    stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert accepted_response.status_code == 202
+    assert rejected_response.status_code == 429
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert len(stats) == 1
+    assert stats[0]["accepted_count"] == 1
+    assert stats[0]["rejected_count"] == 1
+    assert stats[0]["bytes_count"] > 0
+
+
+def test_ingest_stats_do_not_record_rejected_without_valid_api_key() -> None:
+    client = build_client()
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-invalid-key",
+        project_key="stats-invalid-key-project",
+    )
+
+    invalid_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": "Bearer invalid"},
+        json={"type": "deployment", "payload": {"attempt": 1}},
+    )
+    stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert invalid_response.status_code == 401
+    assert stats_response.status_code == 200
+    assert stats_response.json() == []
+
+
 def test_ingest_stats_hide_projects_without_membership() -> None:
     client = build_client()
     project, raw_key, _ = create_ingest_api_key(

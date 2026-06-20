@@ -518,7 +518,7 @@ GET /health
 
 摄入限流：`INGEST_RATE_LIMIT_ENABLED=true` 时，后端按已验证 API Key ID 做固定窗口限流。默认 `INGEST_RATE_LIMIT_BACKEND=memory` 使用单进程内存计数器，适合本地开发、测试和单实例保护；`INGEST_RATE_LIMIT_BACKEND=redis` 时使用 `REDIS_URL` 的 Redis 固定窗口计数器，适合多实例共享限流状态。超限响应为 `429 Too Many Requests`，响应体 `detail=摄入请求过于频繁`，并返回 `Retry-After` 秒数；Redis 不可用时返回 `503 Service Unavailable`，响应体 `detail=摄入限流服务不可用`。
 
-摄入统计：成功摄入后会按分钟桶、项目、API Key、kind 和 source 聚合写入关系库 `ingest_stats`。已认证用户可通过 `GET /api/v1/ingest/stats` 查询自己有项目角色的统计，支持 `project_id`、`kind` 和 `limit` 参数；无权项目按“不存在”处理。当前仅统计 accepted 计数和 payload 字节数，rejected 计数、ClickHouse `ingest_stats` 写入和更完整聚合查询后续补齐。
+摄入统计：成功摄入后会按分钟桶、项目、API Key、kind 和 source 聚合写入关系库 `ingest_stats`。已认证用户可通过 `GET /api/v1/ingest/stats` 查询自己有项目角色的统计，支持 `project_id`、`kind` 和 `limit` 参数；无权项目按“不存在”处理。当前统计 accepted 计数、payload 字节数，以及已验证 API Key 后的请求体验证失败和限流拒绝；缺失/无效/撤销 API Key 等缺少可信归属的失败请求暂不统计，ClickHouse `ingest_stats` 写入和更完整聚合查询后续补齐。
 
 ## 目录结构
 
@@ -597,4 +597,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成。

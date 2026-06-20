@@ -147,3 +147,17 @@ class IngestService:
             kind=kind,
             limit=limit,
         )
+
+    def record_rejected(
+        self,
+        *,
+        context: ApiKeyVerification,
+        kind: IngestKind,
+        source: str | None = None,
+    ) -> None:
+        self._repository.record_rejected(
+            project_id=context.project_id,
+            api_key_id=context.api_key_id,
+            kind=kind,
+            source=source,
+        )

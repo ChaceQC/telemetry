@@ -1,7 +1,7 @@
 from math import isfinite
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -11,6 +11,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.db.session import create_database_engine, create_session_factory
+from app.repositories.ingest import SqlAlchemyIngestRepository
+from app.schemas.ingest import IngestKind
+from app.services.ingest import IngestService
 from app.services.rate_limit import create_ingest_rate_limiter
 
 
@@ -26,6 +29,16 @@ def _json_safe_value(value: Any) -> Any:
     if isinstance(value, list | tuple):
         return [_json_safe_value(nested_value) for nested_value in value]
     return value
+
+
+def _ingest_kind_from_path(path: str) -> IngestKind | None:
+    if path.endswith("/api/v1/ingest/events") or path.endswith("/api/v1/ingest/batch"):
+        return IngestKind.event
+    if path.endswith("/api/v1/ingest/metrics"):
+        return IngestKind.metric
+    if path.endswith("/api/v1/ingest/logs"):
+        return IngestKind.log
+    return None
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -62,9 +75,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_exception_handler(
-        _request: object,
+        request: Request,
         exc: RequestValidationError,
     ) -> JSONResponse:
+        ingest_context = getattr(request.state, "ingest_api_key_context", None)
+        ingest_kind = _ingest_kind_from_path(request.url.path)
+        if ingest_context is not None and ingest_kind is not None:
+            with request.app.state.db_session_factory() as session:
+                IngestService(SqlAlchemyIngestRepository(session)).record_rejected(
+                    context=ingest_context,
+                    kind=ingest_kind,
+                )
         return JSONResponse(
             status_code=422,
             content=jsonable_encoder({"detail": _json_safe_value(exc.errors())}),
