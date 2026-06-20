@@ -415,3 +415,19 @@
 - 总 agent 在后端 worktree 验证 `T-0029`：`uv run pytest tests/test_query_api.py` 3 passed，`uv run pytest` 109 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - 总 agent 在根仓库后端验证 `T-0029`：`uv run pytest tests/test_query_api.py` 3 passed，`uv run pytest` 109 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - GitHub Actions run `27884628747` 已通过：T-0029 事件查询 API 集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27884712269` 已通过：T-0029 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+
+## 2026-06-21 T-0030 日志查询 API 基础
+
+### 进行中
+
+- 已登记 `T-0030` 阶段 3 日志查询 API 基础任务；目标是先从当前关系库 `ingest_records` 提供可测试的 logs 查询入口，闭环“摄入日志后可按项目读取日志”的最小查询能力。
+- 本小步计划复用 T-0029 的查询 service/repository 结构，新增 `GET /api/v1/query/logs`，支持 `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit`，并沿用用户项目权限过滤。
+
+### 阻塞与风险
+
+- 本小步不接 ClickHouse 日志查询链路，先复用关系库最小持久化；关键词搜索、上下文查看、游标分页、字段过滤和脱敏后续拆分。
+
+### 下一步
+
+- 在后端 worktree 实现日志查询 API、补测试和契约/README/后端进度记录，通过本地验证后按业务路径集成回 `dev`。

@@ -57,6 +57,7 @@ closed      已关闭
 | T-0027 | 阶段 2 Redis 摄入限流后端基础 | 总 agent | todo | done | done | done | done |
 | T-0028 | 阶段 2 摄入失败统计基础 | 总 agent | todo | done | done | done | done |
 | T-0029 | 阶段 3 事件查询 API 基础 | 总 agent | todo | done | done | done | done |
+| T-0030 | 阶段 3 日志查询 API 基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -235,6 +236,8 @@ closed      已关闭
 | 2026-06-20 | T-0029 | 总 agent | 启动事件查询 API 基础 | 阶段 2 数据接入 MVP 的 HTTP 摄入、API Key 鉴权、ClickHouse/MongoDB 初始化、Redis 限流和摄入统计基础已闭环；下一步进入阶段 3，先提供关系库 `ingest_records` 的事件查询 API，按用户项目权限过滤 | doing |
 | 2026-06-20 | T-0029 | 总 agent | 事件查询 API 基础完成并集成 | 后端分支 `c5bae92` 新增 `GET /api/v1/query/events`、查询 repository/service/schema 和权限过滤测试；总 agent 按路径恢复到 `dev`，未直接 merge feature 分支历史；ClickHouse/MongoDB 查询、分页游标和全文搜索后续推进 | done |
 | 2026-06-20 | CI | 总 agent | 事件查询 API 集成 Actions 通过 | push `0035f6a` 触发 run `27884628747`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | CI | 总 agent | 事件查询 API CI 结果记录提交 Actions 通过 | push `ba820a8` 触发 run `27884712269`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0030 | 总 agent | 启动日志查询 API 基础 | 阶段 3 已完成事件查询 API 基础；下一步补 `GET /api/v1/query/logs`，先复用关系库 `ingest_records` 的 `kind=log` 记录，支持项目权限过滤、level/source/时间范围和 limit，ClickHouse 日志查询后续拆分 | doing |
 
 ## 6. 测试记录
 
