@@ -35,8 +35,8 @@ closed      已关闭
 | T-0005 | 修复项目级基础设施审计问题 | 总 agent | done | done | done | done | done |
 | T-0006 | 阶段 1 最小基础管理后端 API | 总 agent | todo | done | done | done | done |
 | T-0007 | 阶段 1 基础管理前端页面 | 总 agent | done | todo | done | done | done |
-| T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 总 agent | todo | doing | todo | todo | doing |
-| T-0009 | 阶段 1 基础管理前端联调准备与错误展示 | 总 agent | doing | todo | todo | todo | doing |
+| T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 总 agent | todo | doing | done | blocked | doing |
+| T-0009 | 阶段 1 基础管理前端联调准备与错误展示 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -74,6 +74,8 @@ closed      已关闭
 | 2026-06-20 | T-0007 | 总 agent | 基础管理前端页面集成 | 已按业务路径从 `feature/frontend-dev` 集成到 `dev`，页面字段已与后端 `key`、必填 `environment_id` 契约对齐 | done |
 | 2026-06-20 | T-0008 | 总 agent | 启动后端持久化开发 agent | 已启动后端开发 agent Linnaeus，在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 推进 MySQL 持久化基础；要求不提交运行日志、不代跑测试子 agent 任务 | doing |
 | 2026-06-20 | T-0009 | 总 agent | 启动前端联调准备开发 agent | 已启动前端开发 agent Chandrasekhar，在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 推进错误展示和联调准备；要求不提交运行日志、不代跑测试子 agent 任务 | doing |
+| 2026-06-20 | T-0009 | 代码审计 agent | 前端错误展示审计与文档修复 | 审计发现 1 个 P3 前端进度状态滞后；前端开发 agent Dewey 已提交 `4267ed6` 修复，T-0009 可待总 agent 集成 | done |
+| 2026-06-20 | T-0008 | 代码审计 agent | 后端持久化基础审计未通过 | 审计发现 2 个 P2：服务表缺少 `environment_id/project_id` 数据库一致性约束，以及 `IntegrityError` 被泛化为 duplicate key；已启动后端开发 agent Tesla 修复 | blocked |
 
 ## 6. 测试记录
 
@@ -100,6 +102,8 @@ closed      已关闭
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架复审 | 有条件通过 | 未发现 P0/P1 或阻断性 P2；P3 为 `engines.node` 主版本范围与 `.node-version` 精确版本表述可后续统一 | done |
 | 2026-06-20 | T-0006 | 阶段 1 最小基础管理后端 API | 有条件通过 | 未发现 P0/P1/P2；P3 为错误响应体契约需更明确、部分边界测试待补；认证、持久化、分页属于后续任务 | done |
 | 2026-06-20 | T-0007 | 阶段 1 基础管理前端页面 | 通过 | 初审发现 `slug/key` 和服务 `environment_id` 契约不一致；T-0007-fix 已修复并复审通过，无 P0/P1/P2/P3 阻断 | done |
+| 2026-06-20 | T-0009 | 阶段 1 基础管理前端错误展示 | 通过 | 初审仅发现 P3 前端进度状态滞后；已由 `4267ed6` 修复，未发现 P0/P1/P2 阻断 | done |
+| 2026-06-20 | T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 未通过 | P2：服务与环境项目归属缺少数据库级一致性约束；P2：`IntegrityError` 泛化为 duplicate key；P3：README 残留内存 repository 描述 | blocked |
 
 ## 8. 阻塞问题
 
@@ -119,7 +123,8 @@ closed      已关闭
 | 2026-06-20 | T-0006 | feature/backend-dev | dev | 总 agent | 后端 T-0006 提交 `a119b99` 已复审有条件通过；按业务路径集成，未合入 runtime log 历史 | done |
 | 2026-06-20 | T-0007 | feature/frontend-dev | dev | 总 agent | 前端 T-0007-fix 提交 `d0b0ff2` 已复审通过；按业务路径集成，未合入 runtime log 历史 | done |
 | 2026-06-20 | T-0008 | feature/backend-dev | dev | 后端开发 agent Linnaeus | 后端持久化基础开发中，完成后需由后端 agent 自行提交并 push，再由总 agent 审计和集成 | doing |
-| 2026-06-20 | T-0009 | feature/frontend-dev | dev | 前端开发 agent Chandrasekhar | 前端错误展示与联调准备开发中，完成后需由前端 agent 自行提交并 push，再由总 agent 审计和集成 | doing |
+| 2026-06-20 | T-0009 | feature/frontend-dev | dev | 前端开发 agent Chandrasekhar/Dewey | `70a58c7` 完成错误展示增强，`4267ed6` 修复审计 P3 文档状态；待总 agent 按业务路径集成 | done |
+| 2026-06-20 | T-0008-fix | feature/backend-dev | dev | 后端开发 agent Tesla | 正在修复 T-0008 两个 P2 和一个 P3；修复后需重新审计 | doing |
 
 ## 10. 决策记录
 

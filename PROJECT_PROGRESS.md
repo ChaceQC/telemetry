@@ -56,6 +56,8 @@
 - 下一轮阶段 1 应优先推进 MySQL migration/持久化 repository、认证/权限或真实前后端联调，由对应独立 worktree agent 自行实现、测试、提交和 push。
 - 已启动后端开发 agent Linnaeus 推进 `T-0008` 管理 API MySQL 持久化基础，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev`。
 - 已启动前端开发 agent Chandrasekhar 推进 `T-0009` 基础管理前端联调准备与错误展示，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev`。
+- `T-0009` 前端错误展示增强已由 Chandrasekhar 提交 `70a58c7` 并由测试子 agent Beauvoir 验证通过；代码审计仅发现 P3 进度状态滞后，Dewey 已提交 `4267ed6` 修复。
+- `T-0008` 后端持久化基础已由 Linnaeus 提交 `10010af`，但代码审计 Hume 发现 2 个 P2 和 1 个 P3，当前已启动 Tesla 在后端 worktree 修复。
 
 ### 阻塞与风险
 
@@ -68,6 +70,7 @@
 - 管理 API 仍未接入认证/权限，越权请求被拒绝的阶段 1 验收标准尚未满足。
 - 前端 Settings 页面尚未做浏览器 E2E 或真实后端联调；当前验证来自前端测试子 agent 的 typecheck/test/build。
 - 后端错误响应体契约仍需正式化，部分重复 key、非法查询参数和边界长度测试待补。
+- `T-0008` 当前阻塞集成：服务表缺少环境/项目归属的数据库级一致性约束，且 repository 将部分未知 `IntegrityError` 泛化为 duplicate key；修复完成并复审前不得集成到 `dev`。
 
 ### 下一步
 
@@ -75,7 +78,7 @@
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
-- 等待 T-0008/T-0009 对应开发 agent 在所属分支提交并 push 后，由总 agent 启动代码审计 agent，再按业务路径集成到 `dev`。
+- 等待 T-0008-fix 修复并复审通过；T-0009 已通过审计，后续可与后端修复一起按业务路径集成到 `dev`。
 
 ### 验证
 
