@@ -57,6 +57,7 @@ backups/
 *.backup
 *.dump
 *.sql
+!backend/docker/clickhouse/init/*.sql
 *.tar
 *.tar.gz
 *.zip

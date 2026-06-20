@@ -540,3 +540,28 @@
 - 已运行 `uv run ruff format --check .`，结果：67 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：67 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0024 ClickHouse 初始化 SQL 与 Compose 挂载
+
+### 已完成
+
+- 新增 `docker/clickhouse/init/01-create-telemetry-tables.sql`，创建 ClickHouse `telemetry` 数据库和阶段 2 基础 MergeTree 表：`metric_samples`、`log_records`、`ingest_stats`，并预留 `trace_spans`。
+- 更新项目根目录 `docker-compose.dev.yml`，在既有开发服务中为 ClickHouse 增加 init SQL 只读挂载到 `/docker-entrypoint-initdb.d/01-create-telemetry-tables.sql`，继续使用非默认本机端口映射。
+- 更新 `.env.example`，补充 ClickHouse 本地开发占位配置；真实密码仍必须由环境变量或密钥管理注入，不提交真实凭据。
+- 更新 `README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 ClickHouse 初始化表、compose 静态验证命令、验证边界和真实容器补验点。
+- 新增 `tests/test_clickhouse_init.py`，静态确认 compose 配置可展开、init SQL 被挂载、SQL 包含预期表名和 MergeTree 引擎。
+
+### 阻塞与风险
+
+- 本次只做静态配置和 SQL 初始化脚本，不启动 ClickHouse 容器；真实容器中 entrypoint 执行、用户/库创建、端口连通、表存在性和后续 writer 字段映射仍需后续补验。
+- MongoDB 初始化尚未实现；后续需要补 MongoDB compose 服务、初始化脚本或集合/index 约定，并与 ClickHouse 一起做真实容器回归。
+
+### 验证
+
+- 已运行 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，结果：通过。
+- 已运行 `uv run pytest tests/test_clickhouse_init.py`，结果：2 个测试通过。
+- 已运行 `uv run pytest`，结果：91 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：68 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：68 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

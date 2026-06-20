@@ -41,6 +41,12 @@ uv run python main.py
 | `BACKEND_PROXY_HEADERS` | `false` | 是否信任反向代理转发的 `X-Forwarded-*` 头；生产经 Nginx HTTPS 反代时建议开启 |
 | `BACKEND_FORWARDED_ALLOW_IPS` | `127.0.0.1` | 允许设置转发头的代理来源 IP，传给 uvicorn `forwarded_allow_ips` |
 | `DATABASE_URL` | `sqlite:///./telemetry-dev.db` | SQLAlchemy 数据库连接；MySQL 使用 `mysql+pymysql://...?...charset=utf8mb4` |
+| `CLICKHOUSE_HOST` | `127.0.0.1` | 本地 ClickHouse 宿主机绑定地址 |
+| `CLICKHOUSE_HTTP_PORT` | `28123` | 本地 ClickHouse HTTP 端口，映射容器 `8123` |
+| `CLICKHOUSE_NATIVE_PORT` | `29001` | 本地 ClickHouse Native 端口，映射容器 `9000` |
+| `CLICKHOUSE_DATABASE` | `telemetry` | ClickHouse 初始化数据库名 |
+| `CLICKHOUSE_USER` | `telemetry_app` | ClickHouse 本地开发用户 |
+| `CLICKHOUSE_PASSWORD` | `change-me` | ClickHouse 本地开发密码占位；真实环境必须替换且不得提交 |
 | `AUTH_SECRET_KEY` | 未设置 | JWT 签名密钥；未设置或少于 32 个 UTF-8 字节时认证接口返回 `503`，生产环境必须使用 32 字节以上随机密钥 |
 | `AUTH_TOKEN_ALGORITHM` | `HS256` | JWT 签名算法 |
 | `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | 访问 token 有效期，单位分钟 |
@@ -123,6 +129,27 @@ uv run pytest tests/test_management_api.py
 ```
 
 测试会基于该连接创建随机 `telemetry_test_<uuid>` 临时库，执行 Alembic `upgrade head`，跑完后删除临时库。不要在命令输出、日志或提交内容中记录真实连接串、密码或临时库详情；该环境变量只用于本地/专用测试环境复验，不应配置到默认 CI。
+
+## ClickHouse 本地初始化
+
+项目根目录提供开发用 `docker-compose.dev.yml`，其中 ClickHouse 服务挂载后端初始化 SQL，不启动后端应用。初始化 SQL 位于 `backend/docker/clickhouse/init/01-create-telemetry-tables.sql`，通过 compose 挂载到容器的 `/docker-entrypoint-initdb.d/01-create-telemetry-tables.sql`，新建数据卷首次启动时由 ClickHouse 官方 entrypoint 执行。
+
+初始化脚本会创建 `telemetry` 数据库和阶段 2 需要的基础 MergeTree 表：
+
+| 表 | 说明 | 排序键 |
+| --- | --- | --- |
+| `metric_samples` | metrics datapoint 明细，保存 `project_id`、`api_key_id`、时间、指标名、数值、单位、类型、source、tags/attributes/payload JSON 字符串 | `(project_id, name, timestamp)` |
+| `log_records` | logs 明细，保存 `project_id`、`api_key_id`、时间、level、source、logger、trace/span、message、attributes/payload JSON 字符串 | `(project_id, level, source, timestamp)` |
+| `ingest_stats` | 摄入统计预留表，按时间桶保存项目/API Key、kind、source、accepted/rejected 数和字节数 | `(project_id, bucket_start, kind, source)` |
+| `trace_spans` | traces 预留表，保存 trace/span 关系、span 名称、起止时间、状态和 JSON 字符串载荷 | `(project_id, trace_id, start_time, name)` |
+
+只检查 compose 配置展开和挂载，不启动容器：
+
+```powershell
+docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet
+```
+
+真实容器补验需在后续有 Docker 运行环境时执行：启动 ClickHouse、确认 init SQL 只在新数据卷首次执行、用配置中的非默认端口连接、查询四张表存在，并复验后续 writer 写入 metrics/logs/stats/traces 的字段映射。
 
 ## 健康检查
 
@@ -484,6 +511,8 @@ app/
   tasks/            # 后台任务
   telemetry/        # 后端自身观测性
 migrations/         # Alembic 数据库迁移
+docker/
+  clickhouse/init/  # ClickHouse 开发容器初始化 SQL
 tests/              # pytest 测试
 ```
 
@@ -533,8 +562,9 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy .
+docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet
 uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL/ClickHouse/MongoDB 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、代码静态检查；MySQL、ClickHouse 和 MongoDB 容器补验需在后续任务完成。

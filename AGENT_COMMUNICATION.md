@@ -51,7 +51,7 @@ closed      已关闭
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
 | T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
 | T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | done | done | done |
-| T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | done | doing | doing | doing |
+| T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | doing | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -202,6 +202,9 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | ClickHouse 初始化拆分记录 Actions 通过 | push `531687c` 触发 run `27881340239`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0024 | 后端开发 agent/总 agent | ClickHouse 初始化小步完成 | Zeno 本地提交 `1e994ee` 新增 ClickHouse init SQL、静态测试和文档；总 agent 发现其新增 `backend/docker-compose.dev.yml` 会形成第二套 Compose 入口，未直接 push，改为追加 `48eeb38` 使用根 `docker-compose.dev.yml` 挂载 init SQL，并从 `dev` 带入根 `.env.example` 与 Mongo init 脚本以保证根 Compose 可展开；已 push 到 `feature/backend-dev` | audit |
 | 2026-06-20 | T-0024 | 总 agent | 启动 ClickHouse 初始化审计与验证 | 已启动代码审计 agent Boyle 只读审计 `1e994ee`/`48eeb38`；已启动验证 agent Singer 静态验证 Compose 展开、ClickHouse init 挂载和测试，若 Docker 可用再做真实 ClickHouse 容器表存在性补验 | testing |
+| 2026-06-20 | CI | 总 agent | ClickHouse 初始化进展记录 Actions 通过 | push `29430f4` 触发 run `27881789052`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0024 | 总 agent | ClickHouse 初始化本地复审通过 | Boyle 与 Singer 均因 502 中断且已关闭；总 agent 本地复审最新 `feature/backend-dev`，确认 ClickHouse SQL 幂等、根 Compose 单入口、挂载只读、本机端口绑定和测试覆盖关键路径；发现后端文档误写为后端目录 Compose，已在 `d998ca1` 修正并 push | done |
+| 2026-06-20 | T-0024 | 总 agent | ClickHouse 初始化按业务路径集成 | 已从 `feature/backend-dev` 按路径恢复 `.gitignore`、根 `docker-compose.dev.yml`、后端 ClickHouse init SQL、专项测试、后端 `.env.example`/README/进度与后端契约草案；未直接 merge feature 分支历史，未带入 runtime log 或前端/脚本误删差异 | doing |
 
 ## 6. 测试记录
 
@@ -216,6 +219,7 @@ closed      已关闭
 | 2026-06-20 | T-0005 | Compose 配置展开 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet` | 通过 | 仅验证配置展开，未启动容器；按用户边界未运行前端或后端测试、构建、lint 或服务启动命令 |
 | 2026-06-20 | T-0006 | 后端基础管理 API | 后端测试子 agent Averroes 执行 `uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .` | 通过 | 11 个测试通过；记录未覆盖认证、MySQL 持久化、分页和若干边界测试 |
 | 2026-06-20 | T-0007 | 前端基础管理页面 | 前端测试子 agent Faraday 执行 `npm.cmd run typecheck`、`npm.cmd run test`、`npm.cmd run build` | 通过 | 1 个测试文件、4 个测试通过；未做浏览器/E2E 或真实后端联调 |
+| 2026-06-20 | T-0024 | ClickHouse 初始化静态验证 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`、`uv run pytest tests/test_clickhouse_init.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：ClickHouse 专项 2 passed，全量 pytest 91 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 ClickHouse 容器 |
 
 ## 7. 审计记录
 
@@ -230,6 +234,7 @@ closed      已关闭
 | 2026-06-20 | T-0007 | 阶段 1 基础管理前端页面 | 通过 | 初审发现 `slug/key` 和服务 `environment_id` 契约不一致；T-0007-fix 已修复并复审通过，无 P0/P1/P2/P3 阻断 | done |
 | 2026-06-20 | T-0009 | 阶段 1 基础管理前端错误展示 | 通过 | 初审仅发现 P3 前端进度状态滞后；已由 `4267ed6` 修复，未发现 P0/P1/P2 阻断 | done |
 | 2026-06-20 | T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 通过 | 初审发现 2 个 P2 和 1 个 P3；`c856bcb` 已补数据库复合外键/错误分流/README 修正，复审通过；真实 MySQL 容器补验仍待后续执行 | done |
+| 2026-06-20 | T-0024 | ClickHouse 初始化 SQL、Compose 挂载和测试 | 通过 | Boyle/Singer 因 502 未产出可用结论且已关闭；总 agent 本地复审未发现 P0/P1/P2，P3 文档入口表述不一致已由 `d998ca1` 修正；真实 ClickHouse 容器首次初始化和表存在性仍需后续补验 | done |
 
 ## 8. 阻塞问题
 
@@ -266,7 +271,7 @@ closed      已关闭
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17`、`6bf0024` 和 `09425a7` 已通过真实 MySQL 补验、审计修复和本地复审；总 agent 准备按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 审计 agent Boyle / 验证 agent Singer | ClickHouse 初始化小步 `1e994ee` 和根 Compose 修正 `48eeb38` 已完成；等待审计和验证结论，通过后按业务路径集成 | testing |
+| 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 总 agent | ClickHouse 初始化小步 `1e994ee`、根 Compose 修正 `48eeb38` 和文档修正 `d998ca1` 已通过总 agent 本地复审与验证；本次按业务路径集成到 `dev`，不直接 merge feature 分支历史 | doing |
 
 ## 10. 决策记录
 
