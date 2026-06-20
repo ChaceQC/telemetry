@@ -49,7 +49,7 @@ closed      已关闭
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
-| T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | doing | todo | todo | doing |
+| T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | doing | doing | doing |
 
 ## 4. API 契约登记
 
@@ -168,6 +168,9 @@ closed      已关闭
 | 2026-06-20 | T-0021 | 总 agent | API Key 后端基础集成 | 总 agent 已按业务路径从 `feature/backend-dev` 恢复 `8c2349b` 和 `eef00f0` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，未直接 merge feature 分支历史或运行日志；待 push 后读取 Actions | done |
 | 2026-06-20 | CI | 总 agent | API Key 后端基础集成 Actions 通过 | push `2cda0a0` 触发 run `27879120167`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0022 | 总 agent | 启动最小摄入 API 后端任务 | 阶段 1 API Key 创建/撤销已集成并通过 CI；下一步启动后端开发 agent 在 `feature/backend-dev` 推进最小摄入 API 与 API Key 鉴权，目标让 API Key 可用于数据上报，先实现最小 metrics/logs/events 或 batch 接收与清晰错误响应 | doing |
+| 2026-06-20 | CI | 总 agent | T-0022 启动记录 Actions 通过 | push `e99c450` 触发 run `27879237269`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0022 | 后端开发 agent | 最小摄入 API 后端实现完成 | Dirac 已提交并 push `9fc69bc` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/events` 与 `/api/v1/ingest/batch`，支持 Bearer 或 `X-API-Key` 鉴权并调用 `ApiKeyService.verify_key`，新增 `ingest_records` 模型/repository/service/schema/迁移和测试；本地验证 pytest 74 passed/2 skipped、ruff、mypy、SQLite Alembic 升降级、diff check 通过 | audit |
+| 2026-06-20 | T-0022 | 总 agent | 启动摄入 API 审计与真实 MySQL 补验 | 已启动代码审计 agent Curie 只读审计 `9fc69bc`；已启动后端测试 agent Nash 使用真实 MySQL 临时库补验迁移、JSON payload、外键/索引、有效/撤销/缺失/无效 API Key 和项目绑定，要求不泄露凭据或 API Key 明文 | testing |
 
 ## 6. 测试记录
 
@@ -230,7 +233,7 @@ closed      已关闭
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent | 最小摄入 API 与 API Key 鉴权开发中；完成后需测试、审计，并由总 agent 按业务路径集成 | doing |
+| 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac / 审计 agent Curie / 测试 agent Nash | `9fc69bc` 已完成最小摄入 API 与 API Key 鉴权实现；等待代码审计和真实 MySQL/接口补验结论，通过后由总 agent 按业务路径集成 | testing |
 
 ## 10. 决策记录
 

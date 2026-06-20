@@ -120,6 +120,9 @@
 - 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0021` 到 `dev`，包含 API Key 基础 `8c2349b` 和审计修复 `eef00f0`，未直接 merge feature 分支历史或运行日志。
 - 推送 `T-0021` 集成提交 `2cda0a0` 后已读取 GitHub Actions run `27879120167`：Backend checks 与 Frontend checks 均通过。
 - 已登记 `T-0022` 阶段 2 最小摄入 API 与 API Key 鉴权任务，后续由后端开发 agent 在独立后端 worktree 推进；目标让 API Key 可用于数据上报，先实现最小 metrics/logs/events 或 batch 接收与清晰错误响应。
+- 推送 `T-0022` 启动记录提交 `e99c450` 后已读取 GitHub Actions run `27879237269`：Backend checks 与 Frontend checks 均通过。
+- `T-0022` 后端开发 agent Dirac 已提交并推送 `9fc69bc` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/events` 与 `/api/v1/ingest/batch`，支持 Bearer 或 `X-API-Key` 鉴权并调用 `ApiKeyService.verify_key`，新增 `ingest_records` 持久化模型、迁移、service/repository/schema/routes 和测试。
+- 已启动 `T-0022` 代码审计 agent Curie 与真实 MySQL/接口补验 agent Nash；等待审计和补验结论后决定修复或按业务路径集成到 `dev`。
 
 ### 阻塞与风险
 
@@ -165,7 +168,7 @@
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
 - 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
 - 阶段 1 API Key 创建/撤销后端基础已集成并通过 CI；下一步推进最小摄入 API 与 API Key 鉴权，闭环“API Key 可用于数据上报”验收。
-- `T-0022` 已进入进行中：先做后端最小摄入 API，随后安排代码审计和真实 MySQL/接口补验。
+- `T-0022` 已进入审计/补验：后端实现提交 `9fc69bc` 已完成，等待 Curie 代码审计和 Nash 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 
 ### 验证
 
@@ -219,3 +222,5 @@
 - Confucius 在 `8c2349b` 上完成真实 MySQL/API Key 补验：`uv run pytest tests/test_api_keys.py` 5 passed，`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过；临时库已清理，未泄露凭据或 API Key 明文。
 - GitHub Actions run `27879018195` 已通过：API Key 审计修复记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27879120167` 已通过：T-0021 集成后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27879237269` 已通过：T-0022 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- `T-0022` 后端开发自测由 Dirac 在后端 worktree 完成：`uv run pytest tests/test_ingest_api.py` 6 passed，`uv run pytest` 74 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，SQLite Alembic `upgrade head` / `downgrade base` 通过，`git diff --check` 通过。
