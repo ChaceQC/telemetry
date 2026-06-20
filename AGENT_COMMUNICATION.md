@@ -60,7 +60,7 @@ closed      已关闭
 | T-0030 | 阶段 3 日志查询 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0031 | 阶段 3 指标查询 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0032 | 阶段 3 查询页前端基础 | 总 agent | done | todo | done | done | done |
-| T-0033 | 阶段 3 总览页摄入统计接入 | 总 agent | doing | todo | todo | todo | doing |
+| T-0033 | 阶段 3 总览页摄入统计接入 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -259,6 +259,7 @@ closed      已关闭
 | 2026-06-20 | T-0033 | 总 agent | 启动总览页摄入统计接入 | 阶段 3 查询页基础已完成；下一步在前端 worktree 将总览页的静态遥测信号占位接入既有 `GET /api/v1/ingest/stats`，优先展示 metrics/logs/events 的 accepted/rejected/bytes 摘要、未登录提示和错误/空态，不修改后端契约 | doing |
 | 2026-06-20 | CI | 总 agent | 总览页摄入统计启动记录 Actions 通过 | push `da9b688` 触发 run `27886268303`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0033 | 总 agent | 总览页摄入统计完成并集成中 | 前端分支提交 `27574cf` 新增 ingest stats API client、查询参数工具、总览统计汇总纯函数和测试，并将总览页接入 `GET /api/v1/ingest/stats`；总 agent 已按路径恢复到 `dev`，未直接 merge feature 分支历史；功能分支仍无 Actions run 可读，后续以 `dev` 集成 CI 作为交付门禁 | doing |
+| 2026-06-20 | CI | 总 agent | 总览页摄入统计集成 Actions 通过 | push `76af25f` 触发 run `27886687066`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 
 ## 6. 测试记录
 
@@ -356,7 +357,7 @@ closed      已关闭
 | 2026-06-20 | T-0030 | feature/backend-dev | dev | 总 agent | 日志查询 API 基础 `023e2fa` 已按业务路径集成到 `dev`，集成提交 `08fcbd9` CI 通过 | done |
 | 2026-06-20 | T-0031 | feature/backend-dev | dev | 总 agent | 指标查询 API 基础 `4c3d96b` 已按业务路径集成到 `dev`，集成提交 `50dd219` CI 通过 | done |
 | 2026-06-20 | T-0032 | feature/frontend-dev | dev | 总 agent | 查询页前端基础 `062f70e` 已按业务路径集成到 `dev`，集成提交 `8570b68` CI 通过；功能分支无 Actions run 已记录 | done |
-| 2026-06-20 | T-0033 | feature/frontend-dev | dev | 总 agent | 总览页摄入统计接入 `27574cf` 已按业务路径恢复到 `dev`，待提交、推送和 CI 结果记录；功能分支无 Actions run 已记录 | doing |
+| 2026-06-20 | T-0033 | feature/frontend-dev | dev | 总 agent | 总览页摄入统计接入 `27574cf` 已按业务路径集成到 `dev`，集成提交 `76af25f` CI 通过；功能分支无 Actions run 已记录 | done |
 
 ## 10. 决策记录
 
