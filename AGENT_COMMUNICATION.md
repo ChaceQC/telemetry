@@ -206,6 +206,7 @@ closed      已关闭
 | 2026-06-20 | T-0024 | 总 agent | ClickHouse 初始化本地复审通过 | Boyle 与 Singer 均因 502 中断且已关闭；总 agent 本地复审最新 `feature/backend-dev`，确认 ClickHouse SQL 幂等、根 Compose 单入口、挂载只读、本机端口绑定和测试覆盖关键路径；发现后端文档误写为后端目录 Compose，已在 `d998ca1` 修正并 push | done |
 | 2026-06-20 | T-0024 | 总 agent | ClickHouse 初始化按业务路径集成 | 已从 `feature/backend-dev` 按路径恢复 `.gitignore`、根 `docker-compose.dev.yml`、后端 ClickHouse init SQL、专项测试、后端 `.env.example`/README/进度与后端契约草案；未直接 merge feature 分支历史，未带入 runtime log 或前端/脚本误删差异；已推送 `45d0540` 到 `dev` | done |
 | 2026-06-20 | CI | 总 agent | ClickHouse 初始化集成 Actions 通过 | push `45d0540` 触发 run `27882116852`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | CI | 总 agent | ClickHouse 初始化集成结果记录 Actions 通过 | push `673d8da` 触发 run `27882171728`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 

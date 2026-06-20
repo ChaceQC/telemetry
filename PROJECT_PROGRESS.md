@@ -285,3 +285,4 @@
 - GitHub Actions run `27881789052` 已通过：ClickHouse 初始化进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - 总 agent 在后端 worktree 验证 `T-0024` ClickHouse 小步：`docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet` 通过，`uv run pytest tests/test_clickhouse_init.py` 2 passed，`uv run pytest` 91 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - GitHub Actions run `27882116852` 已通过：T-0024 ClickHouse 初始化集成提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27882171728` 已通过：T-0024 ClickHouse 初始化集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success；存在已知官方 action Node.js 20 runtime 弃用注解，不阻塞。
