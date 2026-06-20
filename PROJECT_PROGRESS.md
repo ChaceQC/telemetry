@@ -112,6 +112,10 @@
 - 推送 RBAC 集成 CI 结果记录 `7a47c70` 后已读取 GitHub Actions run `27878217319`：Backend checks 与 Frontend checks 均通过；官方 action Node.js 20 runtime 弃用注解不阻塞。
 - 已登记 `T-0021` 阶段 1 API Key 创建与撤销后端基础任务，后续由后端开发 agent 在独立后端 worktree 推进；边界为 API Key 只保存哈希、创建时只返回一次明文 key、撤销/列表接口需要项目 `admin` 权限，数据摄入使用 API Key 鉴权留给后续摄入任务。
 - `T-0021` 后端开发 agent Lorentz 已提交并推送 `8c2349b` 到 `feature/backend-dev`：新增 API Key 模型/迁移、repository/service/schema/routes、项目 admin 管理权限、一次性明文 key 响应、hash/prefix 持久化和 verify 入口；等待代码审计和真实 MySQL 补验结论。
+- `T-0021` 代码审计 agent Descartes 审计未通过：发现 API Key 管理端点会区分项目不存在和存在但无权限，可能枚举 project_id；另需补 viewer/editor revoke 拒绝测试。当前不得集成到 `dev`。
+- `T-0021` 真实 MySQL 补验 agent Confucius 已验证 API Key 迁移升降级、外键/唯一约束/索引、admin 创建/list/revoke、viewer/editor 拒绝、superuser 管理、verify 成功与撤销后失败均通过；临时库已清理且未泄露凭据或 API Key 明文。
+- 已启动后端开发 agent Newton 修复 `T-0021` 审计问题，范围限定在后端 worktree：统一无权限/不存在项目错误语义、补 viewer/editor revoke 拒绝测试，并记录 MySQL 补验结论。
+- `T-0021-fix` 后端开发 agent Newton 已提交并推送 `eef00f0`：普通用户不在目标项目权限范围内时 API Key list/create/revoke 统一返回 `404 项目不存在`，保留项目内 viewer/editor 角色不足 `403`，并补 revoke 拒绝和项目存在性不可区分回归测试；等待复审结论。
 
 ### 阻塞与风险
 
@@ -155,7 +159,8 @@
 - `T-0020` 已进入进行中：优先实现后端团队/角色/项目成员权限基础，为 API Key 创建撤销、摄入鉴权和阶段 1“越权请求被拒绝”验收打底。
 - 阶段 1 项目级 RBAC 后端基础已集成并通过 CI；下一步推进 API Key 创建/撤销后端基础，让后续数据上报可用 API Key 鉴权。
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
-- 等待 `T-0021` 代码审计 agent Descartes 和真实 MySQL 补验 agent Confucius 结论；通过后由总 agent 按业务路径集成到 `dev`。
+- 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
+- 等待 `T-0021-fix` 代码审计 agent Plato 复审 `eef00f0`；通过后总 agent 按业务路径集成 API Key 后端基础。
 
 ### 验证
 
@@ -205,3 +210,5 @@
 - GitHub Actions run `27878217319` 已通过：RBAC 集成 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27878281991` 已通过：API Key 任务登记提交后的 Backend checks 与 Frontend checks 均为 success。
 - `T-0021` 后端开发自测由 Lorentz 在后端 worktree 完成：`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，SQLite Alembic `upgrade head -> downgrade base` 通过，`git diff --check` 通过；总 agent 已读取 `feature/backend-dev` Actions run 列表，未发现 `8c2349b` 对应 run。
+- GitHub Actions run `27878685852` 已通过：API Key 进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- Confucius 在 `8c2349b` 上完成真实 MySQL/API Key 补验：`uv run pytest tests/test_api_keys.py` 5 passed，`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过；临时库已清理，未泄露凭据或 API Key 明文。

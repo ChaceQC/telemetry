@@ -48,7 +48,7 @@ closed      已关闭
 | T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
-| T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | testing | audit | audit |
+| T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | doing | done | blocked | doing |
 
 ## 4. API 契约登记
 
@@ -156,6 +156,12 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | API Key 任务登记 Actions 通过 | push `a3b7b6f` 触发 run `27878281991`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0021 | 后端开发 agent | API Key 后端基础完成 | Lorentz 已提交并 push `8c2349b` 到 `feature/backend-dev`：新增 `api_keys` 模型/迁移、API Key repository/service/schema/routes、项目 admin 管理权限、创建时一次性返回明文 key、仅保存 hash/prefix，并提供 `ApiKeyService.verify_key`；本地验证 pytest 68 passed/2 skipped、ruff、mypy、SQLite Alembic 升降级通过；总 agent 读取 `feature/backend-dev` Actions run 列表，未发现本次 push 触发的 run | audit |
 | 2026-06-20 | T-0021 | 总 agent | 启动 API Key 审计与真实 MySQL 补验 | 已启动代码审计 agent Descartes 只读审计 `8c2349b`；已启动后端测试 agent Confucius 使用真实 MySQL 临时库补验迁移、约束、权限、撤销和 verify 行为，要求不泄露凭据或 API Key 明文 | testing |
+| 2026-06-20 | CI | 总 agent | API Key 进展记录 Actions 通过 | push `57b48b2` 触发 run `27878685852`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0021 | 代码审计 agent | API Key 后端基础审计未通过 | Descartes 审计 `8c2349b` 发现 1 个 P2：API Key 管理端点会区分项目不存在和存在但无权限，可枚举 project_id；另有 P3：viewer/editor 撤销拒绝路径未覆盖，以及真实 MySQL 升降级/约束需补验。当前不得集成到 `dev` | blocked |
+| 2026-06-20 | T-0021 | 后端测试 agent | API Key 真实 MySQL 补验通过 | Confucius 在 `8c2349b` 上完成真实 MySQL 补验：Alembic `upgrade head -> downgrade base -> upgrade head` 通过，`api_keys` 外键、唯一约束、索引、撤销字段生效；admin 创建/list/revoke、viewer/editor 拒绝、superuser 管理、verify 成功/撤销后失败均通过；临时库已清理，未泄露凭据或 API Key 明文 | done |
+| 2026-06-20 | T-0021-fix | 总 agent | 启动 API Key 审计问题修复 | 已启动后端开发 agent Newton 修复 `8c2349b` 审计问题，范围限定在后端 worktree：统一无权限/不存在项目错误语义，补 viewer/editor revoke 拒绝测试，并记录 MySQL 补验结论 | doing |
+| 2026-06-20 | T-0021-fix | 后端开发 agent | API Key 审计修复完成 | Newton 已提交并 push `eef00f0` 到 `feature/backend-dev`：普通用户不在目标项目权限范围内时 list/create/revoke 统一返回 `404 项目不存在`，保留项目内 viewer/editor 角色不足 `403`，补 viewer/editor revoke 拒绝和 stranger 不可区分项目存在性的回归测试；本地 pytest、ruff、mypy、diff check 通过 | audit |
+| 2026-06-20 | T-0021-fix | 总 agent | 启动 API Key 修复复审 | 已启动代码审计 agent Plato 只读复审 `eef00f0`，重点检查项目枚举泄露是否修复、revoke 权限测试和文档契约同步 | audit |
 
 ## 6. 测试记录
 
@@ -217,7 +223,8 @@ closed      已关闭
 | 2026-06-20 | T-0014 | feature/backend-dev | dev | 后端开发 agent Pasteur | `1fe0d62` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz | `8c2349b` 已完成并推送；等待代码审计 agent Descartes 和真实 MySQL 补验 agent Confucius 结论，通过后由总 agent 按业务路径集成 | audit |
+| 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz | `8c2349b` 审计未通过，需先修复项目存在性泄露和 revoke 权限测试；修复复审通过后再由总 agent 按业务路径集成 | blocked |
+| 2026-06-20 | T-0021-fix | feature/backend-dev | dev | 后端开发 agent Newton | `eef00f0` 已完成并推送；等待代码审计 agent Plato 复审，通过后由总 agent 按业务路径集成 | audit |
 
 ## 10. 决策记录
 
