@@ -2,6 +2,39 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-21 T-0032 查询页前端基础
+
+### 已完成
+
+- 新增 `frontend/src/api/query.ts`，封装 `GET /api/v1/query/metrics`、`GET /api/v1/query/logs` 和 `GET /api/v1/query/events`，查询请求沿用现有 API base URL 与 session Bearer token 行为。
+- 新增 `frontend/src/pages/QueryPage.tsx`，将指标、日志和事件查询统一为可复用工作台，支持项目 ID、主筛选字段、来源、时间范围、数量、刷新、未登录提示、错误态、空态和结果列表。
+- 将 `/metrics`、`/logs`、`/events` 路由从占位页替换为查询页，并补充查询表单、结果列表和 JSON 预览样式。
+- 新增 `frontend/src/api/query.test.ts`，覆盖查询参数拼接、空筛选跳过和认证头携带。
+- 更新 `frontend/README.md`，记录查询页入口、接口、认证行为和后续拆分边界。
+
+### 进行中
+
+- 等待总 agent 按业务路径将前端分支提交集成回 `dev`，并读取 GitHub Actions 结果。
+
+### 阻塞与风险
+
+- 本小步不启动真实后端和真实登录账号联调；浏览器验收覆盖未登录态、路由替换和响应式布局，登录后查询成功/空态/错误态仍需后续结合真实后端补验。
+- 当前先展示基础列表和 JSON 预览，不包含指标图表、日志上下文、事件时间线细节、指标聚合窗口、多序列对比或游标分页。
+- Playwright 冒烟期间发现开发态 `favicon.ico` 返回 `404`，属于既有静态资源缺口，不阻塞本查询页小步。
+
+### 下一步
+
+- 由总 agent 在根工作树按路径集成 T-0032，并在 CI 通过后继续阶段 3 查询展示增强：优先补登录后真实查询联调、基础图表或查询结果分页。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- query.test.ts` 通过（2 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（7 个测试文件、30 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/metrics`、`/logs`、`/events` 桌面宽度，以及 `/metrics` 390px 移动宽度；页面正常渲染，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
+
 ## 2026-06-20
 
 ### 已完成

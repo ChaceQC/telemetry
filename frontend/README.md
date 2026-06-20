@@ -1,6 +1,6 @@
 # 遥测前端
 
-遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览首屏、登录页、Settings 基础管理页面、健康检查/API client 和环境变量示例。
+遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览首屏、登录页、Settings 基础管理页面、Metrics/Logs/Events 查询页、健康检查/API client 和环境变量示例。
 
 ## 环境要求
 
@@ -75,6 +75,16 @@ VITE_PREVIEW_PORT=25174
 Settings 管理接口使用当前 session token 访问。登录成功或从会话恢复到 token 后，请求会携带 `Authorization: Bearer <token>`；没有 token 或 session 仍在确认时，页面会显示登录提示并暂停列表刷新和创建提交。本轮没有增加全站路由守卫，其他控制台页面仍可按原路径访问。
 
 错误展示不要求后端服务已启动即可验证：API client 兼容 FastAPI `detail` 为字符串、校验错误数组或对象；`/settings` 列表读取错误按页面级展示，创建表单对 `404`、`409`、`422` 使用表单级提示并保留后端返回的具体原因。Settings 列表或创建请求返回 `401` 时统一展示页面级登录过期提示和登录入口，不复用登录表单的账号密码错误文案。
+
+## 查询页基础
+
+`/metrics`、`/logs` 和 `/events` 页面已替换为阶段 3 查询工作台，使用当前 session token 访问查询接口：
+
+- `/metrics`：调用 `GET /api/v1/query/metrics`，支持项目 ID、指标名、来源、时间范围和数量筛选。
+- `/logs`：调用 `GET /api/v1/query/logs`，支持项目 ID、日志级别、来源、时间范围和数量筛选。
+- `/events`：调用 `GET /api/v1/query/events`，支持项目 ID、事件类型、来源、时间范围和数量筛选。
+
+未登录或会话恢复中时，查询页显示登录提示并暂停请求；登录后可刷新或提交筛选条件重新查询。当前页面先提供筛选表单、刷新状态、错误/空态和结果列表；图表、日志上下文、事件时间线细节、指标聚合窗口和游标分页后续拆分。
 
 ## 目录结构
 

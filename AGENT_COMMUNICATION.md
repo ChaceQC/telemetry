@@ -58,8 +58,8 @@ closed      已关闭
 | T-0028 | 阶段 2 摄入失败统计基础 | 总 agent | todo | done | done | done | done |
 | T-0029 | 阶段 3 事件查询 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0030 | 阶段 3 日志查询 API 基础 | 总 agent | todo | done | done | done | done |
-| T-0031 | 阶段 3 指标查询 API 基础 | 总 agent | todo | done | done | done | doing |
-| T-0032 | 阶段 3 查询页前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0031 | 阶段 3 指标查询 API 基础 | 总 agent | todo | done | done | done | done |
+| T-0032 | 阶段 3 查询页前端基础 | 总 agent | done | todo | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -251,6 +251,8 @@ closed      已关闭
 | 2026-06-20 | T-0031 | 总 agent | 指标查询 API 基础完成并本地集成 | 后端分支 `4c3d96b` 新增 `GET /api/v1/query/metrics`、指标查询 repository/service/schema 和权限过滤测试；总 agent 按路径恢复到 `dev` 并完成根仓库验证，未直接 merge feature 分支历史；ClickHouse 指标查询、聚合窗口、group by、Top N、降采样和多序列对比后续推进 | done |
 | 2026-06-20 | CI | 总 agent | 指标查询 API 集成 Actions 通过 | push `50dd219` 触发 run `27885421204`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | T-0032 | 总 agent | 启动查询页前端基础 | 阶段 3 events/logs/metrics 查询 API 已闭环；下一步在前端 worktree 将指标、日志和事件占位页替换为可用查询页，复用登录态 Bearer token、基础筛选、刷新状态、错误/空态和结果列表 | doing |
+| 2026-06-20 | CI | 总 agent | 查询页前端启动记录 Actions 通过 | push `bb68237` 触发 run `27885542973`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0032 | 总 agent | 查询页前端基础完成并集成中 | 前端分支提交 `062f70e` 新增查询 API client、通用 QueryPage、三条路由替换、查询样式、README 和前端进度；总 agent 已按路径恢复到 `dev`，未直接 merge feature 分支历史；功能分支自身缺少 `.github/workflows/ci.yml`，push 后无 Actions run 可读，后续以 `dev` 集成 CI 作为交付门禁 | doing |
 
 ## 6. 测试记录
 
@@ -274,6 +276,8 @@ closed      已关闭
 | 2026-06-20 | T-0029 | 事件查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 3 passed，全量 pytest 109 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse/MongoDB 查询 |
 | 2026-06-20 | T-0030 | 日志查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 与根仓库均已验证：专项 6 passed，全量 pytest 112 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse 日志查询 |
 | 2026-06-20 | T-0031 | 指标查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 与根仓库均已验证：专项 9 passed，全量 pytest 115 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse 指标查询 |
+| 2026-06-20 | T-0032 | 查询页前端基础验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、Playwright CLI + Microsoft Edge 冒烟 | 通过 | 前端 worktree 验证：7 个测试文件、30 个测试通过；桌面检查 `/metrics`、`/logs`、`/events`，移动宽度检查 `/metrics`，未发现明显布局重叠；验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程；未启动真实后端/真实登录联调 |
+| 2026-06-20 | T-0032 | 查询页前端 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run test -- query.test.ts`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：全量前端 Vitest 6 个测试文件、28 个测试通过；查询 API 专项 1 个测试文件、2 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
 
 ## 7. 审计记录
 
@@ -297,6 +301,7 @@ closed      已关闭
 | 2026-06-20 | T-0029 | 事件查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse/MongoDB、游标分页、全文搜索和复杂聚合后续补齐 | done |
 | 2026-06-20 | T-0030 | 日志查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse 日志查询、关键词搜索、上下文查看、游标分页、字段过滤和脱敏后续补齐 | done |
 | 2026-06-20 | T-0031 | 指标查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse 指标查询、聚合窗口、group by、Top N、降采样和多序列对比后续补齐 | done |
+| 2026-06-20 | T-0032 | 查询页 API client、QueryPage、路由替换和响应式样式 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；当前多智能体工具规则不允许未获显式授权时新开子 agent，本轮未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后查询、图表、日志上下文、事件时间线细节和分页后续补齐 | done |
 
 ## 8. 阻塞问题
 
@@ -341,6 +346,7 @@ closed      已关闭
 | 2026-06-20 | T-0029 | feature/backend-dev | dev | 总 agent | 事件查询 API 基础 `c5bae92` 已按业务路径集成到 `dev`，集成提交 `0035f6a` CI 通过 | done |
 | 2026-06-20 | T-0030 | feature/backend-dev | dev | 总 agent | 日志查询 API 基础 `023e2fa` 已按业务路径集成到 `dev`，集成提交 `08fcbd9` CI 通过 | done |
 | 2026-06-20 | T-0031 | feature/backend-dev | dev | 总 agent | 指标查询 API 基础 `4c3d96b` 已按业务路径集成到 `dev`，集成提交 `50dd219` CI 通过 | done |
+| 2026-06-20 | T-0032 | feature/frontend-dev | dev | 总 agent | 查询页前端基础 `062f70e` 已按业务路径恢复到 `dev`，待根仓库验证、提交、推送和 CI 结果记录 | doing |
 
 ## 10. 决策记录
 

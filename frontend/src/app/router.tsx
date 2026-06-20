@@ -4,6 +4,7 @@ import { ConsoleLayout } from '../components/ConsoleLayout';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
+import { QueryPage } from '../pages/QueryPage';
 import { SettingsPage } from '../pages/SettingsPage';
 
 export const routes = [
@@ -21,11 +22,11 @@ export const routes = [
       },
       {
         path: 'metrics',
-        element: <PlaceholderPage title="指标查询" description="后续接入指标筛选、聚合窗口和多序列图表。" />
+        element: <QueryPage signal="metrics" />
       },
       {
         path: 'logs',
-        element: <PlaceholderPage title="日志检索" description="后续接入关键词搜索、字段过滤和上下文查看。" />
+        element: <QueryPage signal="logs" />
       },
       {
         path: 'traces',
@@ -33,7 +34,7 @@ export const routes = [
       },
       {
         path: 'events',
-        element: <PlaceholderPage title="事件时间线" description="后续接入部署、配置变更、告警和故障事件。" />
+        element: <QueryPage signal="events" />
       },
       {
         path: 'alerts',

@@ -469,15 +469,28 @@
 
 ## 2026-06-21 T-0032 查询页前端基础
 
-### 进行中
+### 已完成
 
 - 已登记 `T-0032` 阶段 3 查询页前端基础任务；目标是在前端将指标、日志和事件占位页替换为可用查询工作台，接入当前 `GET /api/v1/query/metrics`、`/logs`、`/events`。
 - 本小步计划复用当前 ConsoleLayout、登录态 Bearer token、React Query 和现有全局样式，先提供基础筛选、刷新状态、错误/空态和结果列表，不引入图表、游标分页或复杂聚合。
+- 前端分支 `062f70e` 已完成查询页基础：新增 `frontend/src/api/query.ts`、`frontend/src/pages/QueryPage.tsx` 和 `frontend/src/api/query.test.ts`，并将 `/metrics`、`/logs`、`/events` 路由替换为查询工作台。
+- 查询页支持项目 ID、主筛选字段、来源、时间范围和数量筛选；未登录或会话恢复中时暂停请求并显示登录提示；结果区提供错误态、空态、基础列表和 JSON 预览。
+- 总 agent 本地只读复审未发现 P0/P1/P2；已按业务路径恢复前端提交到 `dev`，未直接 merge feature 分支历史。
 
 ### 阻塞与风险
 
 - 本小步只做查询页基础壳和列表展示；图表、事件时间线细节、日志上下文、指标聚合窗口和多序列可视化后续拆分。
+- 本小步未启动真实后端和真实登录账号联调；浏览器验收覆盖未登录态、路由替换和响应式布局，登录后真实查询成功/空态/错误态后续补验。
+- `feature/frontend-dev` 分支自身缺少 `.github/workflows/ci.yml`，推送 `062f70e` 后没有 Actions run 可读；本次交付以 `dev` 集成 CI 作为门禁，并已在沟通板记录。
+- Playwright 冒烟期间发现开发态 `favicon.ico` 返回 `404`，属于既有静态资源缺口，不阻塞本查询页小步。
 
 ### 下一步
 
-- 在前端 worktree 实现查询 API client、查询页组件和路由替换，补充测试并通过 lint/typecheck/test/build 后按业务路径集成回 `dev`。
+- 完成根仓库前端验证后提交并推送 T-0032 集成；读取 GitHub Actions 结果并记录。随后继续阶段 3 查询展示增强：优先补登录后真实查询联调、基础图表或查询结果分页。
+
+### 验证
+
+- GitHub Actions run `27885542973` 已通过：T-0032 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- 前端 worktree 已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check`，均通过；Vitest 共 7 个测试文件、30 个测试通过。
+- 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/metrics`、`/logs`、`/events` 桌面宽度，以及 `/metrics` 390px 移动宽度；页面正常渲染，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
+- 根工作树已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run test -- query.test.ts`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，均通过；全量前端 Vitest 6 个测试文件、28 个测试通过，查询 API 专项 1 个测试文件、2 个测试通过。
