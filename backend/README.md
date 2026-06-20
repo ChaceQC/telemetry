@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 最小事件摄入 API，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -32,7 +32,7 @@ uv run python main.py
 | `BACKEND_CORS_ALLOWED_ORIGINS` | 本地/测试环境默认 `http://127.0.0.1:25173,http://localhost:25173,http://127.0.0.1:25174,http://localhost:25174`，其他环境默认空 | 允许跨域访问后端的前端 origin，逗号分隔；生产必须显式配置为真实 HTTPS origin |
 | `CORS_ALLOWED_ORIGINS` | 同上 | `BACKEND_CORS_ALLOWED_ORIGINS` 的兼容别名，优先级较低 |
 | `BACKEND_CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | CORS 允许方法，逗号分隔 |
-| `BACKEND_CORS_ALLOWED_HEADERS` | `Authorization,Content-Type,Accept,Origin` | CORS 允许请求头，逗号分隔 |
+| `BACKEND_CORS_ALLOWED_HEADERS` | `Authorization,X-API-Key,Content-Type,Accept,Origin` | CORS 允许请求头，逗号分隔 |
 | `BACKEND_CORS_ALLOW_CREDENTIALS` | `false` | 是否允许跨域携带凭据；当前 bearer token 推荐保持 `false`，且为 `true` 时禁止将 CORS origin 配置为 `*` |
 | `BACKEND_TRUSTED_HOSTS` | 本地/测试环境默认 `localhost,127.0.0.1,[::1],testserver`，其他环境默认 `localhost,127.0.0.1` | Trusted Host 白名单，逗号分隔；生产必须加入公网域名和反代传给后端的 Host |
 | `TRUSTED_HOSTS` | 同上 | `BACKEND_TRUSTED_HOSTS` 的兼容别名，优先级较低 |
@@ -109,8 +109,9 @@ uv run python main.py
 | `rbac_team_members` | 团队成员 | 外键 `team_id`、`user_id`，同团队同用户唯一 |
 | `rbac_project_members` | 项目成员角色 | 外键 `project_id`、`user_id`，同项目同用户唯一，角色为 `viewer`、`editor`、`admin` |
 | `api_keys` | 项目 API Key | 外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一；只保存哈希和展示前缀，不保存明文 key |
+| `ingest_records` | 最小摄入记录 | 外键 `project_id`、`api_key_id`；保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at` |
 
-MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引和 API 集成验证。
+MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
 
 ### 真实 MySQL 回归测试
 
@@ -297,6 +298,94 @@ GET /health
 | `409` | API Key 数据库完整性约束错误 |
 | `422` | 请求体字段或路径参数格式错误 |
 
+## 数据摄入 API
+
+当前阶段提供最小事件摄入入口，用于闭环“API Key 可用于数据上报”。摄入接口不接受登录态 JWT，也不接受客户端传入 `project_id`；后端只从 API Key 校验结果推导 `project_id` 和 `api_key_id`，并写入 `ingest_records`。支持两种鉴权头：
+
+- `Authorization: Bearer <api_key>`
+- `X-API-Key: <api_key>`
+
+两者同时存在时优先使用 `Authorization`。无效、缺失或已撤销 API Key 均返回 `401`；代码不输出 API Key 明文或 payload 请求体日志。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/ingest/events` | 摄入单条事件，成功返回 accepted receipt |
+| `POST` | `/api/v1/ingest/batch` | 批量摄入事件，当前仅支持 `events` 数组 |
+
+单条事件请求体：
+
+```json
+{
+  "type": "deployment",
+  "source": "ci",
+  "timestamp": "2026-06-21T00:00:00Z",
+  "payload": {
+    "version": "1.2.3",
+    "status": "ok"
+  }
+}
+```
+
+字段规则：
+
+| 字段 | 规则 |
+| --- | --- |
+| `type` | 必填，1 到 128 字符，匹配 `^[A-Za-z0-9][A-Za-z0-9._:-]*$` |
+| `source` | 可选，最长 128 字符 |
+| `timestamp` | 可选，ISO 8601 时间；入库为 `occurred_at` |
+| `payload` | 必填对象，单事件 JSON 序列化后不超过 64 KiB |
+
+批量请求体：
+
+```json
+{
+  "events": [
+    {"type": "deploy.started", "payload": {"id": "d-1"}},
+    {"type": "deploy.finished", "payload": {"id": "d-1", "ok": true}}
+  ]
+}
+```
+
+批量规则：`events` 至少 1 条、最多 100 条；批量 JSON 序列化后不超过 256 KiB。
+
+单条成功响应：`202 Accepted`
+
+```json
+{
+  "id": 1,
+  "project_id": 1,
+  "kind": "event",
+  "type": "deployment",
+  "received_at": "2026-06-21T00:00:00Z"
+}
+```
+
+批量成功响应：`202 Accepted`
+
+```json
+{
+  "accepted_count": 2,
+  "receipts": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "kind": "event",
+      "type": "deploy.started",
+      "received_at": "2026-06-21T00:00:00Z"
+    }
+  ]
+}
+```
+
+错误边界：
+
+| 状态码 | 场景 |
+| --- | --- |
+| `401` | 缺少 API Key、API Key 无效或已撤销 |
+| `422` | 请求体字段格式错误、出现额外字段、缺失 payload、payload 超限、payload 含非有限数值或批量条数/大小超限 |
+
+安全边界：摄入接口当前只做最小持久化，不开放读取/列表接口；不会把客户端 payload 中的 `project_id` 作为项目归属，若 `project_id` 出现在顶层请求体会因额外字段返回 `422`，若出现在 `payload` 内仅作为业务载荷保存，不影响归属；`payload` 内任意层级的 `NaN`、`Infinity` 或 `-Infinity` 均返回 `422`。当前尚未实现限流、审计日志、摄入统计、metrics/logs/traces 专用 schema 或 ClickHouse/MongoDB 写入。
+
 ## 目录结构
 
 ```text
@@ -332,26 +421,32 @@ tests/              # pytest 测试
 - `app/api/routes/auth.py`：登录和当前用户接口。
 - `app/api/routes/api_keys.py`：项目 API Key 创建、列表和撤销接口。
 - `app/api/routes/health.py`：健康检查接口。
+- `app/api/routes/ingest.py`：API Key 鉴权的数据摄入接口。
 - `app/api/routes/management.py`：项目、环境、服务管理接口。
 - `app/models/api_keys.py`：API Key ORM 模型。
 - `app/models/auth.py`：用户 ORM 模型。
+- `app/models/ingest.py`：最小摄入记录 ORM 模型。
 - `app/models/management.py`：项目、环境、服务 ORM 模型。
 - `app/schemas/auth.py`：认证 API 的 Pydantic 请求和响应模型。
 - `app/schemas/api_keys.py`：API Key API 的 Pydantic 请求和响应模型。
+- `app/schemas/ingest.py`：摄入 API 的 Pydantic 请求和响应模型。
 - `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
 - `app/schemas/permissions.py`：项目角色枚举和角色层级判断。
 - `app/services/auth.py`：密码哈希、token 签发/解析和认证规则。
 - `app/services/api_keys.py`：API Key 生成、哈希、权限校验、撤销和后续摄入校验入口。
+- `app/services/ingest.py`：摄入用例服务，按 API Key 上下文写入项目范围记录。
 - `app/services/management.py`：基础管理业务规则和归属关系校验。
 - `app/services/permissions.py`：项目级权限判断入口，包含超级用户绕过和角色校验。
 - `app/repositories/auth.py`：认证 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/api_keys.py`：API Key repository 协议和 SQLAlchemy 实现。
+- `app/repositories/ingest.py`：摄入记录 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/management.py`：基础管理 repository 协议、SQLAlchemy 实现和测试用内存实现。
 - `app/repositories/permissions.py`：项目成员角色 repository 协议和 SQLAlchemy 实现。
 - `migrations/versions/20260620_0001_create_management_tables.py`：项目、环境、服务表迁移。
 - `migrations/versions/20260620_0002_create_auth_users.py`：用户表迁移。
 - `migrations/versions/20260620_0003_create_rbac_tables.py`：团队、团队成员、项目成员角色表迁移。
 - `migrations/versions/20260621_0004_create_api_keys.py`：API Key 表迁移。
+- `migrations/versions/20260621_0005_create_ingest_records.py`：最小摄入记录表迁移。
 
 ## 验证命令
 
@@ -364,4 +459,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、摄入路由、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。

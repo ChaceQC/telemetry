@@ -24,7 +24,7 @@ def test_auth_login_preflight_allows_local_frontend_origin() -> None:
         headers={
             "Origin": "http://127.0.0.1:25173",
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "Authorization,Content-Type",
+            "Access-Control-Request-Headers": "Authorization,X-API-Key,Content-Type",
         },
     )
 
@@ -32,6 +32,25 @@ def test_auth_login_preflight_allows_local_frontend_origin() -> None:
     assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:25173"
     assert "POST" in response.headers["access-control-allow-methods"]
     assert "Authorization" in response.headers["access-control-allow-headers"]
+    assert "X-API-Key" in response.headers["access-control-allow-headers"]
+    assert "Content-Type" in response.headers["access-control-allow-headers"]
+
+
+def test_ingest_preflight_allows_x_api_key_header_by_default() -> None:
+    client = build_client()
+
+    response = client.options(
+        "/api/v1/ingest/events",
+        headers={
+            "Origin": "http://127.0.0.1:25173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "X-API-Key,Content-Type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:25173"
+    assert "X-API-Key" in response.headers["access-control-allow-headers"]
     assert "Content-Type" in response.headers["access-control-allow-headers"]
 
 

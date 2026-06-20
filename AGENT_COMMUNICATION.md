@@ -49,7 +49,7 @@ closed      已关闭
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
-| T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | doing | doing |
+| T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -176,6 +176,9 @@ closed      已关闭
 | 2026-06-20 | T-0022 | 后端测试 agent | 摄入 API 真实 MySQL 补验通过 | Nash 在 `9fc69bc` 上完成真实 MySQL 补验：Alembic 升降级通过，确认 `ingest_records` JSON 类型、索引和外键，有效/缺失/无效/撤销 API Key、payload validation、项目绑定和 JSON 入库查询均通过；临时库已清理，未泄露凭据或 API Key 明文 | done |
 | 2026-06-20 | CI | 总 agent | 摄入 API 审计补验记录 Actions 通过 | push `14c6732` 触发 run `27879758173`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0022-fix | 后端开发 agent | 摄入 API 审计修复完成 | Goodall 已提交并 push `dcc6208` 到 `feature/backend-dev`：拒绝 payload 中非有限浮点值，改为必填 payload，补默认 `X-API-Key` CORS allowed header，并更新摄入测试、部署中间件测试、README、`.env.example` 和 API 契约；验证 pytest 77 passed/2 skipped、ruff、format check、mypy、diff check 通过 | audit |
+| 2026-06-20 | CI | 总 agent | 摄入 API 审计修复进展 Actions 通过 | push `2c5e84b` 触发 run `27879959423`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0022-fix | 代码审计 agent | 摄入 API 审计修复复审通过 | Boole 复审 `dcc6208` 未发现 P0/P1/P2/P3 阻断，确认非有限 float 递归拒绝、payload 必填、`X-API-Key` 默认 CORS header 已闭环，鉴权仍使用 `ApiKeyService.verify_key` 且项目归属仍来自 API Key；结论为可集成到 `dev` | done |
+| 2026-06-20 | T-0022 | 总 agent | 最小摄入 API 集成 | 总 agent 已按业务路径从 `feature/backend-dev` 恢复 `9fc69bc` 与 `dcc6208` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，未直接 merge feature 分支历史或运行日志；待 push 后读取 Actions | done |
 
 ## 6. 测试记录
 
@@ -238,7 +241,7 @@ closed      已关闭
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `dcc6208` 已修复 payload 非标准 JSON、payload 必填契约和 `X-API-Key` CORS 头问题；等待复审结论，通过后由总 agent 按业务路径集成 | audit |
+| 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
 
 ## 10. 决策记录
 

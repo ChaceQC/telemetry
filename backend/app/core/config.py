@@ -55,7 +55,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BACKEND_CORS_ALLOWED_METHODS", "CORS_ALLOWED_METHODS"),
     )
     cors_allowed_headers: str = Field(
-        default="Authorization,Content-Type,Accept,Origin",
+        default="Authorization,X-API-Key,Content-Type,Accept,Origin",
         validation_alias=AliasChoices("BACKEND_CORS_ALLOWED_HEADERS", "CORS_ALLOWED_HEADERS"),
     )
     cors_allow_credentials: bool = Field(

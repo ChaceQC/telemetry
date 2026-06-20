@@ -1,16 +1,18 @@
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.repositories.api_keys import SqlAlchemyApiKeyRepository
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
+from app.repositories.ingest import SqlAlchemyIngestRepository
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
-from app.services.api_keys import ApiKeyService
+from app.services.api_keys import ApiKeyService, ApiKeyVerification
 from app.services.auth import AuthConfigurationError, AuthenticationError, AuthService
+from app.services.ingest import IngestService
 from app.services.management import ManagementService
 from app.services.permissions import PermissionService
 
@@ -47,6 +49,35 @@ def get_api_key_service(
         management_repository,
         permission_service,
     )
+
+
+def get_ingest_service(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> IngestService:
+    return IngestService(SqlAlchemyIngestRepository(session))
+
+
+def get_ingest_api_key_context(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    api_key_service: Annotated[ApiKeyService, Depends(get_api_key_service)],
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> ApiKeyVerification:
+    raw_key = credentials.credentials if credentials is not None else x_api_key
+    if raw_key is None or raw_key.strip() == "":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="缺少 API Key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    context = api_key_service.verify_key(raw_key.strip())
+    if context is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API Key 无效或已撤销",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return context
 
 
 def get_current_user(

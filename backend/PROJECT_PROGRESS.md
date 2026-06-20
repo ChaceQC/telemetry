@@ -455,16 +455,6 @@
 ### 验证
 
 - 已运行 `uv run pytest tests/test_api_keys.py`，结果：5 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
-- 已运行 `uv run pytest`，结果：68 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
-- 已运行 `uv run ruff check .`，结果：通过。
-- 已运行 `uv run ruff format --check .`，结果：60 个文件已格式化。
-- 已运行 `uv run mypy .`，结果：60 个源文件无类型错误。
-- 已运行 `git diff --check`，结果：通过。
-- 已运行 `uv run pytest`，结果：68 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
-- 已运行 `uv run ruff check .`，结果：通过。
-- 已运行 `uv run ruff format --check .`，结果：60 个文件已格式化。
-- 已运行 `uv run mypy .`，结果：60 个源文件无类型错误。
-- 已使用 `sqlite:///./tmp-t0021-api-keys.db` 运行 `uv run alembic -x database_url=sqlite:///./tmp-t0021-api-keys.db upgrade head` 和 `uv run alembic -x database_url=sqlite:///./tmp-t0021-api-keys.db downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
 
 ## 2026-06-21 T-0021-fix Descartes 审计修复
 
@@ -484,3 +474,41 @@
 ### 验证
 
 - 已运行 `uv run pytest tests/test_api_keys.py`，结果：5 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+
+## 2026-06-21 T-0022 阶段 2 最小摄入 API 与 API Key 鉴权
+
+### 已完成
+
+- 新增最小事件摄入路由：`POST /api/v1/ingest/events` 和 `POST /api/v1/ingest/batch`。
+- 摄入鉴权接入 `ApiKeyService.verify_key(raw_key)`，支持 `Authorization: Bearer <api_key>` 和 `X-API-Key`；两者同时存在时优先使用 `Authorization`。
+- 新增 `ingest_records` ORM 模型、repository、service、schema 和 Alembic 迁移 `20260621_0005_create_ingest_records.py`。
+- `ingest_records` 保存 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；项目归属只来自 API Key 上下文。
+- 请求校验限制事件类型、单事件 payload 64 KiB、批量最多 100 条、批量 payload 256 KiB，并禁止顶层额外字段。
+- 补充 `backend/tests/test_ingest_api.py`，覆盖有效 API Key 上报并绑定项目、`X-API-Key`、缺失/无效/撤销 key 拒绝、payload `422`、顶层 `project_id` 不能覆盖归属、跨项目 payload 不影响归属、SQLite Alembic 升降级。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录接口、鉴权头、响应、错误码、安全边界、当前持久化边界和验证结果。
+- 追加 ignored 运行日志 `agents/runtime/backend-agent.log.md`；不提交运行日志。
+
+### 进行中
+
+- 等待总 agent 后续按流程启动独立测试 agent 和代码审计 agent；本次后端开发 agent 已完成自测与文档记录。
+
+### 阻塞与风险
+
+- 当前 worktree 没有真实 MySQL 服务，本次仅完成 SQLite Alembic 升降级、SQLite API 测试和 SQLAlchemy 行为验证；MySQL 外键、JSON 字段、索引、字符集、排序规则和真实写入行为仍需设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 或专用 MySQL 环境后补验。
+- 当前摄入 API 仅支持 events 最小 schema；metrics/logs/traces、ClickHouse/MongoDB 写入、限流、审计日志、摄入统计和查询/读取接口仍属后续阶段。
+- 代码当前不输出请求体日志；后续若引入结构化日志，必须脱敏 `Authorization`、`X-API-Key`、API Key 明文和 payload 中可能存在的敏感字段。
+
+### 下一步
+
+- 由测试 agent 或真实 MySQL 环境补跑 `uv run alembic upgrade head`、`uv run alembic downgrade base`，并复验 `ingest_records` 外键、JSON payload 写入和撤销 API Key 后拒绝摄入。
+- 后续阶段补充摄入限流、审计日志、摄入统计，以及 metrics/logs/traces 专用 schema 和 ClickHouse/MongoDB 存储策略。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py`，结果：6 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：74 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：67 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：67 个源文件无类型错误。
+- 已使用 `sqlite:///./tmp-t0022-ingest.db` 运行 `uv run alembic -x database_url=sqlite:///./tmp-t0022-ingest.db upgrade head` 和 `uv run alembic -x database_url=sqlite:///./tmp-t0022-ingest.db downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+- 已运行 `git diff --check`，结果：通过。

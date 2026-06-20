@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0021`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销和后续摄入校验入口。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0022`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供最小事件摄入 API，并使用 API Key 作为上报鉴权入口。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -14,7 +14,7 @@
 - CORS 配置项：
   - `BACKEND_CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGINS`：逗号分隔 origin 白名单。
   - `BACKEND_CORS_ALLOWED_METHODS` / `CORS_ALLOWED_METHODS`：默认 `GET,POST,PUT,PATCH,DELETE,OPTIONS`。
-  - `BACKEND_CORS_ALLOWED_HEADERS` / `CORS_ALLOWED_HEADERS`：默认 `Authorization,Content-Type,Accept,Origin`。
+  - `BACKEND_CORS_ALLOWED_HEADERS` / `CORS_ALLOWED_HEADERS`：默认 `Authorization,X-API-Key,Content-Type,Accept,Origin`。
   - `BACKEND_CORS_ALLOW_CREDENTIALS` / `CORS_ALLOW_CREDENTIALS`：默认 `false`；当前 Bearer token 模式推荐保持关闭。开启时必须使用明确 origin 白名单，后端会拒绝与 `BACKEND_CORS_ALLOWED_ORIGINS=*` 同时配置。
 - Trusted Host 配置项：
   - `BACKEND_TRUSTED_HOSTS` / `TRUSTED_HOSTS`：逗号分隔 Host 白名单。
@@ -331,11 +331,94 @@
   - API Key 管理端点不会先对任意认证用户暴露项目存在性；普通用户没有目标项目成员关系时，列表、创建、撤销均返回与项目不存在一致的 `404 项目不存在`。
   - `ApiKeyService.verify_key(raw_key)` 是后续摄入 API 的鉴权入口：有效且未撤销时返回 `api_key_id`、`project_id`、`key_prefix` 并更新 `last_used_at`；不存在或已撤销时返回 `None`。
 
+## API-0008 最小事件摄入
+
+- 方法：`POST`
+- 路径：`/api/v1/ingest/events`
+- 权限：需要项目 API Key，不接受登录 JWT。支持 `Authorization: Bearer <api_key>` 或 `X-API-Key: <api_key>`；两者同时存在时优先使用 `Authorization`。服务端调用 `ApiKeyService.verify_key(raw_key)`，有效且未撤销时取得 `api_key_id` 与 `project_id`，无效、缺失或已撤销时返回 `401`。
+- 请求体：
+
+```json
+{
+  "type": "deployment",
+  "source": "ci",
+  "timestamp": "2026-06-21T00:00:00Z",
+  "payload": {
+    "version": "1.2.3",
+    "status": "ok"
+  }
+}
+```
+
+- 字段规则：
+  - `type`：必填，1 到 128 字符，匹配 `^[A-Za-z0-9][A-Za-z0-9._:-]*$`。
+  - `source`：可选，最长 128 字符。
+  - `timestamp`：可选，ISO 8601 时间；入库为 `occurred_at`。
+  - `payload`：必填对象，单事件 JSON 序列化后不超过 64 KiB。
+  - 顶层额外字段会返回 `422`；客户端不能通过顶层 `project_id` 指定或覆盖项目归属。
+- 响应：`202 Accepted`
+
+```json
+{
+  "id": 1,
+  "project_id": 1,
+  "kind": "event",
+  "type": "deployment",
+  "received_at": "2026-06-21T00:00:00Z"
+}
+```
+
+- 方法：`POST`
+- 路径：`/api/v1/ingest/batch`
+- 权限：同 `/api/v1/ingest/events`。
+- 请求体：
+
+```json
+{
+  "events": [
+    {"type": "deploy.started", "payload": {"id": "d-1"}},
+    {"type": "deploy.finished", "payload": {"id": "d-1", "ok": true}}
+  ]
+}
+```
+
+- 字段规则：
+  - `events`：必填数组，至少 1 条、最多 100 条。
+  - 单条事件规则同 `/api/v1/ingest/events`。
+  - 批量 JSON 序列化后不超过 256 KiB。
+- 响应：`202 Accepted`
+
+```json
+{
+  "accepted_count": 2,
+  "receipts": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "kind": "event",
+      "type": "deploy.started",
+      "received_at": "2026-06-21T00:00:00Z"
+    }
+  ]
+}
+```
+
+- 错误：
+  - `401 Unauthorized`：缺少 API Key、API Key 无效或已撤销。
+  - `422 Unprocessable Entity`：请求体字段格式错误、出现额外字段、缺失 payload、payload 超限、payload 含非有限数值或批量条数/大小超限。
+- 持久化：当前写入 MySQL/SQLite `ingest_records` 表，字段包含 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at`、`received_at`。
+- 安全边界：
+  - 项目归属只来自 API Key 校验结果，不接受客户端顶层 `project_id`。
+  - 若 `project_id` 出现在 `payload` 内，仅作为业务载荷保存，不影响归属。
+  - 应用当前不输出请求体日志；后续结构化日志必须脱敏 `Authorization`、`X-API-Key` 和 payload 中可能存在的敏感字段。
+  - 当前尚未实现限流、审计日志、摄入统计、metrics/logs/traces 专用 schema 或 ClickHouse/MongoDB 写入。
+
 ## 持久化实现与迁移
 
 - 当前实现位于 `backend/app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`。
 - 认证实现位于 `backend/app/services/auth.py`、`backend/app/repositories/auth.py`、`backend/app/api/routes/auth.py`，默认使用 `SqlAlchemyAuthRepository`。
 - API Key 实现位于 `backend/app/services/api_keys.py`、`backend/app/repositories/api_keys.py`、`backend/app/api/routes/api_keys.py`，默认使用 `SqlAlchemyApiKeyRepository`。
+- 摄入实现位于 `backend/app/services/ingest.py`、`backend/app/repositories/ingest.py`、`backend/app/api/routes/ingest.py`，默认使用 `SqlAlchemyIngestRepository`。
 - 权限实现位于 `backend/app/services/permissions.py`、`backend/app/repositories/permissions.py` 和 `backend/app/schemas/permissions.py`；管理 service 统一调用 `PermissionService`，路由不散落角色判断。
 - 请求级数据库 session 由 `backend/app/api/dependencies.py` 注入，engine/session factory 在 `backend/app/core/application.py` 创建。
 - 配置项：`DATABASE_URL`，默认 `sqlite:///./telemetry-dev.db`；MySQL 使用 `mysql+pymysql://...?...charset=utf8mb4`。
@@ -357,8 +440,9 @@
   - `rbac_team_members`：团队成员，外键 `team_id`、`user_id`，同团队同用户唯一。
   - `rbac_project_members`：项目成员角色，外键 `project_id`、`user_id`，同项目同用户唯一，`role` 取 `viewer`、`editor`、`admin`。
   - `api_keys`：项目 API Key，外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一，保存 `status`、`revoked_at`、`last_used_at` 和展示前缀。
+  - `ingest_records`：最小摄入记录，外键 `project_id`、`api_key_id`，保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`。
 - 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
 - Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。创建项目和创建者 `admin` 授权通过 service 层事务边界整体提交或整体回滚。
 - 真实 MySQL 回归入口：`TELEMETRY_MYSQL_TEST_DATABASE_URL` 仅用于本地或专用测试环境，未设置时相关测试会 `skip`，不影响普通 CI。该 URL 需要可创建/删除数据库；测试会创建随机 `telemetry_test_<uuid>` 临时库、执行 Alembic `upgrade head`，并在结束后删除临时库。不得在日志、agent 记录或提交中输出真实连接串、密码或临时库详情。
-- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为和 Alembic 升降级；真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、用户唯一约束、RBAC 约束和 API Key 约束的 MySQL 专项用例。
+- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为、摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误返回 `422`、顶层 `project_id` 不能覆盖归属、跨项目 payload 不影响 API Key 项目上下文和 Alembic 升降级；真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束和摄入记录写入的 MySQL 专项用例。
 - 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；API Key 创建接口会返回一次性明文，后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志、API Key 使用审计和危险动作 `admin` 校验。
