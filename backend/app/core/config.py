@@ -88,6 +88,15 @@ class Settings(BaseSettings):
         ge=1,
         validation_alias="AUTH_ACCESS_TOKEN_EXPIRE_MINUTES",
     )
+    ingest_rate_limit_enabled: bool = Field(
+        default=False,
+        validation_alias="INGEST_RATE_LIMIT_ENABLED",
+    )
+    ingest_rate_limit_per_minute: int = Field(
+        default=600,
+        ge=1,
+        validation_alias="INGEST_RATE_LIMIT_PER_MINUTE",
+    )
 
     @field_validator("root_path")
     @classmethod

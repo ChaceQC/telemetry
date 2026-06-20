@@ -15,6 +15,7 @@ from app.services.auth import AuthConfigurationError, AuthenticationError, AuthS
 from app.services.ingest import IngestService
 from app.services.management import ManagementService
 from app.services.permissions import PermissionService
+from app.services.rate_limit import RateLimiter, RateLimitExceededError
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -57,9 +58,15 @@ def get_ingest_service(
     return IngestService(SqlAlchemyIngestRepository(session))
 
 
+def get_ingest_rate_limiter(request: Request) -> RateLimiter:
+    return request.app.state.ingest_rate_limiter
+
+
 def get_ingest_api_key_context(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     api_key_service: Annotated[ApiKeyService, Depends(get_api_key_service)],
+    rate_limiter: Annotated[RateLimiter, Depends(get_ingest_rate_limiter)],
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
 ) -> ApiKeyVerification:
     raw_key = credentials.credentials if credentials is not None else x_api_key
@@ -77,6 +84,17 @@ def get_ingest_api_key_context(
             detail="API Key 无效或已撤销",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    try:
+        rate_limiter.check(
+            key=f"rate_limit:api_key:{context.api_key_id}",
+            now=getattr(request.state, "rate_limit_now", None),
+        )
+    except RateLimitExceededError as error:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="摄入请求过于频繁",
+            headers={"Retry-After": str(error.retry_after_seconds)},
+        ) from error
     return context
 
 

@@ -294,3 +294,24 @@
 - GitHub Actions run `27882213570` 已通过：T-0024 ClickHouse CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - 总 agent 在后端 worktree 验证 `T-0024` MongoDB 小步：`docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet` 通过，`uv run pytest tests/test_mongodb_init.py` 2 passed，`uv run pytest` 93 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - GitHub Actions run `27882426933` 已通过：T-0024 MongoDB events 初始化集成提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27882474414` 已通过：T-0024 MongoDB 初始化集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+
+## 2026-06-21 T-0025 摄入 API Key 限流基础
+
+### 已完成
+
+- 已登记 `T-0025` 阶段 2 摄入 API Key 限流基础任务；目标是先实现可测试的固定窗口限流基础、配置开关和阈值，并在摄入 API Key 鉴权后拦截超限请求。
+- 后端分支 `fbf2621` 已完成摄入 API Key 限流基础：新增单进程固定窗口限流器、`INGEST_RATE_LIMIT_ENABLED` 和 `INGEST_RATE_LIMIT_PER_MINUTE` 配置，并在摄入 API Key 验证通过后对同一 API Key ID 执行限流检查；超限返回 `429`、`detail=摄入请求过于频繁` 和 `Retry-After`。
+- 总 agent 本地复审 T-0025 未发现 P0/P1/P2；已按业务路径恢复限流服务、依赖注入、配置、测试、后端 README/进度和契约草案到 `dev`，未直接 merge feature 分支历史。
+
+### 阻塞与风险
+
+- 本小步先不连接真实 Redis；默认实现用于单进程开发/测试，分布式 Redis 限流和真实容器补验后续单独推进。
+
+### 下一步
+
+- 推送 T-0025 集成后读取 Actions 并记录结果；随后继续阶段 2 摄入统计小步或 Redis 分布式限流补强。
+
+### 验证
+
+- 总 agent 在后端 worktree 验证 `T-0025`：`uv run pytest tests/test_config.py tests/test_ingest_api.py` 31 passed，`uv run pytest` 95 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。

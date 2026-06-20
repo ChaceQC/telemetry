@@ -93,6 +93,16 @@ def test_deployment_lists_are_read_from_csv_environment(monkeypatch) -> None:
     assert settings.forwarded_allow_ips == "127.0.0.1,10.0.0.10"
 
 
+def test_ingest_rate_limit_reads_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("INGEST_RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("INGEST_RATE_LIMIT_PER_MINUTE", "42")
+
+    settings = Settings()
+
+    assert settings.ingest_rate_limit_enabled is True
+    assert settings.ingest_rate_limit_per_minute == 42
+
+
 def test_cors_credentials_rejects_wildcard_origin(monkeypatch) -> None:
     monkeypatch.setenv("BACKEND_CORS_ALLOWED_ORIGINS", "*")
     monkeypatch.setenv("BACKEND_CORS_ALLOW_CREDENTIALS", "true")

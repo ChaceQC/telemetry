@@ -589,3 +589,26 @@
 - 已运行 `uv run ruff format --check .`，结果：69 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：69 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0025 摄入 API Key 限流基础
+
+### 已完成
+
+- 新增 `InMemoryFixedWindowRateLimiter`，支持按 key 做固定窗口计数；当前用于单进程开发/测试，后续可替换为 Redis 分布式计数器。
+- 新增 `INGEST_RATE_LIMIT_ENABLED` 和 `INGEST_RATE_LIMIT_PER_MINUTE` 配置，默认关闭且每分钟默认 600 次。
+- 在摄入 API Key 验证通过后执行限流检查；超限返回 `429 Too Many Requests`、`detail=摄入请求过于频繁` 和 `Retry-After`。
+- 更新 `.env.example`、`README.md` 和 `agents/runtime/api-contracts/backend.md`，记录限流配置、响应契约和当前边界。
+- 补充配置读取测试和摄入超限回归测试。
+
+### 阻塞与风险
+
+- 本次未连接真实 Redis，限流计数只在单进程内存中有效；多实例、进程重启、跨服务共享限流和 Redis 故障策略仍需后续任务处理。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_config.py tests/test_ingest_api.py`，结果：31 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：95 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：70 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：70 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

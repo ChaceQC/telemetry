@@ -32,6 +32,20 @@ def build_client() -> TestClient:
     return TestClient(app)
 
 
+def build_rate_limited_client(*, limit_per_minute: int) -> TestClient:
+    settings = Settings(
+        app_name="telemetry-backend-test",
+        app_version="0.1.0",
+        database_url="sqlite:///:memory:",
+        auth_secret_key=TEST_AUTH_SECRET,
+        ingest_rate_limit_enabled=True,
+        ingest_rate_limit_per_minute=limit_per_minute,
+    )
+    app = create_app(settings)
+    Base.metadata.create_all(app.state.db_engine)
+    return TestClient(app)
+
+
 def _tested_app(client: TestClient) -> FastAPI:
     return cast(FastAPI, client.app)
 
@@ -342,6 +356,35 @@ def test_ingest_rejects_missing_invalid_and_revoked_api_key() -> None:
     assert revoke_response.status_code == 200
     assert revoked_response.status_code == 401
     assert revoked_response.json()["detail"] == "API Key 无效或已撤销"
+
+
+def test_ingest_rate_limit_rejects_requests_after_window_limit() -> None:
+    client = build_rate_limited_client(limit_per_minute=2)
+    admin_headers = create_auth_headers(client, username="limited")
+    project = create_project(client, admin_headers, "limited-project")
+    raw_key = create_api_key(client, project["id"], admin_headers)
+
+    first_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"attempt": 1}},
+    )
+    second_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"attempt": 2}},
+    )
+    limited_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"attempt": 3}},
+    )
+
+    assert first_response.status_code == 202
+    assert second_response.status_code == 202
+    assert limited_response.status_code == 429
+    assert limited_response.json()["detail"] == "摄入请求过于频繁"
+    assert limited_response.headers["retry-after"] == "60"
 
 
 @pytest.mark.parametrize(
