@@ -43,7 +43,7 @@ closed      已关闭
 | T-0013 | 阶段 1 前端登录与认证状态壳 | 总 agent | done | todo | done | done | done |
 | T-0014 | 阶段 1 管理 API 接入认证 | 总 agent | todo | done | done | done | done |
 | T-0015 | 阶段 1 Settings 客户端接入认证 | 总 agent | done | todo | done | done | done |
-| T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | blocked | blocked | blocked | todo | blocked |
+| T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | done | done | done | done | done |
 | T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | done | done | done | done |
 | T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
 
@@ -126,6 +126,7 @@ closed      已关闭
 | 2026-06-20 | T-0017/T-0018 | 总 agent | CORS 和子路径配置集成 | 总 agent 已按业务路径集成后端 `01b8d5b`/`e78836f` 与前端 `fc6c955` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
 | 2026-06-20 | CI | 总 agent | CORS 和子路径配置 Actions 通过 | push `75c11f7` 触发 run `27874100947`，Backend checks 与 Frontend checks 均通过 | done |
 | 2026-06-20 | T-0016 | 总 agent | 重新启动真实联调 | 已启动集成测试 agent Maxwell，基于最新 `dev` 重跑 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置验证 | testing |
+| 2026-06-20 | T-0016 | 集成测试 agent | 真实浏览器联调通过 | Maxwell 使用本地 `auth.txt` 凭据和真实 MySQL 临时库验证通过：未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight 通过；`/xxx` 子路径前端构建产物生成 `/xxx/assets`、API base `/xxx/api`、router base `/xxx`。未覆盖真实 Nginx HTTPS 反代链路 | done |
 | 2026-06-20 | 部署 | 用户 | 明确生产访问路径形态 | 生产访问必须支持 `https://域名/xxx`；已要求联调 agent 额外检查前端路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代不要假设裸 IP、端口直连或仅根路径 | doing |
 
 ## 6. 测试记录

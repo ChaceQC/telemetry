@@ -95,6 +95,7 @@
 - 总 agent 已按业务路径集成 T-0017/T-0018 到 `dev`。
 - 推送 CORS 与子路径配置集成 `75c11f7` 后已读取 GitHub Actions run `27874100947`：Backend checks 与 Frontend checks 均通过。
 - 已启动集成测试 agent Maxwell 基于最新 `dev` 重跑真实前后端联调，重点验证 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置。
+- T-0016-rerun 已通过：真实 MySQL 临时库、后端、前端浏览器联调验证了未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight；前端 `/xxx` 子路径构建验证资源路径、API base 和 router base 均正确生成。
 
 ### 阻塞与风险
 
@@ -132,6 +133,7 @@
 - 已分派 T-0017/T-0018：后端修 CORS/Trusted Host/root_path/代理配置，前端修子路径部署、router basename 和 API base 策略；修复后重新做真实浏览器联调。
 - 推送 T-0017/T-0018 集成后读取 GitHub Actions；通过后重新运行 T-0016 真实浏览器联调，重点验证 CORS 和 `https://域名/xxx` 子路径配置。
 - 等待 T-0016-rerun 结果；如通过则记录阶段 1 认证后基础管理闭环，如失败继续分派精确修复。
+- 阶段 1 认证后基础管理链路已在本地真实浏览器联调闭环；下一步可推进项目级 RBAC/团队角色/API Key 管理，或补真实 Nginx HTTPS 子路径反代演练。
 
 ### 验证
 
@@ -167,3 +169,4 @@
 - GitHub Actions run `27870604620` 已通过：后端依次完成 ruff lint、ruff format、mypy、pytest；前端依次完成 npm ci、lint、typecheck、test。
 - GitHub Actions run `27871672033` 已通过：认证基础集成后的后端与前端 CI 均为 success。
 - GitHub Actions run `27872332372` 已通过：管理 API 接入认证后的后端与前端 CI 均为 success。
+- T-0016-rerun 使用本地 `auth.txt` 凭据但未泄露连接串；临时 MySQL 库、前后端进程、构建产物和 Playwright 临时文件均已清理，`25173/25174/28117` 无监听。
