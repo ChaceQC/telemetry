@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, func
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -41,4 +41,74 @@ class IngestRecordModel(Base):
         default=utc_now,
         server_default=func.current_timestamp(),
         index=True,
+    )
+
+
+class IngestStatModel(Base):
+    __tablename__ = "ingest_stats"
+    __table_args__ = (
+        UniqueConstraint(
+            "bucket_start",
+            "project_id",
+            "api_key_id",
+            "kind",
+            "source",
+            name="uq_ingest_stats_bucket_project_key_kind_source",
+        ),
+        {
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
+    )
+
+    id: Mapped[int] = mapped_column(ID_COLUMN, primary_key=True, autoincrement=True)
+    bucket_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+    project_id: Mapped[int] = mapped_column(
+        ID_COLUMN,
+        ForeignKey("management_projects.id", name="fk_ingest_stats_project_id"),
+        nullable=False,
+        index=True,
+    )
+    api_key_id: Mapped[int] = mapped_column(
+        ID_COLUMN,
+        ForeignKey("api_keys.id", name="fk_ingest_stats_api_key_id"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(128), nullable=False, default="", server_default="")
+    accepted_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    rejected_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    bytes_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.current_timestamp(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.current_timestamp(),
     )

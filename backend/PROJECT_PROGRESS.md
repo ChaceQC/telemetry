@@ -612,3 +612,27 @@
 - 已运行 `uv run ruff format --check .`，结果：70 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：70 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0026 摄入统计基础
+
+### 已完成
+
+- 新增关系库 `ingest_stats` 聚合表和 Alembic migration `20260621_0006_create_ingest_stats.py`。
+- 摄入成功后按分钟桶、项目、API Key、kind 和 source 聚合写入 `accepted_count` 与 `bytes_count`；同一批次内先按统计维度聚合，避免唯一键冲突。
+- 新增 `GET /api/v1/ingest/stats` 后台查询接口，使用用户 Bearer token 鉴权；普通用户只能查看自己有项目角色的统计，无权项目返回 `404`。
+- 更新 README 和后端契约草案，记录统计接口、响应字段、验证边界和当前只统计成功路径的限制。
+- 补充摄入统计写入/查询/权限测试，并扩展 SQLite migration 升降级测试覆盖 `ingest_stats`。
+
+### 阻塞与风险
+
+- 当前统计仍写入关系库，不直接写 ClickHouse `ingest_stats`；`rejected_count` 仅预留，校验失败、无效 API Key、限流等失败路径统计后续补齐。
+- 真实 MySQL 聚合更新并发、ClickHouse 同步和后台统计页面仍需后续任务覆盖。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py`，结果：23 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：97 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：71 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：71 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

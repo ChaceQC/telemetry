@@ -10,6 +10,8 @@ from app.db.base import Base
 from app.models import (  # noqa: F401
     ApiKeyModel,
     EnvironmentModel,
+    IngestRecordModel,
+    IngestStatModel,
     ProjectMemberModel,
     ProjectModel,
     ServiceModel,

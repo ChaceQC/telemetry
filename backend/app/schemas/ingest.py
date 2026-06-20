@@ -188,3 +188,16 @@ class IngestReceiptResponse(BaseModel):
 class IngestBatchResponse(BaseModel):
     accepted_count: int
     receipts: list[IngestReceiptResponse]
+
+
+class IngestStatResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    bucket_start: datetime
+    project_id: int
+    api_key_id: int
+    kind: IngestKind
+    source: str | None
+    accepted_count: int
+    rejected_count: int
+    bytes_count: int

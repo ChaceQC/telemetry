@@ -195,6 +195,81 @@ def test_ingest_batch_accepts_x_api_key_header() -> None:
     ]
 
 
+def test_ingest_stats_are_recorded_and_listed_for_project_member() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-admin",
+        project_key="stats-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/batch",
+        headers={"X-API-Key": raw_key},
+        json={
+            "events": [
+                {
+                    "type": "deploy.started",
+                    "source": "ci",
+                    "timestamp": "2026-06-20T10:23:15Z",
+                    "payload": {"id": "d-1"},
+                },
+                {
+                    "type": "deploy.finished",
+                    "source": "ci",
+                    "timestamp": "2026-06-20T10:23:45Z",
+                    "payload": {"id": "d-1", "ok": True},
+                },
+            ]
+        },
+    )
+    stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert ingest_response.status_code == 202
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert len(stats) == 1
+    assert stats[0]["project_id"] == project["id"]
+    assert stats[0]["kind"] == "event"
+    assert stats[0]["source"] == "ci"
+    assert stats[0]["accepted_count"] == 2
+    assert stats[0]["rejected_count"] == 0
+    assert stats[0]["bytes_count"] > 0
+    assert stats[0]["bucket_start"].startswith("2026-06-20T10:23:00")
+
+
+def test_ingest_stats_hide_projects_without_membership() -> None:
+    client = build_client()
+    project, raw_key, _ = create_ingest_api_key(
+        client,
+        username="stats-owner",
+        project_key="stats-owner-project",
+    )
+    other_headers = create_auth_headers(client, username="stats-viewer")
+
+    ingest_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"status": "ok"}},
+    )
+    all_stats_response = client.get("/api/v1/ingest/stats", headers=other_headers)
+    project_stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=other_headers,
+        params={"project_id": project["id"]},
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_stats_response.status_code == 200
+    assert all_stats_response.json() == []
+    assert project_stats_response.status_code == 404
+    assert project_stats_response.json()["detail"] == "项目不存在"
+
+
 def test_ingest_metrics_accepts_datapoints_and_binds_project() -> None:
     client = build_client()
     first_project, raw_key, _ = create_ingest_api_key(
@@ -740,6 +815,7 @@ def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:
     try:
         table_names = inspect(app.state.db_engine).get_table_names()
         assert "ingest_records" in table_names
+        assert "ingest_stats" in table_names
     finally:
         app.state.db_engine.dispose()
 
@@ -756,5 +832,6 @@ def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:
     try:
         table_names = inspect(app.state.db_engine).get_table_names()
         assert "ingest_records" not in table_names
+        assert "ingest_stats" not in table_names
     finally:
         app.state.db_engine.dispose()

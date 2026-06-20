@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.repositories.ingest import IngestRecord, IngestRepository
+from app.repositories.auth import UserRecord
+from app.repositories.ingest import IngestRecord, IngestRepository, IngestStatRecord
 from app.schemas.ingest import (
     IngestBatchCreate,
     IngestEventCreate,
@@ -11,6 +12,8 @@ from app.schemas.ingest import (
     IngestMetricsCreate,
 )
 from app.services.api_keys import ApiKeyVerification
+from app.services.errors import ResourceNotFoundError
+from app.services.permissions import PermissionService
 
 
 @dataclass(frozen=True)
@@ -19,8 +22,13 @@ class IngestAccepted:
 
 
 class IngestService:
-    def __init__(self, repository: IngestRepository) -> None:
+    def __init__(
+        self,
+        repository: IngestRepository,
+        permission_service: PermissionService | None = None,
+    ) -> None:
         self._repository = repository
+        self._permission_service = permission_service
 
     def ingest_event(
         self,
@@ -113,3 +121,29 @@ class IngestService:
             ]
         )
         return IngestAccepted(records=records)
+
+    def list_stats(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int | None,
+        kind: IngestKind | None,
+        limit: int,
+    ) -> list[IngestStatRecord]:
+        if self._permission_service is None:
+            raise RuntimeError("permission_service is required to list ingest stats")
+
+        accessible_project_ids = self._permission_service.list_accessible_project_ids(user)
+        if (
+            project_id is not None
+            and accessible_project_ids is not None
+            and project_id not in accessible_project_ids
+        ):
+            raise ResourceNotFoundError("项目不存在")
+
+        return self._repository.list_stats(
+            project_ids=accessible_project_ids,
+            project_id=project_id,
+            kind=kind,
+            limit=limit,
+        )

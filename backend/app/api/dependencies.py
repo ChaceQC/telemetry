@@ -55,7 +55,8 @@ def get_api_key_service(
 def get_ingest_service(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> IngestService:
-    return IngestService(SqlAlchemyIngestRepository(session))
+    permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
+    return IngestService(SqlAlchemyIngestRepository(session), permission_service)
 
 
 def get_ingest_rate_limiter(request: Request) -> RateLimiter:

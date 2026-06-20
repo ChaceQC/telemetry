@@ -52,7 +52,8 @@ closed      已关闭
 | T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
 | T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | done | done | done | done |
-| T-0025 | 阶段 2 摄入 API Key 限流基础 | 总 agent | todo | doing | doing | doing | doing |
+| T-0025 | 阶段 2 摄入 API Key 限流基础 | 总 agent | todo | done | done | done | done |
+| T-0026 | 阶段 2 摄入统计基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -213,7 +214,10 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | MongoDB events 初始化集成 Actions 通过 | push `e779305` 触发 run `27882426933`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | CI | 总 agent | MongoDB 初始化集成结果记录 Actions 通过 | push `21336de` 触发 run `27882474414`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | T-0025 | 总 agent | 启动摄入 API Key 限流基础 | 阶段 2 已完成 HTTP 摄入和 ClickHouse/MongoDB 初始化；下一步先实现可测试的摄入 API Key 固定窗口限流基础，配置开关和阈值，后续再接 Redis 实例与分布式限流 | doing |
-| 2026-06-20 | T-0025 | 总 agent | 摄入 API Key 限流基础完成并集成 | 后端分支 `fbf2621` 新增单进程固定窗口限流器、配置开关和阈值，并在摄入 API Key 验证后拦截超限请求；总 agent 本地复审后按路径恢复到 `dev`，当前仍明确标注后续需接 Redis 分布式计数器 | doing |
+| 2026-06-20 | T-0025 | 总 agent | 摄入 API Key 限流基础完成并集成 | 后端分支 `fbf2621` 新增单进程固定窗口限流器、配置开关和阈值，并在摄入 API Key 验证后拦截超限请求；总 agent 本地复审后按路径恢复到 `dev`，当前仍明确标注后续需接 Redis 分布式计数器；已推送 `02d2a9e` 到 `dev` | done |
+| 2026-06-20 | CI | 总 agent | 摄入 API Key 限流集成 Actions 通过 | push `02d2a9e` 触发 run `27882708234`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0026 | 总 agent | 启动摄入统计基础 | 阶段 2 已完成 HTTP 摄入、ClickHouse/MongoDB 初始化和限流基础；下一步推进可测试的摄入统计基础，先落地 accepted 计数、预留 rejected 计数字段并提供后台查询入口，不直接接 ClickHouse 写入 | doing |
+| 2026-06-20 | T-0026 | 总 agent | 摄入统计基础完成并集成 | 后端分支 `f38942e` 新增关系库 `ingest_stats` 聚合表、成功摄入统计写入和 `GET /api/v1/ingest/stats` 查询；总 agent 本地复审后按路径恢复到 `dev`，未直接 merge feature 分支历史；当前 `rejected_count`、ClickHouse 同步和真实 MySQL 并发补验仍后续推进 | done |
 
 ## 6. 测试记录
 
@@ -231,6 +235,7 @@ closed      已关闭
 | 2026-06-20 | T-0024 | ClickHouse 初始化静态验证 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`、`uv run pytest tests/test_clickhouse_init.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：ClickHouse 专项 2 passed，全量 pytest 91 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 ClickHouse 容器 |
 | 2026-06-20 | T-0024 | MongoDB events 初始化静态验证 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`、`uv run pytest tests/test_mongodb_init.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：MongoDB 专项 2 passed，全量 pytest 93 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 MongoDB 容器 |
 | 2026-06-20 | T-0025 | 摄入 API Key 限流基础验证 | `uv run pytest tests/test_config.py tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 31 passed，全量 pytest 95 passed/2 skipped，ruff、format、mypy、diff check 通过；未连接真实 Redis |
+| 2026-06-20 | T-0026 | 摄入统计基础验证 | `uv run pytest tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根仓库集成后验证：专项 23 passed，全量 pytest 97 passed/2 skipped，ruff、format、mypy、diff check 和工作树保护检查通过；未启动真实 MySQL/ClickHouse |
 
 ## 7. 审计记录
 
@@ -248,6 +253,7 @@ closed      已关闭
 | 2026-06-20 | T-0024 | ClickHouse 初始化 SQL、Compose 挂载和测试 | 通过 | Boyle/Singer 因 502 未产出可用结论且已关闭；总 agent 本地复审未发现 P0/P1/P2，P3 文档入口表述不一致已由 `d998ca1` 修正；真实 ClickHouse 容器首次初始化和表存在性仍需后续补验 | done |
 | 2026-06-20 | T-0024 | MongoDB events 初始化脚本、Compose 挂载和测试 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；脚本保持应用用户创建逻辑并新增幂等集合创建与索引声明，真实 MongoDB 容器首次初始化、应用用户登录和索引存在性仍需后续补验 | done |
 | 2026-06-20 | T-0025 | 摄入 API Key 固定窗口限流基础 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前为单进程内存限流，默认关闭，响应契约和配置已覆盖，真实 Redis/多实例分布式限流仍需后续任务 | done |
+| 2026-06-20 | T-0026 | 摄入统计表、聚合写入、查询权限和测试 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前仅统计成功摄入的 accepted 和字节数，`rejected_count` 为预留字段，真实 MySQL 并发更新、ClickHouse 同步和统计 UI 后续补齐 | done |
 
 ## 8. 阻塞问题
 
@@ -285,7 +291,8 @@ closed      已关闭
 | 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17`、`6bf0024` 和 `09425a7` 已通过真实 MySQL 补验、审计修复和本地复审；总 agent 准备按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 总 agent | ClickHouse 初始化小步与 MongoDB events 初始化小步均已按业务路径集成到 `dev`，最新集成提交 `e779305` CI 通过 | done |
-| 2026-06-20 | T-0025 | feature/backend-dev | dev | 总 agent | 摄入 API Key 限流基础 `fbf2621` 已通过总 agent 本地复审与验证，本次按业务路径集成到 `dev` | doing |
+| 2026-06-20 | T-0025 | feature/backend-dev | dev | 总 agent | 摄入 API Key 限流基础 `fbf2621` 已按业务路径集成到 `dev`，集成提交 `02d2a9e` CI 通过 | done |
+| 2026-06-20 | T-0026 | feature/backend-dev | dev | 总 agent | 摄入统计基础 `f38942e` 已按业务路径集成到 `dev`，根仓库本地验证通过；推送后读取 GitHub Actions 并补充 CI 结果记录 | done |
 
 ## 10. 决策记录
 

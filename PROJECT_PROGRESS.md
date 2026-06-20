@@ -315,3 +315,27 @@
 ### 验证
 
 - 总 agent 在后端 worktree 验证 `T-0025`：`uv run pytest tests/test_config.py tests/test_ingest_api.py` 31 passed，`uv run pytest` 95 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- GitHub Actions run `27882708234` 已通过：T-0025 摄入 API Key 限流基础集成提交后的 Backend checks 与 Frontend checks 均为 success。
+
+## 2026-06-21 T-0026 摄入统计基础
+
+### 已完成
+
+- 已登记 `T-0026` 阶段 2 摄入统计基础任务；目标是先建立可测试的摄入统计记录和后台查询入口，落地 accepted 计数并预留 rejected 计数字段，不直接接 ClickHouse 写入。
+- 后端分支 `f38942e` 已完成摄入统计基础：新增关系库 `ingest_stats` 聚合表和 Alembic migration，成功摄入后按分钟桶、项目、API Key、kind 和 source 累加 `accepted_count` 与 `bytes_count`。
+- 新增 `GET /api/v1/ingest/stats` 后台查询入口，使用用户 Bearer token 鉴权；普通用户只能查看有项目角色的统计，显式查询无权项目返回 `404 项目不存在`。
+- 总 agent 本地复审未发现 P0/P1/P2；已按业务路径恢复模型、migration、repository/service/API、测试、README、后端进度和契约草案到 `dev`，未直接 merge feature 分支历史。
+
+### 阻塞与风险
+
+- 本小步优先使用现有 MySQL/SQLite 持久化路径，ClickHouse `ingest_stats` 写入和聚合查询后续单独推进。
+- 当前只统计成功摄入路径，`rejected_count` 为预留字段；校验失败、无效 API Key、限流等失败路径统计后续补齐。
+- 真实 MySQL 聚合更新并发、ClickHouse 同步和后台统计页面仍需后续任务覆盖。
+
+### 下一步
+
+- 推送 T-0026 集成后读取 Actions 并记录结果；随后继续阶段 2 Redis 分布式限流补强、失败统计或摄入统计 UI 小步。
+
+### 验证
+
+- 总 agent 在根仓库后端验证 `T-0026`：`uv run pytest tests/test_ingest_api.py` 23 passed，`uv run pytest` 97 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 均通过。
