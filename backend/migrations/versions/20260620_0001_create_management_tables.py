@@ -139,9 +139,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_management_services_project_id", table_name="management_services")
-    op.drop_index("ix_management_services_environment_id", table_name="management_services")
     op.drop_table("management_services")
-    op.drop_index("ix_management_environments_project_id", table_name="management_environments")
     op.drop_table("management_environments")
     op.drop_table("management_projects")

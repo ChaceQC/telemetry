@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -424,7 +425,7 @@ class InMemoryManagementRepository:
         return record
 
     def list_environments(self, project_id: int | None = None) -> list[EnvironmentRecord]:
-        environments = self._environments.values()
+        environments: Iterable[EnvironmentRecord] = self._environments.values()
         if project_id is not None:
             environments = [
                 environment for environment in environments if environment.project_id == project_id
@@ -467,7 +468,7 @@ class InMemoryManagementRepository:
         project_id: int | None = None,
         environment_id: int | None = None,
     ) -> list[ServiceRecord]:
-        services = self._services.values()
+        services: Iterable[ServiceRecord] = self._services.values()
         if project_id is not None:
             services = [service for service in services if service.project_id == project_id]
         if environment_id is not None:

@@ -54,11 +54,13 @@
 15. `agents/runtime/*.log.md` 只用于本地临时通信，不得 stage、commit 或 push；`agents/runtime/api-contracts/*.md` 用于可提交的前后端契约草案。
 16. 开始编写代码、调整依赖或工程配置前，总 agent 必须启动对应开发子 agent；跨端任务必须同时启动前端开发子 agent 和后端开发子 agent。
 17. 开发子 agent 启动信息、任务边界、负责目录、当前状态和例外原因必须由总 agent 记录到 `AGENT_COMMUNICATION.md`；子 agent 的过程信息写入本地运行时日志，不得只在对话中口头说明。
+18. 每次 push 到 `main`、`dev` 或功能分支后，总 agent 必须读取 GitHub Actions 对应 run，并把成功/失败 job、失败步骤、处理决议和复查条件写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
 17. 前端开发 agent 和后端开发 agent 必须按需自行启动测试子 agent 进行验证；开发 agent 表示某一功能完成后，必须由总 agent 启动代码审计子 agent 进行审计。
 18. 前端开发 agent 只允许在独立 worktree `..\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支 commit 和 push；后端开发 agent 只允许在独立 worktree `..\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支 commit 和 push。
 18. 总 agent 负责将前后端开发分支合并到 `dev`，并在阶段验收、版本发布或必要稳定节点将 `dev` 合并到 `main`。
 19. 总 agent 维护根目录 `VERSION`，前端开发 agent 维护 `frontend/VERSION`，后端开发 agent 维护 `backend/VERSION`；所有 `VERSION` 文件只允许纯 `x.y.z`。
 20. 不要把临时方案伪装成最终方案；临时实现必须在 `PROJECT_PROGRESS.md` 中标明原因、影响范围和后续处理。
+21. CI 结果是交付状态的一部分；任何触发 Actions 的提交都必须在推送后读取 run 结果并记录。
 
 ## 3. 参考依据
 
@@ -1295,6 +1297,7 @@ CI 工作流：
 13. 需要切换分支时，由负责当前写入范围的 agent 自行执行并登记，避免多个 agent 同时切换分支。
 14. 负责写入范围的 agent 在可验证小步完成后负责提交和尽量推送；总 agent 不替开发子 agent 提交其范围内的普通开发改动。
 15. 子 agent 不直接修改 `AGENT_COMMUNICATION.md`；过程记录、验证结果和提交信息先写入自己的本地运行时日志，总 agent 再汇总稳定结论。
+16. 推送后，总 agent 必须读取 GitHub Actions run；失败时将失败 job、失败命令、修复负责人和下一次复查条件记录到正式沟通板和根进度。
 
 ### 14.3 测试与审计流转
 

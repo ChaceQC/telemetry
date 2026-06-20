@@ -72,7 +72,10 @@ src/
 
 ## 验证命令
 
+前端使用 ESLint 作为静态代码质量检查，CI 会执行 `npm run lint`：
+
 ```powershell
+npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build

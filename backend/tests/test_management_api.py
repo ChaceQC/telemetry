@@ -1,5 +1,7 @@
 from datetime import datetime
+from typing import cast
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 
@@ -25,6 +27,10 @@ def build_client() -> TestClient:
     app = create_app(settings)
     Base.metadata.create_all(app.state.db_engine)
     return TestClient(app)
+
+
+def _tested_app(client: TestClient) -> FastAPI:
+    return cast(FastAPI, client.app)
 
 
 def test_create_and_list_management_resources() -> None:
@@ -195,7 +201,7 @@ def test_duplicate_service_key_returns_conflict() -> None:
 
 def test_sqlalchemy_repository_enforces_scoped_environment_key() -> None:
     client = build_client()
-    app = client.app
+    app = _tested_app(client)
     with app.state.db_session_factory() as session:
         repository = SqlAlchemyManagementRepository(session)
         project = repository.create_project(
@@ -228,7 +234,7 @@ def test_sqlalchemy_repository_enforces_scoped_environment_key() -> None:
 
 def test_sqlalchemy_repository_maps_environment_foreign_key_to_not_found() -> None:
     client = build_client()
-    app = client.app
+    app = _tested_app(client)
     with app.state.db_session_factory() as session:
         repository = SqlAlchemyManagementRepository(session)
 
@@ -248,7 +254,7 @@ def test_sqlalchemy_repository_maps_environment_foreign_key_to_not_found() -> No
 
 def test_sqlalchemy_repository_enforces_scoped_service_key() -> None:
     client = build_client()
-    app = client.app
+    app = _tested_app(client)
     with app.state.db_session_factory() as session:
         repository = SqlAlchemyManagementRepository(session)
         project = repository.create_project(
@@ -290,7 +296,7 @@ def test_sqlalchemy_repository_enforces_scoped_service_key() -> None:
 
 def test_sqlalchemy_repository_rejects_service_project_environment_mismatch() -> None:
     client = build_client()
-    app = client.app
+    app = _tested_app(client)
     with app.state.db_session_factory() as session:
         repository = SqlAlchemyManagementRepository(session)
         project_a = repository.create_project(
@@ -332,7 +338,7 @@ def test_sqlalchemy_repository_rejects_service_project_environment_mismatch() ->
 
 def test_sqlalchemy_repository_unknown_integrity_error_is_not_duplicate() -> None:
     client = build_client()
-    app = client.app
+    app = _tested_app(client)
     with app.state.db_session_factory() as session:
         repository = SqlAlchemyManagementRepository(session)
 

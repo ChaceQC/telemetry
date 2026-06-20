@@ -35,8 +35,10 @@ closed      已关闭
 | T-0005 | 修复项目级基础设施审计问题 | 总 agent | done | done | done | done | done |
 | T-0006 | 阶段 1 最小基础管理后端 API | 总 agent | todo | done | done | done | done |
 | T-0007 | 阶段 1 基础管理前端页面 | 总 agent | done | todo | done | done | done |
-| T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 总 agent | todo | doing | done | blocked | doing |
+| T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 总 agent | todo | done | done | done | done |
 | T-0009 | 阶段 1 基础管理前端联调准备与错误展示 | 总 agent | done | todo | done | done | done |
+| T-0010 | 修复后端 CI mypy 与 MySQL downgrade | 总 agent | todo | done | done | done | done |
+| T-0011 | 修复前端 CI lint 脚本 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -76,6 +78,17 @@ closed      已关闭
 | 2026-06-20 | T-0009 | 总 agent | 启动前端联调准备开发 agent | 已启动前端开发 agent Chandrasekhar，在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 推进错误展示和联调准备；要求不提交运行日志、不代跑测试子 agent 任务 | doing |
 | 2026-06-20 | T-0009 | 代码审计 agent | 前端错误展示审计与文档修复 | 审计发现 1 个 P3 前端进度状态滞后；前端开发 agent Dewey 已提交 `4267ed6` 修复，T-0009 可待总 agent 集成 | done |
 | 2026-06-20 | T-0008 | 代码审计 agent | 后端持久化基础审计未通过 | 审计发现 2 个 P2：服务表缺少 `environment_id/project_id` 数据库一致性约束，以及 `IntegrityError` 被泛化为 duplicate key；已启动后端开发 agent Tesla 修复 | blocked |
+| 2026-06-20 | T-0008 | 代码审计 agent | 后端持久化基础复审通过 | 后端开发 agent Tesla 提交 `c856bcb` 修复两个 P2 和 README P3；复审 agent Banach 未发现 P0/P1/P2/P3 阻断；总 agent 已按业务路径集成到 `dev` | done |
+| 2026-06-20 | T-0009 | 总 agent | 前端错误展示集成 | 总 agent 已按业务路径集成前端 `70a58c7` 与 `4267ed6` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
+| 2026-06-20 | T-0002 | 用户 | 本地数据库凭据文件保护 | 根目录 `auth.txt` 为数据库账号密码文件，已加入 `.gitignore`，不读取、不提交、不 push | done |
+| 2026-06-20 | T-0008 | 总 agent | 启动真实 MySQL 补验 | 用户确认现在可以做真实 MySQL 测试；已启动后端测试 agent Parfit 在后端 worktree 使用本地 `auth.txt` 凭据补验 migration、复合外键和 API 错误行为，要求不得泄露凭据 | testing |
+| 2026-06-20 | T-0008 | 后端测试 agent | 真实 MySQL 补验部分通过 | MySQL `upgrade head`、复合外键/唯一约束创建、API 持久化行为通过；`downgrade base` 因删除仍被外键需要的索引失败，已转入 T-0010 修复 | blocked |
+| 2026-06-20 | CI | 总 agent | 读取 GitHub Actions 失败原因 | 最近 dev CI 失败原因：后端 job 执行 `uv run mypy .` 但未安装 mypy；前端 job 执行 `npm run lint` 但缺少 lint script | blocked |
+| 2026-06-20 | T-0010 | 总 agent | 启动后端 CI/MySQL 修复 agent | 已启动后端开发 agent Nietzsche，在后端 worktree 修复 Alembic downgrade 顺序和 mypy CI 依赖/配置 | doing |
+| 2026-06-20 | T-0011 | 总 agent | 启动前端 CI lint 修复 agent | 已启动前端开发 agent Aristotle，在前端 worktree 补齐真实可用的 `npm run lint` 脚本和必要配置 | doing |
+| 2026-06-20 | T-0010 | 后端测试 agent | 真实 MySQL downgrade 复验通过 | 后端开发 agent Nietzsche 提交 `b40257a` 修复后，测试 agent Hubble 在真实 MySQL 临时库验证 `upgrade head -> downgrade base -> upgrade head` 通过，并复验管理 API 持久化行为 | done |
+| 2026-06-20 | T-0011 | 前端开发 agent | 前端 lint CI 修复完成 | 前端开发 agent Aristotle 提交 `6084a13`，新增真实 `npm run lint`、ESLint 配置和锁文件更新；本地 lint/typecheck/test/build 均通过 | done |
+| 2026-06-20 | CI | 用户 | 固化 Actions 结果记录要求 | 后续每次 push 后总 agent 必须读取对应 GitHub Actions run，并把 run 结论写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md` | done |
 
 ## 6. 测试记录
 
@@ -103,7 +116,7 @@ closed      已关闭
 | 2026-06-20 | T-0006 | 阶段 1 最小基础管理后端 API | 有条件通过 | 未发现 P0/P1/P2；P3 为错误响应体契约需更明确、部分边界测试待补；认证、持久化、分页属于后续任务 | done |
 | 2026-06-20 | T-0007 | 阶段 1 基础管理前端页面 | 通过 | 初审发现 `slug/key` 和服务 `environment_id` 契约不一致；T-0007-fix 已修复并复审通过，无 P0/P1/P2/P3 阻断 | done |
 | 2026-06-20 | T-0009 | 阶段 1 基础管理前端错误展示 | 通过 | 初审仅发现 P3 前端进度状态滞后；已由 `4267ed6` 修复，未发现 P0/P1/P2 阻断 | done |
-| 2026-06-20 | T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 未通过 | P2：服务与环境项目归属缺少数据库级一致性约束；P2：`IntegrityError` 泛化为 duplicate key；P3：README 残留内存 repository 描述 | blocked |
+| 2026-06-20 | T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 通过 | 初审发现 2 个 P2 和 1 个 P3；`c856bcb` 已补数据库复合外键/错误分流/README 修正，复审通过；真实 MySQL 容器补验仍待后续执行 | done |
 
 ## 8. 阻塞问题
 
@@ -124,7 +137,10 @@ closed      已关闭
 | 2026-06-20 | T-0007 | feature/frontend-dev | dev | 总 agent | 前端 T-0007-fix 提交 `d0b0ff2` 已复审通过；按业务路径集成，未合入 runtime log 历史 | done |
 | 2026-06-20 | T-0008 | feature/backend-dev | dev | 后端开发 agent Linnaeus | 后端持久化基础开发中，完成后需由后端 agent 自行提交并 push，再由总 agent 审计和集成 | doing |
 | 2026-06-20 | T-0009 | feature/frontend-dev | dev | 前端开发 agent Chandrasekhar/Dewey | `70a58c7` 完成错误展示增强，`4267ed6` 修复审计 P3 文档状态；待总 agent 按业务路径集成 | done |
-| 2026-06-20 | T-0008-fix | feature/backend-dev | dev | 后端开发 agent Tesla | 正在修复 T-0008 两个 P2 和一个 P3；修复后需重新审计 | doing |
+| 2026-06-20 | T-0008-fix | feature/backend-dev | dev | 后端开发 agent Tesla | `c856bcb` 已修复 T-0008 审计问题并通过复审；总 agent 已按业务路径集成到 `dev` | done |
+| 2026-06-20 | T-0010 | feature/backend-dev | dev | 后端开发 agent Nietzsche | 修复中；完成后需后端测试/审计并由总 agent 集成 | doing |
+| 2026-06-20 | T-0011 | feature/frontend-dev | dev | 前端开发 agent Aristotle | `6084a13` 已补齐 lint script 和 ESLint 配置；总 agent 已按业务路径集成 | done |
+| 2026-06-20 | T-0010 | feature/backend-dev | dev | 后端开发 agent Nietzsche | `b40257a` 已修复 mypy CI 与 MySQL downgrade，并经真实 MySQL 复验通过；总 agent 已按业务路径集成 | done |
 
 ## 10. 决策记录
 

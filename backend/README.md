@@ -167,6 +167,7 @@ tests/              # pytest 测试
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
+uv run mypy .
 uv run alembic upgrade head
 uv run python main.py
 ```

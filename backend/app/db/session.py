@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -21,7 +23,7 @@ def create_database_engine(database_url: str) -> Engine:
     if database_url.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
-        def _enable_sqlite_foreign_keys(dbapi_connection: object, _: object) -> None:
+        def _enable_sqlite_foreign_keys(dbapi_connection: Any, _: object) -> None:
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()

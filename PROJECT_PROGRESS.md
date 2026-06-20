@@ -58,6 +58,15 @@
 - 已启动前端开发 agent Chandrasekhar 推进 `T-0009` 基础管理前端联调准备与错误展示，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev`。
 - `T-0009` 前端错误展示增强已由 Chandrasekhar 提交 `70a58c7` 并由测试子 agent Beauvoir 验证通过；代码审计仅发现 P3 进度状态滞后，Dewey 已提交 `4267ed6` 修复。
 - `T-0008` 后端持久化基础已由 Linnaeus 提交 `10010af`，但代码审计 Hume 发现 2 个 P2 和 1 个 P3，当前已启动 Tesla 在后端 worktree 修复。
+- `T-0008-fix` 已由 Tesla 提交 `c856bcb` 并通过 Banach 只读复审；总 agent 已按业务路径集成到 `dev`。
+- 用户已确认可以进行真实 MySQL 补验；已启动后端测试 agent Parfit 在后端 worktree 使用本地 `auth.txt` 凭据验证 Alembic migration、复合外键和 API 错误行为，要求不泄露凭据。
+- 已读取 GitHub Actions 最近失败日志：后端 CI 失败于 `uv run mypy .` 找不到 `mypy`；前端 CI 失败于 `npm run lint` 缺少 lint script。
+- 真实 MySQL 补验显示 `upgrade head`、复合外键/唯一约束和 API 持久化行为可用，但 `downgrade base` 因 MySQL 不允许删除仍被外键需要的索引而失败。
+- 已启动后端开发 agent Nietzsche 修复 Alembic downgrade 顺序和后端 mypy CI 依赖/配置。
+- 已启动前端开发 agent Aristotle 补齐真实可用的 `npm run lint` 脚本和必要配置。
+- 后端开发 agent Nietzsche 已提交 `b40257a`，补齐 mypy 依赖/配置并修复 MySQL downgrade 删除顺序；后端测试 agent Hubble 已用真实 MySQL 验证 `upgrade head -> downgrade base -> upgrade head` 通过。
+- 前端开发 agent Aristotle 已提交 `6084a13`，新增 ESLint 配置和 `npm run lint`，本地 lint/typecheck/test/build 均通过。
+- 已将“每次 push 后读取 GitHub Actions run 并写入文档”固化到 `AGENT.md` 和 `PROJECT_PLAN.md`。
 
 ### 阻塞与风险
 
@@ -70,7 +79,9 @@
 - 管理 API 仍未接入认证/权限，越权请求被拒绝的阶段 1 验收标准尚未满足。
 - 前端 Settings 页面尚未做浏览器 E2E 或真实后端联调；当前验证来自前端测试子 agent 的 typecheck/test/build。
 - 后端错误响应体契约仍需正式化，部分重复 key、非法查询参数和边界长度测试待补。
-- `T-0008` 当前阻塞集成：服务表缺少环境/项目归属的数据库级一致性约束，且 repository 将部分未知 `IntegrityError` 泛化为 duplicate key；修复完成并复审前不得集成到 `dev`。
+- `T-0008` 已通过代码复审并集成，但真实 MySQL migration、外键名/错误码映射、唯一索引和 API 404/409 行为仍在补验中。
+- 当前等待项：本次集成推送到 `dev` 后，需要读取最新 GitHub Actions run，并把 CI 结果再次写入根沟通与进度文件。
+- 真实 MySQL 已验证管理 migration 升降级和 API 持久化行为；未覆盖独立 `uvicorn` 网络进程、认证、并发和更完整业务边界。
 
 ### 下一步
 
@@ -78,7 +89,7 @@
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
-- 等待 T-0008-fix 修复并复审通过；T-0009 已通过审计，后续可与后端修复一起按业务路径集成到 `dev`。
+- 推送本次集成到 `dev` 后，立即读取 GitHub Actions 最新 run；若失败，记录失败 job、失败步骤和下一轮修复任务。
 
 ### 验证
 
@@ -109,3 +120,5 @@
 - 后端 `T-0006` 的验证由后端 agent/测试子 agent 在 `feature/backend-dev` 工作树完成：`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .` 通过。
 - 前端 `T-0007-fix` 的验证由前端 agent/测试子 agent 在 `feature/frontend-dev` 工作树完成：`npm.cmd run typecheck`、`npm.cmd run test`、`npm.cmd run build` 通过。
 - 本轮总 agent 没有在根工作树代跑前端或后端测试、构建、lint 或服务启动命令；只执行了集成、文档和 Git 状态检查。
+- GitHub Actions 旧 run `27869177639` 失败原因已读取：后端 `uv run mypy .` 找不到 `mypy`，前端 `npm run lint` 缺少脚本；已分别由 T-0010/T-0011 修复。
+- 真实 MySQL 复验由后端测试 agent Hubble 执行，使用本地 `auth.txt` 凭据但未泄露连接串；临时库已清理，工作树干净。

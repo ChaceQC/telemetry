@@ -6,6 +6,8 @@
 
 ### 已完成
 
+- `T-0011-frontend-ci-lint-fix`：为前端补齐真实可用的 `npm run lint`，新增 ESLint flat config，接入 TypeScript、React Hooks、React Refresh 和 browser/node globals 检查，脚本使用 `eslint . --max-warnings=0`。
+- `T-0011-frontend-ci-lint-fix`：新增 ESLint 相关 devDependencies，并同步 `package.json`、`package-lock.json`；更新 `frontend/README.md` 验证命令，明确 CI lint 对应的本地命令。
 - `T-0009`：按协调要求先同步 `origin/dev` 日志规则修正，`.gitignore` 已加入 `agents/runtime/*.log.md`，并通过 `git rm --cached` 将本地运行日志移出 Git 跟踪；清理提交 `ff21e8f` 已推送到 `feature/frontend-dev`。
 - `T-0009`：增强 API client 错误解析，FastAPI `detail` 为字符串、校验数组或对象时均可提取展示；Settings 列表错误使用页面级文案，创建表单对 `404`、`409`、`422` 使用表单级文案并保留后端返回的具体原因。
 - `T-0009`：补充 Vitest 覆盖对象型 `detail`、页面级 404 和表单级 404/409/422 错误展示；请求字段继续保持后端 T-0006/T-0008 契约的 `key` 和服务必填 `environment_id`，未新增后端不存在字段。
@@ -41,6 +43,7 @@
 ### 阻塞与风险
 
 - 暂无阻塞。
+- `T-0011` 本轮只补前端静态检查门禁，未新增业务功能；ESLint 规则采用推荐集和 React 运行时相关规则，后续若加入格式化工具或类型感知规则，需要再评估 CI 时长和误报成本。
 - 后端 T-0006 项目、环境、服务 API 已在后端 worktree 的 `agents/runtime/api-contracts/backend.md` 登记；前端已按该契约对齐 `key` 和必填 `environment_id`。
 - `T-0009` 本轮目标是不依赖后端服务已启动的联调准备；未启动真实后端，未执行浏览器 E2E 或真实接口联调，待后端阶段 1 服务可用后补验 404/409/422 实际响应。
 - `T-0007` 本轮未做浏览器联调；待后端接口完成后补真实接口联调和必要的 E2E 覆盖。
@@ -58,6 +61,9 @@
 
 ### 验证
 
+- `T-0011-frontend-ci-lint-fix` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（1 个测试文件、7 个测试通过），`npm.cmd run build` 通过。
+- `T-0011-frontend-ci-lint-fix` 执行 `npm.cmd install --save-dev eslint @eslint/js typescript-eslint eslint-plugin-react-hooks eslint-plugin-react-refresh globals` 后，npm audit 结果为 0 个漏洞。
+- `T-0011-frontend-ci-lint-fix` 已检查待提交和 ignored 文件，`frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md` 均命中 `.gitignore`，未进入待提交列表。
 - `T-0009` 已由测试子 agent Beauvoir 复验：`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过，`npm.cmd run build` 通过；Vitest 共 1 个测试文件、7 个测试通过。
 - 测试子 agent Beauvoir 已检查待提交和 ignored 文件，未发现 `frontend/dist/`、`frontend/node_modules/`、日志或真实 env 进入待提交/未跟踪列表；`frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md` 和常见真实 env 均命中 ignore 规则。
 - `T-0009` 未运行 lint，未启动 dev/preview 服务，未做浏览器交互、截图、E2E 或真实后端 API 联调，已记录为后续补验边界。

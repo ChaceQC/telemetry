@@ -146,3 +146,35 @@
 - 已运行 `uv run ruff check .`，结果：通过。
 - 已运行 `uv run ruff format --check .`，结果：38 个文件已格式化。
 - 已使用 `DATABASE_URL=sqlite:///./tmp-t0008-fix-alembic.db` 运行 `uv run alembic upgrade head` 和 `uv run alembic downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+
+## 2026-06-20 T-0010-backend-ci-mysql-fix
+
+### 已完成
+
+- 修复 MySQL downgrade 顺序：`20260620_0001_create_management_tables.py` 不再在 `management_services` 表存在时先删除 `ix_management_services_project_id` / `ix_management_services_environment_id`，改为按子表到父表直接删除表，由 MySQL 随表释放外键和支撑索引，避免错误 1553。
+- 后端 dev 依赖新增 `mypy` 并更新 `uv.lock`，补充 `[tool.mypy]` 基础配置，使 GitHub Actions 中的 `uv run mypy .` 能实际执行类型检查。
+- 修复 mypy 暴露的轻量类型问题：SQLite 连接事件回调、内存 repository 过滤变量类型、测试中 `TestClient.app` 到 `FastAPI` 的显式 cast。
+- 更新 `backend/README.md` 验证命令，纳入 `uv run mypy .`。
+
+### 进行中
+
+- 等待测试 agent 在真实 MySQL 环境中补跑 `uv run alembic upgrade head` 和 `uv run alembic downgrade base`。
+
+### 阻塞与风险
+
+- 当前后端 worktree 没有真实 MySQL 服务，本次只能完成 SQLite 升降级和 MySQL 离线 SQL 静态检查；错误 1553 的最终闭环需测试 agent 在真实 MySQL 中确认。
+- `uv run pytest` 仍有 1 条 FastAPI/Starlette TestClient 上游弃用警告，不影响本次验证通过。
+
+### 下一步
+
+- 由测试 agent 使用真实 MySQL 补验 upgrade head、downgrade base，并回归基础管理 API 的唯一约束和外键约束。
+- 后续继续处理认证/权限和分页契约，不属于本次 CI/MySQL downgrade 修复范围。
+
+### 验证
+
+- 已运行 `uv run mypy .`，结果：38 个源文件无类型错误。
+- 已运行 `uv run pytest`，结果：18 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：38 个文件已格式化。
+- 已使用 `sqlite:///./tmp-t0010-ci-mysql-fix.db` 运行 `uv run alembic -x database_url=sqlite:///./tmp-t0010-ci-mysql-fix.db upgrade head` 和 `uv run alembic -x database_url=sqlite:///./tmp-t0010-ci-mysql-fix.db downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+- 已运行 MySQL dialect 离线 SQL 生成：`uv run alembic -x database_url='mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4' upgrade head --sql` 和 `uv run alembic -x database_url='mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4' downgrade 20260620_0001:base --sql`；downgrade SQL 输出为先 `DROP TABLE management_services`，再删除父表，不再输出先删除外键支撑索引的语句。

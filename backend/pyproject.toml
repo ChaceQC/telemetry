@@ -16,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.0",
+    "mypy>=2.1.0",
     "pytest>=8.3.0",
     "ruff>=0.8.0",
 ]
@@ -24,10 +25,17 @@ dev = [
 pythonpath = ["."]
 testpaths = ["tests"]
 
+[tool.mypy]
+python_version = "3.12"
+files = ["app", "migrations", "tests", "main.py"]
+plugins = ["pydantic.mypy"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-

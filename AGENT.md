@@ -63,6 +63,7 @@ agents/runtime/
 17. 每个 agent 完成一个可验证小步后，不得长期保持未提交状态；负责该写入范围的 agent 必须自行检查状态、文档、锁文件和敏感文件，并按所属分支提交和尽量推送。
 18. 开发型子 agent 必须在独立 Git worktree 中工作；根工作树只允许总 agent 做规则维护、汇总、审计触发、集成和发布。
 19. 默认 worktree 路径为 `..\telemetry-worktrees\frontend` 和 `..\telemetry-worktrees\backend`，可通过 `scripts/Initialize-AgentWorktrees.ps1` 创建。
+20. 每次推送到会触发 GitHub Actions 的分支后，总 agent 必须读取对应 Actions run 结果，将成功、失败 job、失败步骤和后续处理写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
 
 ## 4. 并行开发规则
 
@@ -130,6 +131,7 @@ agents/runtime/
 17. 根工作树不得作为并行开发目录；若历史遗留改动已在根工作树或错误分支中产生，必须先冻结新开发，由总 agent 拆分迁移或要求对应 agent 在所属 worktree 重新提交。
 18. `AGENT_COMMUNICATION.md` 只允许总 agent 修改；子 agent 通过 ignored 的 `agents/runtime/*.log.md` 追加本地过程日志，不提交不 push；总 agent 汇总稳定结论后再修改总沟通文件。
 19. `agents/runtime/api-contracts/*.md` 是可提交的契约草案；`agents/runtime/*.log.md` 是本地临时通信文件，已进入 `.gitignore`，不得 stage、commit 或 push。
+20. 推送后不得只依赖本地测试结论；总 agent 必须读取 GitHub Actions 对应 run，若失败则记录失败原因、处理任务和下一次复查条件。
 
 ## 9. 版本文件规则
 
