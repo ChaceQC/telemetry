@@ -99,7 +99,9 @@
 - 整理工作树和 Git 防混乱机制：根工作树、前端 worktree、后端 worktree当前均位于预期分支；新增 `scripts/Test-AgentWorktreeState.ps1` 作为开工、集成、提交后的严格只读体检脚本，提交前可加 `-AllowPendingChanges` 检查本次待提交改动是否触碰敏感文件、运行日志、依赖目录、构建产物和 feature 分支集成风险。
 - 推送工作树体检脚本提交 `ef11d58` 后已读取 GitHub Actions run `27875542932`：Backend checks 与 Frontend checks 均通过。
 - 已登记 `T-0020` 阶段 1 项目级 RBAC 与团队角色后端基础任务；后续由后端开发 agent 在独立后端 worktree 推进权限模型、管理 API 授权和越权拒绝测试，总 agent 仅负责协调、审计触发和集成。
-- `T-0020` 后端开发 agent Pascal 已提交并推送 `57a16e9` 到 `feature/backend-dev`：新增 RBAC 团队/成员/项目权限表、权限 repository/service、管理 API 权限收敛和越权测试；本地后端验证通过，等待代码审计和真实 MySQL 补验结论。
+- `T-0020` 后端开发 agent Pascal 已提交并推送 `57a16e9` 到 `feature/backend-dev`：新增 RBAC 团队/成员/项目权限表、权限 repository/service、管理 API 权限收敛和越权测试；本地后端验证通过。
+- `T-0020` 代码审计 agent Kierkegaard 审计未通过：发现项目创建与创建者 admin 授权事务不一致的 P1、服务创建可探测无权限环境 ID 的 P2，以及对应回归测试缺口；当前不得集成到 `dev`，需后端修复后复审。
+- 已启动后端开发 agent Mendel 修复 `T-0020` 审计问题，范围限定在后端 worktree：统一项目创建与授权事务、消除服务创建跨项目环境存在性探测，并补关键回归测试。
 
 ### 阻塞与风险
 
@@ -141,7 +143,7 @@
 - 等待 T-0016-rerun 结果；如通过则记录阶段 1 认证后基础管理闭环，如失败继续分派精确修复。
 - 阶段 1 认证后基础管理链路已在本地真实浏览器联调闭环；下一步可推进项目级 RBAC/团队角色/API Key 管理，或补真实 Nginx HTTPS 子路径反代演练。
 - `T-0020` 已进入进行中：优先实现后端团队/角色/项目成员权限基础，为 API Key 创建撤销、摄入鉴权和阶段 1“越权请求被拒绝”验收打底。
-- 等待 `T-0020` 代码审计 agent Kierkegaard 和真实 MySQL 补验 agent Halley 结论；如通过，总 agent 按业务路径从 `feature/backend-dev` 集成 `57a16e9` 到 `dev` 并读取 Actions。
+- 等待后端修复 `T-0020` 审计问题：项目创建与创建者授权必须同事务，服务创建不得泄露无权限环境 ID 存在性，并补对应回归测试；修复后重新审计，再决定是否集成。
 
 ### 验证
 
@@ -181,3 +183,4 @@
 - T-0016-rerun 使用本地 `auth.txt` 凭据但未泄露连接串；临时 MySQL 库、前后端进程、构建产物和 Playwright 临时文件均已清理，`25173/25174/28117` 无监听。
 - GitHub Actions run `27876325045` 已通过：T-0020 登记提交后的 Backend checks 与 Frontend checks 均为 success，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test。
 - `T-0020` 后端开发自测由 Pascal 在后端 worktree 完成：`uv run pytest` 61 passed，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，SQLite Alembic `upgrade head -> downgrade base` 通过；总 agent 已读取 `feature/backend-dev` Actions run 列表，未发现 `57a16e9` 对应 run。
+- GitHub Actions run `27877147290` 已通过：RBAC 进展记录提交后的 Backend checks 与 Frontend checks 均为 success。

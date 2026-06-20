@@ -47,7 +47,7 @@ closed      已关闭
 | T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | done | done | done | done |
 | T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
-| T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | testing | audit | audit |
+| T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | doing | testing | blocked | doing |
 
 ## 4. API 契约登记
 
@@ -136,6 +136,9 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | T-0020 登记提交 Actions 通过 | push `39737ec` 触发 run `27876325045`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0020 | 后端开发 agent | 项目级 RBAC 后端基础完成 | Pascal 已提交并 push `57a16e9` 到 `feature/backend-dev`：新增 RBAC 表、权限 repository/service、管理 API 权限收敛和越权测试；本地验证 `uv run pytest`、ruff、mypy、SQLite Alembic 升降级均通过；总 agent 读取 `feature/backend-dev` Actions run 列表，未发现本次 push 触发的 run | audit |
 | 2026-06-20 | T-0020 | 总 agent | 启动 RBAC 审计与真实 MySQL 补验 | 已启动代码审计 agent Kierkegaard 只读审计提交 `57a16e9`；已启动后端测试 agent Halley 使用真实 MySQL 临时库补验迁移、约束和越权 API 行为，要求不泄露 `auth.txt` 凭据 | testing |
+| 2026-06-20 | CI | 总 agent | RBAC 进展记录 Actions 通过 | push `7b03b1a` 触发 run `27877147290`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0020 | 代码审计 agent | RBAC 后端基础审计未通过 | Kierkegaard 审计 `57a16e9` 发现 1 个 P1：项目创建与创建者 admin 授权不在同一事务，授权失败会留下无 owner 项目；2 个 P2：服务创建可探测无权限环境 ID 是否存在，且缺少两个关键回归测试。当前不得集成到 `dev` | blocked |
+| 2026-06-20 | T-0020-fix | 总 agent | 启动 RBAC 审计问题修复 | 已启动后端开发 agent Mendel 修复 `57a16e9` 审计问题，范围限定在后端 worktree `feature/backend-dev`：统一项目创建与授权事务、消除服务创建跨项目环境存在性探测、补回归测试并更新后端进度/契约 | doing |
 
 ## 6. 测试记录
 
@@ -196,7 +199,8 @@ closed      已关闭
 | 2026-06-20 | T-0015 | feature/frontend-dev | dev | 前端开发 agent Meitner | `a48755a` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | T-0014 | feature/backend-dev | dev | 后端开发 agent Pasteur | `1fe0d62` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
-| 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal | `57a16e9` 已完成并推送；等待代码审计 agent Kierkegaard 和真实 MySQL 补验 agent Halley 结论，通过后由总 agent 按业务路径集成 | audit |
+| 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal | `57a16e9` 审计未通过，需先修复事务边界、服务创建越权探测和回归测试；修复复审通过后再由总 agent 按业务路径集成 | blocked |
+| 2026-06-20 | T-0020-fix | feature/backend-dev | dev | 后端开发 agent Mendel | 修复 `57a16e9` 审计 P1/P2 中；完成后需复审和真实 MySQL 补验结论，再由总 agent 决定集成 | doing |
 
 ## 10. 决策记录
 
