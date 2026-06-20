@@ -193,6 +193,7 @@ closed      已关闭
 | 2026-06-20 | T-0023-fix | 总 agent | 重派 metrics value 严格校验修复 | Parfit 修复 agent 因 502 中断，后端 worktree 检查干净且仍在 `50c8f17`；已关闭 Parfit 并重派 Franklin 修复 metrics `value` strict numeric 校验与测试 | doing |
 | 2026-06-20 | T-0023-fix | 总 agent | metrics value 严格校验修复完成 | Franklin 也因 502 中断且后端 worktree 干净；总 agent 在后端 worktree 直接完成小范围修复并 push `6bf0024`：metrics `value` 在 Pydantic 转换前拒绝字符串/布尔等非 JSON number，补对应 `422` 测试；验证 `tests/test_ingest_api.py`、全量 pytest、ruff、format check、mypy、diff check 均通过；后端子进度记录提交 `09425a7` | audit |
 | 2026-06-20 | T-0023-fix | 总 agent | metrics value 严格校验本地复审通过 | Carson 复审 agent 因 502 中断，已关闭；总 agent 本地只读复审最新 `feature/backend-dev`：确认 `6bf0024` 仅改 schema/test、`09425a7` 仅改后端进度，`tests/test_ingest_api.py` 20 passed，额外 Pydantic 探针确认字符串/布尔 value 被拒且合法 int/float 通过，`git diff --check` 干净；结论为可集成 | done |
+| 2026-06-20 | CI | 总 agent | metrics/logs 摄入集成 Actions 通过 | push `d5c5272` 触发 run `27881126781`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；存在官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 

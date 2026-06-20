@@ -144,6 +144,8 @@
 - `T-0023-fix` 修复 agent Parfit 因 502 中断，后端 worktree 检查干净且仍停在 `50c8f17`；已关闭 Parfit 并重派 Franklin 修复 metrics `value` strict numeric 校验与测试。
 - `T-0023-fix` 修复 agent Franklin 也因 502 中断且后端 worktree 干净；总 agent 在后端 worktree 直接完成小范围修复并推送 `6bf0024`，metrics `value` 在 Pydantic 转换前拒绝字符串/布尔等非 JSON number，并补 `422` 回归测试；后端子进度记录提交 `09425a7`。已启动 Carson 复审最新 `feature/backend-dev`。
 - `T-0023-fix` 复审 agent Carson 因 502 中断，已关闭；总 agent 本地只读复审最新 `feature/backend-dev`，确认 `6bf0024` 仅改 schema/test、`09425a7` 仅改后端进度，`tests/test_ingest_api.py` 20 passed，额外 Pydantic 探针确认字符串/布尔 value 被拒且合法 int/float 通过，`git diff --check` 干净；结论为可集成。
+- 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0023` 到 `dev`，包含 metrics/logs API 基础 `50c8f17`、strict value 修复 `6bf0024` 和后端进度记录 `09425a7`，未直接 merge feature 分支历史或运行日志。
+- 推送 `T-0023` 集成提交 `d5c5272` 后已读取 GitHub Actions run `27881126781`：Backend checks 与 Frontend checks 均通过；阶段 2 HTTP 上报 metrics、logs、events 三类数据的最小 API 闭环。
 
 ### 阻塞与风险
 
@@ -194,7 +196,7 @@
 - `T-0023` 已进入进行中：先实现 metrics/logs 专用摄入 API，再安排代码审计和真实 MySQL/接口补验。
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
-- `T-0023` 已具备集成条件：下一步按业务路径从 `feature/backend-dev` 恢复 `50c8f17`、`6bf0024`、`09425a7` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，推送后读取 Actions。
+- 阶段 2 当前完成 HTTP 上报 metrics、logs、events 的最小 API；仍未完成 ClickHouse 表初始化、MongoDB events 集合初始化、Redis 限流和摄入统计。
 
 ### 验证
 
@@ -265,3 +267,4 @@
 - GitHub Actions run `27880667752` 已通过：metrics/logs 摄入审计补验记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - 总 agent 在后端 worktree 验证 `6bf0024` 修复：`uv run pytest tests/test_ingest_api.py` 20 passed，`uv run pytest` 89 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
 - 总 agent 本地复审 `6bf0024`：Pydantic 探针确认 metrics `value` 为字符串或布尔值时校验失败，合法 float/int 通过；`tests/test_ingest_api.py` 20 passed。
+- GitHub Actions run `27881126781` 已通过：T-0023 metrics/logs 摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。
