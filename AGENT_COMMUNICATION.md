@@ -219,6 +219,7 @@ closed      已关闭
 | 2026-06-20 | T-0026 | 总 agent | 启动摄入统计基础 | 阶段 2 已完成 HTTP 摄入、ClickHouse/MongoDB 初始化和限流基础；下一步推进可测试的摄入统计基础，先落地 accepted 计数、预留 rejected 计数字段并提供后台查询入口，不直接接 ClickHouse 写入 | doing |
 | 2026-06-20 | T-0026 | 总 agent | 摄入统计基础完成并集成 | 后端分支 `f38942e` 新增关系库 `ingest_stats` 聚合表、成功摄入统计写入和 `GET /api/v1/ingest/stats` 查询；总 agent 本地复审后按路径恢复到 `dev`，未直接 merge feature 分支历史；当前 `rejected_count`、ClickHouse 同步和真实 MySQL 并发补验仍后续推进 | done |
 | 2026-06-20 | CI | 总 agent | 摄入统计基础集成 Actions 通过 | push `aad6cf1` 触发 run `27883234576`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | CI | 总 agent | 摄入统计 CI 结果记录提交 Actions 通过 | push `796d3ef` 触发 run `27883282889`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 
