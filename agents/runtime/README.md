@@ -27,3 +27,25 @@
 ```
 
 如果日志之间存在冲突，总 agent 在 `AGENT_COMMUNICATION.md` 记录冲突和决议。
+
+## 2026-06-20T15:59:00+08:00
+- agent: total
+- task: T-0005
+- worktree: C:\Users\q-lau\Documents\telemetry
+- branch: dev
+- status: done
+- summary: 推进阶段 0 项目级基础设施，新增根 README、根 `.env.example`、开发 Docker Compose 草案和 GitHub Actions 基础 CI 草案；同步更新根进度。
+- files:
+  - README.md
+  - .env.example
+  - docker-compose.dev.yml
+  - .github/workflows/ci.yml
+  - PROJECT_PROGRESS.md
+  - agents/runtime/README.md
+- validation:
+  - 仅执行 UTF-8 只读检查、Git 状态检查、敏感文件关键字检查和锁文件影响检查。
+  - 执行 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，仅验证 Compose 配置展开，未启动容器。
+  - 按用户边界未运行前端或后端测试、构建、lint 或服务启动命令。
+  - 未修改 AGENT_COMMUNICATION.md。
+- commit: 本日志随本次项目级基础设施提交一并提交；最终 commit id 以 Git 记录和最终汇报为准。
+- needs_total_agent: false

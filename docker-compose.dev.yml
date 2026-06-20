@@ -1,0 +1,102 @@
+name: telemetry-dev
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: telemetry-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-telemetry}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      TZ: Asia/Shanghai
+    ports:
+      - "${MYSQL_HOST:-127.0.0.1}:${MYSQL_PORT:-23316}:3306"
+    volumes:
+      - telemetry-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - telemetry-dev
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: telemetry-clickhouse-dev
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-telemetry}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-telemetry_app}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      TZ: Asia/Shanghai
+    ports:
+      - "${CLICKHOUSE_HOST:-127.0.0.1}:${CLICKHOUSE_HTTP_PORT:-28123}:8123"
+      - "${CLICKHOUSE_HOST:-127.0.0.1}:${CLICKHOUSE_NATIVE_PORT:-29001}:9000"
+    volumes:
+      - telemetry-clickhouse-data:/var/lib/clickhouse
+      - telemetry-clickhouse-logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - telemetry-dev
+
+  mongodb:
+    image: mongo:7
+    container_name: telemetry-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-telemetry}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MONGODB_HOST:-127.0.0.1}:${MONGODB_PORT:-27018}:27017"
+    volumes:
+      - telemetry-mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - telemetry-dev
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: telemetry-redis-dev
+    restart: unless-stopped
+    command: >
+      sh -c 'if [ -n "$${REDIS_PASSWORD}" ]; then
+        redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}";
+      else
+        redis-server --appendonly yes;
+      fi'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      TZ: Asia/Shanghai
+    ports:
+      - "${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-26380}:6379"
+    volumes:
+      - telemetry-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$${REDIS_PASSWORD}\" ]; then redis-cli -a \"$${REDIS_PASSWORD}\" ping; else redis-cli ping; fi"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - telemetry-dev
+
+networks:
+  telemetry-dev:
+    name: telemetry-dev
+
+volumes:
+  telemetry-mysql-data:
+  telemetry-clickhouse-data:
+  telemetry-clickhouse-logs:
+  telemetry-mongodb-data:
+  telemetry-redis-data:

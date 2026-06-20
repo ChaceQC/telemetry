@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - feature/frontend-dev
+      - feature/backend-dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect backend project
+        id: backend
+        shell: bash
+        run: |
+          if [ -f pyproject.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "backend/pyproject.toml not found, skip backend checks for this branch."
+          fi
+
+      - name: Set up Python
+        if: steps.backend.outputs.present == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        if: steps.backend.outputs.present == 'true'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install backend dependencies
+        if: steps.backend.outputs.present == 'true'
+        run: uv sync --all-extras --dev
+
+      - name: Ruff lint
+        if: steps.backend.outputs.present == 'true'
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        if: steps.backend.outputs.present == 'true'
+        run: uv run ruff format --check .
+
+      - name: Type check
+        if: steps.backend.outputs.present == 'true'
+        run: uv run mypy .
+
+      - name: Pytest
+        if: steps.backend.outputs.present == 'true'
+        run: uv run pytest
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect frontend project
+        id: frontend
+        shell: bash
+        run: |
+          if [ -f package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "frontend/package.json not found, skip frontend checks for this branch."
+          fi
+
+      - name: Set up Node.js
+        if: steps.frontend.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: steps.frontend.outputs.present == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.frontend.outputs.present == 'true'
+        run: npm run lint
+
+      - name: Type check
+        if: steps.frontend.outputs.present == 'true'
+        run: npm run typecheck
+
+      - name: Test
+        if: steps.frontend.outputs.present == 'true'
+        run: npm test
