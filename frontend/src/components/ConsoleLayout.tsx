@@ -1,6 +1,7 @@
-import { Activity, Bell, Boxes, Gauge, LayoutDashboard, Search, Settings } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Activity, Bell, Boxes, Gauge, LayoutDashboard, LogIn, LogOut, Search, Settings } from 'lucide-react';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { appConfig } from '../api/config';
+import { useAuth } from '../features/auth/useAuth';
 
 const navigationItems = [
   { label: '总览', to: '/', icon: LayoutDashboard },
@@ -13,6 +14,9 @@ const navigationItems = [
 ];
 
 export function ConsoleLayout() {
+  const auth = useAuth();
+  const accountLabel = auth.user?.display_name || auth.user?.username || (auth.isAuthenticated ? '会话待确认' : '未登录');
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="主导航">
@@ -42,6 +46,27 @@ export function ConsoleLayout() {
             );
           })}
         </nav>
+
+        <div className="sidebar-account" aria-label="认证状态">
+          <div>
+            <span>当前账号</span>
+            <strong>{auth.isRestoring ? '恢复中' : accountLabel}</strong>
+          </div>
+          {auth.isAuthenticated ? (
+            <button className="icon-button" type="button" onClick={auth.logout} title="退出登录">
+              <LogOut size={17} aria-hidden="true" />
+            </button>
+          ) : (
+            <Link className="icon-button" to="/login" title="登录">
+              <LogIn size={17} aria-hidden="true" />
+            </Link>
+          )}
+          {auth.sessionErrorMessage ? (
+            <p className="sidebar-account-message" role="status">
+              {auth.sessionErrorMessage}
+            </p>
+          ) : null}
+        </div>
       </aside>
 
       <main className="workspace">

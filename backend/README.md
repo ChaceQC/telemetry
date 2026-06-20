@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口和阶段 1 基础管理 API 的 SQLAlchemy 持久化基础。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础，以及最小认证/当前用户依赖骨架。
 
 ## 环境要求
 
@@ -30,6 +30,9 @@ uv run python main.py
 | `BACKEND_RELOAD` | `false` | 是否启用 uvicorn reload |
 | `LOG_LEVEL` | `info` | uvicorn 日志级别 |
 | `DATABASE_URL` | `sqlite:///./telemetry-dev.db` | SQLAlchemy 数据库连接；MySQL 使用 `mysql+pymysql://...?...charset=utf8mb4` |
+| `AUTH_SECRET_KEY` | 未设置 | JWT 签名密钥；未设置或少于 32 个 UTF-8 字节时认证接口返回 `503`，生产环境必须使用 32 字节以上随机密钥 |
+| `AUTH_TOKEN_ALGORITHM` | `HS256` | JWT 签名算法 |
+| `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | 访问 token 有效期，单位分钟 |
 
 示例：
 
@@ -54,13 +57,14 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-首个迁移版本 `20260620_0001` 创建：
+当前迁移创建以下表：
 
 | 表 | 说明 | 关键约束 |
 | --- | --- | --- |
 | `management_projects` | 项目元数据 | `key` 全局唯一 |
 | `management_environments` | 环境元数据 | 外键 `project_id`，同项目下 `key` 唯一，`(id, project_id)` 供服务复合外键引用 |
 | `management_services` | 服务元数据 | 外键 `project_id`、`environment_id`，`(environment_id, project_id)` 复合外键约束环境归属，同环境下 `key` 唯一 |
+| `auth_users` | 本地登录用户 | `username` 唯一，`email` 唯一且可为空，密码仅保存哈希 |
 
 MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引和 API 集成验证。
 
@@ -93,6 +97,63 @@ GET /health
 | `version` | string | 当前后端版本，默认读取 `backend/VERSION` |
 | `environment` | string | 当前运行环境，来自 `APP_ENV` |
 | `port` | number | 当前后端监听端口 |
+
+## 认证 API
+
+当前认证基础使用本地 `auth_users` 表、`pwdlib[argon2]` 密码哈希和 `PyJWT` 访问 token。后端已提供可复用的 `get_current_user` 依赖，供后续管理 API、项目权限和 API Key 管理逐步接入；本次不强制改造既有管理 API 的权限要求。
+
+接口不会在响应中返回 `password`、`password_hash` 或 token payload 详情。代码当前不输出请求体日志，后续引入结构化访问日志时也必须脱敏密码、token、cookie、API Key 和数据库连接串。
+
+登录接口保持 JSON 请求体契约，不使用 OAuth2 password form。OpenAPI 对受保护接口仅声明 HTTP Bearer token；客户端应在请求头中传入 `Authorization: Bearer <access_token>`。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/login` | 使用用户名和密码登录，返回 bearer access token |
+| `GET` | `/api/v1/auth/me` | 读取当前访问 token 对应用户 |
+
+登录请求示例：
+
+```json
+{
+  "username": "admin",
+  "password": "change-me"
+}
+```
+
+登录响应示例：
+
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "expires_in": 3600
+}
+```
+
+当前用户响应示例：
+
+```json
+{
+  "id": 1,
+  "username": "admin",
+  "email": "admin@example.test",
+  "display_name": "管理员",
+  "is_active": true,
+  "is_superuser": true,
+  "created_at": "2026-06-20T12:00:00Z"
+}
+```
+
+错误边界：
+
+| 状态码 | 场景 |
+| --- | --- |
+| `401` | 用户名或密码错误、token 缺失、token 无效、token 过期、token 对应用户不存在 |
+| `403` | 后续权限依赖可用于表达已认证但无权限，本次尚未接入具体权限策略 |
+| `503` | `AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节，认证服务不可用 |
+| `422` | 请求体字段格式错误 |
+
+登录失败统一返回 `用户名或密码错误`；账号不存在、密码错误和停用账号不会返回可区分文案。账号不存在时服务端仍执行固定 Argon2 dummy hash 校验，减少用户名枚举时序差异。当前没有开放用户注册或管理员创建用户 API；测试和后续初始化脚本可以通过 `SqlAlchemyAuthRepository.create_user()` 与 `hash_password()` 创建初始账号。后续用户管理、团队、角色和项目权限需在此基础上继续补齐。
 
 ## 基础管理 API
 
@@ -153,13 +214,20 @@ tests/              # pytest 测试
 - `app/db/base.py`：SQLAlchemy declarative base。
 - `app/db/session.py`：SQLAlchemy engine 和 session factory。
 - `app/api/router.py`：聚合 API 路由。
+- `app/api/dependencies.py`：请求级数据库 session、管理服务、认证服务和当前用户依赖。
+- `app/api/routes/auth.py`：登录和当前用户接口。
 - `app/api/routes/health.py`：健康检查接口。
 - `app/api/routes/management.py`：项目、环境、服务管理接口。
+- `app/models/auth.py`：用户 ORM 模型。
 - `app/models/management.py`：项目、环境、服务 ORM 模型。
+- `app/schemas/auth.py`：认证 API 的 Pydantic 请求和响应模型。
 - `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
+- `app/services/auth.py`：密码哈希、token 签发/解析和认证规则。
 - `app/services/management.py`：基础管理业务规则和归属关系校验。
+- `app/repositories/auth.py`：认证 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/management.py`：基础管理 repository 协议、SQLAlchemy 实现和测试用内存实现。
 - `migrations/versions/20260620_0001_create_management_tables.py`：项目、环境、服务表迁移。
+- `migrations/versions/20260620_0002_create_auth_users.py`：用户表迁移。
 
 ## 验证命令
 
@@ -172,4 +240,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入认证、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/角色/项目权限、API Key、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。

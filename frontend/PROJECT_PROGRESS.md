@@ -6,6 +6,16 @@
 
 ### 已完成
 
+- `T-0013-fix`：修复认证恢复/刷新错误处理，`/me` 仅在 `401` 时清理 session；`403`、`503`、网络错误和超时会保留本地 token，并通过认证状态展示可恢复错误。
+- `T-0013-fix`：拆分登录页与普通 form/API 的 `401` 展示文案；登录页保留“账号或密码不正确”，普通表单改为登录过期/未登录类提示，避免 Settings 后续接入认证时误导。
+- `T-0013-fix`：将登录页可见文案改为用户面向的登录状态和安全提示，移除“阶段 1”“后端契约稳定后”等实现路线说明。
+- `T-0013-fix`：补充 http/auth 错误处理测试，覆盖登录专用 401、普通表单 401、网络错误中文提示，以及仅 401 清理 session 的判定逻辑。
+- `T-0013-auth-ui-shell`：新增阶段 1 最小登录壳 `/login`，包含账号/密码表单、提交中状态、表单级错误展示和登录后回跳；当前未强制锁死整个 app。
+- `T-0013-auth-ui-shell`：新增认证 API client/types，按保守契约调用 `POST /api/v1/auth/login` 和 `GET /api/v1/auth/me`；`apiRequest` 支持注入和清理 `Authorization` 头。
+- `T-0013-auth-ui-shell`：新增前端认证状态 Provider，登录后将 token 注入 API client，控制台侧栏展示当前账号/恢复状态和退出入口。
+- `T-0013-auth-ui-shell`：新增 auth client 单测，并扩展 http client 单测覆盖认证头注入/清理。
+- `T-0013-auth-ui-shell`：更新 `agents/runtime/api-contracts/frontend-requests.md` 记录认证接口草案；按本任务约束未修改 `AGENT_COMMUNICATION.md`。
+- `T-0013-auth-ui-shell`：更新 `frontend/README.md`，补充 `/login`、认证 API、认证状态和临时 token 存储安全边界。
 - `T-0011-frontend-ci-lint-fix`：为前端补齐真实可用的 `npm run lint`，新增 ESLint flat config，接入 TypeScript、React Hooks、React Refresh 和 browser/node globals 检查，脚本使用 `eslint . --max-warnings=0`。
 - `T-0011-frontend-ci-lint-fix`：新增 ESLint 相关 devDependencies，并同步 `package.json`、`package-lock.json`；更新 `frontend/README.md` 验证命令，明确 CI lint 对应的本地命令。
 - `T-0009`：按协调要求先同步 `origin/dev` 日志规则修正，`.gitignore` 已加入 `agents/runtime/*.log.md`，并通过 `git rm --cached` 将本地运行日志移出 Git 跟踪；清理提交 `ff21e8f` 已推送到 `feature/frontend-dev`。
@@ -43,6 +53,9 @@
 ### 阻塞与风险
 
 - 暂无阻塞。
+- `T-0013-auth-ui-shell` 后端认证契约尚未最终集成，当前仅以前端草案实现 `POST /api/v1/auth/login` 和 `GET /api/v1/auth/me`；真实联调、403/503/网络异常展示和 token 过期策略待后端接口可用后补验。
+- `T-0013-auth-ui-shell` 当前使用 `sessionStorage` 临时保存 access token、token type 和非敏感用户展示信息，用于阶段 1 本地会话恢复；该方案仍受同源 XSS 影响，不是生产最终方案，后续应评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 方案。
+- `T-0013-auth-ui-shell` 本轮没有引入全站路由守卫，避免在后端契约未稳定前阻断现有控制台；后续补守卫时必须同步补路由守卫测试。
 - `T-0011` 本轮只补前端静态检查门禁，未新增业务功能；ESLint 规则采用推荐集和 React 运行时相关规则，后续若加入格式化工具或类型感知规则，需要再评估 CI 时长和误报成本。
 - 后端 T-0006 项目、环境、服务 API 已在后端 worktree 的 `agents/runtime/api-contracts/backend.md` 登记；前端已按该契约对齐 `key` 和必填 `environment_id`。
 - `T-0009` 本轮目标是不依赖后端服务已启动的联调准备；未启动真实后端，未执行浏览器 E2E 或真实接口联调，待后端阶段 1 服务可用后补验 404/409/422 实际响应。
@@ -53,6 +66,7 @@
 
 ### 下一步
 
+- `T-0013-auth-ui-shell` 等待后端认证接口落地后，补真实接口联调、401/403/过期 token 行为验证，并评估最终 token 存储与刷新策略。
 - `T-0009` 等待总 agent 汇总当前审计结论并推进集成；后端阶段 1 接口可用后补真实接口联调。
 - `T-0007-fix` 提交并推送 `feature/frontend-dev` 后，由总 agent 重新启动代码审计 agent 审计本次修复。
 - 由总 agent 启动代码审计 agent 审计 `T-0007` 前端 Settings/基础管理页面骨架。
@@ -61,6 +75,11 @@
 
 ### 验证
 
+- `T-0013-fix` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（3 个测试文件、15 个测试通过），`npm.cmd run build` 通过。
+- `T-0013-fix` 已执行 `git diff --check` 通过；提交前检查显示 `frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md` 仍为 ignored，未进入待提交列表。
+- `T-0013-auth-ui-shell` 开发中已执行 `npm.cmd run typecheck`，初次发现 headers 类型和 Windows 大小写文件名问题，修复后重跑通过。
+- `T-0013-auth-ui-shell` 初次完整验证中 `npm.cmd run lint` 因 React Hooks `set-state-in-effect` 规则失败，已将恢复中状态改为由 session 派生；`npm.cmd run test` 因单测复用同一个 `Response` body 失败，已改为每次请求返回新 `Response`。
+- `T-0013-auth-ui-shell` 修复后已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（2 个测试文件、11 个测试通过），`npm.cmd run build` 通过。
 - `T-0011-frontend-ci-lint-fix` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（1 个测试文件、7 个测试通过），`npm.cmd run build` 通过。
 - `T-0011-frontend-ci-lint-fix` 执行 `npm.cmd install --save-dev eslint @eslint/js typescript-eslint eslint-plugin-react-hooks eslint-plugin-react-refresh globals` 后，npm audit 结果为 0 个漏洞。
 - `T-0011-frontend-ci-lint-fix` 已检查待提交和 ignored 文件，`frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md` 均命中 `.gitignore`，未进入待提交列表。

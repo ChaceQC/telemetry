@@ -71,6 +71,12 @@
 - 推送 `24e7445` 后已读取 GitHub Actions run `27870640883`：Backend checks 和 Frontend checks 均通过；仅有官方 action Node.js 20 runtime 弃用注解。
 - 已启动后端开发 agent Darwin 推进 `T-0012` 认证基础，限定在后端 worktree 的 `feature/backend-dev`。
 - 已启动前端开发 agent Avicenna 推进 `T-0013` 登录页面与认证状态壳，限定在前端 worktree 的 `feature/frontend-dev`。
+- 后端开发 agent Darwin 已提交 `ccca163`，认证基础进入真实 MySQL 补验和代码审计。
+- 前端开发 agent Avicenna 已提交 `054b792`，登录壳进入代码审计。
+- 后端认证初审发现用户名枚举时序差异、弱 JWT 密钥校验和 OpenAPI Bearer 表达问题；Herschel 已提交 `ef09e21` 修复，Cicero 复审通过。
+- 前端登录壳初审发现 session 恢复误清、401 文案误导和登录页实现说明文案；Turing 已提交 `faffb05` 修复，Leibniz 复审通过。
+- 后端真实 MySQL 补验已覆盖 auth users migration、登录成功/失败、`/auth/me` 和密码 hash 非明文保存；临时库已清理。
+- 总 agent 已按业务路径集成 T-0012/T-0013 认证基础到 `dev`，不合入 feature 分支历史和运行日志。
 
 ### 阻塞与风险
 
@@ -87,6 +93,8 @@
 - 当前等待项：本次集成推送到 `dev` 后，需要读取最新 GitHub Actions run，并把 CI 结果再次写入根沟通与进度文件。
 - 真实 MySQL 已验证管理 migration 升降级和 API 持久化行为；未覆盖独立 `uvicorn` 网络进程、认证、并发和更完整业务边界。
 - GitHub Actions 当前存在非阻塞注解：多个官方 action 目标 Node.js 20 runtime 已弃用，被 runner 强制运行在 Node 24；后续可关注 action 上游版本更新或升级 action 版本。
+- 认证基础仍未包含登录限流、失败审计、防爆破策略、刷新 token、HttpOnly Cookie 或全站路由守卫；这些已作为后续安全/前端联调任务保留。
+- 前后端认证接口尚未通过浏览器或真实网络服务做端到端联调；当前验证来自后端 TestClient、前端单测和静态构建。
 
 ### 下一步
 
@@ -95,6 +103,8 @@
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
 - 等待 T-0012/T-0013 对应开发 agent 提交并 push；随后启动测试/审计，集成后继续读取并记录 GitHub Actions run。
+- 等待 T-0012 MySQL 补验、T-0012 代码审计、T-0013 代码审计结论；全部通过后按业务路径集成到 `dev` 并读取 Actions。
+- 推送认证集成到 `dev` 后读取 GitHub Actions 最新 run；若通过，再推进管理 API 接入认证/权限或前后端真实浏览器联调。
 
 ### 验证
 

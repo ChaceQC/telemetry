@@ -108,6 +108,15 @@ describe('apiRequest', () => {
     ).toBe('表单字段未通过校验，请按提示修正。 body.key: String should match pattern');
   });
 
+  it('区分登录表单和普通表单的 401 错误文案', async () => {
+    const { ApiClientError, formatApiErrorMessage } = await loadApiClient();
+    const error = new ApiClientError({ message: 'unauthorized', status: 401, details: { detail: 'Invalid token' } });
+
+    expect(formatApiErrorMessage(error, 'login')).toBe('账号或密码不正确，请检查后重试。');
+    expect(formatApiErrorMessage(error, 'form')).toBe('登录状态已过期，请重新登录后重试。 Invalid token');
+    expect(formatApiErrorMessage(error, 'page')).toBe('登录状态已过期，请重新登录。 Invalid token');
+  });
+
   it('按页面上下文展示列表读取错误', async () => {
     const { ApiClientError, formatApiErrorMessage } = await loadApiClient();
 
@@ -117,6 +126,52 @@ describe('apiRequest', () => {
         'page'
       )
     ).toBe('接口或资源不存在，请确认后端基础管理接口已启用。 接口不存在。');
+  });
+
+  it('支持为请求注入和清理认证头', async () => {
+    const { apiRequest, clearApiAuthToken, setApiAuthToken } = await loadApiClient();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(jsonResponse({ id: 1 })));
+
+    setApiAuthToken('token-value');
+    await apiRequest('/api/v1/auth/me');
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:28117/api/v1/auth/me',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token-value'
+        })
+      })
+    );
+
+    clearApiAuthToken();
+    await apiRequest('/health');
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:28117/health',
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
+        })
+      })
+    );
+  });
+
+  it('支持对公开接口禁用认证头', async () => {
+    const { apiRequest, setApiAuthToken } = await loadApiClient();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(jsonResponse({ ok: true })));
+
+    setApiAuthToken('token-value');
+    await apiRequest('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({}) }, { auth: false });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/auth/login',
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
+        })
+      })
+    );
   });
 
   it('请求超时时返回统一错误', async () => {
@@ -135,5 +190,15 @@ describe('apiRequest', () => {
     });
     await vi.advanceTimersByTimeAsync(25);
     await request;
+  });
+
+  it('网络连接失败时返回统一中文错误', async () => {
+    const { apiRequest } = await loadApiClient();
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(apiRequest('/health')).rejects.toMatchObject({
+      name: 'ApiClientError',
+      message: '网络连接失败，请检查网络或稍后重试。'
+    });
   });
 });

@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite:///./telemetry-dev.db",
         validation_alias="DATABASE_URL",
+    )
+    auth_secret_key: SecretStr | None = Field(default=None, validation_alias="AUTH_SECRET_KEY")
+    auth_token_algorithm: str = Field(default="HS256", validation_alias="AUTH_TOKEN_ALGORITHM")
+    auth_access_token_expire_minutes: int = Field(
+        default=60,
+        ge=1,
+        validation_alias="AUTH_ACCESS_TOKEN_EXPIRE_MINUTES",
     )
 
 

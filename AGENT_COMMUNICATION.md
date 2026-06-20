@@ -39,8 +39,8 @@ closed      已关闭
 | T-0009 | 阶段 1 基础管理前端联调准备与错误展示 | 总 agent | done | todo | done | done | done |
 | T-0010 | 修复后端 CI mypy 与 MySQL downgrade | 总 agent | todo | done | done | done | done |
 | T-0011 | 修复前端 CI lint 脚本 | 总 agent | done | todo | done | done | done |
-| T-0012 | 阶段 1 后端认证基础 | 总 agent | todo | doing | todo | todo | doing |
-| T-0013 | 阶段 1 前端登录与认证状态壳 | 总 agent | doing | todo | todo | todo | doing |
+| T-0012 | 阶段 1 后端认证基础 | 总 agent | todo | done | done | done | done |
+| T-0013 | 阶段 1 前端登录与认证状态壳 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -95,6 +95,13 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | CI 结果文档提交后 Actions 通过 | push `24e7445` 触发 run `27870640883`；Backend checks 和 Frontend checks 全部通过；同样仅保留 Node.js 20 runtime 弃用注解 | done |
 | 2026-06-20 | T-0012 | 总 agent | 启动后端认证基础 agent | 已启动后端开发 agent Darwin，在后端 worktree 推进用户表、密码哈希、登录接口和当前用户依赖最小骨架 | doing |
 | 2026-06-20 | T-0013 | 总 agent | 启动前端登录壳 agent | 已启动前端开发 agent Avicenna，在前端 worktree 推进登录页面、auth API client 和认证状态最小壳 | doing |
+| 2026-06-20 | T-0012 | 后端开发 agent | 后端认证基础完成 | Darwin 已提交 `ccca163`，包含用户表/迁移、密码哈希、登录接口、当前用户依赖、契约和测试；已启动 MySQL 补验和代码审计 | audit |
+| 2026-06-20 | T-0013 | 前端开发 agent | 前端登录壳完成 | Avicenna 已提交 `054b792`，包含 auth API client、登录页、AuthProvider、sessionStorage 临时 token 状态、契约和测试；已启动代码审计 | audit |
+| 2026-06-20 | T-0012 | 代码审计 agent | 后端认证基础审计未通过 | 审计发现 2 个 P2：登录失败时序差异可枚举用户名、`AUTH_SECRET_KEY` 未校验强度；另有 P3 OpenAPI Bearer 表达与 JSON login 契约不一致。已启动后端开发 agent Herschel 修复 | blocked |
+| 2026-06-20 | T-0012 | 后端测试 agent | 后端认证真实 MySQL 补验通过 | Poincare 在 `ccca163` 上验证真实 MySQL `upgrade head -> downgrade base -> upgrade head`、登录成功/失败、`/auth/me` 和密码 hash；因后端 P2 修复仍在进行，修复后需确认是否复跑 | testing |
+| 2026-06-20 | T-0012 | 后端开发/审计 agent | 后端认证安全修复通过 | Herschel 提交 `ef09e21` 修复用户名枚举时序差异、弱 JWT 密钥校验和 OpenAPI Bearer 表达；Cicero 复审未发现 P0/P1/P2/P3 阻断 | done |
+| 2026-06-20 | T-0013 | 前端开发/审计 agent | 前端登录壳审计修复通过 | 初审发现 3 个 P3；Turing 提交 `faffb05` 修复 session 恢复错误处理、登录/普通表单 401 文案拆分和登录页产品文案；Leibniz 复审通过 | done |
+| 2026-06-20 | T-0012/T-0013 | 总 agent | 认证基础集成 | 总 agent 已按业务路径集成后端 `ccca163`/`ef09e21` 与前端 `054b792`/`faffb05` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
 
 ## 6. 测试记录
 
@@ -149,6 +156,8 @@ closed      已关闭
 | 2026-06-20 | T-0010 | feature/backend-dev | dev | 后端开发 agent Nietzsche | `b40257a` 已修复 mypy CI 与 MySQL downgrade，并经真实 MySQL 复验通过；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | T-0012 | feature/backend-dev | dev | 后端开发 agent Darwin | 认证基础开发中，完成后需测试/审计并由总 agent 集成 | doing |
 | 2026-06-20 | T-0013 | feature/frontend-dev | dev | 前端开发 agent Avicenna | 登录壳开发中，完成后需测试/审计并由总 agent 集成 | doing |
+| 2026-06-20 | T-0012-fix | feature/backend-dev | dev | 后端开发 agent Herschel | `ef09e21` 已修复审计 P2/P3 并通过复审；总 agent 已按业务路径集成 | done |
+| 2026-06-20 | T-0013-fix | feature/frontend-dev | dev | 前端开发 agent Turing | `faffb05` 已修复审计 P3 并通过复审；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 
 ## 10. 决策记录

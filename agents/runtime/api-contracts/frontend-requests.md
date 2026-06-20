@@ -2,6 +2,60 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-20 T-0013-auth-ui-shell 认证接口草案
+
+- task: T-0013-auth-ui-shell
+- owner: frontend-agent
+- scope: 阶段 1 登录页、前端认证状态和认证 API client。
+- status: frontend-draft
+
+### API-FE-0005 登录
+
+- endpoint: `POST /api/v1/auth/login`
+- request body:
+  - `username`: string，必填；前端提交前会 `trim`。
+  - `password`: string，必填；前端仅用于请求体，不写入日志、URL 或页面状态外的持久文档。
+- expected success response:
+  - `access_token`: string，必填。
+  - `token_type`: string，可选；缺省按 `Bearer` 处理。
+  - `expires_in`: number，可选，秒。
+  - `user`: object，可选；若缺省，前端会在恢复会话或后续刷新时调用 `/api/v1/auth/me`。
+- expected user fields:
+  - `id`: number|string
+  - `username`: string
+  - `display_name`: string|null，可选
+  - `email`: string|null，可选
+  - `roles`: string[]，可选
+- error response:
+  - `401 Unauthorized`: 账号或密码错误。
+  - `403 Forbidden`: 账号被禁用、无权登录或认证策略拒绝。
+  - `422 Unprocessable Entity`: 请求体字段格式错误。
+- frontend behavior:
+  - 登录成功后将 `Authorization: Bearer <token>` 注入后续 API 请求。
+  - 登录页使用登录专用错误文案；`401` 展示为账号或密码错误，不复用普通表单的登录过期文案。
+  - 当前阶段暂不强制保护全站路由；`/login` 可独立访问，控制台侧栏显示认证状态。
+
+### API-FE-0006 当前用户
+
+- endpoint: `GET /api/v1/auth/me`
+- request header:
+  - `Authorization: Bearer <access_token>`
+- expected success response: 同 `user` 字段。
+- error response:
+  - `401 Unauthorized`: token 缺失、过期或无效；前端会清理本地会话。
+  - `403 Forbidden`: token 有效但无权访问当前资源；前端按错误展示处理。
+- frontend behavior:
+  - 从 `sessionStorage` 恢复到 token 但没有 user 时，会调用该接口补齐用户信息。
+  - 仅当 `/me` 返回 `401 Unauthorized` 时清理前端会话和本地 token。
+  - `403 Forbidden`、`503 Service Unavailable`、网络错误或超时会保留本地 token，并通过认证状态展示可恢复错误，避免误清仍有效的 session。
+  - 后端尚未提供 refresh/logout 契约，本轮不假设刷新接口，也不调用服务端 logout。
+
+### 临时安全边界
+
+- 当前前端最小壳使用 `sessionStorage` 保存 `accessToken`、`tokenType` 和非敏感用户展示信息，仅用于阶段 1 后端契约未最终集成前的本地会话恢复。
+- `sessionStorage` 中的 token 仍可被同源 XSS 读取；这不是最终生产安全方案。后续应优先评估 HttpOnly、Secure、SameSite Cookie 或短期 access token + refresh token 的后端托管方案。
+- 前端不得把 password、access token、cookie、API key 或后端返回的敏感认证 detail 写入运行日志、文档示例或 URL。
+
 ## 2026-06-20 T-0009 错误展示联调准备
 
 - task: T-0009

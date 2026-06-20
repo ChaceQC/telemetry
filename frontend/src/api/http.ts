@@ -1,6 +1,7 @@
 import { appConfig } from './config';
 
 export type ApiClientOptions = {
+  auth?: boolean;
   timeoutMs?: number;
 };
 
@@ -10,23 +11,43 @@ export type ApiErrorPayload = {
   details?: unknown;
 };
 
-export type ApiErrorDisplayContext = 'page' | 'form';
+export type ApiErrorDisplayContext = 'page' | 'form' | 'login';
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 const MAX_DETAIL_MESSAGES = 3;
 
+type ApiAuthToken = {
+  accessToken: string;
+  tokenType: string;
+};
+
+let apiAuthToken: ApiAuthToken | null = null;
+
 const STATUS_MESSAGES: Record<ApiErrorDisplayContext, Partial<Record<number, string>>> = {
   page: {
+    401: '登录状态已过期，请重新登录。',
+    403: '当前账号无权访问该资源。',
     404: '接口或资源不存在，请确认后端基础管理接口已启用。',
     409: '资源状态冲突，请刷新后重试。',
-    422: '请求参数未通过校验，请刷新页面后重试。'
+    422: '请求参数未通过校验，请刷新页面后重试。',
+    503: '服务暂时不可用，请稍后重试。'
   },
   form: {
     404: '关联资源不存在，请刷新列表后重试。',
+    401: '登录状态已过期，请重新登录后重试。',
+    403: '当前账号无权访问该资源。',
     409: '资源标识已存在或关联关系冲突，请调整后重试。',
-    422: '表单字段未通过校验，请按提示修正。'
+    422: '表单字段未通过校验，请按提示修正。',
+    503: '服务暂时不可用，请稍后重试。'
+  },
+  login: {
+    401: '账号或密码不正确，请检查后重试。',
+    403: '当前账号暂时无法登录，请联系管理员。',
+    422: '账号或密码格式不正确，请检查后重试。'
   }
 };
+
+const STATUS_ONLY_MESSAGES = new Set<string>(['login:401']);
 
 export class ApiClientError extends Error {
   readonly status?: number;
@@ -51,11 +72,7 @@ export async function apiRequest<TResponse>(
   try {
     const response = await fetch(buildUrl(path), {
       ...init,
-      headers: {
-        Accept: 'application/json',
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init.headers
-      },
+      headers: buildHeaders(init, options.auth !== false),
       signal: controller.signal
     });
 
@@ -79,6 +96,13 @@ export async function apiRequest<TResponse>(
       throw new ApiClientError({ message: '请求超时，请稍后重试。' });
     }
 
+    if (error instanceof TypeError) {
+      throw new ApiClientError({
+        message: '网络连接失败，请检查网络或稍后重试。',
+        details: error
+      });
+    }
+
     throw new ApiClientError({
       message: error instanceof Error ? error.message : '请求失败，请稍后重试。',
       details: error
@@ -88,10 +112,32 @@ export async function apiRequest<TResponse>(
   }
 }
 
+export function setApiAuthToken(accessToken: string, tokenType = 'Bearer') {
+  const normalizedToken = accessToken.trim();
+
+  if (!normalizedToken) {
+    clearApiAuthToken();
+    return;
+  }
+
+  apiAuthToken = {
+    accessToken: normalizedToken,
+    tokenType: tokenType.trim() || 'Bearer'
+  };
+}
+
+export function clearApiAuthToken() {
+  apiAuthToken = null;
+}
+
 export function formatApiErrorMessage(error: unknown, context: ApiErrorDisplayContext = 'page') {
   if (error instanceof ApiClientError) {
     const statusMessage = error.status ? STATUS_MESSAGES[context][error.status] : undefined;
     const detailMessage = readPayloadMessage(error.details);
+
+    if (statusMessage && error.status && STATUS_ONLY_MESSAGES.has(`${context}:${error.status}`)) {
+      return statusMessage;
+    }
 
     if (statusMessage && detailMessage) {
       return `${statusMessage} ${detailMessage}`;
@@ -110,6 +156,52 @@ export function formatApiErrorMessage(error: unknown, context: ApiErrorDisplayCo
 function buildUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${appConfig.apiBaseUrl}${normalizedPath}`;
+}
+
+function buildHeaders(init: RequestInit, includeAuth: boolean): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+  };
+
+  const authHeader = includeAuth ? readAuthHeader() : undefined;
+
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+
+  return {
+    ...headers,
+    ...normalizeHeaders(init.headers)
+  };
+}
+
+function readAuthHeader(): string | undefined {
+  if (!apiAuthToken) {
+    return undefined;
+  }
+
+  return `${apiAuthToken.tokenType} ${apiAuthToken.accessToken}`;
+}
+
+function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) {
+    return {};
+  }
+
+  if (headers instanceof Headers) {
+    const record: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      record[key] = value;
+    });
+    return record;
+  }
+
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+
+  return headers;
 }
 
 async function readBody(response: Response) {

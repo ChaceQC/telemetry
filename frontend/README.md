@@ -1,6 +1,6 @@
 # 遥测前端
 
-遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览首屏、Settings 基础管理页面、健康检查 API client 和环境变量示例。
+遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览首屏、登录页、Settings 基础管理页面、健康检查/API client 和环境变量示例。
 
 ## 环境要求
 
@@ -46,6 +46,17 @@ VITE_PREVIEW_PORT=25174
 `VITE_API_BASE_URL` 用于 API client 的基础地址。若留空，则使用同源请求。
 `VITE_DEV_HOST` 和 `VITE_PREVIEW_HOST` 默认使用 `127.0.0.1`，如需局域网调试可在本地环境变量中显式调整。
 
+## 登录与认证状态
+
+`/login` 页面提供账号密码登录入口，当前按保守契约调用：
+
+- `POST /api/v1/auth/login`：提交 `username` 和 `password`，预期返回 `access_token`、可选 `token_type`、`expires_in` 和 `user`。
+- `GET /api/v1/auth/me`：携带 `Authorization: Bearer <token>` 读取当前用户。
+
+登录成功后，API client 会为后续请求注入 `Authorization` 头；控制台侧栏显示当前账号和退出入口。会话恢复或刷新当前用户时，前端仅在 `/me` 返回 `401` 时清理本地 session；`403`、`503`、网络错误或超时会保留 token，并在认证状态区展示可恢复错误。普通表单/API 的 `401` 使用登录过期类文案，登录页单独展示账号或密码错误。
+
+临时安全边界：当前会话使用 `sessionStorage` 保存 access token、token type 和非敏感用户展示信息，仅用于本地会话恢复。`sessionStorage` 仍可被同源 XSS 读取，不是生产最终方案；后续优先评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 方案。前端不要把密码、token、cookie、API key 或真实 `.env` 写入日志、URL 或文档示例。
+
 ## Settings 基础管理页面
 
 `/settings` 页面提供阶段 1 的项目、环境、服务基础管理骨架：
@@ -65,7 +76,7 @@ src/
   app/          应用 Provider 和路由
   api/          API client、配置和接口封装
   components/   通用布局和展示组件
-  features/     领域组件，当前包含 settings 基础管理面板
+  features/     领域组件，当前包含 auth 状态和 settings 基础管理面板
   pages/        页面入口
   styles/       全局样式
 ```
