@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
+import { SettingsPage } from '../pages/SettingsPage';
 
 export const router = createBrowserRouter([
   {
@@ -34,7 +35,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'settings',
-        element: <PlaceholderPage title="系统设置" description="后续接入项目、环境、服务和数据源配置。" />
+        element: <SettingsPage />
       }
     ]
   }
