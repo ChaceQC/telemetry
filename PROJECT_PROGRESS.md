@@ -146,6 +146,8 @@
 - `T-0023-fix` 复审 agent Carson 因 502 中断，已关闭；总 agent 本地只读复审最新 `feature/backend-dev`，确认 `6bf0024` 仅改 schema/test、`09425a7` 仅改后端进度，`tests/test_ingest_api.py` 20 passed，额外 Pydantic 探针确认字符串/布尔 value 被拒且合法 int/float 通过，`git diff --check` 干净；结论为可集成。
 - 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0023` 到 `dev`，包含 metrics/logs API 基础 `50c8f17`、strict value 修复 `6bf0024` 和后端进度记录 `09425a7`，未直接 merge feature 分支历史或运行日志。
 - 推送 `T-0023` 集成提交 `d5c5272` 后已读取 GitHub Actions run `27881126781`：Backend checks 与 Frontend checks 均通过；阶段 2 HTTP 上报 metrics、logs、events 三类数据的最小 API 闭环。
+- 推送 `T-0023` 集成结果记录提交 `3f49938` 后已读取 GitHub Actions run `27881170815`：Backend checks 与 Frontend checks 均通过。
+- 已登记 `T-0024` 阶段 2 ClickHouse/MongoDB 初始化基础任务，后续由后端开发 agent 在独立后端 worktree 推进；目标是新增 ClickHouse 表初始化与 MongoDB events 集合初始化脚本、Compose 挂载、配置/文档和静态验证，暂不接入摄入写入链路或 Redis 限流。
 
 ### 阻塞与风险
 
@@ -268,3 +270,4 @@
 - 总 agent 在后端 worktree 验证 `6bf0024` 修复：`uv run pytest tests/test_ingest_api.py` 20 passed，`uv run pytest` 89 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
 - 总 agent 本地复审 `6bf0024`：Pydantic 探针确认 metrics `value` 为字符串或布尔值时校验失败，合法 float/int 通过；`tests/test_ingest_api.py` 20 passed。
 - GitHub Actions run `27881126781` 已通过：T-0023 metrics/logs 摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27881170815` 已通过：T-0023 集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
