@@ -98,6 +98,7 @@
 - T-0016-rerun 已通过：真实 MySQL 临时库、后端、前端浏览器联调验证了未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight；前端 `/xxx` 子路径构建验证资源路径、API base 和 router base 均正确生成。
 - 整理工作树和 Git 防混乱机制：根工作树、前端 worktree、后端 worktree当前均位于预期分支；新增 `scripts/Test-AgentWorktreeState.ps1` 作为开工、集成、提交后的严格只读体检脚本，提交前可加 `-AllowPendingChanges` 检查本次待提交改动是否触碰敏感文件、运行日志、依赖目录、构建产物和 feature 分支集成风险。
 - 推送工作树体检脚本提交 `ef11d58` 后已读取 GitHub Actions run `27875542932`：Backend checks 与 Frontend checks 均通过。
+- 已登记 `T-0020` 阶段 1 项目级 RBAC 与团队角色后端基础任务；后续由后端开发 agent 在独立后端 worktree 推进权限模型、管理 API 授权和越权拒绝测试，总 agent 仅负责协调、审计触发和集成。
 
 ### 阻塞与风险
 
@@ -138,6 +139,7 @@
 - 推送 T-0017/T-0018 集成后读取 GitHub Actions；通过后重新运行 T-0016 真实浏览器联调，重点验证 CORS 和 `https://域名/xxx` 子路径配置。
 - 等待 T-0016-rerun 结果；如通过则记录阶段 1 认证后基础管理闭环，如失败继续分派精确修复。
 - 阶段 1 认证后基础管理链路已在本地真实浏览器联调闭环；下一步可推进项目级 RBAC/团队角色/API Key 管理，或补真实 Nginx HTTPS 子路径反代演练。
+- `T-0020` 已进入进行中：优先实现后端团队/角色/项目成员权限基础，为 API Key 创建撤销、摄入鉴权和阶段 1“越权请求被拒绝”验收打底。
 
 ### 验证
 
