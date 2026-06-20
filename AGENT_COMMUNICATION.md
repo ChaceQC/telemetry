@@ -130,6 +130,7 @@ closed      已关闭
 | 2026-06-20 | T-0016 | 集成测试 agent | 真实浏览器联调通过 | Maxwell 使用本地 `auth.txt` 凭据和真实 MySQL 临时库验证通过：未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight 通过；`/xxx` 子路径前端构建产物生成 `/xxx/assets`、API base `/xxx/api`、router base `/xxx`。未覆盖真实 Nginx HTTPS 反代链路 | done |
 | 2026-06-20 | 部署 | 用户 | 明确生产访问路径形态 | 生产访问必须支持 `https://域名/xxx`；已要求联调 agent 额外检查前端路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代不要假设裸 IP、端口直连或仅根路径 | doing |
 | 2026-06-20 | T-0019 | 总 agent | 整理工作树和 Git 防混乱机制 | 三个 worktree 当前干净；新增只读体检脚本 `scripts/Test-AgentWorktreeState.ps1`，开工、集成、提交前检查分支、脏状态、敏感文件、运行日志、构建产物和 feature 分支集成风险 | done |
+| 2026-06-20 | CI | 总 agent | 工作树体检脚本 Actions 通过 | push `ef11d58` 触发 run `27875542932`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 
 ## 6. 测试记录
 

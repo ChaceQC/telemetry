@@ -97,6 +97,7 @@
 - 已启动集成测试 agent Maxwell 基于最新 `dev` 重跑真实前后端联调，重点验证 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置。
 - T-0016-rerun 已通过：真实 MySQL 临时库、后端、前端浏览器联调验证了未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight；前端 `/xxx` 子路径构建验证资源路径、API base 和 router base 均正确生成。
 - 整理工作树和 Git 防混乱机制：根工作树、前端 worktree、后端 worktree当前均位于预期分支；新增 `scripts/Test-AgentWorktreeState.ps1` 作为开工、集成、提交后的严格只读体检脚本，提交前可加 `-AllowPendingChanges` 检查本次待提交改动是否触碰敏感文件、运行日志、依赖目录、构建产物和 feature 分支集成风险。
+- 推送工作树体检脚本提交 `ef11d58` 后已读取 GitHub Actions run `27875542932`：Backend checks 与 Frontend checks 均通过。
 
 ### 阻塞与风险
 
@@ -110,7 +111,7 @@
 - 前端 Settings 页面尚未做浏览器 E2E 或真实后端联调；当前验证来自前端测试子 agent 的 typecheck/test/build。
 - 后端错误响应体契约仍需正式化，部分重复 key、非法查询参数和边界长度测试待补。
 - `T-0008` 已通过代码复审并集成，但真实 MySQL migration、外键名/错误码映射、唯一索引和 API 404/409 行为仍在补验中。
-- 当前等待项：本次集成推送到 `dev` 后，需要读取最新 GitHub Actions run，并把 CI 结果再次写入根沟通与进度文件。
+- CI 结果记录已补齐到根沟通和进度文件；后续每次会触发 Actions 的 push 仍需继续读取 run 并记录结论。
 - 真实 MySQL 已验证管理 migration 升降级和 API 持久化行为；未覆盖独立 `uvicorn` 网络进程、认证、并发和更完整业务边界。
 - GitHub Actions 当前存在非阻塞注解：多个官方 action 目标 Node.js 20 runtime 已弃用，被 runner 强制运行在 Node 24；后续可关注 action 上游版本更新或升级 action 版本。
 - 认证基础仍未包含登录限流、失败审计、防爆破策略、刷新 token、HttpOnly Cookie 或全站路由守卫；这些已作为后续安全/前端联调任务保留。
@@ -172,4 +173,5 @@
 - GitHub Actions run `27870604620` 已通过：后端依次完成 ruff lint、ruff format、mypy、pytest；前端依次完成 npm ci、lint、typecheck、test。
 - GitHub Actions run `27871672033` 已通过：认证基础集成后的后端与前端 CI 均为 success。
 - GitHub Actions run `27872332372` 已通过：管理 API 接入认证后的后端与前端 CI 均为 success。
+- GitHub Actions run `27875542932` 已通过：工作树体检脚本提交后的 Backend checks 与 Frontend checks 均为 success，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test。
 - T-0016-rerun 使用本地 `auth.txt` 凭据但未泄露连接串；临时 MySQL 库、前后端进程、构建产物和 Playwright 临时文件均已清理，`25173/25174/28117` 无监听。
