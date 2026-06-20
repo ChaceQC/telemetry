@@ -30,8 +30,8 @@ closed      已关闭
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T-0001 | 建立 agent 协作机制 | 总 agent | done | done | done | done | done |
 | T-0002 | 固化子 agent 启动责任边界 | 总 agent | done | done | todo | todo | doing |
-| T-0003 | 创建后端 Python + uv + FastAPI 项目骨架 | 总 agent | todo | done | done | todo | audit |
-| T-0004 | 创建前端 React + TypeScript + Vite 项目骨架 | 总 agent | done | todo | done | todo | audit |
+| T-0003 | 创建后端 Python + uv + FastAPI 项目骨架 | 总 agent | todo | done | done | done | done |
+| T-0004 | 创建前端 React + TypeScript + Vite 项目骨架 | 总 agent | done | todo | done | done | done |
 | T-0005 | 修复项目级基础设施审计问题 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
@@ -61,6 +61,8 @@ closed      已关闭
 | 2026-06-20 | T-0002 | 用户 | 修正共享工作树干扰 | 后续开发型子 agent 必须使用独立 Git worktree；根工作树只用于总 agent 汇总、集成和发布；已新增 `scripts/Initialize-AgentWorktrees.ps1` | done |
 | 2026-06-20 | T-0002 | 用户 | 修正共享沟通文件冲突 | 子 agent 改为追加 `agents/runtime/` 分片日志和 API 契约草案，`AGENT_COMMUNICATION.md` 只由总 agent 汇总修改 | done |
 | 2026-06-20 | T-0005 | 总 agent | 基础设施审计修复 | `.env.example` 与 `docker-compose.dev.yml` 已围绕 MySQL/MongoDB 开发占位凭据闭环；`agents/runtime/README.md` 已恢复为规则说明，事件记录转入 `agents/runtime/code-audit-agent.log.md` 和根进度 | done |
+| 2026-06-20 | T-0003 | 总 agent | 后端骨架审计与集成 | 后端独立 worktree 复审有条件通过，已补齐 `/health` API 草案并合并 `feature/backend-dev` 到 `dev` | done |
+| 2026-06-20 | T-0004 | 总 agent | 前端骨架审计与集成 | 前端独立 worktree 复审有条件通过，剩余 Node engines 精确度 P3 后续处理；已合并 `feature/frontend-dev` 到 `dev` | done |
 
 ## 6. 测试记录
 
@@ -81,6 +83,8 @@ closed      已关闭
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
+| 2026-06-20 | T-0003 | 后端 Python + uv + FastAPI 骨架 | 有条件通过 | 未发现 P0/P1/P2；P3 为 API 草案和根进度同步问题，已由总 agent 补齐；数据库、迁移、认证、CORS、Trusted Host、摄入和查询逻辑不在本阶段范围 | done |
+| 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架复审 | 有条件通过 | 未发现 P0/P1 或阻断性 P2；P3 为 `engines.node` 主版本范围与 `.node-version` 精确版本表述可后续统一 | done |
 
 ## 8. 阻塞问题
 
@@ -95,12 +99,14 @@ closed      已关闭
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-06-20 | T-0001 | feature/frontend-dev | dev | 总 agent | 已创建并推送远端分支 | done |
 | 2026-06-20 | T-0001 | feature/backend-dev | dev | 总 agent | 已创建并推送远端分支 | done |
+| 2026-06-20 | T-0004 | feature/frontend-dev | dev | 总 agent | 前端骨架提交 `aebd38e` 已复审有条件通过 | done |
+| 2026-06-20 | T-0003 | feature/backend-dev | dev | 总 agent | 后端骨架提交 `ea39fb4` 已复审有条件通过 | done |
 
 ## 10. 决策记录
 
 | 日期 | 决策 | 原因 | 影响 |
 | --- | --- | --- | --- |
-| 2026-06-20 | 前后端开发通过单一文件沟通 | 避免并行开发时接口契约散落 | 所有 agent 必须维护 `AGENT_COMMUNICATION.md` |
+| 2026-06-20 | 前后端开发通过单一文件沟通 | 避免并行开发时接口契约散落 | 已被 `2026-06-20` 的“子 agent 使用分片运行时日志”决策取代；当前仅总 agent 维护 `AGENT_COMMUNICATION.md` |
 | 2026-06-20 | 功能完成后必须进入代码审计 | 降低缺陷、安全和架构偏离风险 | 审计通过前不得标记功能完成 |
 | 2026-06-20 | 前后端开发分支隔离 | 支持并行开发并降低互相覆盖风险 | 前端只提交 `feature/frontend-dev`，后端只提交 `feature/backend-dev`，总 agent 负责并入 `dev` 和必要时并入 `main` |
 | 2026-06-20 | 前后端和总 agent 分别维护 VERSION | 需要支持前端、后端和项目总版本独立演进 | 根目录、前端、后端各有独立 `VERSION`，内容只允许纯 `x.y.z` |

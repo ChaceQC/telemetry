@@ -39,31 +39,31 @@
 - 新增 `docker/mongodb/init-app-user.js`，用于 MongoDB 容器首次初始化时创建 `MONGODB_DATABASE` 下的应用读写用户。
 - 清理 `agents/runtime/README.md` 中混入的具体执行日志，README 仅保留目录规则、写入约束和推荐事件格式；本次审计修复事件改记入 `agents/runtime/code-audit-agent.log.md`。
 - 更新根 `README.md`，补充开发占位凭据说明、MySQL/MongoDB 用户初始化闭环和安全边界。
+- 后端 `T-0003` 独立 worktree 复审有条件通过，未发现 P0/P1/P2；已补齐 `agents/runtime/api-contracts/backend.md` 中 `GET /health` 草案。
+- 前端 `T-0004` 独立 worktree 复审有条件通过，主要审计问题已修复，仅剩 Node engines 精确度 P3 后续可统一。
+- 总 agent 已将 `feature/frontend-dev` 和 `feature/backend-dev` 合并入 `dev`，前端提交 `aebd38e`、后端提交 `ea39fb4` 已进入集成分支。
+- `T-0005` 基础设施审计修复提交 `2fe44bf` 已通过只读复审，未发现 P0/P1/P2。
 
 ### 进行中
 
-- 后端骨架进入代码审计，等待 Ampere 返回审计结论。
-- 前端骨架审计修复由前端开发 agent 在 `feature/frontend-dev` 独立 worktree 中继续闭环；总 agent 未替前端开发 agent 提交或 push。
 - 根工作树当前回到 `dev`，只推进项目级基础设施、汇总和集成；新的前后端开发任务仍需在独立 worktree 中完成。
-- 阶段 0 的项目级基础设施已形成草案，仍需在前后端骨架正式合入 `dev` 后补验 CI 实际执行结果和 Docker Compose 启动结果。
+- 阶段 0 的前端骨架、后端骨架和项目级基础设施已进入 `dev`；仍需在允许范围内补验 CI 实际执行结果和 Docker Compose 容器启动结果。
 
 ### 阻塞与风险
 
-- 后续开始并行开发后，API 契约必须及时写入 `AGENT_COMMUNICATION.md`，否则前后端可能出现字段或错误码不一致。
-- 后续创建前后端代码骨架时，需要同步确认 `frontend/VERSION`、`backend/VERSION` 与各自包版本声明一致。
+- 后续开始并行开发后，API 契约必须先写入 `agents/runtime/api-contracts/` 草案，再由总 agent 合并到 `AGENT_COMMUNICATION.md`，否则前后端可能出现字段或错误码不一致。
 - 子 agent 输出需要由总 agent 复核、测试和审计后才能标记为完成。
-- 前端 `T-0004` 当前审计未通过，主要风险集中在端口/监听配置、分支门禁记录、根进度同步、测试覆盖、Node LTS 固定和 FastAPI `detail` 错误解析。
 - 根工作树存在被 `.gitignore` 排除的历史本地产物和缓存，例如 `frontend/node_modules`、`frontend/dist`、后端虚拟环境和测试缓存；本轮不会提交这些产物。
-- 当前 `dev` 分支中的 `frontend/` 与 `backend/` 尚未包含完整骨架文件，CI 草案会检测并跳过缺失项目；后续合入前后端分支后需要复查 CI 命令与实际脚本名称。
 - `.env.example` 中 MySQL/MongoDB 密码为公开的本地开发占位值，只用于可预期的开发容器初始化；生产环境必须在未提交的 `.env` 或部署密钥系统中设置真实强凭据。
+- 前端仍有 P3：`frontend/package.json` 的 Node engines 为主版本范围，`.node-version` 精确固定 `24.13.0`；后续可统一精确度或调整 README 表述。
+- 数据库容器实际初始化、健康检查和应用用户登录尚未启动验证；后续允许启动容器时补验。
 
 ### 下一步
 
-- 等待后端代码审计 agent Ampere 的 `T-0003` 审计结论；若通过则关闭后端骨架任务，若不通过则分派后端开发 agent 修复。
-- 等待前端开发子 agent Rawls 完成 `T-0004` 审计修复；修复后由总 agent 重新启动代码审计 agent。
 - 保持根工作树只处理项目级汇总、部署、CI 和集成；前端与后端实现继续通过独立 worktree 推进。
-- 在前后端骨架合入 `dev` 后，补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致。
+- 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
+- 启动下一批阶段 1 或阶段 2 开发前，先在 `agents/runtime/api-contracts/` 登记接口草案，并分别派发前端/后端独立 worktree 子 agent。
 
 ### 验证
 
@@ -88,3 +88,5 @@
 - 本轮未执行 Docker Compose 容器启动验证；后续需在允许启动本地数据库服务时补验。
 - 已再次执行 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，验证 MySQL/MongoDB 凭据变量、MongoDB 初始化脚本挂载和 Compose 配置展开通过；未启动容器。
 - 按用户边界，本次 `T-0005` 审计修复未运行前端或后端测试、构建、lint 或服务启动命令。
+- 已通过只读代码审计确认 `T-0003`、`T-0004` 和 `T-0005` 均无 P0/P1/P2 阻断问题。
+- 已完成 `git merge --no-ff feature/frontend-dev` 和 `git merge --no-ff feature/backend-dev`，将前后端骨架集成到 `dev`。
