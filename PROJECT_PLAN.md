@@ -50,9 +50,10 @@
 11. 开发过程中如果发现缺少必要依赖，可根据既定技术栈和当前任务自行补全依赖、锁文件、配置和文档，不需要等待额外确认；新增依赖必须说明用途并纳入验证。
 12. 后续执行 Git 操作时，不需要用户逐次确认；在符合当前任务和项目规则的前提下，可自行创建分支、stage、commit、tag、push 或发起发布相关操作。
 13. 前端开发和后端开发应支持并行推进，但必须使用独立 Git worktree，避免共享工作树的分支、暂存区和未提交改动互相污染。
-14. `AGENT_COMMUNICATION.md` 只由总 agent 维护；子 agent 只追加 `agents/runtime/` 分片日志和 API 契约草案，不直接修改总沟通文件。
-15. 开始编写代码、调整依赖或工程配置前，总 agent 必须启动对应开发子 agent；跨端任务必须同时启动前端开发子 agent 和后端开发子 agent。
-16. 开发子 agent 启动信息、任务边界、负责目录、当前状态和例外原因必须由总 agent 记录到 `AGENT_COMMUNICATION.md`；子 agent 的过程信息写入运行时日志，不得只在对话中口头说明。
+14. `AGENT_COMMUNICATION.md` 只由总 agent 维护；子 agent 只追加本地 ignored 的 `agents/runtime/*.log.md` 和可入库的 API 契约草案，不直接修改总沟通文件。
+15. `agents/runtime/*.log.md` 只用于本地临时通信，不得 stage、commit 或 push；`agents/runtime/api-contracts/*.md` 用于可提交的前后端契约草案。
+16. 开始编写代码、调整依赖或工程配置前，总 agent 必须启动对应开发子 agent；跨端任务必须同时启动前端开发子 agent 和后端开发子 agent。
+17. 开发子 agent 启动信息、任务边界、负责目录、当前状态和例外原因必须由总 agent 记录到 `AGENT_COMMUNICATION.md`；子 agent 的过程信息写入本地运行时日志，不得只在对话中口头说明。
 17. 前端开发 agent 和后端开发 agent 必须按需自行启动测试子 agent 进行验证；开发 agent 表示某一功能完成后，必须由总 agent 启动代码审计子 agent 进行审计。
 18. 前端开发 agent 只允许在独立 worktree `..\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支 commit 和 push；后端开发 agent 只允许在独立 worktree `..\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支 commit 和 push。
 18. 总 agent 负责将前后端开发分支合并到 `dev`，并在阶段验收、版本发布或必要稳定节点将 `dev` 合并到 `main`。
@@ -1283,9 +1284,9 @@ CI 工作流：
 2. 总 agent 将任务拆成前端、后端、测试和审计事项，并写入 `AGENT_COMMUNICATION.md`。
 3. 总 agent 在开始编写代码前启动相关开发子 agent，并在 `AGENT_COMMUNICATION.md` 记录子 agent 名称、负责范围和状态；跨端任务必须分别启动前端开发子 agent 和后端开发子 agent。
 4. 前端开发 agent 和后端开发 agent 可同时推进开发，但必须分别在独立 worktree 内工作。
-5. 前后端所有 API 契约、字段、错误码、权限、分页、筛选和阻塞问题必须先写入 `agents/runtime/` 分片日志或 `agents/runtime/api-contracts/` 草案。
+5. 前后端所有 API 契约、字段、错误码、权限、分页、筛选和阻塞问题必须先写入 `agents/runtime/api-contracts/` 草案；过程性讨论写入本地 ignored 的 `agents/runtime/*.log.md`。
 6. 后端修改接口契约时，必须更新 `agents/runtime/api-contracts/backend.md`；前端提出接口需求时，必须更新 `agents/runtime/api-contracts/frontend-requests.md`。
-7. 任一 agent 发现契约冲突，先在自己的运行时日志中记录，由总 agent 在 `AGENT_COMMUNICATION.md` 记录决议。
+7. 任一 agent 发现契约冲突，先在自己的本地运行时日志中记录，由总 agent 在 `AGENT_COMMUNICATION.md` 记录决议。
 8. 前端开发 agent 维护 `frontend/PROJECT_PROGRESS.md`，后端开发 agent 维护 `backend/PROJECT_PROGRESS.md`。
 9. 总 agent 必须定时探测前后端进度文件，并将新增进展、阻塞、验证、审计结论和下一步合并摘要到根目录 `PROJECT_PROGRESS.md`。
 10. 前端开发 agent 只在 `feature/frontend-dev` 分支工作，后端开发 agent 只在 `feature/backend-dev` 分支工作。
@@ -1293,7 +1294,7 @@ CI 工作流：
 12. 总 agent 不代替子 agent 执行开发、测试、构建、格式化或本地服务启动命令；子 agent 不代替孙 agent 执行其负责的测试、审计或修复任务，只接收结论并整合记录。
 13. 需要切换分支时，由负责当前写入范围的 agent 自行执行并登记，避免多个 agent 同时切换分支。
 14. 负责写入范围的 agent 在可验证小步完成后负责提交和尽量推送；总 agent 不替开发子 agent 提交其范围内的普通开发改动。
-15. 子 agent 不直接修改 `AGENT_COMMUNICATION.md`；过程记录、验证结果和提交信息先写入自己的运行时日志，总 agent 再汇总。
+15. 子 agent 不直接修改 `AGENT_COMMUNICATION.md`；过程记录、验证结果和提交信息先写入自己的本地运行时日志，总 agent 再汇总稳定结论。
 
 ### 14.3 测试与审计流转
 
@@ -1308,7 +1309,7 @@ CI 工作流：
 
 ### 14.4 沟通文件规则
 
-`AGENT_COMMUNICATION.md` 是唯一正式汇总沟通板，只由总 agent 修改。子 agent 使用 `agents/runtime/` 追加分片日志，至少维护以下正式汇总内容：
+`AGENT_COMMUNICATION.md` 是唯一正式汇总沟通板，只由总 agent 修改。子 agent 使用本地 ignored 的 `agents/runtime/*.log.md` 追加分片日志，API 契约草案使用 `agents/runtime/api-contracts/`，至少维护以下正式汇总内容：
 
 1. 当前任务看板。
 2. API 契约登记。
@@ -1322,13 +1323,14 @@ CI 工作流：
 
 运行时分片日志规则：
 
-1. 前端开发 agent 追加 `agents/runtime/frontend-agent.log.md`。
-2. 后端开发 agent 追加 `agents/runtime/backend-agent.log.md`。
-3. 测试 agent 追加 `agents/runtime/test-agent.log.md`。
-4. 代码审计 agent 追加 `agents/runtime/code-audit-agent.log.md`。
+1. 前端开发 agent 追加本地文件 `agents/runtime/frontend-agent.log.md`。
+2. 后端开发 agent 追加本地文件 `agents/runtime/backend-agent.log.md`。
+3. 测试 agent 追加本地文件 `agents/runtime/test-agent.log.md`。
+4. 代码审计 agent 追加本地文件 `agents/runtime/code-audit-agent.log.md`。
 5. 后端 API 契约草案写入 `agents/runtime/api-contracts/backend.md`。
 6. 前端 API 需求草案写入 `agents/runtime/api-contracts/frontend-requests.md`。
-7. 总 agent 读取分片日志后，统一合并到 `AGENT_COMMUNICATION.md` 和根 `PROJECT_PROGRESS.md`。
+7. `*.log.md` 已进入 `.gitignore`，不得提交或推送；`api-contracts/*.md` 可以随接口变更提交。
+8. 总 agent 读取分片日志后，统一合并稳定结论到 `AGENT_COMMUNICATION.md` 和根 `PROJECT_PROGRESS.md`。
 
 ### 14.5 进度文件规则
 

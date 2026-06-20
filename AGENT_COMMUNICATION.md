@@ -1,11 +1,11 @@
 # Agent 沟通记录
 
-本文件是总 agent 维护的唯一正式汇总沟通板。前端开发 agent、后端开发 agent、测试 agent 和代码审计 agent 不直接修改本文件，只追加 `agents/runtime/` 下自己的运行时日志；总 agent 定期读取分片日志并汇总到这里。
+本文件是总 agent 维护的唯一正式汇总沟通板。前端开发 agent、后端开发 agent、测试 agent 和代码审计 agent 不直接修改本文件，只追加 `agents/runtime/` 下自己的本地运行时日志；总 agent 定期读取分片日志并汇总到这里。`agents/runtime/*.log.md` 已被 `.gitignore` 忽略，不提交、不 push；`agents/runtime/api-contracts/*.md` 作为契约草案可以提交。
 
 ## 1. 使用规则
 
 1. 新任务开始前，总 agent 创建或更新“任务看板”。
-2. 子 agent 不直接修改本文件，必须按角色追加 `agents/runtime/frontend-agent.log.md`、`agents/runtime/backend-agent.log.md`、`agents/runtime/test-agent.log.md` 或 `agents/runtime/code-audit-agent.log.md`。
+2. 子 agent 不直接修改本文件，必须按角色追加本地 ignored 的 `agents/runtime/frontend-agent.log.md`、`agents/runtime/backend-agent.log.md`、`agents/runtime/test-agent.log.md` 或 `agents/runtime/code-audit-agent.log.md`。
 3. API 契约草案写入 `agents/runtime/api-contracts/backend.md` 或 `agents/runtime/api-contracts/frontend-requests.md`，由总 agent 合并到正式契约表。
 4. 测试 agent 每次验证后，先写入自己的运行时日志，再由总 agent 合并“测试记录”。
 5. 代码审计 agent 每次审计后，先写入自己的运行时日志，再由总 agent 合并“审计记录”。
@@ -33,13 +33,17 @@ closed      已关闭
 | T-0003 | 创建后端 Python + uv + FastAPI 项目骨架 | 总 agent | todo | done | done | done | done |
 | T-0004 | 创建前端 React + TypeScript + Vite 项目骨架 | 总 agent | done | todo | done | done | done |
 | T-0005 | 修复项目级基础设施审计问题 | 总 agent | done | done | done | done | done |
+| T-0006 | 阶段 1 最小基础管理后端 API | 总 agent | todo | done | done | done | done |
+| T-0007 | 阶段 1 基础管理前端页面 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
 | 契约 ID | 功能 | 方法 | 路径 | 请求摘要 | 响应摘要 | 负责人 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | todo |
 | API-0001 | 后端健康检查 | GET | `/health` | 无请求体 | `status`、`service`、`version`、`environment`、`port` | 后端开发 agent | done |
+| API-0002 | 项目管理 | GET/POST | `/api/v1/projects` | 创建时提交 `name`、`key`、可选 `description`、`status` | 返回项目列表或创建后的项目；`key` 全局唯一 | 后端开发 agent | done |
+| API-0003 | 环境管理 | GET/POST | `/api/v1/environments` | 创建时提交 `project_id`、`name`、`key`、可选 `description`、`status` | 返回环境列表或创建后的环境；`key` 在项目内唯一 | 后端开发 agent | done |
+| API-0004 | 服务管理 | GET/POST | `/api/v1/services` | 创建时提交 `project_id`、`environment_id`、`name`、`key`、可选 `description`、`status` | 返回服务列表或创建后的服务；服务必须绑定同项目环境 | 后端开发 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -62,7 +66,10 @@ closed      已关闭
 | 2026-06-20 | T-0002 | 用户 | 修正共享沟通文件冲突 | 子 agent 改为追加 `agents/runtime/` 分片日志和 API 契约草案，`AGENT_COMMUNICATION.md` 只由总 agent 汇总修改 | done |
 | 2026-06-20 | T-0005 | 总 agent | 基础设施审计修复 | `.env.example` 与 `docker-compose.dev.yml` 已围绕 MySQL/MongoDB 开发占位凭据闭环；`agents/runtime/README.md` 已恢复为规则说明，事件记录转入 `agents/runtime/code-audit-agent.log.md` 和根进度 | done |
 | 2026-06-20 | T-0003 | 总 agent | 后端骨架审计与集成 | 后端独立 worktree 复审有条件通过，已补齐 `/health` API 草案并合并 `feature/backend-dev` 到 `dev` | done |
-| 2026-06-20 | T-0004 | 总 agent | 前端骨架审计与集成 | 前端独立 worktree 复审有条件通过，剩余 Node engines 精确度 P3 后续处理；已合并 `feature/frontend-dev` 到 `dev` | done |
+| 2026-06-20 | T-0004 | 总 agent | 前端骨架审计与集成 | 前端独立 worktree 复审有条件通过；Node engines 已统一为 `24.13.0`，已合并 `feature/frontend-dev` 到 `dev` | done |
+| 2026-06-20 | T-0002 | 用户 | 修正 agent 日志入库冲突 | `agents/runtime/*.log.md` 改为本地 ignored 文件，不再提交或 push；已从 Git 跟踪中移除，API 契约草案继续保留为可提交文件 | done |
+| 2026-06-20 | T-0006 | 总 agent | 基础管理后端 API 集成 | 已按业务路径从 `feature/backend-dev` 集成到 `dev`，避免把 agent 运行日志历史并入；当前实现为进程内内存 repository | done |
+| 2026-06-20 | T-0007 | 总 agent | 基础管理前端页面集成 | 已按业务路径从 `feature/frontend-dev` 集成到 `dev`，页面字段已与后端 `key`、必填 `environment_id` 契约对齐 | done |
 
 ## 6. 测试记录
 
@@ -75,6 +82,8 @@ closed      已关闭
 | 2026-06-20 | T-0003 | 测试子 agent 独立复验 | Boole 执行 `uv run pytest`、`uv run ruff check .`、临时端口 `38117` 启动并请求 `/health` | 通过 | 确认骨架、配置、app factory、`GET /health` 契约、默认端口和版本读取符合要求；验证后确认端口 `38117` 不再监听；未覆盖数据库、迁移、mypy、`.env` 文件加载和生产参数扩展场景 |
 | 2026-06-20 | T-0004 | 前端审计修复复验 | 测试子 agent Kant 执行 `npm.cmd run typecheck`、`npm.cmd run test`、`npm.cmd run build`、`npm.cmd audit --audit-level=moderate` | 通过 | Vitest `4.1.9` 下 1 个测试文件、4 个测试全部通过；audit 0 个漏洞；验证后 `25173`、`25174`、`28117` 无监听输出；未启动 dev/preview 做浏览器访问验证 |
 | 2026-06-20 | T-0005 | Compose 配置展开 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet` | 通过 | 仅验证配置展开，未启动容器；按用户边界未运行前端或后端测试、构建、lint 或服务启动命令 |
+| 2026-06-20 | T-0006 | 后端基础管理 API | 后端测试子 agent Averroes 执行 `uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .` | 通过 | 11 个测试通过；记录未覆盖认证、MySQL 持久化、分页和若干边界测试 |
+| 2026-06-20 | T-0007 | 前端基础管理页面 | 前端测试子 agent Faraday 执行 `npm.cmd run typecheck`、`npm.cmd run test`、`npm.cmd run build` | 通过 | 1 个测试文件、4 个测试通过；未做浏览器/E2E 或真实后端联调 |
 
 ## 7. 审计记录
 
@@ -85,6 +94,8 @@ closed      已关闭
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
 | 2026-06-20 | T-0003 | 后端 Python + uv + FastAPI 骨架 | 有条件通过 | 未发现 P0/P1/P2；P3 为 API 草案和根进度同步问题，已由总 agent 补齐；数据库、迁移、认证、CORS、Trusted Host、摄入和查询逻辑不在本阶段范围 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架复审 | 有条件通过 | 未发现 P0/P1 或阻断性 P2；P3 为 `engines.node` 主版本范围与 `.node-version` 精确版本表述可后续统一 | done |
+| 2026-06-20 | T-0006 | 阶段 1 最小基础管理后端 API | 有条件通过 | 未发现 P0/P1/P2；P3 为错误响应体契约需更明确、部分边界测试待补；认证、持久化、分页属于后续任务 | done |
+| 2026-06-20 | T-0007 | 阶段 1 基础管理前端页面 | 通过 | 初审发现 `slug/key` 和服务 `environment_id` 契约不一致；T-0007-fix 已修复并复审通过，无 P0/P1/P2/P3 阻断 | done |
 
 ## 8. 阻塞问题
 
@@ -101,6 +112,8 @@ closed      已关闭
 | 2026-06-20 | T-0001 | feature/backend-dev | dev | 总 agent | 已创建并推送远端分支 | done |
 | 2026-06-20 | T-0004 | feature/frontend-dev | dev | 总 agent | 前端骨架提交 `aebd38e` 已复审有条件通过 | done |
 | 2026-06-20 | T-0003 | feature/backend-dev | dev | 总 agent | 后端骨架提交 `ea39fb4` 已复审有条件通过 | done |
+| 2026-06-20 | T-0006 | feature/backend-dev | dev | 总 agent | 后端 T-0006 提交 `a119b99` 已复审有条件通过；按业务路径集成，未合入 runtime log 历史 | done |
+| 2026-06-20 | T-0007 | feature/frontend-dev | dev | 总 agent | 前端 T-0007-fix 提交 `d0b0ff2` 已复审通过；按业务路径集成，未合入 runtime log 历史 | done |
 
 ## 10. 决策记录
 
@@ -116,3 +129,4 @@ closed      已关闭
 | 2026-06-20 | 可验证小步及时提交 | 用户要求不要长期不提交 | 负责写入范围的 agent 在验证通过后自行提交并尽量推送到所属分支；暂不能提交时记录阻塞原因和下一次提交条件 |
 | 2026-06-20 | 开发型 agent 使用独立 worktree | 共享工作树会导致分支、暂存区和未提交改动互相污染 | 前端默认 `..\telemetry-worktrees\frontend`，后端默认 `..\telemetry-worktrees\backend`；根工作树只做总协调和集成 |
 | 2026-06-20 | 子 agent 使用分片运行时日志 | 多 agent 同时改 `AGENT_COMMUNICATION.md` 容易冲突 | 子 agent 只追加 `agents/runtime/`，总 agent 统一汇总到正式沟通文件 |
+| 2026-06-20 | agent 运行日志不入库 | 多 agent 运行日志属于对话过程，push 会造成无意义冲突和历史污染 | `agents/runtime/*.log.md` 已加入 `.gitignore` 并从 Git 跟踪移除；只提交 `agents/runtime/api-contracts/*.md` 等稳定契约草案 |

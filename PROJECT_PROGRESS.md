@@ -40,14 +40,20 @@
 - 清理 `agents/runtime/README.md` 中混入的具体执行日志，README 仅保留目录规则、写入约束和推荐事件格式；本次审计修复事件改记入 `agents/runtime/code-audit-agent.log.md`。
 - 更新根 `README.md`，补充开发占位凭据说明、MySQL/MongoDB 用户初始化闭环和安全边界。
 - 后端 `T-0003` 独立 worktree 复审有条件通过，未发现 P0/P1/P2；已补齐 `agents/runtime/api-contracts/backend.md` 中 `GET /health` 草案。
-- 前端 `T-0004` 独立 worktree 复审有条件通过，主要审计问题已修复，仅剩 Node engines 精确度 P3 后续可统一。
+- 前端 `T-0004` 独立 worktree 复审有条件通过，主要审计问题已修复；后续 `T-0007-fix` 已将 Node engines 统一为精确 `24.13.0`。
 - 总 agent 已将 `feature/frontend-dev` 和 `feature/backend-dev` 合并入 `dev`，前端提交 `aebd38e`、后端提交 `ea39fb4` 已进入集成分支。
 - `T-0005` 基础设施审计修复提交 `2fe44bf` 已通过只读复审，未发现 P0/P1/P2。
+- 根据用户要求修正 agent 日志入库问题：`agents/runtime/*.log.md` 已加入 `.gitignore`，并从 Git 跟踪中移除；日志保留为本地临时通信文件，不再 push。
+- 同步更新 `AGENT.md`、`PROJECT_PLAN.md`、`AGENT_COMMUNICATION.md` 和 `agents/runtime/README.md`，明确 `agents/runtime/api-contracts/*.md` 是可提交契约草案，`agents/runtime/*.log.md` 不得 stage、commit 或 push。
+- 已按业务路径从 `feature/backend-dev` 集成 `T-0006` 基础管理后端 API 到 `dev`，避免把 agent 运行日志历史并入当前分支。
+- 后端新增 `GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services`，当前使用临时进程内 repository，并登记 API-0002 到 API-0004 契约草案。
+- 已按业务路径从 `feature/frontend-dev` 集成 `T-0007/T-0007-fix` 基础管理前端页面到 `dev`，字段已对齐后端 `key` 和服务必填 `environment_id`。
 
 ### 进行中
 
 - 根工作树当前回到 `dev`，只推进项目级基础设施、汇总和集成；新的前后端开发任务仍需在独立 worktree 中完成。
-- 阶段 0 的前端骨架、后端骨架和项目级基础设施已进入 `dev`；仍需在允许范围内补验 CI 实际执行结果和 Docker Compose 容器启动结果。
+- 阶段 0 的前端骨架、后端骨架和项目级基础设施已进入 `dev`；阶段 1 基础管理最小前后端已集成到 `dev`。
+- 下一轮阶段 1 应优先推进 MySQL migration/持久化 repository、认证/权限或真实前后端联调，由对应独立 worktree agent 自行实现、测试、提交和 push。
 
 ### 阻塞与风险
 
@@ -55,15 +61,18 @@
 - 子 agent 输出需要由总 agent 复核、测试和审计后才能标记为完成。
 - 根工作树存在被 `.gitignore` 排除的历史本地产物和缓存，例如 `frontend/node_modules`、`frontend/dist`、后端虚拟环境和测试缓存；本轮不会提交这些产物。
 - `.env.example` 中 MySQL/MongoDB 密码为公开的本地开发占位值，只用于可预期的开发容器初始化；生产环境必须在未提交的 `.env` 或部署密钥系统中设置真实强凭据。
-- 前端仍有 P3：`frontend/package.json` 的 Node engines 为主版本范围，`.node-version` 精确固定 `24.13.0`；后续可统一精确度或调整 README 表述。
 - 数据库容器实际初始化、健康检查和应用用户登录尚未启动验证；后续允许启动容器时补验。
+- `T-0006` 管理 API 当前为内存实现，进程重启数据丢失，不支持跨进程共享、事务、唯一索引或分页；必须在 MySQL migration 任务中替换。
+- 管理 API 仍未接入认证/权限，越权请求被拒绝的阶段 1 验收标准尚未满足。
+- 前端 Settings 页面尚未做浏览器 E2E 或真实后端联调；当前验证来自前端测试子 agent 的 typecheck/test/build。
+- 后端错误响应体契约仍需正式化，部分重复 key、非法查询参数和边界长度测试待补。
 
 ### 下一步
 
 - 保持根工作树只处理项目级汇总、部署、CI 和集成；前端与后端实现继续通过独立 worktree 推进。
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
-- 启动下一批阶段 1 或阶段 2 开发前，先在 `agents/runtime/api-contracts/` 登记接口草案，并分别派发前端/后端独立 worktree 子 agent。
+- 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
 
 ### 验证
 
@@ -90,3 +99,7 @@
 - 按用户边界，本次 `T-0005` 审计修复未运行前端或后端测试、构建、lint 或服务启动命令。
 - 已通过只读代码审计确认 `T-0003`、`T-0004` 和 `T-0005` 均无 P0/P1/P2 阻断问题。
 - 已完成 `git merge --no-ff feature/frontend-dev` 和 `git merge --no-ff feature/backend-dev`，将前后端骨架集成到 `dev`。
+- 已确认 `agents/runtime/backend-agent.log.md`、`agents/runtime/frontend-agent.log.md`、`agents/runtime/test-agent.log.md`、`agents/runtime/code-audit-agent.log.md` 被 `.gitignore` 命中且仍保留在本地。
+- 后端 `T-0006` 的验证由后端 agent/测试子 agent 在 `feature/backend-dev` 工作树完成：`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .` 通过。
+- 前端 `T-0007-fix` 的验证由前端 agent/测试子 agent 在 `feature/frontend-dev` 工作树完成：`npm.cmd run typecheck`、`npm.cmd run test`、`npm.cmd run build` 通过。
+- 本轮总 agent 没有在根工作树代跑前端或后端测试、构建、lint 或服务启动命令；只执行了集成、文档和 Git 状态检查。

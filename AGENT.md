@@ -48,7 +48,7 @@ agents/runtime/
 2. 总 agent 将任务拆成前端、后端、测试、审计可执行事项，并写入 `AGENT_COMMUNICATION.md`。
 3. 涉及代码、依赖或工程配置变更的任务，总 agent 必须在开始编写代码前启动对应开发子 agent；跨端任务必须分别启动前端开发子 agent 和后端开发子 agent。
 4. 开发子 agent 的启动时间、任务边界、负责目录、当前状态和例外原因必须由总 agent 写入 `AGENT_COMMUNICATION.md`，不得用口头约定替代。
-5. 前端开发 agent 和后端开发 agent 可以同时推进，但不得直接修改 `AGENT_COMMUNICATION.md`；必须先追加自己的 `agents/runtime/*.log.md` 和 `agents/runtime/api-contracts/*.md`，再由总 agent 汇总 API、字段、状态、错误码、端口和阻塞问题。
+5. 前端开发 agent 和后端开发 agent 可以同时推进，但不得直接修改 `AGENT_COMMUNICATION.md`；过程信息只追加本地 ignored 的 `agents/runtime/*.log.md`，API 契约写入可入库的 `agents/runtime/api-contracts/*.md`，再由总 agent 汇总 API、字段、状态、错误码、端口和阻塞问题。
 6. 前端开发 agent 和后端开发 agent 在开发过程中遇到测试需求时，必须各自启动测试子 agent 设计并执行对应验证。
 7. 开发 agent 表示某一功能完成后，总 agent 必须启动代码审计子 agent 进行审计。
 8. 审计通过后，总 agent 再决定是否进入提交、推送、发布或下一功能。
@@ -70,7 +70,7 @@ agents/runtime/
 2. API 契约必须先进入 `agents/runtime/api-contracts/` 草案文件，再由总 agent 合并到 `AGENT_COMMUNICATION.md` 的正式契约。
 3. 后端变更接口路径、请求体、响应体、错误码、权限或分页规则时，必须更新 `agents/runtime/api-contracts/backend.md`。
 4. 前端如果需要新增字段、接口、筛选条件、图表数据或交互状态，必须先在 `agents/runtime/api-contracts/frontend-requests.md` 提出契约需求。
-5. 任一 agent 发现契约冲突，应先在自己的运行时日志中登记冲突，再由总 agent 决定取舍并写入 `AGENT_COMMUNICATION.md`。
+5. 任一 agent 发现契约冲突，应先在自己的本地运行时日志中登记冲突，再由总 agent 决定取舍并写入 `AGENT_COMMUNICATION.md`。
 6. 总 agent 不得绕过已定义的开发子 agent 直接长期承担前端或后端开发；若因工具不可用、任务极小或用户明确要求而例外，必须在 `AGENT_COMMUNICATION.md` 记录原因。
 7. 同一时间只允许负责当前写入范围的 agent 在自己的 worktree 中切换分支；总 agent 不替子 agent 切换分支，多个 agent 不得在同一 worktree 同时执行分支切换。
 8. 不允许通过口头约定替代运行时日志和总沟通文件记录。
@@ -128,7 +128,8 @@ agents/runtime/
 15. 不允许长期累积未提交改动；若因共享工作树、分支切换锁、审计未通过或阻塞问题暂不能提交，必须在 `AGENT_COMMUNICATION.md` 和对应进度文件记录原因、影响范围和下一次提交条件。
 16. 前端开发 agent 的默认工作目录为独立 worktree `..\telemetry-worktrees\frontend`；后端开发 agent 的默认工作目录为独立 worktree `..\telemetry-worktrees\backend`。
 17. 根工作树不得作为并行开发目录；若历史遗留改动已在根工作树或错误分支中产生，必须先冻结新开发，由总 agent 拆分迁移或要求对应 agent 在所属 worktree 重新提交。
-18. `AGENT_COMMUNICATION.md` 只允许总 agent 修改；子 agent 通过 `agents/runtime/` 追加日志，总 agent 汇总后再修改总沟通文件。
+18. `AGENT_COMMUNICATION.md` 只允许总 agent 修改；子 agent 通过 ignored 的 `agents/runtime/*.log.md` 追加本地过程日志，不提交不 push；总 agent 汇总稳定结论后再修改总沟通文件。
+19. `agents/runtime/api-contracts/*.md` 是可提交的契约草案；`agents/runtime/*.log.md` 是本地临时通信文件，已进入 `.gitignore`，不得 stage、commit 或 push。
 
 ## 9. 版本文件规则
 

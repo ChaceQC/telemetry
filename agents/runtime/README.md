@@ -3,11 +3,12 @@
 本目录用于避免多个 agent 同时修改 `AGENT_COMMUNICATION.md` 产生冲突。规则如下：
 
 1. `AGENT_COMMUNICATION.md` 是总 agent 汇总文件，只允许总 agent 修改。
-2. 前端、后端、测试、审计 agent 只追加自己的日志文件，不直接修改总沟通文件。
+2. 前端、后端、测试、审计 agent 只追加自己的本地日志文件，不直接修改总沟通文件。
 3. 总 agent 定期读取本目录日志，将稳定结论合并到 `AGENT_COMMUNICATION.md` 和根 `PROJECT_PROGRESS.md`。
 4. 每条日志使用追加写入，不删除历史记录。
-5. API 契约草案先写入 `api-contracts/`，由总 agent 合并为正式契约。
-6. 具体执行事件必须写入对应角色的 `*.log.md` 文件，README 只保留目录用途、写入规则和格式约定。
+5. `*.log.md` 是本地临时通信文件，已由 `.gitignore` 忽略，不得 stage、commit 或 push。
+6. API 契约草案先写入 `api-contracts/`，由总 agent 合并为正式契约；契约草案可以随代码提交。
+7. 具体执行事件必须写入对应角色的 `*.log.md` 文件，README 只保留目录用途、写入规则和格式约定。
 
 推荐事件格式：
 
@@ -23,7 +24,7 @@
   - frontend/package.json
 - validation:
   - npm.cmd run test
-- commit: 未提交，原因是等待审计通过。
+- commit: 本地日志不提交；业务提交等待审计通过。
 - needs_total_agent: true
 ```
 
