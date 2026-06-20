@@ -57,7 +57,7 @@ closed      已关闭
 | T-0027 | 阶段 2 Redis 摄入限流后端基础 | 总 agent | todo | done | done | done | done |
 | T-0028 | 阶段 2 摄入失败统计基础 | 总 agent | todo | done | done | done | done |
 | T-0029 | 阶段 3 事件查询 API 基础 | 总 agent | todo | done | done | done | done |
-| T-0030 | 阶段 3 日志查询 API 基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0030 | 阶段 3 日志查询 API 基础 | 总 agent | todo | done | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -67,6 +67,8 @@ closed      已关闭
 | API-0002 | 项目管理 | GET/POST | `/api/v1/projects` | 创建时提交 `name`、`key`、可选 `description`、`status` | 返回项目列表或创建后的项目；`key` 全局唯一 | 后端开发 agent | done |
 | API-0003 | 环境管理 | GET/POST | `/api/v1/environments` | 创建时提交 `project_id`、`name`、`key`、可选 `description`、`status` | 返回环境列表或创建后的环境；`key` 在项目内唯一 | 后端开发 agent | done |
 | API-0004 | 服务管理 | GET/POST | `/api/v1/services` | 创建时提交 `project_id`、`environment_id`、`name`、`key`、可选 `description`、`status` | 返回服务列表或创建后的服务；服务必须绑定同项目环境 | 后端开发 agent | done |
+| API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit` 查询参数 | 返回事件列表；按用户项目权限过滤 | 总 agent | done |
+| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit` 查询参数 | 返回日志列表；按用户项目权限过滤 | 总 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -238,6 +240,8 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 事件查询 API 集成 Actions 通过 | push `0035f6a` 触发 run `27884628747`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | CI | 总 agent | 事件查询 API CI 结果记录提交 Actions 通过 | push `ba820a8` 触发 run `27884712269`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0030 | 总 agent | 启动日志查询 API 基础 | 阶段 3 已完成事件查询 API 基础；下一步补 `GET /api/v1/query/logs`，先复用关系库 `ingest_records` 的 `kind=log` 记录，支持项目权限过滤、level/source/时间范围和 limit，ClickHouse 日志查询后续拆分 | doing |
+| 2026-06-20 | CI | 总 agent | 日志查询 API 启动记录 Actions 通过 | push `050c069` 触发 run `27884810534`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0030 | 总 agent | 日志查询 API 基础完成并本地集成 | 后端分支 `023e2fa` 新增 `GET /api/v1/query/logs`、日志查询 repository/service/schema 和权限过滤测试；总 agent 按路径恢复到 `dev` 并完成根仓库验证，未直接 merge feature 分支历史；ClickHouse 日志查询、关键词搜索、上下文查看、游标分页和脱敏后续推进 | done |
 
 ## 6. 测试记录
 
@@ -259,6 +263,7 @@ closed      已关闭
 | 2026-06-20 | T-0027 | Redis 摄入限流后端基础验证 | `uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 39 passed，全量 pytest 103 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 Redis 容器 |
 | 2026-06-20 | T-0028 | 摄入失败统计基础验证 | `uv run pytest tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 27 passed，全量 pytest 106 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 MySQL/ClickHouse |
 | 2026-06-20 | T-0029 | 事件查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 3 passed，全量 pytest 109 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse/MongoDB 查询 |
+| 2026-06-20 | T-0030 | 日志查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 与根仓库均已验证：专项 6 passed，全量 pytest 112 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse 日志查询 |
 
 ## 7. 审计记录
 
@@ -280,6 +285,7 @@ closed      已关闭
 | 2026-06-20 | T-0027 | Redis 固定窗口限流后端、配置和错误映射 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；Redis 后端仅通过 fake Redis 单元测试覆盖固定窗口语义，真实 Redis 容器认证、连接串和多实例共享计数仍需后续补验 | done |
 | 2026-06-20 | T-0028 | 摄入失败统计写入、验证失败和限流拒绝 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；缺失/无效/撤销 API Key 不统计符合当前可信归属边界，限流拒绝暂按 event 维度记录 | done |
 | 2026-06-20 | T-0029 | 事件查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse/MongoDB、游标分页、全文搜索和复杂聚合后续补齐 | done |
+| 2026-06-20 | T-0030 | 日志查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse 日志查询、关键词搜索、上下文查看、游标分页、字段过滤和脱敏后续补齐 | done |
 
 ## 8. 阻塞问题
 
@@ -322,6 +328,7 @@ closed      已关闭
 | 2026-06-20 | T-0027 | feature/backend-dev | dev | 总 agent | Redis 摄入限流后端基础 `819d200` 已按业务路径集成到 `dev`，集成提交 `3334dcd` CI 通过 | done |
 | 2026-06-20 | T-0028 | feature/backend-dev | dev | 总 agent | 摄入失败统计基础 `4eceeca` 已按业务路径集成到 `dev`，集成提交 `f799550` CI 通过 | done |
 | 2026-06-20 | T-0029 | feature/backend-dev | dev | 总 agent | 事件查询 API 基础 `c5bae92` 已按业务路径集成到 `dev`，集成提交 `0035f6a` CI 通过 | done |
+| 2026-06-20 | T-0030 | feature/backend-dev | dev | 总 agent | 日志查询 API 基础 `023e2fa` 已按业务路径恢复到 `dev`，根仓库验证通过；集成提交和 CI 结果待本次提交后记录 | doing |
 
 ## 10. 决策记录
 

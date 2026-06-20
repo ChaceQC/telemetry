@@ -16,3 +16,20 @@ class EventQueryResponse(BaseModel):
     payload: dict[str, Any]
     occurred_at: datetime | None
     received_at: datetime
+
+
+class LogQueryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    level: str
+    message: str
+    source: str | None
+    logger: str | None
+    trace_id: str | None
+    span_id: str | None
+    attributes: dict[str, Any]
+    payload: dict[str, Any]
+    occurred_at: datetime | None
+    received_at: datetime

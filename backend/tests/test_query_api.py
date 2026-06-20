@@ -150,6 +150,75 @@ def test_query_events_lists_ingested_events_with_filters() -> None:
     assert filtered_events[0]["occurred_at"].startswith("2026-06-20T10:00:00")
 
 
+def test_query_logs_lists_ingested_logs_with_filters() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-owner",
+        project_key="query-log-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "deployment finished",
+                    "source": "app",
+                    "logger": "deploy.worker",
+                    "trace_id": "trace-1",
+                    "span_id": "span-1",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                    "attributes": {"service": "api"},
+                    "payload": {"duration_ms": 42},
+                },
+                {
+                    "level": "error",
+                    "message": "retry failed",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T11:00:00Z",
+                    "attributes": {"attempt": 3},
+                },
+            ]
+        },
+    )
+    all_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"]},
+    )
+    filtered_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "level": "info",
+            "source": "app",
+            "occurred_from": "2026-06-20T09:00:00Z",
+            "occurred_to": "2026-06-20T10:30:00Z",
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_response.status_code == 200
+    assert [log["level"] for log in all_response.json()] == ["error", "info"]
+    assert filtered_response.status_code == 200
+    filtered_logs = filtered_response.json()
+    assert len(filtered_logs) == 1
+    assert filtered_logs[0]["project_id"] == project["id"]
+    assert filtered_logs[0]["level"] == "info"
+    assert filtered_logs[0]["message"] == "deployment finished"
+    assert filtered_logs[0]["source"] == "app"
+    assert filtered_logs[0]["logger"] == "deploy.worker"
+    assert filtered_logs[0]["trace_id"] == "trace-1"
+    assert filtered_logs[0]["span_id"] == "span-1"
+    assert filtered_logs[0]["attributes"] == {"service": "api"}
+    assert filtered_logs[0]["payload"] == {"duration_ms": 42}
+    assert filtered_logs[0]["occurred_at"].startswith("2026-06-20T10:00:00")
+
+
 def test_query_events_hide_projects_without_membership() -> None:
     client = build_client()
     project, raw_key, _owner_headers = create_ingest_api_key(
@@ -178,10 +247,47 @@ def test_query_events_hide_projects_without_membership() -> None:
     assert project_response.json()["detail"] == "项目不存在"
 
 
+def test_query_logs_hide_projects_without_membership() -> None:
+    client = build_client()
+    project, raw_key, _owner_headers = create_ingest_api_key(
+        client,
+        username="query-log-owner-hidden",
+        project_key="query-log-hidden-project",
+    )
+    other_headers = create_auth_headers(client, username="query-log-viewer")
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "info", "message": "hidden log"}]},
+    )
+    all_response = client.get("/api/v1/query/logs", headers=other_headers)
+    project_response = client.get(
+        "/api/v1/query/logs",
+        headers=other_headers,
+        params={"project_id": project["id"]},
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_response.status_code == 200
+    assert all_response.json() == []
+    assert project_response.status_code == 404
+    assert project_response.json()["detail"] == "项目不存在"
+
+
 def test_query_events_requires_user_token() -> None:
     client = build_client()
 
     response = client.get("/api/v1/query/events")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "缺少访问令牌"
+
+
+def test_query_logs_requires_user_token() -> None:
+    client = build_client()
+
+    response = client.get("/api/v1/query/logs")
 
     assert response.status_code == 401
     assert response.json()["detail"] == "缺少访问令牌"

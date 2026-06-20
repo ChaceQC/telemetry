@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs 摄入 API 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs 摄入 API 基础、阶段 3 events/logs 查询 API 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -522,6 +522,8 @@ GET /health
 
 事件查询：已认证用户可通过 `GET /api/v1/query/events` 查询自己有项目角色的事件记录，支持 `project_id`、`type`、`source`、`occurred_from`、`occurred_to` 和 `limit` 参数；显式查询无权项目返回 `404 项目不存在`。当前查询来源为关系库 `ingest_records` 的 `kind=event` 记录，按 `received_at` 与 `id` 倒序返回；ClickHouse/MongoDB 查询、游标分页、全文搜索和复杂聚合后续补齐。
 
+日志查询：已认证用户可通过 `GET /api/v1/query/logs` 查询自己有项目角色的日志记录，支持 `project_id`、`level`、`source`、`occurred_from`、`occurred_to` 和 `limit` 参数；显式查询无权项目返回 `404 项目不存在`。当前查询来源为关系库 `ingest_records` 的 `kind=log` 记录，按 `received_at` 与 `id` 倒序返回，并从 JSON 载荷中展开 `message`、`logger`、`trace_id`、`span_id`、`attributes` 和业务 `payload`；ClickHouse 日志查询、关键词搜索、上下文查看、游标分页、字段过滤和脱敏后续补齐。
+
 ## 目录结构
 
 ```text
@@ -599,4 +601,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、事件查询 API 权限过滤和基础筛选、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、事件/日志查询 API 权限过滤和基础筛选、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成。
