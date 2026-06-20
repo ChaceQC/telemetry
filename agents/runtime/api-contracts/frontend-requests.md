@@ -2,6 +2,34 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-20 T-0015-authenticated-settings-client Settings 认证接入
+
+- task: T-0015-authenticated-settings-client
+- owner: frontend-agent
+- scope: 阶段 1 Settings/基础管理 API client 接入当前 session token，并处理未登录与 `401`。
+- status: frontend-ready
+
+### Settings 管理接口认证行为
+
+- affected endpoints:
+  - `GET /api/v1/projects`
+  - `POST /api/v1/projects`
+  - `GET /api/v1/environments`
+  - `POST /api/v1/environments`
+  - `GET /api/v1/services`
+  - `POST /api/v1/services`
+- request header:
+  - 登录成功或从 `sessionStorage` 恢复到 session 后，前端 API client 会在请求中携带 `Authorization: Bearer <access_token>`。
+  - 当前没有 session token 或 session 仍在恢复确认时，`/settings` 不主动请求上述管理接口，并在页面级提示登录。
+- error response:
+  - `401 Unauthorized`: token 缺失、过期或无效；Settings 页面展示登录状态已过期/请重新登录的页面级提示，并提供登录入口。
+  - `403 Forbidden`: token 有效但无管理资源权限；仍按页面级或表单级权限不足文案展示，不清理本地 session。
+- frontend behavior:
+  - 本轮不增加全站路由守卫；仅 Settings 页面根据登录状态控制管理接口请求、刷新入口和创建提交入口。
+  - Settings 列表读取或创建表单返回 `401` 时，统一汇总为 Settings 页面级认证提示。
+  - 普通管理表单不会把 `401` 展示为账号或密码错误；账号密码错误文案仅保留给 `/login` 登录表单上下文。
+  - `404`、`409`、`422` 等业务错误继续保留原有表单级展示。
+
 ## 2026-06-20 T-0013-auth-ui-shell 认证接口草案
 
 - task: T-0013-auth-ui-shell
@@ -108,7 +136,7 @@
 - error response:
   - `409 Conflict`: 项目 `key` 已存在
   - `422 Unprocessable Entity`: 请求体字段格式错误
-- auth: 阶段 1 临时开放；后续接入认证后要求管理后台登录态和项目读取/创建权限。
+- auth: 要求当前 session token；前端随请求携带 `Authorization: Bearer <access_token>`，无 token 时 Settings 页面不主动请求。
 - status: aligned
 
 ## API-FE-0003 基础管理环境列表与创建
@@ -140,7 +168,7 @@
   - `404 Not Found`: 项目不存在
   - `409 Conflict`: 同项目下环境 `key` 已存在
   - `422 Unprocessable Entity`: 请求体字段格式错误
-- auth: 阶段 1 临时开放；后续接入认证后要求项目读取/环境管理权限。
+- auth: 要求当前 session token；前端随请求携带 `Authorization: Bearer <access_token>`，无 token 时 Settings 页面不主动请求。
 - status: aligned
 
 ## API-FE-0004 基础管理服务列表与创建
@@ -176,5 +204,5 @@
   - `404 Not Found`: 项目或环境不存在
   - `409 Conflict`: 环境所属项目不匹配，或同环境下服务 `key` 已存在
   - `422 Unprocessable Entity`: 请求体字段格式错误
-- auth: 阶段 1 临时开放；后续接入认证后要求项目或环境读取/服务管理权限。
+- auth: 要求当前 session token；前端随请求携带 `Authorization: Bearer <access_token>`，无 token 时 Settings 页面不主动请求。
 - status: aligned

@@ -1,15 +1,19 @@
 from datetime import datetime
 from typing import cast
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy.exc import IntegrityError
 
 from app.core.application import create_app
 from app.core.config import Settings
 from app.db.base import Base
+from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.schemas.management import ResourceStatus
+from app.services.auth import AuthService, hash_password
 from app.services.errors import (
     DuplicateResourceError,
     ResourceConflictError,
@@ -17,12 +21,37 @@ from app.services.errors import (
     ResourceNotFoundError,
 )
 
+TEST_AUTH_SECRET = "test-auth-secret-key-with-at-least-thirty-two-bytes"
+
+PROTECTED_MANAGEMENT_REQUESTS: list[tuple[str, str, dict[str, object] | None]] = [
+    ("GET", "/api/v1/projects", None),
+    ("POST", "/api/v1/projects", {"name": "核心平台", "key": "core-platform"}),
+    ("GET", "/api/v1/environments", None),
+    (
+        "POST",
+        "/api/v1/environments",
+        {"project_id": 1, "name": "生产环境", "key": "prod"},
+    ),
+    ("GET", "/api/v1/services", None),
+    (
+        "POST",
+        "/api/v1/services",
+        {
+            "project_id": 1,
+            "environment_id": 1,
+            "name": "API 服务",
+            "key": "api-service",
+        },
+    ),
+]
+
 
 def build_client() -> TestClient:
     settings = Settings(
         app_name="telemetry-backend-test",
         app_version="0.1.0",
         database_url="sqlite:///:memory:",
+        auth_secret_key=TEST_AUTH_SECRET,
     )
     app = create_app(settings)
     Base.metadata.create_all(app.state.db_engine)
@@ -33,11 +62,127 @@ def _tested_app(client: TestClient) -> FastAPI:
     return cast(FastAPI, client.app)
 
 
+def create_test_user(
+    client: TestClient,
+    *,
+    username: str = "admin",
+    is_active: bool = True,
+) -> UserRecord:
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        repository = SqlAlchemyAuthRepository(session)
+        return repository.create_user(
+            username=username,
+            email=f"{username}@example.test",
+            password_hash=hash_password("correct-password"),
+            display_name="管理员",
+            is_active=is_active,
+            is_superuser=True,
+        )
+
+
+def create_auth_headers(
+    client: TestClient,
+    *,
+    username: str = "admin",
+    is_active: bool = True,
+) -> dict[str, str]:
+    user = create_test_user(client, username=username, is_active=is_active)
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        auth_service = AuthService(SqlAlchemyAuthRepository(session), app.state.settings)
+        access_token, _ = auth_service.create_access_token(user)
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+def request_management_endpoint(
+    client: TestClient,
+    method: str,
+    path: str,
+    *,
+    headers: dict[str, str] | None = None,
+    json_body: dict[str, object] | None = None,
+) -> Response:
+    if json_body is None:
+        return client.request(method, path, headers=headers)
+    return client.request(method, path, headers=headers, json=json_body)
+
+
+@pytest.mark.parametrize(("method", "path", "json_body"), PROTECTED_MANAGEMENT_REQUESTS)
+def test_management_api_rejects_missing_token(
+    method: str,
+    path: str,
+    json_body: dict[str, object] | None,
+) -> None:
+    client = build_client()
+
+    response = request_management_endpoint(client, method, path, json_body=json_body)
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "缺少访问令牌"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+@pytest.mark.parametrize(("method", "path", "json_body"), PROTECTED_MANAGEMENT_REQUESTS)
+def test_management_api_rejects_invalid_token(
+    method: str,
+    path: str,
+    json_body: dict[str, object] | None,
+) -> None:
+    client = build_client()
+
+    response = request_management_endpoint(
+        client,
+        method,
+        path,
+        headers={"Authorization": "Bearer invalid-token"},
+        json_body=json_body,
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "无效或已过期的访问令牌"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+@pytest.mark.parametrize(("method", "path", "json_body"), PROTECTED_MANAGEMENT_REQUESTS)
+def test_management_api_rejects_inactive_user_token(
+    method: str,
+    path: str,
+    json_body: dict[str, object] | None,
+) -> None:
+    client = build_client()
+    auth_headers = create_auth_headers(client, is_active=False)
+
+    response = request_management_endpoint(
+        client,
+        method,
+        path,
+        headers=auth_headers,
+        json_body=json_body,
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "用户已停用"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_management_openapi_describes_bearer_security_requirement() -> None:
+    client = build_client()
+
+    schema = client.get("/openapi.json").json()
+
+    for method, path, _ in PROTECTED_MANAGEMENT_REQUESTS:
+        operation = schema["paths"][path][method.lower()]
+        assert operation["security"] == [{"HTTPBearer": []}]
+
+
 def test_create_and_list_management_resources() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
 
     project_response = client.post(
         "/api/v1/projects",
+        headers=auth_headers,
         json={
             "name": "核心平台",
             "key": "core-platform",
@@ -55,6 +200,7 @@ def test_create_and_list_management_resources() -> None:
 
     environment_response = client.post(
         "/api/v1/environments",
+        headers=auth_headers,
         json={
             "project_id": project["id"],
             "name": "生产环境",
@@ -69,6 +215,7 @@ def test_create_and_list_management_resources() -> None:
 
     service_response = client.post(
         "/api/v1/services",
+        headers=auth_headers,
         json={
             "project_id": project["id"],
             "environment_id": environment["id"],
@@ -84,21 +231,26 @@ def test_create_and_list_management_resources() -> None:
     assert service["environment_id"] == environment["id"]
     assert service["status"] == "inactive"
 
-    assert client.get("/api/v1/projects").json() == [project]
-    assert client.get("/api/v1/environments", params={"project_id": project["id"]}).json() == [
-        environment
-    ]
+    assert client.get("/api/v1/projects", headers=auth_headers).json() == [project]
+    assert client.get(
+        "/api/v1/environments",
+        headers=auth_headers,
+        params={"project_id": project["id"]},
+    ).json() == [environment]
     assert client.get(
         "/api/v1/services",
+        headers=auth_headers,
         params={"project_id": project["id"], "environment_id": environment["id"]},
     ).json() == [service]
 
 
 def test_project_create_rejects_invalid_payload() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
 
     response = client.post(
         "/api/v1/projects",
+        headers=auth_headers,
         json={
             "name": " ",
             "key": "Invalid Key",
@@ -110,10 +262,11 @@ def test_project_create_rejects_invalid_payload() -> None:
 
 def test_duplicate_project_key_returns_conflict() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
     payload = {"name": "核心平台", "key": "core-platform"}
 
-    assert client.post("/api/v1/projects", json=payload).status_code == 201
-    response = client.post("/api/v1/projects", json=payload)
+    assert client.post("/api/v1/projects", headers=auth_headers, json=payload).status_code == 201
+    response = client.post("/api/v1/projects", headers=auth_headers, json=payload)
 
     assert response.status_code == 409
     assert response.json()["detail"] == "项目 key 已存在"
@@ -121,9 +274,11 @@ def test_duplicate_project_key_returns_conflict() -> None:
 
 def test_environment_requires_existing_project() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
 
     response = client.post(
         "/api/v1/environments",
+        headers=auth_headers,
         json={"project_id": 999, "name": "生产环境", "key": "prod"},
     )
 
@@ -133,14 +288,18 @@ def test_environment_requires_existing_project() -> None:
 
 def test_duplicate_environment_key_returns_conflict() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
     project = client.post(
         "/api/v1/projects",
+        headers=auth_headers,
         json={"name": "核心平台", "key": "core-platform"},
     ).json()
     payload = {"project_id": project["id"], "name": "生产环境", "key": "prod"}
 
-    assert client.post("/api/v1/environments", json=payload).status_code == 201
-    response = client.post("/api/v1/environments", json=payload)
+    assert (
+        client.post("/api/v1/environments", headers=auth_headers, json=payload).status_code == 201
+    )
+    response = client.post("/api/v1/environments", headers=auth_headers, json=payload)
 
     assert response.status_code == 409
     assert response.json()["detail"] == "同一项目下环境 key 已存在"
@@ -148,21 +307,26 @@ def test_duplicate_environment_key_returns_conflict() -> None:
 
 def test_service_project_must_match_environment_project() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
     project_a = client.post(
         "/api/v1/projects",
+        headers=auth_headers,
         json={"name": "项目 A", "key": "project-a"},
     ).json()
     project_b = client.post(
         "/api/v1/projects",
+        headers=auth_headers,
         json={"name": "项目 B", "key": "project-b"},
     ).json()
     environment = client.post(
         "/api/v1/environments",
+        headers=auth_headers,
         json={"project_id": project_a["id"], "name": "生产环境", "key": "prod"},
     ).json()
 
     response = client.post(
         "/api/v1/services",
+        headers=auth_headers,
         json={
             "project_id": project_b["id"],
             "environment_id": environment["id"],
@@ -177,12 +341,15 @@ def test_service_project_must_match_environment_project() -> None:
 
 def test_duplicate_service_key_returns_conflict() -> None:
     client = build_client()
+    auth_headers = create_auth_headers(client)
     project = client.post(
         "/api/v1/projects",
+        headers=auth_headers,
         json={"name": "核心平台", "key": "core-platform"},
     ).json()
     environment = client.post(
         "/api/v1/environments",
+        headers=auth_headers,
         json={"project_id": project["id"], "name": "生产环境", "key": "prod"},
     ).json()
     payload = {
@@ -192,8 +359,8 @@ def test_duplicate_service_key_returns_conflict() -> None:
         "key": "api-service",
     }
 
-    assert client.post("/api/v1/services", json=payload).status_code == 201
-    response = client.post("/api/v1/services", json=payload)
+    assert client.post("/api/v1/services", headers=auth_headers, json=payload).status_code == 201
+    response = client.post("/api/v1/services", headers=auth_headers, json=payload)
 
     assert response.status_code == 409
     assert response.json()["detail"] == "同一环境下服务 key 已存在"

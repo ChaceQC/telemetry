@@ -6,6 +6,11 @@
 
 ### 已完成
 
+- `T-0015-authenticated-settings-client`：Settings/基础管理页面接入认证状态；有 session 且恢复完成后才请求项目、环境、服务管理接口，刷新和创建入口会随认证状态禁用。
+- `T-0015-authenticated-settings-client`：登录或恢复 session 后，API client 会在 Settings 管理请求中携带 `Authorization: Bearer <token>`；登录成功路径同步注入内存 token，避免首个请求空 token。
+- `T-0015-authenticated-settings-client`：Settings 列表读取或创建请求返回 `401` 时统一显示页面级登录提示和登录入口；普通管理表单不再把 `401` 展示为账号密码错误，`404`、`409`、`422` 仍保留表单级业务错误。
+- `T-0015-authenticated-settings-client`：补充 Settings API token header 与无 token 行为测试，并新增 Settings 认证状态纯函数测试，覆盖未登录、恢复中、ready 和 `401` 页面级提示。
+- `T-0015-authenticated-settings-client`：更新 `agents/runtime/api-contracts/frontend-requests.md`、`frontend/README.md`，记录 Settings 管理接口认证头、未登录暂停请求和 `401` 页面级处理。
 - `T-0013-fix`：修复认证恢复/刷新错误处理，`/me` 仅在 `401` 时清理 session；`403`、`503`、网络错误和超时会保留本地 token，并通过认证状态展示可恢复错误。
 - `T-0013-fix`：拆分登录页与普通 form/API 的 `401` 展示文案；登录页保留“账号或密码不正确”，普通表单改为登录过期/未登录类提示，避免 Settings 后续接入认证时误导。
 - `T-0013-fix`：将登录页可见文案改为用户面向的登录状态和安全提示，移除“阶段 1”“后端契约稳定后”等实现路线说明。
@@ -53,6 +58,7 @@
 ### 阻塞与风险
 
 - 暂无阻塞。
+- `T-0015-authenticated-settings-client` 本轮未启动真实后端做浏览器联调；Settings `401`/`403`/成功写入仍需等后端认证与管理接口同时可用后补真实联调。
 - `T-0013-auth-ui-shell` 后端认证契约尚未最终集成，当前仅以前端草案实现 `POST /api/v1/auth/login` 和 `GET /api/v1/auth/me`；真实联调、403/503/网络异常展示和 token 过期策略待后端接口可用后补验。
 - `T-0013-auth-ui-shell` 当前使用 `sessionStorage` 临时保存 access token、token type 和非敏感用户展示信息，用于阶段 1 本地会话恢复；该方案仍受同源 XSS 影响，不是生产最终方案，后续应评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 方案。
 - `T-0013-auth-ui-shell` 本轮没有引入全站路由守卫，避免在后端契约未稳定前阻断现有控制台；后续补守卫时必须同步补路由守卫测试。
@@ -75,6 +81,8 @@
 
 ### 验证
 
+- `T-0015-authenticated-settings-client` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（5 个测试文件、22 个测试通过），`npm.cmd run build` 通过。
+- `T-0015-authenticated-settings-client` 已执行 `git diff --check` 通过；已确认 `frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md`、真实 `.env*` 均命中 ignore 规则，未进入待提交列表。
 - `T-0013-fix` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（3 个测试文件、15 个测试通过），`npm.cmd run build` 通过。
 - `T-0013-fix` 已执行 `git diff --check` 通过；提交前检查显示 `frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md` 仍为 ignored，未进入待提交列表。
 - `T-0013-auth-ui-shell` 开发中已执行 `npm.cmd run typecheck`，初次发现 headers 类型和 Windows 大小写文件名问题，修复后重跑通过。

@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础，以及最小认证/当前用户依赖骨架。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础，以及最小认证/当前用户依赖。
 
 ## 环境要求
 
@@ -100,7 +100,7 @@ GET /health
 
 ## 认证 API
 
-当前认证基础使用本地 `auth_users` 表、`pwdlib[argon2]` 密码哈希和 `PyJWT` 访问 token。后端已提供可复用的 `get_current_user` 依赖，供后续管理 API、项目权限和 API Key 管理逐步接入；本次不强制改造既有管理 API 的权限要求。
+当前认证基础使用本地 `auth_users` 表、`pwdlib[argon2]` 密码哈希和 `PyJWT` 访问 token。后端已提供可复用的 `get_current_user` 依赖，并已将项目、环境和服务管理 API 接入最小认证要求：请求必须携带有效 Bearer token，且 token 对应用户必须处于启用状态。
 
 接口不会在响应中返回 `password`、`password_hash` 或 token payload 详情。代码当前不输出请求体日志，后续引入结构化访问日志时也必须脱敏密码、token、cookie、API Key 和数据库连接串。
 
@@ -149,7 +149,7 @@ GET /health
 | 状态码 | 场景 |
 | --- | --- |
 | `401` | 用户名或密码错误、token 缺失、token 无效、token 过期、token 对应用户不存在 |
-| `403` | 后续权限依赖可用于表达已认证但无权限，本次尚未接入具体权限策略 |
+| `403` | 后续权限依赖可用于表达已认证但无权限，当前管理 API 尚未接入项目级 RBAC |
 | `503` | `AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节，认证服务不可用 |
 | `422` | 请求体字段格式错误 |
 
@@ -158,6 +158,8 @@ GET /health
 ## 基础管理 API
 
 当前阶段提供项目、环境和服务管理接口，API 契约延续 T-0006；数据访问已从进程内内存仓储切换为请求级 SQLAlchemy repository。接口暂不接收密钥、Token、Cookie、数据库连接串或通知 Webhook 等敏感字段，也不输出请求体日志。
+
+以下管理接口均需要 `Authorization: Bearer <access_token>`。当前只校验有效 token 和启用用户，不做项目级 RBAC、团队/角色授权或越权判定；这些权限策略将在后续任务中补齐。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -181,7 +183,7 @@ GET /health
 | `project_id` | number | 环境和服务所属项目 ID |
 | `environment_id` | number | 服务所属环境 ID |
 
-当前实现位于 `app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`，由 `app/api/dependencies.py` 按请求注入数据库 session。服务创建同时在 service 层校验项目/环境归属，并由数据库 `(environment_id, project_id)` 复合外键兜底。`InMemoryManagementRepository` 仅保留给不连接数据库的局部单元测试；当前 API 测试使用 SQLite SQLAlchemy repository 验证契约和约束映射。当前仍未接入认证、权限和分页，后续阶段需要在保持现有响应契约基础上补齐。
+当前实现位于 `app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`，由 `app/api/dependencies.py` 按请求注入数据库 session。服务创建同时在 service 层校验项目/环境归属，并由数据库 `(environment_id, project_id)` 复合外键兜底。`InMemoryManagementRepository` 仅保留给不连接数据库的局部单元测试；当前 API 测试使用 SQLite SQLAlchemy repository 验证契约和约束映射。当前仍未接入项目级权限和分页，后续阶段需要在保持现有响应契约基础上补齐。
 
 ## 目录结构
 
@@ -240,4 +242,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/角色/项目权限、API Key、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/角色/项目权限、API Key、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、管理 API 最小认证要求、认证 API 契约、密码哈希、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。

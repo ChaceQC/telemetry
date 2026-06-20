@@ -81,6 +81,9 @@
 - 推送认证 CI 结果文档 `73dafce` 后已读取 GitHub Actions run `27871705987`：Backend checks 与 Frontend checks 均通过。
 - 已启动后端开发 agent Pasteur 推进 `T-0014`，将管理 API 接入认证依赖。
 - 已启动前端开发 agent Meitner 推进 `T-0015`，让 Settings 客户端携带认证 token 并处理未登录/401 状态。
+- 后端开发 agent Pasteur 已提交 `1fe0d62`，管理 API GET/POST 已接入有效 Bearer token 和 active user；Halley 审计通过。
+- 前端开发 agent Meitner 已提交 `a48755a`，Settings 请求携带 session Bearer token，未登录/401 显示页面级提示；Confucius 审计通过。
+- 总 agent 已按业务路径集成 T-0014/T-0015 到 `dev`。
 
 ### 阻塞与风险
 
@@ -111,6 +114,7 @@
 - 推送认证集成到 `dev` 后读取 GitHub Actions 最新 run；若通过，再推进管理 API 接入认证/权限或前后端真实浏览器联调。
 - 提交本次认证 CI 结果记录后读取对应 Actions run；随后推进管理 API 接入认证/权限或前后端真实浏览器联调。
 - 等待 T-0014/T-0015 开发、验证和审计完成；集成后读取 GitHub Actions，并计划真实浏览器联调。
+- 推送 T-0014/T-0015 集成到 `dev` 后读取 GitHub Actions；通过后启动前后端真实浏览器联调或继续项目级权限/RBAC。
 
 ### 验证
 

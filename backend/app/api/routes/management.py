@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.dependencies import get_management_service
+from app.api.dependencies import get_current_user, get_management_service
 from app.schemas.management import (
     EnvironmentCreate,
     EnvironmentResponse,
@@ -19,7 +19,11 @@ from app.services.errors import (
 )
 from app.services.management import ManagementService
 
-router = APIRouter(prefix="/api/v1", tags=["management"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["management"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def _map_management_error(error: Exception) -> HTTPException:

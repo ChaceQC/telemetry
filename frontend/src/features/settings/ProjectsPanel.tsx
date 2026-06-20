@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { createProject, type CreateProjectRequest, type Project } from '../../api/settings';
 import { FormError, SubmitButton, TextareaField, TextField } from './FormControls';
+import { isUnauthorizedApiError } from './authState';
 import { ManagementPanel } from './ManagementPanel';
 import { settingsQueryKeys } from './queryKeys';
 import type { PanelState } from './types';
@@ -11,9 +12,11 @@ import type { PanelState } from './types';
 type ProjectsPanelProps = {
   projects: Project[];
   panelState: PanelState;
+  isAuthBlocked: boolean;
+  onUnauthorized: (error: unknown) => void;
 };
 
-export function ProjectsPanel({ projects, panelState }: ProjectsPanelProps) {
+export function ProjectsPanel({ projects, panelState, isAuthBlocked, onUnauthorized }: ProjectsPanelProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<CreateProjectRequest>({ name: '', key: '', description: '' });
 
@@ -22,11 +25,21 @@ export function ProjectsPanel({ projects, panelState }: ProjectsPanelProps) {
     onSuccess: () => {
       setForm({ name: '', key: '', description: '' });
       queryClient.invalidateQueries({ queryKey: settingsQueryKeys.projects });
+    },
+    onError: (error) => {
+      if (isUnauthorizedApiError(error)) {
+        onUnauthorized(error);
+      }
     }
   });
+  const formError = isUnauthorizedApiError(mutation.error) ? null : mutation.error;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (isAuthBlocked) {
+      return;
+    }
+
     mutation.mutate(form);
   }
 
@@ -76,8 +89,10 @@ export function ProjectsPanel({ projects, panelState }: ProjectsPanelProps) {
             onChange={(description) => setForm({ ...form, description })}
             placeholder="项目用途或边界"
           />
-          <FormError error={mutation.error} />
-          <SubmitButton isPending={mutation.isPending}>创建项目</SubmitButton>
+          <FormError error={formError} />
+          <SubmitButton isPending={mutation.isPending} disabled={isAuthBlocked}>
+            创建项目
+          </SubmitButton>
         </form>
       }
     />

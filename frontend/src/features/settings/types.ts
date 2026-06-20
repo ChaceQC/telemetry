@@ -3,6 +3,7 @@ export type PanelState = {
   isError: boolean;
   error: unknown;
   isFetching: boolean;
+  canRefresh: boolean;
   refetch: () => void;
 };
 

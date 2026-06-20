@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { createService, type Environment, type Project, type Service } from '../../api/settings';
 import { FormError, SelectField, SubmitButton, TextareaField, TextField } from './FormControls';
+import { isUnauthorizedApiError } from './authState';
 import { ManagementPanel } from './ManagementPanel';
 import { settingsQueryKeys } from './queryKeys';
 import type { PanelState } from './types';
@@ -15,9 +16,19 @@ type ServicesPanelProps = {
   services: Service[];
   panelState: PanelState;
   projectsAvailable: boolean;
+  isAuthBlocked: boolean;
+  onUnauthorized: (error: unknown) => void;
 };
 
-export function ServicesPanel({ projects, environments, services, panelState, projectsAvailable }: ServicesPanelProps) {
+export function ServicesPanel({
+  projects,
+  environments,
+  services,
+  panelState,
+  projectsAvailable,
+  isAuthBlocked,
+  onUnauthorized
+}: ServicesPanelProps) {
   const queryClient = useQueryClient();
   const projectOptions = useMemo(() => projects.map((project) => ({ label: project.name, value: project.id })), [projects]);
   const [form, setForm] = useState({
@@ -41,11 +52,21 @@ export function ServicesPanel({ projects, environments, services, panelState, pr
     onSuccess: () => {
       setForm({ project_id: '', environment_id: '', name: '', key: '', description: '' });
       queryClient.invalidateQueries({ queryKey: settingsQueryKeys.services });
+    },
+    onError: (error) => {
+      if (isUnauthorizedApiError(error)) {
+        onUnauthorized(error);
+      }
     }
   });
+  const formError = isUnauthorizedApiError(mutation.error) ? null : mutation.error;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (isAuthBlocked) {
+      return;
+    }
+
     mutation.mutate({
       ...form,
       project_id: Number(form.project_id),
@@ -131,10 +152,10 @@ export function ServicesPanel({ projects, environments, services, panelState, pr
             onChange={(description) => setForm({ ...form, description })}
             placeholder="服务职责或边界"
           />
-          <FormError error={mutation.error} />
+          <FormError error={formError} />
           <SubmitButton
             isPending={mutation.isPending}
-            disabled={!projectsAvailable || environmentOptions.length === 0 || !form.environment_id}
+            disabled={isAuthBlocked || !projectsAvailable || environmentOptions.length === 0 || !form.environment_id}
           >
             创建服务
           </SubmitButton>

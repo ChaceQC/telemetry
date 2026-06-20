@@ -41,7 +41,12 @@ export function ManagementPanel({
         <StatusBadge tone={state.isError ? 'danger' : state.isLoading ? 'warning' : count > 0 ? 'success' : 'neutral'}>
           {state.isError ? '读取失败' : state.isLoading ? '加载中' : `${count} 条`}
         </StatusBadge>
-        <button className="text-button" type="button" onClick={() => state.refetch()} disabled={state.isFetching}>
+        <button
+          className="text-button"
+          type="button"
+          onClick={() => state.refetch()}
+          disabled={state.isFetching || !state.canRefresh}
+        >
           <RefreshCw size={16} aria-hidden="true" />
           <span>{state.isFetching ? '刷新中' : '刷新'}</span>
         </button>

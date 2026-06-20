@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { createEnvironment, type Environment, type Project } from '../../api/settings';
 import { FormError, SelectField, SubmitButton, TextareaField, TextField } from './FormControls';
+import { isUnauthorizedApiError } from './authState';
 import { ManagementPanel } from './ManagementPanel';
 import { settingsQueryKeys } from './queryKeys';
 import type { PanelState } from './types';
@@ -14,9 +15,18 @@ type EnvironmentsPanelProps = {
   environments: Environment[];
   panelState: PanelState;
   projectsAvailable: boolean;
+  isAuthBlocked: boolean;
+  onUnauthorized: (error: unknown) => void;
 };
 
-export function EnvironmentsPanel({ projects, environments, panelState, projectsAvailable }: EnvironmentsPanelProps) {
+export function EnvironmentsPanel({
+  projects,
+  environments,
+  panelState,
+  projectsAvailable,
+  isAuthBlocked,
+  onUnauthorized
+}: EnvironmentsPanelProps) {
   const queryClient = useQueryClient();
   const projectOptions = useMemo(() => projects.map((project) => ({ label: project.name, value: project.id })), [projects]);
   const [form, setForm] = useState({
@@ -31,11 +41,21 @@ export function EnvironmentsPanel({ projects, environments, panelState, projects
     onSuccess: () => {
       setForm({ project_id: '', name: '', key: '', description: '' });
       queryClient.invalidateQueries({ queryKey: settingsQueryKeys.environments });
+    },
+    onError: (error) => {
+      if (isUnauthorizedApiError(error)) {
+        onUnauthorized(error);
+      }
     }
   });
+  const formError = isUnauthorizedApiError(mutation.error) ? null : mutation.error;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (isAuthBlocked) {
+      return;
+    }
+
     mutation.mutate({
       ...form,
       project_id: Number(form.project_id)
@@ -98,8 +118,8 @@ export function EnvironmentsPanel({ projects, environments, panelState, projects
             onChange={(description) => setForm({ ...form, description })}
             placeholder="环境用途或部署范围"
           />
-          <FormError error={mutation.error} />
-          <SubmitButton isPending={mutation.isPending} disabled={!projectsAvailable || !form.project_id}>
+          <FormError error={formError} />
+          <SubmitButton isPending={mutation.isPending} disabled={isAuthBlocked || !projectsAvailable || !form.project_id}>
             创建环境
           </SubmitButton>
         </form>

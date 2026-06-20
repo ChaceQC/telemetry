@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0012-auth-foundation`：阶段 1 最小认证/权限基础骨架。新增本地用户表、密码哈希、登录接口、当前用户接口和可复用 `get_current_user` 依赖；基础管理 API 暂不强制接入权限，避免一次性扩大变更面。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0014-protect-management-api`：阶段 1 已将项目、环境和服务管理 API 接入最小认证要求。管理 API 需要有效 Bearer token 和启用用户；项目级 RBAC、团队/角色权限和越权判定仍是后续权限任务。
 
 ## API-0005 用户登录
 
@@ -65,11 +65,20 @@
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `503 Service Unavailable`：`AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节。
 
+## 管理 API 通用认证边界
+
+- `GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services` 均需要 `Authorization: Bearer <access_token>`。
+- 最小认证要求：token 必须可验证、未过期，且 token 对应用户存在并处于启用状态。
+- 当前不做项目级 RBAC、团队/角色授权或越权判定；这些权限策略在后续任务中补齐。
+- 通用认证错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `503 Service Unavailable`：`AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节。
+
 ## API-0002 项目管理
 
 - 方法：`GET`
 - 路径：`/api/v1/projects`
-- 权限：阶段 1 临时开放；后续接入认证后要求管理后台登录态和项目读取权限。
+- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；当前不做项目级 RBAC。
 - 查询参数：暂无。
 - 分页：暂无；当前 SQLAlchemy repository 返回全部项目，后续数据量上来后补 `page`、`page_size` 或游标分页。
 - 响应：`200 OK`
@@ -89,7 +98,7 @@
 
 - 方法：`POST`
 - 路径：`/api/v1/projects`
-- 权限：阶段 1 临时开放；后续接入认证后要求项目创建权限。
+- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；当前不做项目级 RBAC。
 - 请求体：
 
 ```json
@@ -115,7 +124,7 @@
 
 - 方法：`GET`
 - 路径：`/api/v1/environments`
-- 权限：阶段 1 临时开放；后续接入认证后要求项目读取权限。
+- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；当前不做项目级 RBAC。
 - 查询参数：
   - `project_id`：可选，正整数；传入后只返回该项目下环境。
 - 分页：暂无；当前 SQLAlchemy repository 返回全部匹配环境。
@@ -137,7 +146,7 @@
 
 - 方法：`POST`
 - 路径：`/api/v1/environments`
-- 权限：阶段 1 临时开放；后续接入认证后要求项目环境管理权限。
+- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；当前不做项目级 RBAC。
 - 请求体：
 
 ```json
@@ -165,7 +174,7 @@
 
 - 方法：`GET`
 - 路径：`/api/v1/services`
-- 权限：阶段 1 临时开放；后续接入认证后要求项目或环境读取权限。
+- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；当前不做项目级 RBAC。
 - 查询参数：
   - `project_id`：可选，正整数；传入后只返回该项目下服务。
   - `environment_id`：可选，正整数；传入后只返回该环境下服务。
@@ -189,7 +198,7 @@
 
 - 方法：`POST`
 - 路径：`/api/v1/services`
-- 权限：阶段 1 临时开放；后续接入认证后要求服务管理权限。
+- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；当前不做项目级 RBAC。
 - 请求体：
 
 ```json
@@ -237,4 +246,4 @@
 - 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
 - Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。
 - 验证边界：当前 worktree 无真实 MySQL 运行时，已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户和 Alembic 升降级；后续需要 MySQL 容器补验 migration、外键、唯一索引、用户唯一约束和 API 集成。
-- 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。管理 API 当前仍未强制接入认证/权限，后续任务需在 `get_current_user` 基础上增加项目/角色权限和越权测试。
+- 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。管理 API 当前已强制接入最小认证，但仍未实现项目级 RBAC、团队/角色授权和越权判定；后续任务需在 `get_current_user` 基础上增加项目/角色权限和越权测试。

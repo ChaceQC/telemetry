@@ -250,3 +250,35 @@
 - 已运行 `uv run ruff check .`，结果：通过。
 - 已运行 `uv run ruff format --check .`，结果：45 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：45 个源文件无类型错误。
+
+## 2026-06-20 T-0014-protect-management-api
+
+### 已完成
+
+- 将项目、环境、服务管理 API 接入最小认证要求：`GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services` 均需要有效 Bearer token 和启用用户。
+- 管理路由通过 `get_current_user` 复用现有认证依赖；缺失 token、无效/过期 token、token 对应用户不存在或用户已停用继续沿用当前 auth 依赖的 401 行为。
+- 保持管理 API 响应字段稳定，未在响应中新增用户或权限字段。
+- 补充管理 API 测试，覆盖未认证被拒、无效 token 被拒、停用用户 token 被拒、有效用户可创建/读取项目/环境/服务，以及 OpenAPI Bearer security 声明。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，明确当前只做最小认证，项目级 RBAC、团队/角色授权和越权判定留给后续权限任务。
+
+### 进行中
+
+- 等待总 agent 后续按需启动独立测试 agent 或代码审计 agent 复验本次管理 API 认证接入。
+
+### 阻塞与风险
+
+- 当前仍未实现项目级 RBAC、团队/角色权限或越权判定；任何启用用户拿到有效 token 后都能访问和创建所有项目、环境、服务。
+- 当前没有开放用户创建管理界面或初始化 CLI；测试通过 repository 创建用户，真实环境仍需后续补管理员初始化流程。
+- 当前 worktree 没有真实 MySQL 服务，本次管理 API 认证接入主要通过 SQLite API 测试验证；MySQL 迁移链和用户唯一约束风险延续自认证基础任务。
+
+### 下一步
+
+- 设计项目级角色/权限模型，并补项目读取、环境管理、服务管理的越权拒绝测试。
+- 补管理员初始账号创建方式，并确保初始化过程不泄露密码、token 或密钥。
+
+### 验证
+
+- 已运行 `uv run pytest`，结果：46 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：45 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：45 个源文件无类型错误。
