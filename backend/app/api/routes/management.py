@@ -11,7 +11,12 @@ from app.schemas.management import (
     ServiceCreate,
     ServiceResponse,
 )
-from app.services.errors import DuplicateResourceError, ResourceConflictError, ResourceNotFoundError
+from app.services.errors import (
+    DuplicateResourceError,
+    ResourceConflictError,
+    ResourceIntegrityError,
+    ResourceNotFoundError,
+)
 from app.services.management import ManagementService
 
 router = APIRouter(prefix="/api/v1", tags=["management"])
@@ -21,6 +26,8 @@ def _map_management_error(error: Exception) -> HTTPException:
     if isinstance(error, ResourceNotFoundError):
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
     if isinstance(error, DuplicateResourceError | ResourceConflictError):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
+    if isinstance(error, ResourceIntegrityError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
     return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="管理接口错误")
 
@@ -46,7 +53,12 @@ def create_project(
 ) -> ProjectResponse:
     try:
         project = management_service.create_project(payload)
-    except (DuplicateResourceError, ResourceConflictError, ResourceNotFoundError) as error:
+    except (
+        DuplicateResourceError,
+        ResourceConflictError,
+        ResourceIntegrityError,
+        ResourceNotFoundError,
+    ) as error:
         raise _map_management_error(error) from error
     return ProjectResponse.model_validate(project)
 
@@ -74,7 +86,12 @@ def create_environment(
 ) -> EnvironmentResponse:
     try:
         environment = management_service.create_environment(payload)
-    except (DuplicateResourceError, ResourceConflictError, ResourceNotFoundError) as error:
+    except (
+        DuplicateResourceError,
+        ResourceConflictError,
+        ResourceIntegrityError,
+        ResourceNotFoundError,
+    ) as error:
         raise _map_management_error(error) from error
     return EnvironmentResponse.model_validate(environment)
 
@@ -106,6 +123,11 @@ def create_service(
 ) -> ServiceResponse:
     try:
         service = management_service.create_service(payload)
-    except (DuplicateResourceError, ResourceConflictError, ResourceNotFoundError) as error:
+    except (
+        DuplicateResourceError,
+        ResourceConflictError,
+        ResourceIntegrityError,
+        ResourceNotFoundError,
+    ) as error:
         raise _map_management_error(error) from error
     return ServiceResponse.model_validate(service)

@@ -1,34 +1,14 @@
 # 后端 API 契约草案
 
-后端开发 agent 在本文件追加或修订后端实际提供的 API 契约草案。总 agent 负责合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
-
-## API-0001 后端健康检查
-
-- task: T-0003
-- owner: backend-agent
-- method: GET
-- path: `/health`
-- request: 无请求体
-- response:
-  - `status`: 固定为 `ok`
-  - `service`: 服务名称
-  - `version`: 后端版本
-  - `environment`: 运行环境
-  - `port`: 后端监听端口
-- auth: 无
-- status: done
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0008-fix`：阶段 1 基础管理 API 的 MySQL/SQLAlchemy 持久化基础与审计修复。API 路径、请求体、响应体和错误码延续 `T-0006`，本次主要变更为 repository、迁移约束和完整性错误映射。
 
 ## API-0002 项目管理
-
-- task: T-0006
-- owner: backend-agent
-- status: done
 
 - 方法：`GET`
 - 路径：`/api/v1/projects`
 - 权限：阶段 1 临时开放；后续接入认证后要求管理后台登录态和项目读取权限。
 - 查询参数：暂无。
-- 分页：暂无；当前内存版返回全部项目，MySQL 版本替换时再补 `page`、`page_size` 或游标分页。
+- 分页：暂无；当前 SQLAlchemy repository 返回全部项目，后续数据量上来后补 `page`、`page_size` 或游标分页。
 - 响应：`200 OK`
 
 ```json
@@ -70,16 +50,12 @@
 
 ## API-0003 环境管理
 
-- task: T-0006
-- owner: backend-agent
-- status: done
-
 - 方法：`GET`
 - 路径：`/api/v1/environments`
 - 权限：阶段 1 临时开放；后续接入认证后要求项目读取权限。
 - 查询参数：
   - `project_id`：可选，正整数；传入后只返回该项目下环境。
-- 分页：暂无；当前内存版返回全部匹配环境。
+- 分页：暂无；当前 SQLAlchemy repository 返回全部匹配环境。
 - 响应：`200 OK`
 
 ```json
@@ -119,13 +95,10 @@
 - 错误：
   - `404 Not Found`：项目不存在。
   - `409 Conflict`：同项目下环境 `key` 已存在。
+  - `409 Conflict`：其他无法归类为重复 key 或缺失项目的数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段格式错误。
 
 ## API-0004 服务管理
-
-- task: T-0006
-- owner: backend-agent
-- status: done
 
 - 方法：`GET`
 - 路径：`/api/v1/services`
@@ -133,7 +106,7 @@
 - 查询参数：
   - `project_id`：可选，正整数；传入后只返回该项目下服务。
   - `environment_id`：可选，正整数；传入后只返回该环境下服务。
-- 分页：暂无；当前内存版返回全部匹配服务。
+- 分页：暂无；当前 SQLAlchemy repository 返回全部匹配服务。
 - 响应：`200 OK`
 
 ```json
@@ -177,11 +150,20 @@
 - 错误：
   - `404 Not Found`：项目或环境不存在。
   - `409 Conflict`：环境所属项目不匹配，或同环境下服务 `key` 已存在。
+  - `409 Conflict`：其他无法归类为重复 key、缺失项目/环境或归属冲突的数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段格式错误。
 
-## 临时实现与替换点
+## 持久化实现与迁移
 
-- 当前实现位于 `backend/app/repositories/management.py`，使用进程内 `InMemoryManagementRepository`。
-- 临时原因：`T-0006` 目标是先固定 API 契约和前端联调面，阶段 1 后续任务再接入 MySQL migration、SQLAlchemy model 和持久化 repository。
-- MySQL 替换点：新增 SQLAlchemy model 与迁移后，用 MySQL repository 替换 `InMemoryManagementRepository`，并保持 `ManagementService`、Pydantic schema 和路由响应契约稳定。
-- 安全边界：当前接口不接收密钥、Token、Cookie、数据库连接串或通知 Webhook 等敏感字段；代码未输出请求体日志，避免明文敏感日志。
+- 当前实现位于 `backend/app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`。
+- 请求级数据库 session 由 `backend/app/api/dependencies.py` 注入，engine/session factory 在 `backend/app/core/application.py` 创建。
+- 配置项：`DATABASE_URL`，默认 `sqlite:///./telemetry-dev.db`；MySQL 使用 `mysql+pymysql://...?...charset=utf8mb4`。
+- Alembic 迁移：`backend/migrations/versions/20260620_0001_create_management_tables.py`。
+- MySQL 目标表：
+  - `management_projects`：项目，`key` 全局唯一。
+  - `management_environments`：环境，外键 `project_id`，同项目下 `key` 唯一，并提供 `(id, project_id)` 唯一约束供服务复合外键引用。
+  - `management_services`：服务，外键 `project_id`、`environment_id`，`(environment_id, project_id)` 复合外键保证服务引用的环境属于同一项目，同环境下 `key` 唯一。
+- 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
+- Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。
+- 验证边界：当前 worktree 无真实 MySQL 运行时，已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射和 Alembic 升降级；后续需要 MySQL 容器补验 migration、外键、唯一索引和 API 集成。
+- 安全边界：当前接口仍未接入认证/权限；不接收密钥、Token、Cookie、数据库连接串或通知 Webhook 等敏感字段；代码未输出请求体日志，避免明文敏感日志。

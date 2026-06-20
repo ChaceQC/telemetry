@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     port: int = Field(default=28117, validation_alias=AliasChoices("BACKEND_PORT", "PORT"))
     reload: bool = Field(default=False, validation_alias="BACKEND_RELOAD")
     log_level: str = Field(default="info", validation_alias="LOG_LEVEL")
+    database_url: str = Field(
+        default="sqlite:///./telemetry-dev.db",
+        validation_alias="DATABASE_URL",
+    )
 
 
 @lru_cache

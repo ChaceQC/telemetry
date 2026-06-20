@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.repositories.management import (
     EnvironmentRecord,
-    InMemoryManagementRepository,
+    ManagementRepository,
     ProjectRecord,
     ServiceRecord,
 )
@@ -11,7 +11,7 @@ from app.services.errors import ResourceConflictError, ResourceNotFoundError
 
 
 class ManagementService:
-    def __init__(self, repository: InMemoryManagementRepository) -> None:
+    def __init__(self, repository: ManagementRepository) -> None:
         self._repository = repository
 
     def list_projects(self) -> list[ProjectRecord]:

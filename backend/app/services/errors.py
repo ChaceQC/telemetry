@@ -12,3 +12,7 @@ class DuplicateResourceError(ManagementError):
 
 class ResourceConflictError(ManagementError):
     """请求资源之间的归属关系冲突。"""
+
+
+class ResourceIntegrityError(ManagementError):
+    """数据库完整性约束冲突，且无法归类为重复 key 或缺失引用。"""
