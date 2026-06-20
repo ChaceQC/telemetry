@@ -49,6 +49,7 @@ closed      已关闭
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
+| T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -165,6 +166,8 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | API Key 审计修复记录 Actions 通过 | push `fa302aa` 触发 run `27879018195`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0021-fix | 代码审计 agent | API Key 修复复审通过 | Plato 复审 `eef00f0` 未发现 P0/P1/P2/P3 阻断，确认普通用户无目标项目成员关系时按 `404 项目不存在` 处理，项目内 viewer/editor 仍为 `403`，revoke 拒绝和 stranger 不可区分项目存在性测试已覆盖；结论为可集成到 `dev` | done |
 | 2026-06-20 | T-0021 | 总 agent | API Key 后端基础集成 | 总 agent 已按业务路径从 `feature/backend-dev` 恢复 `8c2349b` 和 `eef00f0` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，未直接 merge feature 分支历史或运行日志；待 push 后读取 Actions | done |
+| 2026-06-20 | CI | 总 agent | API Key 后端基础集成 Actions 通过 | push `2cda0a0` 触发 run `27879120167`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0022 | 总 agent | 启动最小摄入 API 后端任务 | 阶段 1 API Key 创建/撤销已集成并通过 CI；下一步启动后端开发 agent 在 `feature/backend-dev` 推进最小摄入 API 与 API Key 鉴权，目标让 API Key 可用于数据上报，先实现最小 metrics/logs/events 或 batch 接收与清晰错误响应 | doing |
 
 ## 6. 测试记录
 
@@ -227,6 +230,7 @@ closed      已关闭
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
+| 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent | 最小摄入 API 与 API Key 鉴权开发中；完成后需测试、审计，并由总 agent 按业务路径集成 | doing |
 
 ## 10. 决策记录
 

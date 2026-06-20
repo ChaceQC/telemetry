@@ -118,6 +118,8 @@
 - `T-0021-fix` 后端开发 agent Newton 已提交并推送 `eef00f0`：普通用户不在目标项目权限范围内时 API Key list/create/revoke 统一返回 `404 项目不存在`，保留项目内 viewer/editor 角色不足 `403`，并补 revoke 拒绝和项目存在性不可区分回归测试；等待复审结论。
 - `T-0021-fix` 代码审计 agent Plato 复审通过，未发现 P0/P1/P2/P3 阻断；确认项目枚举泄露已修复、revoke 权限测试和文档契约同步到位。
 - 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0021` 到 `dev`，包含 API Key 基础 `8c2349b` 和审计修复 `eef00f0`，未直接 merge feature 分支历史或运行日志。
+- 推送 `T-0021` 集成提交 `2cda0a0` 后已读取 GitHub Actions run `27879120167`：Backend checks 与 Frontend checks 均通过。
+- 已登记 `T-0022` 阶段 2 最小摄入 API 与 API Key 鉴权任务，后续由后端开发 agent 在独立后端 worktree 推进；目标让 API Key 可用于数据上报，先实现最小 metrics/logs/events 或 batch 接收与清晰错误响应。
 
 ### 阻塞与风险
 
@@ -162,7 +164,8 @@
 - 阶段 1 项目级 RBAC 后端基础已集成并通过 CI；下一步推进 API Key 创建/撤销后端基础，让后续数据上报可用 API Key 鉴权。
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
 - 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
-- 推送 `T-0021` 集成到 `dev` 后读取 GitHub Actions；通过后继续阶段 1 团队/成员管理 API、审计日志基础能力或进入数据摄入 MVP。
+- 阶段 1 API Key 创建/撤销后端基础已集成并通过 CI；下一步推进最小摄入 API 与 API Key 鉴权，闭环“API Key 可用于数据上报”验收。
+- `T-0022` 已进入进行中：先做后端最小摄入 API，随后安排代码审计和真实 MySQL/接口补验。
 
 ### 验证
 
@@ -215,3 +218,4 @@
 - GitHub Actions run `27878685852` 已通过：API Key 进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - Confucius 在 `8c2349b` 上完成真实 MySQL/API Key 补验：`uv run pytest tests/test_api_keys.py` 5 passed，`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过；临时库已清理，未泄露凭据或 API Key 明文。
 - GitHub Actions run `27879018195` 已通过：API Key 审计修复记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27879120167` 已通过：T-0021 集成后的 Backend checks 与 Frontend checks 均为 success。
