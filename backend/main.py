@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+import uvicorn
+
+from app.core.application import create_app
+from app.core.config import get_settings
+
+app = create_app()
+
+
+def main() -> None:
+    settings = get_settings()
+    uvicorn.run(
+        app if not settings.reload else "main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.reload,
+        log_level=settings.log_level.lower(),
+    )
+
+
+if __name__ == "__main__":
+    main()
