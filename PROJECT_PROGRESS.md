@@ -67,6 +67,7 @@
 - 后端开发 agent Nietzsche 已提交 `b40257a`，补齐 mypy 依赖/配置并修复 MySQL downgrade 删除顺序；后端测试 agent Hubble 已用真实 MySQL 验证 `upgrade head -> downgrade base -> upgrade head` 通过。
 - 前端开发 agent Aristotle 已提交 `6084a13`，新增 ESLint 配置和 `npm run lint`，本地 lint/typecheck/test/build 均通过。
 - 已将“每次 push 后读取 GitHub Actions run 并写入文档”固化到 `AGENT.md` 和 `PROJECT_PLAN.md`。
+- 推送 `333b11d` 后已读取 GitHub Actions run `27870604620`：Backend checks 和 Frontend checks 均通过。
 
 ### 阻塞与风险
 
@@ -82,6 +83,7 @@
 - `T-0008` 已通过代码复审并集成，但真实 MySQL migration、外键名/错误码映射、唯一索引和 API 404/409 行为仍在补验中。
 - 当前等待项：本次集成推送到 `dev` 后，需要读取最新 GitHub Actions run，并把 CI 结果再次写入根沟通与进度文件。
 - 真实 MySQL 已验证管理 migration 升降级和 API 持久化行为；未覆盖独立 `uvicorn` 网络进程、认证、并发和更完整业务边界。
+- GitHub Actions 当前存在非阻塞注解：多个官方 action 目标 Node.js 20 runtime 已弃用，被 runner 强制运行在 Node 24；后续可关注 action 上游版本更新或升级 action 版本。
 
 ### 下一步
 
@@ -89,7 +91,7 @@
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
-- 推送本次集成到 `dev` 后，立即读取 GitHub Actions 最新 run；若失败，记录失败 job、失败步骤和下一轮修复任务。
+- 提交本次 CI 结果文档后，再读取对应 GitHub Actions run 并记录；随后继续阶段 1 认证/权限或真实浏览器联调任务。
 
 ### 验证
 
@@ -122,3 +124,4 @@
 - 本轮总 agent 没有在根工作树代跑前端或后端测试、构建、lint 或服务启动命令；只执行了集成、文档和 Git 状态检查。
 - GitHub Actions 旧 run `27869177639` 失败原因已读取：后端 `uv run mypy .` 找不到 `mypy`，前端 `npm run lint` 缺少脚本；已分别由 T-0010/T-0011 修复。
 - 真实 MySQL 复验由后端测试 agent Hubble 执行，使用本地 `auth.txt` 凭据但未泄露连接串；临时库已清理，工作树干净。
+- GitHub Actions run `27870604620` 已通过：后端依次完成 ruff lint、ruff format、mypy、pytest；前端依次完成 npm ci、lint、typecheck、test。

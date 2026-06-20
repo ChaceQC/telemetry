@@ -89,6 +89,7 @@ closed      已关闭
 | 2026-06-20 | T-0010 | 后端测试 agent | 真实 MySQL downgrade 复验通过 | 后端开发 agent Nietzsche 提交 `b40257a` 修复后，测试 agent Hubble 在真实 MySQL 临时库验证 `upgrade head -> downgrade base -> upgrade head` 通过，并复验管理 API 持久化行为 | done |
 | 2026-06-20 | T-0011 | 前端开发 agent | 前端 lint CI 修复完成 | 前端开发 agent Aristotle 提交 `6084a13`，新增真实 `npm run lint`、ESLint 配置和锁文件更新；本地 lint/typecheck/test/build 均通过 | done |
 | 2026-06-20 | CI | 用户 | 固化 Actions 结果记录要求 | 后续每次 push 后总 agent 必须读取对应 GitHub Actions run，并把 run 结论写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md` | done |
+| 2026-06-20 | CI | 总 agent | dev 集成后 Actions 通过 | push `333b11d` 触发 run `27870604620`；Backend checks 和 Frontend checks 全部通过。注解：`actions/checkout@v4`、`actions/setup-node@v4`、`actions/setup-python@v5`、`astral-sh/setup-uv@v5` 目标 Node.js 20 runtime 已弃用，被 runner 强制运行在 Node 24；当前不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -141,6 +142,7 @@ closed      已关闭
 | 2026-06-20 | T-0010 | feature/backend-dev | dev | 后端开发 agent Nietzsche | 修复中；完成后需后端测试/审计并由总 agent 集成 | doing |
 | 2026-06-20 | T-0011 | feature/frontend-dev | dev | 前端开发 agent Aristotle | `6084a13` 已补齐 lint script 和 ESLint 配置；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | T-0010 | feature/backend-dev | dev | 后端开发 agent Nietzsche | `b40257a` 已修复 mypy CI 与 MySQL downgrade，并经真实 MySQL 复验通过；总 agent 已按业务路径集成 | done |
+| 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 
 ## 10. 决策记录
 
