@@ -149,6 +149,7 @@ closed      已关闭
 | 2026-06-20 | T-0020-mysql-test-adopt | 总 agent | 启动真实 MySQL 回归测试补丁归档 | 已启动后端开发 agent Hegel 接手 Feynman 留下的 `backend/tests/test_management_api.py` 真实 MySQL 回归测试补丁，要求复核安全与 CI skip 行为、验证后提交并 push 到 `feature/backend-dev` | doing |
 | 2026-06-20 | T-0020-mysql-test-adopt | 后端开发 agent | 真实 MySQL 回归测试补丁归档完成 | Hegel 已提交并 push `7bf64b7` 到 `feature/backend-dev`：可选真实 MySQL 回归测试默认在未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时 skip，不影响普通 CI；已整理临时库标识符校验、清理策略和文档。验证 `uv run pytest tests/test_management_api.py tests/test_permissions.py` 39 passed/2 skipped，`uv run pytest` 63 passed/2 skipped，ruff、mypy、diff check 通过 | done |
 | 2026-06-20 | T-0020 | 总 agent | RBAC 后端基础集成 | 总 agent 已按业务路径从 `feature/backend-dev` 恢复 `57a16e9`、`76ad5b7`、`7bf64b7` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，未直接 merge feature 分支历史或运行日志；待 push 后读取 Actions | done |
+| 2026-06-20 | CI | 总 agent | RBAC 后端基础集成 Actions 通过 | push `7b30d28` 触发 run `27878169567`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 
 ## 6. 测试记录
 
