@@ -102,6 +102,7 @@ closed      已关闭
 | 2026-06-20 | T-0012 | 后端开发/审计 agent | 后端认证安全修复通过 | Herschel 提交 `ef09e21` 修复用户名枚举时序差异、弱 JWT 密钥校验和 OpenAPI Bearer 表达；Cicero 复审未发现 P0/P1/P2/P3 阻断 | done |
 | 2026-06-20 | T-0013 | 前端开发/审计 agent | 前端登录壳审计修复通过 | 初审发现 3 个 P3；Turing 提交 `faffb05` 修复 session 恢复错误处理、登录/普通表单 401 文案拆分和登录页产品文案；Leibniz 复审通过 | done |
 | 2026-06-20 | T-0012/T-0013 | 总 agent | 认证基础集成 | 总 agent 已按业务路径集成后端 `ccca163`/`ef09e21` 与前端 `054b792`/`faffb05` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
+| 2026-06-20 | CI | 总 agent | 认证基础集成 Actions 通过 | push `6706df5` 触发 run `27871672033`，Backend checks 与 Frontend checks 均通过；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 

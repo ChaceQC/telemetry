@@ -77,6 +77,7 @@
 - 前端登录壳初审发现 session 恢复误清、401 文案误导和登录页实现说明文案；Turing 已提交 `faffb05` 修复，Leibniz 复审通过。
 - 后端真实 MySQL 补验已覆盖 auth users migration、登录成功/失败、`/auth/me` 和密码 hash 非明文保存；临时库已清理。
 - 总 agent 已按业务路径集成 T-0012/T-0013 认证基础到 `dev`，不合入 feature 分支历史和运行日志。
+- 推送认证集成 `6706df5` 后已读取 GitHub Actions run `27871672033`：Backend checks 与 Frontend checks 均通过。
 
 ### 阻塞与风险
 
@@ -105,6 +106,7 @@
 - 等待 T-0012/T-0013 对应开发 agent 提交并 push；随后启动测试/审计，集成后继续读取并记录 GitHub Actions run。
 - 等待 T-0012 MySQL 补验、T-0012 代码审计、T-0013 代码审计结论；全部通过后按业务路径集成到 `dev` 并读取 Actions。
 - 推送认证集成到 `dev` 后读取 GitHub Actions 最新 run；若通过，再推进管理 API 接入认证/权限或前后端真实浏览器联调。
+- 提交本次认证 CI 结果记录后读取对应 Actions run；随后推进管理 API 接入认证/权限或前后端真实浏览器联调。
 
 ### 验证
 
@@ -138,3 +140,4 @@
 - GitHub Actions 旧 run `27869177639` 失败原因已读取：后端 `uv run mypy .` 找不到 `mypy`，前端 `npm run lint` 缺少脚本；已分别由 T-0010/T-0011 修复。
 - 真实 MySQL 复验由后端测试 agent Hubble 执行，使用本地 `auth.txt` 凭据但未泄露连接串；临时库已清理，工作树干净。
 - GitHub Actions run `27870604620` 已通过：后端依次完成 ruff lint、ruff format、mypy、pytest；前端依次完成 npm ci、lint、typecheck、test。
+- GitHub Actions run `27871672033` 已通过：认证基础集成后的后端与前端 CI 均为 success。
