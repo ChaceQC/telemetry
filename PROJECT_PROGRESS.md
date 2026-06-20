@@ -131,6 +131,7 @@
 - 推送摄入 API 审计修复进展提交 `2c5e84b` 后已读取 GitHub Actions run `27879959423`：Backend checks 与 Frontend checks 均通过。
 - `T-0022-fix` 代码审计 agent Boole 复审通过，未发现 P0/P1/P2/P3 阻断；确认非有限 float 递归拒绝、payload 必填、`X-API-Key` 默认 CORS header 均已闭环，鉴权和项目归属边界无回归。
 - 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0022` 到 `dev`，包含最小摄入 API 基础 `9fc69bc` 和审计修复 `dcc6208`，未直接 merge feature 分支历史或运行日志。
+- 推送 `T-0022` 集成提交 `0606966` 后已读取 GitHub Actions run `27880065942`：Backend checks 与 Frontend checks 均通过；阶段 2 最小事件摄入 API 与 API Key 鉴权闭环。
 
 ### 阻塞与风险
 
@@ -150,7 +151,7 @@
 - 认证基础仍未包含登录限流、失败审计、防爆破策略、刷新 token、HttpOnly Cookie 或全站路由守卫；这些已作为后续安全/前端联调任务保留。
 - 前后端认证接口尚未通过浏览器或真实网络服务做端到端联调；当前验证来自后端 TestClient、前端单测和静态构建。
 - feature 分支历史仍可能包含早期过程提交；后续总 agent 集成到 `dev` 时继续按明确业务路径恢复文件并提交，除非先确认历史干净，否则不要直接 `git merge feature/*`。
-- `T-0022` 已通过真实 MySQL 补验和审计修复复审；推送集成提交后需读取并记录 GitHub Actions 结果。
+- 阶段 2 当前仅完成最小 events 摄入并落 MySQL `ingest_records`；metrics/logs 专用 schema、ClickHouse/MongoDB 初始化、Redis 限流和摄入统计仍未完成。
 
 ### 下一步
 
@@ -177,7 +178,7 @@
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
 - 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
 - 阶段 1 API Key 创建/撤销后端基础已集成并通过 CI；下一步推进最小摄入 API 与 API Key 鉴权，闭环“API Key 可用于数据上报”验收。
-- 推送 `T-0022` 集成到 `dev` 后读取 GitHub Actions；通过后继续推进阶段 2 摄入后续能力或前端/API Key 管理界面补齐。
+- 阶段 2 下一步优先推进 metrics/logs 专用摄入契约与后端 API 基础，让验收项“能通过 HTTP API 上报 metrics、logs、events”完整闭环；随后再处理 ClickHouse/MongoDB 初始化、Redis 限流和摄入统计。
 
 ### 验证
 
@@ -239,3 +240,4 @@
 - `T-0022-fix` 后端开发自测由 Goodall 在后端 worktree 完成：`uv run pytest tests/test_ingest_api.py` 8 passed，`uv run pytest` 77 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
 - GitHub Actions run `27879959423` 已通过：摄入 API 审计修复进展提交后的 Backend checks 与 Frontend checks 均为 success。
 - Boole 复审 `dcc6208` 通过：`uv run pytest tests/test_ingest_api.py tests/test_deployment_middleware.py` 14 passed，额外探针确认深层 `NaN`、单条 `-Infinity`、batch 深层 `Infinity`、batch 缺失 payload 均返回 `422`，`git diff --check` 干净。
+- GitHub Actions run `27880065942` 已通过：T-0022 最小摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。

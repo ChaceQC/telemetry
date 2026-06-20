@@ -179,6 +179,7 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 摄入 API 审计修复进展 Actions 通过 | push `2c5e84b` 触发 run `27879959423`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0022-fix | 代码审计 agent | 摄入 API 审计修复复审通过 | Boole 复审 `dcc6208` 未发现 P0/P1/P2/P3 阻断，确认非有限 float 递归拒绝、payload 必填、`X-API-Key` 默认 CORS header 已闭环，鉴权仍使用 `ApiKeyService.verify_key` 且项目归属仍来自 API Key；结论为可集成到 `dev` | done |
 | 2026-06-20 | T-0022 | 总 agent | 最小摄入 API 集成 | 总 agent 已按业务路径从 `feature/backend-dev` 恢复 `9fc69bc` 与 `dcc6208` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，未直接 merge feature 分支历史或运行日志；待 push 后读取 Actions | done |
+| 2026-06-20 | CI | 总 agent | 最小摄入 API 集成 Actions 通过 | push `0606966` 触发 run `27880065942`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；存在官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 
