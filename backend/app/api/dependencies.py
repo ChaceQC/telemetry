@@ -15,7 +15,7 @@ from app.services.auth import AuthConfigurationError, AuthenticationError, AuthS
 from app.services.ingest import IngestService
 from app.services.management import ManagementService
 from app.services.permissions import PermissionService
-from app.services.rate_limit import RateLimiter, RateLimitExceededError
+from app.services.rate_limit import RateLimiter, RateLimiterUnavailableError, RateLimitExceededError
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -95,6 +95,11 @@ def get_ingest_api_key_context(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="摄入请求过于频繁",
             headers={"Retry-After": str(error.retry_after_seconds)},
+        ) from error
+    except RateLimiterUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="摄入限流服务不可用",
         ) from error
     return context
 

@@ -96,11 +96,24 @@ def test_deployment_lists_are_read_from_csv_environment(monkeypatch) -> None:
 def test_ingest_rate_limit_reads_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("INGEST_RATE_LIMIT_ENABLED", "true")
     monkeypatch.setenv("INGEST_RATE_LIMIT_PER_MINUTE", "42")
+    monkeypatch.setenv("INGEST_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("INGEST_RATE_LIMIT_KEY_PREFIX", "telemetry-test")
+    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:26380/2")
 
     settings = Settings()
 
     assert settings.ingest_rate_limit_enabled is True
     assert settings.ingest_rate_limit_per_minute == 42
+    assert settings.ingest_rate_limit_backend == "redis"
+    assert settings.ingest_rate_limit_key_prefix == "telemetry-test"
+    assert settings.redis_url == "redis://127.0.0.1:26380/2"
+
+
+def test_ingest_rate_limit_rejects_unknown_backend(monkeypatch) -> None:
+    monkeypatch.setenv("INGEST_RATE_LIMIT_BACKEND", "unknown")
+
+    with pytest.raises(ValidationError, match="ingest_rate_limit_backend"):
+        Settings()
 
 
 def test_cors_credentials_rejects_wildcard_origin(monkeypatch) -> None:

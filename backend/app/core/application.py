@@ -11,7 +11,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.db.session import create_database_engine, create_session_factory
-from app.services.rate_limit import InMemoryFixedWindowRateLimiter
+from app.services.rate_limit import create_ingest_rate_limiter
 
 
 def _json_safe_value(value: Any) -> Any:
@@ -51,10 +51,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = resolved_settings
     app.state.db_engine = db_engine
     app.state.db_session_factory = db_session_factory
-    app.state.ingest_rate_limiter = InMemoryFixedWindowRateLimiter(
+    app.state.ingest_rate_limiter = create_ingest_rate_limiter(
         enabled=resolved_settings.ingest_rate_limit_enabled,
         limit=resolved_settings.ingest_rate_limit_per_minute,
         window_seconds=60,
+        backend=resolved_settings.ingest_rate_limit_backend,
+        redis_url=resolved_settings.redis_url,
+        key_prefix=resolved_settings.ingest_rate_limit_key_prefix,
     )
 
     @app.exception_handler(RequestValidationError)

@@ -15,6 +15,7 @@ from app.db.base import Base
 from app.models.ingest import IngestRecordModel
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.services.auth import AuthService, hash_password
+from app.services.rate_limit import RateLimiterUnavailableError
 
 TEST_AUTH_SECRET = "test-auth-secret-key-with-at-least-thirty-two-bytes"
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +49,11 @@ def build_rate_limited_client(*, limit_per_minute: int) -> TestClient:
 
 def _tested_app(client: TestClient) -> FastAPI:
     return cast(FastAPI, client.app)
+
+
+class FailingRateLimiter:
+    def check(self, *, key: str, now: float | None = None) -> None:
+        raise RateLimiterUnavailableError("摄入限流服务不可用")
 
 
 def create_test_user(client: TestClient, *, username: str) -> UserRecord:
@@ -460,6 +466,23 @@ def test_ingest_rate_limit_rejects_requests_after_window_limit() -> None:
     assert limited_response.status_code == 429
     assert limited_response.json()["detail"] == "摄入请求过于频繁"
     assert limited_response.headers["retry-after"] == "60"
+
+
+def test_ingest_rate_limit_unavailable_returns_service_unavailable() -> None:
+    client = build_client()
+    admin_headers = create_auth_headers(client, username="limit-unavailable")
+    project = create_project(client, admin_headers, "limit-unavailable-project")
+    raw_key = create_api_key(client, project["id"], admin_headers)
+    _tested_app(client).state.ingest_rate_limiter = FailingRateLimiter()
+
+    response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "deployment", "payload": {"attempt": 1}},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "摄入限流服务不可用"
 
 
 @pytest.mark.parametrize(

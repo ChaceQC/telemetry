@@ -97,6 +97,31 @@ class Settings(BaseSettings):
         ge=1,
         validation_alias="INGEST_RATE_LIMIT_PER_MINUTE",
     )
+    ingest_rate_limit_backend: str = Field(
+        default="memory",
+        validation_alias="INGEST_RATE_LIMIT_BACKEND",
+    )
+    ingest_rate_limit_key_prefix: str = Field(
+        default="telemetry",
+        validation_alias="INGEST_RATE_LIMIT_KEY_PREFIX",
+    )
+    redis_url: str = Field(default="redis://127.0.0.1:26380/0", validation_alias="REDIS_URL")
+
+    @field_validator("ingest_rate_limit_backend")
+    @classmethod
+    def normalize_ingest_rate_limit_backend(cls, value: str) -> str:
+        backend = value.strip().lower()
+        if backend not in {"memory", "redis"}:
+            raise ValueError("ingest_rate_limit_backend 必须是 memory 或 redis")
+        return backend
+
+    @field_validator("ingest_rate_limit_key_prefix")
+    @classmethod
+    def normalize_ingest_rate_limit_key_prefix(cls, value: str) -> str:
+        prefix = value.strip().strip(":")
+        if not prefix:
+            raise ValueError("ingest_rate_limit_key_prefix 不能为空")
+        return prefix
 
     @field_validator("root_path")
     @classmethod

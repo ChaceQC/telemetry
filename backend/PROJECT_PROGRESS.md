@@ -636,3 +636,28 @@
 - 已运行 `uv run ruff format --check .`，结果：71 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：71 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0027 Redis 摄入限流后端基础
+
+### 已完成
+
+- 新增 Redis 固定窗口限流后端，支持通过 `INGEST_RATE_LIMIT_BACKEND=redis` 使用 `REDIS_URL` 共享 API Key 限流计数；默认仍为 `memory`，保持本地/CI 默认路径稳定。
+- 新增 `INGEST_RATE_LIMIT_KEY_PREFIX` 配置，用于 Redis key 前缀隔离；`INGEST_RATE_LIMIT_BACKEND` 仅允许 `memory` 或 `redis`。
+- Redis 命令或连接失败时映射为 `503 Service Unavailable`，响应体 `detail=摄入限流服务不可用`，避免变成未处理 500。
+- 补充 `redis` Python 依赖、`.env.example`、README 和后端契约草案。
+- 新增 fake Redis 单元测试覆盖固定窗口共享计数、窗口切换、禁用时不访问 Redis、Redis 异常映射；补充摄入 API 503 回归测试。
+
+### 阻塞与风险
+
+- 本次不启动真实 Redis 容器；真实 Redis 认证、连接串、网络异常和多进程共享计数需在后续容器补验中覆盖。
+- Redis 固定窗口使用 `INCR` + 首次 `EXPIRE`，满足当前基础限流；更强原子性、滑动窗口或 Lua 脚本可在流量压测后补强。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py`，结果：39 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check . --fix` 修正 import 排序。
+- 已运行 `uv run pytest`，结果：103 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：72 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：72 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

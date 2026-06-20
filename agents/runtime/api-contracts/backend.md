@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0024`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events、metrics 和 logs 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse 开发容器初始化 SQL 已补齐 metrics/logs/stats/traces 基础表。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0027`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events、metrics 和 logs 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -38,7 +38,10 @@
 - 摄入限流配置：
   - `INGEST_RATE_LIMIT_ENABLED`：默认 `false`；开启后按已验证 API Key ID 做固定窗口限流。
   - `INGEST_RATE_LIMIT_PER_MINUTE`：默认 `600`；超限返回 `429 Too Many Requests`、`detail=摄入请求过于频繁` 和 `Retry-After` 秒数。
-  - 当前限流后端为单进程内存计数器，后续生产/多实例需替换为 Redis 分布式计数器。
+  - `INGEST_RATE_LIMIT_BACKEND`：默认 `memory`；支持 `memory` 和 `redis`，多实例部署应使用 `redis`。
+  - `INGEST_RATE_LIMIT_KEY_PREFIX`：默认 `telemetry`，Redis 限流 key 前缀。
+  - `REDIS_URL`：默认 `redis://127.0.0.1:26380/0`；启用 Redis 限流后端时使用。
+  - Redis 限流后端不可用时返回 `503 Service Unavailable`、`detail=摄入限流服务不可用`。
 
 ## API-0005 用户登录
 
@@ -496,6 +499,8 @@
 - 响应：`202 Accepted`，格式同 batch receipt；receipt 中 `kind` 为 `log`，`type` 为日志 `level`。
 - 错误：
   - `401 Unauthorized`：缺少 API Key、API Key 无效或已撤销。
+  - `429 Too Many Requests`：启用摄入限流且当前 API Key 超过固定窗口阈值，响应包含 `Retry-After`。
+  - `503 Service Unavailable`：启用 Redis 限流后端且 Redis 连接或命令不可用。
   - `422 Unprocessable Entity`：请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长或批量条数/大小超限。
 - 持久化：当前写入 MySQL/SQLite `ingest_records` 表，字段包含 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at`、`received_at`。events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`。
 - 安全边界：

@@ -341,3 +341,27 @@
 - 总 agent 在根仓库后端验证 `T-0026`：`uv run pytest tests/test_ingest_api.py` 23 passed，`uv run pytest` 97 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 均通过。
 - GitHub Actions run `27883234576` 已通过：T-0026 摄入统计基础集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
 - GitHub Actions run `27883282889` 已通过：T-0026 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27883332840` 已通过：T-0026 最终 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+
+## 2026-06-21 T-0027 Redis 摄入限流后端基础
+
+### 已完成
+
+- 已登记 `T-0027` 阶段 2 Redis 摄入限流后端基础任务；目标是在保留默认内存限流路径的同时，补上可配置的 Redis 固定窗口限流后端。
+- 后端分支 `819d200` 已完成 Redis 限流后端：新增 `INGEST_RATE_LIMIT_BACKEND`、`INGEST_RATE_LIMIT_KEY_PREFIX` 和 `REDIS_URL` 配置，`memory` 为默认，`redis` 用于多实例共享 API Key 限流计数。
+- Redis 限流后端按 API Key 固定窗口 `INCR` 计数并设置过期时间；超限继续返回 `429` 和 `Retry-After`，Redis 命令或连接失败返回 `503`、`detail=摄入限流服务不可用`。
+- 总 agent 本地复审未发现 P0/P1/P2；已按业务路径恢复依赖、配置、限流服务、API 错误映射、测试、README、后端进度和契约草案到 `dev`，未直接 merge feature 分支历史。
+
+### 阻塞与风险
+
+- 本小步未启动真实 Redis 容器；真实 Redis 认证、连接串、网络异常和多实例共享计数仍需后续容器补验。
+- 当前 Redis 固定窗口使用 `INCR` + 首次 `EXPIRE`；更强原子性、滑动窗口或 Lua 脚本可在压测后单独补强。
+
+### 下一步
+
+- 推送 T-0027 集成后读取 Actions 并记录结果；随后继续阶段 2 失败统计、真实 Redis 容器补验或进入阶段 3 查询 API 小步。
+
+### 验证
+
+- 总 agent 在后端 worktree 验证 `T-0027`：`uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py` 39 passed，`uv run pytest` 103 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- 总 agent 在根仓库后端验证 `T-0027`：`uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py` 39 passed，`uv run pytest` 103 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
