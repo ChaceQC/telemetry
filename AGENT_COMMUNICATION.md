@@ -43,6 +43,7 @@ closed      已关闭
 | T-0013 | 阶段 1 前端登录与认证状态壳 | 总 agent | done | todo | done | done | done |
 | T-0014 | 阶段 1 管理 API 接入认证 | 总 agent | todo | done | done | done | done |
 | T-0015 | 阶段 1 Settings 客户端接入认证 | 总 agent | done | todo | done | done | done |
+| T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | testing | testing | doing | todo | doing |
 
 ## 4. API 契约登记
 
@@ -112,6 +113,8 @@ closed      已关闭
 | 2026-06-20 | T-0015 | 前端开发/审计 agent | Settings 认证客户端通过 | Meitner 提交 `a48755a`，Settings 请求携带 Bearer token 并处理未登录/401；Confucius 审计未发现 P0/P1/P2/P3 阻断 | done |
 | 2026-06-20 | T-0014/T-0015 | 总 agent | 管理接口认证接入集成 | 总 agent 已按业务路径集成后端 `1fe0d62` 和前端 `a48755a` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
 | 2026-06-20 | CI | 总 agent | 管理接口认证接入 Actions 通过 | push `063e99a` 触发 run `27872332372`，Backend checks 与 Frontend checks 均通过；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | CI | 总 agent | 管理接口认证结果文档 Actions 通过 | push `5a8541a` 触发 run `27872367440`，Backend checks 与 Frontend checks 均通过 | done |
+| 2026-06-20 | T-0016 | 总 agent | 启动真实前后端联调测试 agent | 已启动集成测试 agent Singer，使用真实 MySQL 临时库和浏览器/HTTP 联调验证登录后 Settings 创建/列表、未登录提示和端口清理；要求不得泄露 `auth.txt` 凭据 | testing |
 
 ## 6. 测试记录
 

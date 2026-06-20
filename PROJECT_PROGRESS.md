@@ -85,6 +85,8 @@
 - 前端开发 agent Meitner 已提交 `a48755a`，Settings 请求携带 session Bearer token，未登录/401 显示页面级提示；Confucius 审计通过。
 - 总 agent 已按业务路径集成 T-0014/T-0015 到 `dev`。
 - 推送管理接口认证接入 `063e99a` 后已读取 GitHub Actions run `27872332372`：Backend checks 与 Frontend checks 均通过。
+- 推送管理接口认证 CI 结果文档 `5a8541a` 后已读取 GitHub Actions run `27872367440`：Backend checks 与 Frontend checks 均通过。
+- 已启动集成测试 agent Singer 推进 `T-0016`，验证真实 MySQL + 后端 + 前端浏览器/HTTP 联调下的登录后 Settings 创建/列表和未登录提示。
 
 ### 阻塞与风险
 
@@ -117,6 +119,7 @@
 - 等待 T-0014/T-0015 开发、验证和审计完成；集成后读取 GitHub Actions，并计划真实浏览器联调。
 - 推送 T-0014/T-0015 集成到 `dev` 后读取 GitHub Actions；通过后启动前后端真实浏览器联调或继续项目级权限/RBAC。
 - 提交本次 CI 结果记录后读取对应 Actions run；随后启动前后端真实浏览器联调或继续项目级权限/RBAC。
+- 等待 T-0016 集成测试结果；若通过，继续推进项目级权限/RBAC 或 API Key 管理；若失败，记录失败步骤并分派修复。
 
 ### 验证
 
