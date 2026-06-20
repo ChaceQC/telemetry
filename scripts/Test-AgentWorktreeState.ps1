@@ -67,7 +67,8 @@ $trackedDeniedPatterns = @(
 $trackedAllowedPatterns = @(
     ".env.example",
     "backend/.env.example",
-    "frontend/.env.example"
+    "frontend/.env.example",
+    "backend/docker/clickhouse/init/*.sql"
 )
 
 $script:FailureCount = 0

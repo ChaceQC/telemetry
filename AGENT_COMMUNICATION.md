@@ -51,7 +51,7 @@ closed      已关闭
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
 | T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
 | T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | done | done | done |
-| T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | done | doing | doing | doing |
 
 ## 4. API 契约登记
 
@@ -199,6 +199,9 @@ closed      已关闭
 | 2026-06-20 | T-0024 | 总 agent | 启动 ClickHouse/MongoDB 初始化后端任务 | 阶段 2 HTTP 上报 metrics/logs/events 已闭环；下一步启动后端 agent 推进 ClickHouse 表初始化和 MongoDB events 集合初始化基础，优先新增 init 脚本、Compose 挂载、配置/文档和静态验证，不直接接入摄入写入链路或 Redis 限流 | doing |
 | 2026-06-20 | CI | 总 agent | ClickHouse/MongoDB 初始化任务登记 Actions 通过 | push `8d433f6` 触发 run `27881240620`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0024 | 总 agent | 拆分 ClickHouse 初始化小步 | Herschel 开发 agent 因 502 中断，后端 worktree 检查干净；已关闭 Herschel 并重派 Zeno，仅先处理 ClickHouse 初始化 SQL、Compose 挂载和静态测试，MongoDB events 集合初始化后续小步单独推进 | doing |
+| 2026-06-20 | CI | 总 agent | ClickHouse 初始化拆分记录 Actions 通过 | push `531687c` 触发 run `27881340239`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0024 | 后端开发 agent/总 agent | ClickHouse 初始化小步完成 | Zeno 本地提交 `1e994ee` 新增 ClickHouse init SQL、静态测试和文档；总 agent 发现其新增 `backend/docker-compose.dev.yml` 会形成第二套 Compose 入口，未直接 push，改为追加 `48eeb38` 使用根 `docker-compose.dev.yml` 挂载 init SQL，并从 `dev` 带入根 `.env.example` 与 Mongo init 脚本以保证根 Compose 可展开；已 push 到 `feature/backend-dev` | audit |
+| 2026-06-20 | T-0024 | 总 agent | 启动 ClickHouse 初始化审计与验证 | 已启动代码审计 agent Boyle 只读审计 `1e994ee`/`48eeb38`；已启动验证 agent Singer 静态验证 Compose 展开、ClickHouse init 挂载和测试，若 Docker 可用再做真实 ClickHouse 容器表存在性补验 | testing |
 
 ## 6. 测试记录
 
@@ -263,7 +266,7 @@ closed      已关闭
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17`、`6bf0024` 和 `09425a7` 已通过真实 MySQL 补验、审计修复和本地复审；总 agent 准备按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent | ClickHouse/MongoDB 初始化基础开发中；完成后需测试、审计，并由总 agent 按业务路径集成 | doing |
+| 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 审计 agent Boyle / 验证 agent Singer | ClickHouse 初始化小步 `1e994ee` 和根 Compose 修正 `48eeb38` 已完成；等待审计和验证结论，通过后按业务路径集成 | testing |
 
 ## 10. 决策记录
 

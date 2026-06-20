@@ -150,6 +150,9 @@
 - 已登记 `T-0024` 阶段 2 ClickHouse/MongoDB 初始化基础任务，后续由后端开发 agent 在独立后端 worktree 推进；目标是新增 ClickHouse 表初始化与 MongoDB events 集合初始化脚本、Compose 挂载、配置/文档和静态验证，暂不接入摄入写入链路或 Redis 限流。
 - 推送 `T-0024` 启动记录提交 `8d433f6` 后已读取 GitHub Actions run `27881240620`：Backend checks 与 Frontend checks 均通过。
 - `T-0024` 开发 agent Herschel 因 502 中断，后端 worktree 检查干净；已关闭 Herschel 并重派 Zeno，将任务拆小为 ClickHouse 初始化 SQL、Compose 挂载和静态测试，MongoDB events 集合初始化后续单独推进。
+- 推送 ClickHouse 初始化拆分记录提交 `531687c` 后已读取 GitHub Actions run `27881340239`：Backend checks 与 Frontend checks 均通过。
+- `T-0024` ClickHouse 初始化小步已在后端分支完成：Zeno 本地提交 `1e994ee` 新增 ClickHouse init SQL、静态测试和文档；总 agent 发现其新增 `backend/docker-compose.dev.yml` 会形成第二套 Compose 入口，未直接 push，追加 `48eeb38` 改为使用根 `docker-compose.dev.yml` 挂载 init SQL，并从 `dev` 带入根 `.env.example` 与 Mongo init 脚本以保证根 Compose 可展开。
+- 已启动 `T-0024` 代码审计 agent Boyle 与验证 agent Singer；等待审计和验证结论后决定修复或按业务路径集成到 `dev`。
 
 ### 阻塞与风险
 
@@ -202,6 +205,7 @@
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
 - 阶段 2 当前完成 HTTP 上报 metrics、logs、events 的最小 API；仍未完成 ClickHouse 表初始化、MongoDB events 集合初始化、Redis 限流和摄入统计。
 - `T-0024` 先推进 ClickHouse 初始化小步；完成审计/验证后再继续 MongoDB events 集合初始化。
+- `T-0024` 已进入审计/验证：重点检查根 Compose 单入口、ClickHouse SQL 幂等性、挂载路径、本地端口绑定和静态测试可靠性。
 
 ### 验证
 
@@ -275,3 +279,4 @@
 - GitHub Actions run `27881126781` 已通过：T-0023 metrics/logs 摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。
 - GitHub Actions run `27881170815` 已通过：T-0023 集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27881240620` 已通过：T-0024 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27881340239` 已通过：ClickHouse 初始化拆分记录提交后的 Backend checks 与 Frontend checks 均为 success。
