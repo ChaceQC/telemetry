@@ -43,7 +43,9 @@ closed      已关闭
 | T-0013 | 阶段 1 前端登录与认证状态壳 | 总 agent | done | todo | done | done | done |
 | T-0014 | 阶段 1 管理 API 接入认证 | 总 agent | todo | done | done | done | done |
 | T-0015 | 阶段 1 Settings 客户端接入认证 | 总 agent | done | todo | done | done | done |
-| T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | testing | testing | doing | todo | doing |
+| T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | blocked | blocked | blocked | todo | blocked |
+| T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | doing | todo | todo | doing |
+| T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -115,6 +117,10 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 管理接口认证接入 Actions 通过 | push `063e99a` 触发 run `27872332372`，Backend checks 与 Frontend checks 均通过；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | CI | 总 agent | 管理接口认证结果文档 Actions 通过 | push `5a8541a` 触发 run `27872367440`，Backend checks 与 Frontend checks 均通过 | done |
 | 2026-06-20 | T-0016 | 总 agent | 启动真实前后端联调测试 agent | 已启动集成测试 agent Singer，使用真实 MySQL 临时库和浏览器/HTTP 联调验证登录后 Settings 创建/列表、未登录提示和端口清理；要求不得泄露 `auth.txt` 凭据 | testing |
+| 2026-06-20 | T-0016 | 集成测试 agent | 真实浏览器联调未完全通过 | 未登录 `/settings` 通过，HTTP/API token 链路通过；浏览器登录后被 CORS/OPTIONS 阻断，且 `https://域名/xxx` 子路径部署存在 Vite base、router basename、API base、CORS/Trusted Host/root_path 风险 | blocked |
+| 2026-06-20 | T-0017 | 总 agent | 启动后端 CORS/代理路径修复 | 已启动后端开发 agent 修复 CORS、Trusted Host、root_path/代理配置和文档，目标支持本地跨源联调与 `https://域名/xxx` 部署形态 | doing |
+| 2026-06-20 | T-0018 | 总 agent | 启动前端子路径部署修复 | 已启动前端开发 agent 修复 Vite base、React Router basename、API base URL/路径前缀配置和文档，目标支持 `https://域名/xxx` | doing |
+| 2026-06-20 | 部署 | 用户 | 明确生产访问路径形态 | 生产访问必须支持 `https://域名/xxx`；已要求联调 agent 额外检查前端路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代不要假设裸 IP、端口直连或仅根路径 | doing |
 
 ## 6. 测试记录
 

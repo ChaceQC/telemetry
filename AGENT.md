@@ -12,6 +12,7 @@
 6. 执行 Git 操作不需要用户逐次确认，但必须先检查状态、文档同步、锁文件同步和敏感文件。
 7. 未到可上线稳定版本前，版本号必须采用 `0.y.z`；版本变化必须同步更新项目文档、后端版本声明、前端 `package.json`、`.env.example` 和发布说明。
 8. Nginx 必须运行在 Debian 宿主机，不进入 Docker Compose；最终公网入口由宿主机 Nginx 反向代理到 Docker 内部服务。
+9. 生产访问入口必须按 `https://域名/xxx` 形式设计和验证，前端路由、静态资源路径、API base URL、CORS、Trusted Host 和 Nginx 反代规则不得假设用户通过裸 IP、直连端口或仅根路径访问。
 
 ## 2. Agent 组成
 
@@ -109,6 +110,7 @@ agents/runtime/
 3. 避免使用常见端口，也避免复用其他项目或早期草案端口。
 4. 端口、域名、数据库连接、CORS、Trusted Host、上传目录和 API 地址必须来自配置文件或环境变量。
 5. Docker Compose 禁止包含 Nginx 服务。
+6. 生产路径必须支持 `https://域名/xxx`；如果前端部署在子路径，Vite base、React Router basename、资源路径和 API 前缀必须同步配置并测试。
 
 ## 8. Git 规则
 

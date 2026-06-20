@@ -87,6 +87,9 @@
 - 推送管理接口认证接入 `063e99a` 后已读取 GitHub Actions run `27872332372`：Backend checks 与 Frontend checks 均通过。
 - 推送管理接口认证 CI 结果文档 `5a8541a` 后已读取 GitHub Actions run `27872367440`：Backend checks 与 Frontend checks 均通过。
 - 已启动集成测试 agent Singer 推进 `T-0016`，验证真实 MySQL + 后端 + 前端浏览器/HTTP 联调下的登录后 Settings 创建/列表和未登录提示。
+- 用户明确生产访问必须支持 `https://域名/xxx`；已同步到 `AGENT.md`、`PROJECT_PLAN.md` 和沟通板，并通知 T-0016 联调 agent 检查路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代相关风险。
+- T-0016 真实浏览器联调未完全通过：未登录 `/settings` 提示通过，HTTP/API token 链路通过；浏览器登录后被后端 CORS/OPTIONS 阻断。
+- `https://域名/xxx` 子路径部署存在明确风险：前端缺 Vite base、React Router basename、API base/路径前缀策略；后端缺 CORS、Trusted Host、root_path/代理头配置闭环。
 
 ### 阻塞与风险
 
@@ -120,6 +123,8 @@
 - 推送 T-0014/T-0015 集成到 `dev` 后读取 GitHub Actions；通过后启动前后端真实浏览器联调或继续项目级权限/RBAC。
 - 提交本次 CI 结果记录后读取对应 Actions run；随后启动前后端真实浏览器联调或继续项目级权限/RBAC。
 - 等待 T-0016 集成测试结果；若通过，继续推进项目级权限/RBAC 或 API Key 管理；若失败，记录失败步骤并分派修复。
+- T-0016 还需额外给出 `https://域名/xxx` 访问形态风险结论；如当前配置不支持子路径部署，需要分派前端/部署修复。
+- 已分派 T-0017/T-0018：后端修 CORS/Trusted Host/root_path/代理配置，前端修子路径部署、router basename 和 API base 策略；修复后重新做真实浏览器联调。
 
 ### 验证
 
