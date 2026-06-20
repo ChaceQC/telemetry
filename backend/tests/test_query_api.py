@@ -219,6 +219,78 @@ def test_query_logs_lists_ingested_logs_with_filters() -> None:
     assert filtered_logs[0]["occurred_at"].startswith("2026-06-20T10:00:00")
 
 
+def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-metric-owner",
+        project_key="query-metric-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "http.requests",
+                    "value": 12,
+                    "unit": "count",
+                    "type": "counter",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                    "tags": {"route": "/api/v1/query"},
+                    "payload": {"status": 200},
+                },
+                {
+                    "name": "system.cpu",
+                    "value": 0.82,
+                    "unit": "ratio",
+                    "type": "gauge",
+                    "source": "node",
+                    "timestamp": "2026-06-20T11:00:00Z",
+                    "tags": {"host": "host-1"},
+                },
+            ]
+        },
+    )
+    all_response = client.get(
+        "/api/v1/query/metrics",
+        headers=admin_headers,
+        params={"project_id": project["id"]},
+    )
+    filtered_response = client.get(
+        "/api/v1/query/metrics",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "name": "http.requests",
+            "source": "api",
+            "occurred_from": "2026-06-20T09:00:00Z",
+            "occurred_to": "2026-06-20T10:30:00Z",
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_response.status_code == 200
+    assert [metric["name"] for metric in all_response.json()] == [
+        "system.cpu",
+        "http.requests",
+    ]
+    assert filtered_response.status_code == 200
+    filtered_metrics = filtered_response.json()
+    assert len(filtered_metrics) == 1
+    assert filtered_metrics[0]["project_id"] == project["id"]
+    assert filtered_metrics[0]["name"] == "http.requests"
+    assert filtered_metrics[0]["value"] == 12
+    assert filtered_metrics[0]["unit"] == "count"
+    assert filtered_metrics[0]["type"] == "counter"
+    assert filtered_metrics[0]["source"] == "api"
+    assert filtered_metrics[0]["tags"] == {"route": "/api/v1/query"}
+    assert filtered_metrics[0]["payload"] == {"status": 200}
+    assert filtered_metrics[0]["occurred_at"].startswith("2026-06-20T10:00:00")
+
+
 def test_query_events_hide_projects_without_membership() -> None:
     client = build_client()
     project, raw_key, _owner_headers = create_ingest_api_key(
@@ -275,6 +347,34 @@ def test_query_logs_hide_projects_without_membership() -> None:
     assert project_response.json()["detail"] == "项目不存在"
 
 
+def test_query_metrics_hide_projects_without_membership() -> None:
+    client = build_client()
+    project, raw_key, _owner_headers = create_ingest_api_key(
+        client,
+        username="query-metric-owner-hidden",
+        project_key="query-metric-hidden-project",
+    )
+    other_headers = create_auth_headers(client, username="query-metric-viewer")
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "hidden.metric", "value": 1}]},
+    )
+    all_response = client.get("/api/v1/query/metrics", headers=other_headers)
+    project_response = client.get(
+        "/api/v1/query/metrics",
+        headers=other_headers,
+        params={"project_id": project["id"]},
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_response.status_code == 200
+    assert all_response.json() == []
+    assert project_response.status_code == 404
+    assert project_response.json()["detail"] == "项目不存在"
+
+
 def test_query_events_requires_user_token() -> None:
     client = build_client()
 
@@ -288,6 +388,15 @@ def test_query_logs_requires_user_token() -> None:
     client = build_client()
 
     response = client.get("/api/v1/query/logs")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "缺少访问令牌"
+
+
+def test_query_metrics_requires_user_token() -> None:
+    client = build_client()
+
+    response = client.get("/api/v1/query/metrics")
 
     assert response.status_code == 401
     assert response.json()["detail"] == "缺少访问令牌"

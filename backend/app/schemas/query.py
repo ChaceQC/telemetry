@@ -33,3 +33,19 @@ class LogQueryResponse(BaseModel):
     payload: dict[str, Any]
     occurred_at: datetime | None
     received_at: datetime
+
+
+class MetricQueryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    name: str
+    value: float
+    unit: str | None
+    type: str | None
+    source: str | None
+    tags: dict[str, Any]
+    payload: dict[str, Any]
+    occurred_at: datetime | None
+    received_at: datetime

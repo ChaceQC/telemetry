@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from numbers import Real
 from typing import Any, Protocol
 
 from sqlalchemy import Select, select
@@ -38,6 +39,21 @@ class LogQueryRecord:
     received_at: datetime
 
 
+@dataclass(frozen=True)
+class MetricQueryRecord:
+    id: int
+    project_id: int
+    name: str
+    value: float
+    unit: str | None
+    type: str | None
+    source: str | None
+    tags: dict[str, Any]
+    payload: dict[str, Any]
+    occurred_at: datetime | None
+    received_at: datetime
+
+
 class QueryRepository(Protocol):
     def list_events(
         self,
@@ -63,6 +79,18 @@ class QueryRepository(Protocol):
         limit: int,
     ) -> list[LogQueryRecord]: ...
 
+    def list_metrics(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+    ) -> list[MetricQueryRecord]: ...
+
 
 def _event_query_record(model: IngestRecordModel) -> EventQueryRecord:
     return EventQueryRecord(
@@ -86,6 +114,13 @@ def _payload_object(payload: dict[str, Any], key: str) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _payload_number(payload: dict[str, Any], key: str) -> float:
+    value = payload.get(key)
+    if isinstance(value, bool) or not isinstance(value, Real):
+        return 0.0
+    return float(value)
+
+
 def _log_query_record(model: IngestRecordModel) -> LogQueryRecord:
     message = _payload_string(model.payload, "message")
     return LogQueryRecord(
@@ -98,6 +133,22 @@ def _log_query_record(model: IngestRecordModel) -> LogQueryRecord:
         trace_id=_payload_string(model.payload, "trace_id"),
         span_id=_payload_string(model.payload, "span_id"),
         attributes=_payload_object(model.payload, "attributes"),
+        payload=_payload_object(model.payload, "payload"),
+        occurred_at=model.occurred_at,
+        received_at=model.received_at,
+    )
+
+
+def _metric_query_record(model: IngestRecordModel) -> MetricQueryRecord:
+    return MetricQueryRecord(
+        id=model.id,
+        project_id=model.project_id,
+        name=model.event_type,
+        value=_payload_number(model.payload, "value"),
+        unit=_payload_string(model.payload, "unit"),
+        type=_payload_string(model.payload, "type"),
+        source=model.source,
+        tags=_payload_object(model.payload, "tags"),
         payload=_payload_object(model.payload, "payload"),
         occurred_at=model.occurred_at,
         received_at=model.received_at,
@@ -177,3 +228,38 @@ class SqlAlchemyQueryRepository:
             IngestRecordModel.id.desc(),
         ).limit(limit)
         return [_log_query_record(model) for model in self._session.scalars(statement)]
+
+    def list_metrics(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+    ) -> list[MetricQueryRecord]:
+        statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
+            IngestRecordModel.kind == IngestKind.metric.value
+        )
+        if project_ids is not None:
+            if not project_ids:
+                return []
+            statement = statement.where(IngestRecordModel.project_id.in_(project_ids))
+        if project_id is not None:
+            statement = statement.where(IngestRecordModel.project_id == project_id)
+        if name is not None:
+            statement = statement.where(IngestRecordModel.event_type == name)
+        if source is not None:
+            statement = statement.where(IngestRecordModel.source == source)
+        if occurred_from is not None:
+            statement = statement.where(IngestRecordModel.occurred_at >= occurred_from)
+        if occurred_to is not None:
+            statement = statement.where(IngestRecordModel.occurred_at <= occurred_to)
+
+        statement = statement.order_by(
+            IngestRecordModel.received_at.desc(),
+            IngestRecordModel.id.desc(),
+        ).limit(limit)
+        return [_metric_query_record(model) for model in self._session.scalars(statement)]
