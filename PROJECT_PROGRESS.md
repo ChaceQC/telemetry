@@ -339,3 +339,4 @@
 ### 验证
 
 - 总 agent 在根仓库后端验证 `T-0026`：`uv run pytest tests/test_ingest_api.py` 23 passed，`uv run pytest` 97 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 均通过。
+- GitHub Actions run `27883234576` 已通过：T-0026 摄入统计基础集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
