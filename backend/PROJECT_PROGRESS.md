@@ -686,3 +686,28 @@
 - 已运行 `uv run pytest`，结果：106 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
 - 已运行 `uv run ruff format --check .`，结果：72 个文件已格式化。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0029 事件查询 API 基础
+
+### 已完成
+
+- 新增 `GET /api/v1/query/events` 事件查询 API，使用 Bearer 用户 token 鉴权。
+- 新增 `SqlAlchemyQueryRepository`、`QueryService` 和 `EventQueryResponse`，当前从关系库 `ingest_records` 的 `kind=event` 记录查询。
+- 支持 `project_id`、`type`、`source`、`occurred_from`、`occurred_to` 和 `limit` 查询参数，并按 `received_at`、`id` 倒序返回。
+- 普通用户只能查询自己有项目角色的事件；未显式指定项目时仅返回可访问项目，显式查询无权项目返回 `404 项目不存在`。
+- 更新 README 和后端契约草案，登记 API-0014 和当前验证边界。
+- 新增 `backend/tests/test_query_api.py`，覆盖摄入后事件查询、筛选、跨项目隐藏和未登录拒绝。
+
+### 阻塞与风险
+
+- 当前查询来源仍是关系库 `ingest_records`，不接 ClickHouse/MongoDB；游标分页、全文搜索、复杂聚合和 metrics/logs 查询后续单独推进。
+- 真实 MySQL 查询性能、时间索引和大数据量行为后续补验。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：3 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：109 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：77 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：77 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

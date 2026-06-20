@@ -10,12 +10,14 @@ from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.ingest import SqlAlchemyIngestRepository
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
+from app.repositories.query import SqlAlchemyQueryRepository
 from app.schemas.ingest import IngestKind
 from app.services.api_keys import ApiKeyService, ApiKeyVerification
 from app.services.auth import AuthConfigurationError, AuthenticationError, AuthService
 from app.services.ingest import IngestService
 from app.services.management import ManagementService
 from app.services.permissions import PermissionService
+from app.services.query import QueryService
 from app.services.rate_limit import RateLimiter, RateLimiterUnavailableError, RateLimitExceededError
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -58,6 +60,13 @@ def get_ingest_service(
 ) -> IngestService:
     permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
     return IngestService(SqlAlchemyIngestRepository(session), permission_service)
+
+
+def get_query_service(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> QueryService:
+    permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
+    return QueryService(SqlAlchemyQueryRepository(session), permission_service)
 
 
 def get_ingest_rate_limiter(request: Request) -> RateLimiter:

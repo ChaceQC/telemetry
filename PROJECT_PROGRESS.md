@@ -391,3 +391,26 @@
 - 总 agent 在后端 worktree 验证 `T-0028`：`uv run pytest tests/test_ingest_api.py` 27 passed，`uv run pytest` 106 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - 总 agent 在根仓库后端验证 `T-0028`：`uv run pytest tests/test_ingest_api.py` 27 passed，`uv run pytest` 106 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - GitHub Actions run `27884170194` 已通过：T-0028 摄入失败统计基础集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27884237101` 已通过：T-0028 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+
+## 2026-06-21 T-0029 事件查询 API 基础
+
+### 已完成
+
+- 已登记 `T-0029` 阶段 3 事件查询 API 基础任务；目标是先从当前关系库 `ingest_records` 提供可测试的 events 查询入口，闭环“摄入后可按项目读取事件”的最小查询能力。
+- 后端分支 `c5bae92` 已完成事件查询 API 基础：新增 `GET /api/v1/query/events`，从关系库 `ingest_records` 的 `kind=event` 记录查询。
+- 新增查询 repository/service/schema/route，支持 `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit`，并按用户项目权限过滤；显式查询无权项目返回 `404 项目不存在`。
+- 总 agent 本地复审未发现 P0/P1/P2；已按业务路径恢复查询 API、测试、README、后端进度和契约草案到 `dev`，未直接 merge feature 分支历史。
+
+### 阻塞与风险
+
+- 本小步不接 ClickHouse/MongoDB 查询链路，先复用当前关系库最小持久化；大规模事件检索、分页游标、全文搜索和复杂时间聚合后续拆分。
+
+### 下一步
+
+- 推送 T-0029 集成后读取 Actions 并记录结果；随后继续阶段 3 logs/metrics 查询 API 或查询页前端小步。
+
+### 验证
+
+- 总 agent 在后端 worktree 验证 `T-0029`：`uv run pytest tests/test_query_api.py` 3 passed，`uv run pytest` 109 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- 总 agent 在根仓库后端验证 `T-0029`：`uv run pytest tests/test_query_api.py` 3 passed，`uv run pytest` 109 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。

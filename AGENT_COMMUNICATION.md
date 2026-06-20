@@ -56,6 +56,7 @@ closed      已关闭
 | T-0026 | 阶段 2 摄入统计基础 | 总 agent | todo | done | done | done | done |
 | T-0027 | 阶段 2 Redis 摄入限流后端基础 | 总 agent | todo | done | done | done | done |
 | T-0028 | 阶段 2 摄入失败统计基础 | 总 agent | todo | done | done | done | done |
+| T-0029 | 阶段 3 事件查询 API 基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -230,6 +231,9 @@ closed      已关闭
 | 2026-06-20 | T-0028 | 总 agent | 启动摄入失败统计基础 | 阶段 2 已有 `ingest_stats.rejected_count` 预留字段；下一步优先统计已验证 API Key 后的拒绝路径，包括请求体验证失败和限流拒绝，暂不统计缺失/无效 API Key 这类缺少项目维度的请求 | doing |
 | 2026-06-20 | T-0028 | 总 agent | 摄入失败统计基础完成并集成 | 后端分支 `4eceeca` 新增 `rejected_count` 写入路径，请求体验证失败和限流拒绝会在已验证 API Key 后记录统计；总 agent 按路径恢复到 `dev`，未直接 merge feature 分支历史；缺失/无效/撤销 API Key 暂不统计 | done |
 | 2026-06-20 | CI | 总 agent | 摄入失败统计集成 Actions 通过 | push `f799550` 触发 run `27884170194`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | CI | 总 agent | 摄入失败统计 CI 结果记录提交 Actions 通过 | push `4535e5f` 触发 run `27884237101`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | T-0029 | 总 agent | 启动事件查询 API 基础 | 阶段 2 数据接入 MVP 的 HTTP 摄入、API Key 鉴权、ClickHouse/MongoDB 初始化、Redis 限流和摄入统计基础已闭环；下一步进入阶段 3，先提供关系库 `ingest_records` 的事件查询 API，按用户项目权限过滤 | doing |
+| 2026-06-20 | T-0029 | 总 agent | 事件查询 API 基础完成并集成 | 后端分支 `c5bae92` 新增 `GET /api/v1/query/events`、查询 repository/service/schema 和权限过滤测试；总 agent 按路径恢复到 `dev`，未直接 merge feature 分支历史；ClickHouse/MongoDB 查询、分页游标和全文搜索后续推进 | done |
 
 ## 6. 测试记录
 
@@ -250,6 +254,7 @@ closed      已关闭
 | 2026-06-20 | T-0026 | 摄入统计基础验证 | `uv run pytest tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根仓库集成后验证：专项 23 passed，全量 pytest 97 passed/2 skipped，ruff、format、mypy、diff check 和工作树保护检查通过；未启动真实 MySQL/ClickHouse |
 | 2026-06-20 | T-0027 | Redis 摄入限流后端基础验证 | `uv run pytest tests/test_config.py tests/test_rate_limit.py tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 39 passed，全量 pytest 103 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 Redis 容器 |
 | 2026-06-20 | T-0028 | 摄入失败统计基础验证 | `uv run pytest tests/test_ingest_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 27 passed，全量 pytest 106 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 MySQL/ClickHouse |
+| 2026-06-20 | T-0029 | 事件查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：专项 3 passed，全量 pytest 109 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse/MongoDB 查询 |
 
 ## 7. 审计记录
 
@@ -270,6 +275,7 @@ closed      已关闭
 | 2026-06-20 | T-0026 | 摄入统计表、聚合写入、查询权限和测试 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前仅统计成功摄入的 accepted 和字节数，`rejected_count` 为预留字段，真实 MySQL 并发更新、ClickHouse 同步和统计 UI 后续补齐 | done |
 | 2026-06-20 | T-0027 | Redis 固定窗口限流后端、配置和错误映射 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；Redis 后端仅通过 fake Redis 单元测试覆盖固定窗口语义，真实 Redis 容器认证、连接串和多实例共享计数仍需后续补验 | done |
 | 2026-06-20 | T-0028 | 摄入失败统计写入、验证失败和限流拒绝 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；缺失/无效/撤销 API Key 不统计符合当前可信归属边界，限流拒绝暂按 event 维度记录 | done |
+| 2026-06-20 | T-0029 | 事件查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse/MongoDB、游标分页、全文搜索和复杂聚合后续补齐 | done |
 
 ## 8. 阻塞问题
 
@@ -311,6 +317,7 @@ closed      已关闭
 | 2026-06-20 | T-0026 | feature/backend-dev | dev | 总 agent | 摄入统计基础 `f38942e` 已按业务路径集成到 `dev`，根仓库本地验证通过；推送后读取 GitHub Actions 并补充 CI 结果记录 | done |
 | 2026-06-20 | T-0027 | feature/backend-dev | dev | 总 agent | Redis 摄入限流后端基础 `819d200` 已按业务路径集成到 `dev`，集成提交 `3334dcd` CI 通过 | done |
 | 2026-06-20 | T-0028 | feature/backend-dev | dev | 总 agent | 摄入失败统计基础 `4eceeca` 已按业务路径集成到 `dev`，集成提交 `f799550` CI 通过 | done |
+| 2026-06-20 | T-0029 | feature/backend-dev | dev | 总 agent | 事件查询 API 基础 `c5bae92` 已按业务路径恢复到 `dev`；根仓库验证和 CI 结果待本次集成提交后记录 | doing |
 
 ## 10. 决策记录
 
