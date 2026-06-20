@@ -50,7 +50,7 @@ closed      已关闭
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
 | T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
-| T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | doing | doing | doing |
 
 ## 4. API 契约登记
 
@@ -183,6 +183,9 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 最小摄入 API 集成 Actions 通过 | push `0606966` 触发 run `27880065942`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；存在官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | CI | 总 agent | 最小摄入 API 集成结果记录 Actions 通过 | push `323a70b` 触发 run `27880132283`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0023 | 总 agent | 启动 metrics/logs 专用摄入 API 后端任务 | 阶段 2 已完成最小 events 摄入与 API Key 鉴权；下一步在后端 worktree 推进 metrics/logs 专用摄入契约与 API 基础，目标让 HTTP API 可上报 metrics、logs、events 三类数据；暂不引入 ClickHouse/MongoDB/Redis，后续单独任务处理 | doing |
+| 2026-06-20 | CI | 总 agent | metrics/logs 摄入任务登记 Actions 通过 | push `92a4717` 触发 run `27880214736`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0023 | 后端开发 agent | metrics/logs 专用摄入 API 完成 | Anscombe 已提交并 push `50c8f17` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/metrics` 与 `/api/v1/ingest/logs`，复用 API Key 鉴权和 `ingest_records`，用 `kind=metric/log` 区分，并补批量/大小/message/非有限数值/项目绑定测试；本地验证 pytest 89 passed/2 skipped、ruff、format check、mypy、diff check 通过 | audit |
+| 2026-06-20 | T-0023 | 总 agent | 启动 metrics/logs 摄入审计与真实 MySQL 补验 | 已启动代码审计 agent James 只读审计 `50c8f17`；已启动后端测试 agent Godel 使用真实 MySQL 临时库补验迁移、JSON 写入、metrics/logs 接口流、撤销 API Key、项目绑定和 validation，要求不泄露凭据或 API Key 明文 | testing |
 
 ## 6. 测试记录
 
@@ -246,7 +249,7 @@ closed      已关闭
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent | metrics/logs 专用摄入 API 基础开发中；完成后需测试、审计，并由总 agent 按业务路径集成 | doing |
+| 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17` 已完成 metrics/logs 专用摄入 API 基础；等待代码审计和真实 MySQL/接口补验结论，通过后由总 agent 按业务路径集成 | testing |
 
 ## 10. 决策记录
 

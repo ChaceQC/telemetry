@@ -134,6 +134,9 @@
 - 推送 `T-0022` 集成提交 `0606966` 后已读取 GitHub Actions run `27880065942`：Backend checks 与 Frontend checks 均通过；阶段 2 最小事件摄入 API 与 API Key 鉴权闭环。
 - 推送 `T-0022` 集成结果记录提交 `323a70b` 后已读取 GitHub Actions run `27880132283`：Backend checks 与 Frontend checks 均通过。
 - 已登记 `T-0023` 阶段 2 metrics/logs 专用摄入 API 基础任务，后续由后端开发 agent 在独立后端 worktree 推进；目标让 HTTP API 可上报 metrics、logs、events 三类数据，先复用 API Key 鉴权和 MySQL 最小持久化，ClickHouse/MongoDB/Redis 后续单独推进。
+- 推送 `T-0023` 启动记录提交 `92a4717` 后已读取 GitHub Actions run `27880214736`：Backend checks 与 Frontend checks 均通过。
+- `T-0023` 后端开发 agent Anscombe 已提交并推送 `50c8f17` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/metrics` 与 `/api/v1/ingest/logs`，复用 API Key 鉴权和 `ingest_records`，用 `kind=metric/log` 区分，并补批量/大小/message/非有限数值/项目绑定测试。
+- 已启动 `T-0023` 代码审计 agent James 与真实 MySQL/接口补验 agent Godel；等待审计和补验结论后决定修复或按业务路径集成到 `dev`。
 
 ### 阻塞与风险
 
@@ -182,6 +185,7 @@
 - 阶段 1 API Key 创建/撤销后端基础已集成并通过 CI；下一步推进最小摄入 API 与 API Key 鉴权，闭环“API Key 可用于数据上报”验收。
 - 阶段 2 下一步优先推进 metrics/logs 专用摄入契约与后端 API 基础，让验收项“能通过 HTTP API 上报 metrics、logs、events”完整闭环；随后再处理 ClickHouse/MongoDB 初始化、Redis 限流和摄入统计。
 - `T-0023` 已进入进行中：先实现 metrics/logs 专用摄入 API，再安排代码审计和真实 MySQL/接口补验。
+- `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 
 ### 验证
 
@@ -245,3 +249,5 @@
 - Boole 复审 `dcc6208` 通过：`uv run pytest tests/test_ingest_api.py tests/test_deployment_middleware.py` 14 passed，额外探针确认深层 `NaN`、单条 `-Infinity`、batch 深层 `Infinity`、batch 缺失 payload 均返回 `422`，`git diff --check` 干净。
 - GitHub Actions run `27880065942` 已通过：T-0022 最小摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。
 - GitHub Actions run `27880132283` 已通过：T-0022 集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27880214736` 已通过：T-0023 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- `T-0023` 后端开发自测由 Anscombe 在后端 worktree 完成：`uv run pytest tests/test_ingest_api.py` 20 passed，`uv run pytest` 89 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
