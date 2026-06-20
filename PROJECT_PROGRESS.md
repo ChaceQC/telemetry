@@ -90,6 +90,9 @@
 - 用户明确生产访问必须支持 `https://域名/xxx`；已同步到 `AGENT.md`、`PROJECT_PLAN.md` 和沟通板，并通知 T-0016 联调 agent 检查路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代相关风险。
 - T-0016 真实浏览器联调未完全通过：未登录 `/settings` 提示通过，HTTP/API token 链路通过；浏览器登录后被后端 CORS/OPTIONS 阻断。
 - `https://域名/xxx` 子路径部署存在明确风险：前端缺 Vite base、React Router basename、API base/路径前缀策略；后端缺 CORS、Trusted Host、root_path/代理头配置闭环。
+- 后端 Hegel/Epicurus 已提交并修复 CORS、Trusted Host、root_path/代理头、wildcard+credentials 禁止校验和子路径反代说明；Carson 复审通过。
+- 前端 Anscombe 已提交并修复 Vite base、React Router basename、API base/path 配置；Boyle 审计通过。
+- 总 agent 已按业务路径集成 T-0017/T-0018 到 `dev`。
 
 ### 阻塞与风险
 
@@ -125,6 +128,7 @@
 - 等待 T-0016 集成测试结果；若通过，继续推进项目级权限/RBAC 或 API Key 管理；若失败，记录失败步骤并分派修复。
 - T-0016 还需额外给出 `https://域名/xxx` 访问形态风险结论；如当前配置不支持子路径部署，需要分派前端/部署修复。
 - 已分派 T-0017/T-0018：后端修 CORS/Trusted Host/root_path/代理配置，前端修子路径部署、router basename 和 API base 策略；修复后重新做真实浏览器联调。
+- 推送 T-0017/T-0018 集成后读取 GitHub Actions；通过后重新运行 T-0016 真实浏览器联调，重点验证 CORS 和 `https://域名/xxx` 子路径配置。
 
 ### 验证
 

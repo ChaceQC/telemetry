@@ -1,11 +1,12 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { appConfig } from '../api/config';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SettingsPage } from '../pages/SettingsPage';
 
-export const router = createBrowserRouter([
+export const routes = [
   {
     path: '/login',
     element: <LoginPage />
@@ -44,4 +45,8 @@ export const router = createBrowserRouter([
       }
     ]
   }
-]);
+];
+
+export const router = createBrowserRouter(routes, {
+  basename: appConfig.routerBasename
+});

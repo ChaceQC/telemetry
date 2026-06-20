@@ -36,14 +36,19 @@ npm.cmd run preview
 ```text
 VITE_APP_NAME=遥测平台
 VITE_APP_VERSION=0.1.0
+VITE_PUBLIC_BASE_PATH=/
 VITE_API_BASE_URL=http://localhost:28117
+VITE_API_BASE_PATH=/api
 VITE_DEV_HOST=127.0.0.1
 VITE_DEV_PORT=25173
 VITE_PREVIEW_HOST=127.0.0.1
 VITE_PREVIEW_PORT=25174
 ```
 
-`VITE_API_BASE_URL` 用于 API client 的基础地址。若留空，则使用同源请求。
+`VITE_PUBLIC_BASE_PATH` 用于 Vite 构建资源路径和 React Router `basename`，默认 `/`；部署到 `https://域名/xxx/` 时设置为 `/xxx/`，则资源路径会构建为 `/xxx/assets/...`，浏览器访问 `/xxx/settings` 时路由也会按 `/xxx` 匹配。
+`VITE_API_BASE_URL` 用于显式 API 基础地址，优先级最高，适合本地开发或 API 独立域名，例如 `http://localhost:28117`。若留空，则使用同源请求。
+`VITE_API_BASE_PATH` 用于同源部署的 API 反向代理前缀，默认示例为 `/api`；子路径部署且 API 也挂在子路径下时可设置为 `/xxx/api`。前端会将现有业务请求 `/api/v1/projects` 归一化为 `/xxx/api/v1/projects`，不会硬编码真实域名。
+生产 Nginx 需要与上述策略保持一致：`/api` 或 `/xxx/api` 作为公网代理入口时，转发到后端的实际路径仍应与后端契约一致，例如业务接口保持 `/api/v1/...`，健康检查保持 `/health`。
 `VITE_DEV_HOST` 和 `VITE_PREVIEW_HOST` 默认使用 `127.0.0.1`，如需局域网调试可在本地环境变量中显式调整。
 
 ## 登录与认证状态

@@ -44,8 +44,8 @@ closed      已关闭
 | T-0014 | 阶段 1 管理 API 接入认证 | 总 agent | todo | done | done | done | done |
 | T-0015 | 阶段 1 Settings 客户端接入认证 | 总 agent | done | todo | done | done | done |
 | T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | blocked | blocked | blocked | todo | blocked |
-| T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | doing | todo | todo | doing |
-| T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | doing | todo | todo | todo | doing |
+| T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | done | done | done | done |
+| T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -120,6 +120,10 @@ closed      已关闭
 | 2026-06-20 | T-0016 | 集成测试 agent | 真实浏览器联调未完全通过 | 未登录 `/settings` 通过，HTTP/API token 链路通过；浏览器登录后被 CORS/OPTIONS 阻断，且 `https://域名/xxx` 子路径部署存在 Vite base、router basename、API base、CORS/Trusted Host/root_path 风险 | blocked |
 | 2026-06-20 | T-0017 | 总 agent | 启动后端 CORS/代理路径修复 | 已启动后端开发 agent 修复 CORS、Trusted Host、root_path/代理配置和文档，目标支持本地跨源联调与 `https://域名/xxx` 部署形态 | doing |
 | 2026-06-20 | T-0018 | 总 agent | 启动前端子路径部署修复 | 已启动前端开发 agent 修复 Vite base、React Router basename、API base URL/路径前缀配置和文档，目标支持 `https://域名/xxx` | doing |
+| 2026-06-20 | T-0018 | 总 agent | 纠正前端改动误落根工作树 | 前端 agent Anscombe 确认曾将 T-0018 改动写入根工作树；总 agent 已将根误落 diff 备份到 ignored `tmp/` patch 并恢复根工作树，要求 Anscombe 仅在前端 worktree 重做、验证、提交和 push | done |
+| 2026-06-20 | T-0017 | 后端开发/审计 agent | 后端 CORS 与代理路径配置通过 | Hegel 提交 `01b8d5b`，Epicurus 提交 `e78836f` 修复 CORS wildcard+credentials 校验和子路径反代说明；Carson 复审通过 | done |
+| 2026-06-20 | T-0018 | 前端开发/审计 agent | 前端子路径部署配置通过 | Anscombe 提交 `fc6c955`，支持 Vite base、Router basename、API base/path 配置；Boyle 审计通过 | done |
+| 2026-06-20 | T-0017/T-0018 | 总 agent | CORS 和子路径配置集成 | 总 agent 已按业务路径集成后端 `01b8d5b`/`e78836f` 与前端 `fc6c955` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
 | 2026-06-20 | 部署 | 用户 | 明确生产访问路径形态 | 生产访问必须支持 `https://域名/xxx`；已要求联调 agent 额外检查前端路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代不要假设裸 IP、端口直连或仅根路径 | doing |
 
 ## 6. 测试记录

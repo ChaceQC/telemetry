@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from app.core.config import Settings
 
 
@@ -45,3 +48,54 @@ def test_version_file_declares_initial_backend_version(monkeypatch) -> None:
 
     assert version_file.read_text(encoding="utf-8").strip() == "0.1.0"
     assert settings.app_version == "0.1.0"
+
+
+def test_local_environment_allows_project_frontend_origins_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("BACKEND_CORS_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.setenv("APP_ENV", "local")
+
+    settings = Settings()
+
+    assert "http://127.0.0.1:25173" in settings.cors_allowed_origin_list
+    assert "http://localhost:25173" in settings.cors_allowed_origin_list
+    assert "127.0.0.1" in settings.trusted_host_list
+    assert "localhost" in settings.trusted_host_list
+
+
+def test_non_local_environment_requires_explicit_cors_origins(monkeypatch) -> None:
+    monkeypatch.delenv("BACKEND_CORS_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+
+    settings = Settings()
+
+    assert settings.cors_allowed_origin_list == []
+
+
+def test_deployment_lists_are_read_from_csv_environment(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "BACKEND_CORS_ALLOWED_ORIGINS",
+        "https://telemetry.example.com, https://admin.example.com ",
+    )
+    monkeypatch.setenv("BACKEND_TRUSTED_HOSTS", "telemetry.example.com, api.example.com")
+    monkeypatch.setenv("BACKEND_ROOT_PATH", "xxx")
+    monkeypatch.setenv("BACKEND_PROXY_HEADERS", "true")
+    monkeypatch.setenv("BACKEND_FORWARDED_ALLOW_IPS", "127.0.0.1,10.0.0.10")
+
+    settings = Settings()
+
+    assert settings.cors_allowed_origin_list == [
+        "https://telemetry.example.com",
+        "https://admin.example.com",
+    ]
+    assert settings.trusted_host_list == ["telemetry.example.com", "api.example.com"]
+    assert settings.root_path == "/xxx"
+    assert settings.proxy_headers is True
+    assert settings.forwarded_allow_ips == "127.0.0.1,10.0.0.10"
+
+
+def test_cors_credentials_rejects_wildcard_origin(monkeypatch) -> None:
+    monkeypatch.setenv("BACKEND_CORS_ALLOWED_ORIGINS", "*")
+    monkeypatch.setenv("BACKEND_CORS_ALLOW_CREDENTIALS", "true")
+
+    with pytest.raises(ValidationError, match="cors_allowed_origins"):
+        Settings()

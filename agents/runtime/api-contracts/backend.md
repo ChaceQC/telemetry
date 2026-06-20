@@ -1,6 +1,31 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0014-protect-management-api`：阶段 1 已将项目、环境和服务管理 API 接入最小认证要求。管理 API 需要有效 Bearer token 和启用用户；项目级 RBAC、团队/角色权限和越权判定仍是后续权限任务。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0017-cors-proxy-config`：阶段 1 已将项目、环境和服务管理 API 接入最小认证要求，并补齐浏览器联调所需的 CORS、Trusted Host、root_path 和代理头配置入口。管理 API 需要有效 Bearer token 和启用用户；项目级 RBAC、团队/角色权限和越权判定仍是后续权限任务。
+
+## 部署与浏览器访问配置
+
+- 本地前端默认 origin：
+  - `http://127.0.0.1:25173`
+  - `http://localhost:25173`
+  - `http://127.0.0.1:25174`
+  - `http://localhost:25174`
+- `APP_ENV=local` 或 `APP_ENV=test` 且未显式配置 `BACKEND_CORS_ALLOWED_ORIGINS` 时，后端默认允许上述本地 origin，浏览器 `OPTIONS /api/v1/auth/login` preflight 会返回 CORS 允许头，不再落到业务路由 405。
+- 非本地环境默认 `BACKEND_CORS_ALLOWED_ORIGINS` 为空；生产必须显式配置真实 HTTPS origin，例如 `https://example.com`。CORS origin 只包含 scheme + host + port，不包含 `/xxx` 等路径。
+- CORS 配置项：
+  - `BACKEND_CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGINS`：逗号分隔 origin 白名单。
+  - `BACKEND_CORS_ALLOWED_METHODS` / `CORS_ALLOWED_METHODS`：默认 `GET,POST,PUT,PATCH,DELETE,OPTIONS`。
+  - `BACKEND_CORS_ALLOWED_HEADERS` / `CORS_ALLOWED_HEADERS`：默认 `Authorization,Content-Type,Accept,Origin`。
+  - `BACKEND_CORS_ALLOW_CREDENTIALS` / `CORS_ALLOW_CREDENTIALS`：默认 `false`；当前 Bearer token 模式推荐保持关闭。开启时必须使用明确 origin 白名单，后端会拒绝与 `BACKEND_CORS_ALLOWED_ORIGINS=*` 同时配置。
+- Trusted Host 配置项：
+  - `BACKEND_TRUSTED_HOSTS` / `TRUSTED_HOSTS`：逗号分隔 Host 白名单。
+  - 本地/测试默认 `localhost,127.0.0.1,[::1],testserver`；非本地默认仅保留 `localhost,127.0.0.1` 作为反代内侧兜底，生产必须显式加入公网域名和 Nginx 传给后端的 Host。
+- root path / 子路径策略：
+  - 推荐：前端位于 `https://example.com/xxx/` 时，API 仍暴露为 `https://example.com/api/v1/...`，后端 `BACKEND_ROOT_PATH` 保持空，前端配置 API base path 为 `/api/v1`。
+  - 如必须暴露为 `https://example.com/xxx/api/v1/...`，后端设置 `BACKEND_ROOT_PATH=/xxx`，Nginx 公网入口匹配 `/xxx/api/v1/...` 后应剥离或映射 `/xxx` 前缀，再转发给后端实际路由 `/api/v1/...`；不要把 `/xxx` 原样留给后端路由匹配。OpenAPI servers 会声明 `{"url": "/xxx"}`。
+- 代理头配置：
+  - `BACKEND_PROXY_HEADERS` / `PROXY_HEADERS`：传给 uvicorn `proxy_headers`，默认 `false`。
+  - `BACKEND_FORWARDED_ALLOW_IPS` / `FORWARDED_ALLOW_IPS`：传给 uvicorn `forwarded_allow_ips`，默认 `127.0.0.1`。
+- 真实域名、证书路径、密钥、数据库连接串不得硬编码或提交，应由部署环境注入。
 
 ## API-0005 用户登录
 

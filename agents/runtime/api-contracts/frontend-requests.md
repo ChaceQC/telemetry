@@ -2,6 +2,27 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-20 T-0018-subpath-api-config 子路径部署与 API 前缀策略
+
+- task: T-0018-subpath-api-config
+- owner: frontend-agent
+- scope: 前端静态资源 base、React Router basename、同源 API 代理前缀配置。
+- status: frontend-ready
+
+### 公开访问路径
+
+- `VITE_PUBLIC_BASE_PATH` 同时驱动 Vite `base` 和 React Router `basename`。
+- 默认值为 `/`。
+- 部署到 `https://域名/xxx/` 时设置为 `/xxx/`；构建资源路径应为 `/xxx/assets/...`，浏览器直达 `/xxx/settings` 时路由按 `/xxx` basename 匹配。
+
+### API 基础地址策略
+
+- `VITE_API_BASE_URL` 优先级最高；适合本地后端端口、独立 API 域名或明确跨源部署，不在前端硬编码真实域名。
+- `VITE_API_BASE_URL` 留空时，前端使用 `VITE_API_BASE_PATH` 作为同源 API 前缀。
+- `VITE_API_BASE_PATH=/api` 时，前端现有业务请求 `/api/v1/projects` 发送到 `/api/v1/projects`。
+- `VITE_API_BASE_PATH=/xxx/api` 时，前端现有业务请求 `/api/v1/projects` 发送到 `/xxx/api/v1/projects`，健康检查 `/health` 发送到 `/xxx/api/health`。
+- Nginx 或同源代理需要把 `/api` 或 `/xxx/api` 作为公网代理入口，并让后端收到与契约一致的实际路径，例如业务接口保持 `/api/v1/...`，健康检查保持 `/health`；否则前后端路径会不一致。
+
 ## 2026-06-20 T-0015-authenticated-settings-client Settings 认证接入
 
 - task: T-0015-authenticated-settings-client

@@ -1,4 +1,5 @@
 import { appConfig } from './config';
+import { joinApiUrl } from '../config/basePaths';
 
 export type ApiClientOptions = {
   auth?: boolean;
@@ -154,8 +155,7 @@ export function formatApiErrorMessage(error: unknown, context: ApiErrorDisplayCo
 }
 
 function buildUrl(path: string) {
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${appConfig.apiBaseUrl}${normalizedPath}`;
+  return joinApiUrl(appConfig.apiBaseUrl, path);
 }
 
 function buildHeaders(init: RequestInit, includeAuth: boolean): Record<string, string> {

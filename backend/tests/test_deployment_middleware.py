@@ -1,0 +1,88 @@
+from typing import Any
+
+from fastapi.testclient import TestClient
+
+from app.core.application import create_app
+from app.core.config import Settings
+
+
+def build_client(**overrides: Any) -> TestClient:
+    settings = Settings(
+        app_name="telemetry-backend-test",
+        app_version="0.1.0",
+        database_url="sqlite:///:memory:",
+        **overrides,
+    )
+    return TestClient(create_app(settings))
+
+
+def test_auth_login_preflight_allows_local_frontend_origin() -> None:
+    client = build_client()
+
+    response = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "http://127.0.0.1:25173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Authorization,Content-Type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:25173"
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "Authorization" in response.headers["access-control-allow-headers"]
+    assert "Content-Type" in response.headers["access-control-allow-headers"]
+
+
+def test_auth_login_preflight_rejects_unconfigured_origin() -> None:
+    client = build_client()
+
+    response = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "https://untrusted.example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Authorization,Content-Type",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_non_local_environment_only_allows_configured_production_origin() -> None:
+    client = build_client(
+        environment="production",
+        cors_allowed_origins="https://telemetry.example.com",
+        trusted_hosts="testserver,telemetry.example.com",
+    )
+
+    response = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "https://telemetry.example.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://telemetry.example.com"
+
+
+def test_trusted_host_rejects_unconfigured_host() -> None:
+    client = build_client(trusted_hosts="api.example.com")
+
+    response = client.get("/health", headers={"Host": "evil.example.com"})
+
+    assert response.status_code == 400
+    assert response.text == "Invalid host header"
+
+
+def test_root_path_is_exposed_in_openapi_servers() -> None:
+    client = build_client(root_path="/xxx")
+
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    assert response.json()["servers"] == [{"url": "/xxx"}]

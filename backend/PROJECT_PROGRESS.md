@@ -282,3 +282,60 @@
 - 已运行 `uv run ruff check .`，结果：通过。
 - 已运行 `uv run ruff format --check .`，结果：45 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：45 个源文件无类型错误。
+
+## 2026-06-20 T-0017-cors-proxy-config
+
+### 已完成
+
+- 为 FastAPI app 增加可配置 CORS middleware，配置来自 `BACKEND_CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGINS`、允许方法、允许请求头和凭据开关；本地/测试环境默认允许项目约定前端 origin，生产环境默认不开放 CORS origin。
+- 为 FastAPI app 增加 `TrustedHostMiddleware`，配置来自 `BACKEND_TRUSTED_HOSTS` / `TRUSTED_HOSTS`；本地/测试默认包含 `localhost`、`127.0.0.1`、`[::1]` 和 `testserver`，生产需显式配置公网域名。
+- 增加 `BACKEND_ROOT_PATH` / `ROOT_PATH` 配置并传入 `FastAPI(root_path=...)`，用于 `https://域名/xxx` 子路径反代场景下的 OpenAPI server 前缀。
+- 增加 `BACKEND_PROXY_HEADERS` / `PROXY_HEADERS` 和 `BACKEND_FORWARDED_ALLOW_IPS` / `FORWARDED_ALLOW_IPS` 配置，并传给 uvicorn，支持宿主机 Nginx HTTPS 反代时正确处理代理头。
+- 新增 `backend/.env.example`，提供非敏感本地联调和生产占位配置示例，不包含真实域名、密钥或数据库凭据。
+- 补充 CORS preflight、允许/不允许 origin、Trusted Host 拒绝、root_path OpenAPI servers 和配置解析测试。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录浏览器联调、生产 CORS/Trusted Host、代理头和子路径部署策略。
+
+### 进行中
+
+- 等待总 agent 后续按需启动独立测试 agent 和代码审计 agent 复验本次部署配置修复。
+
+### 阻塞与风险
+
+- 当前未在真实 Nginx + HTTPS + 公网域名环境中做端到端验证；已通过 FastAPI TestClient 覆盖后端中间件行为，真实反代仍需部署环境补验 `Host`、`X-Forwarded-Proto`、路径重写和 TLS 终止配置。
+- 若生产使用 `https://域名/xxx/api/v1/...` 子路径暴露后端，Nginx 必须与 `BACKEND_ROOT_PATH=/xxx` 保持一致；更推荐 API 仍暴露为 `/api/v1/...`，前端只在静态资源层使用 `/xxx/`。
+- 生产必须显式配置 `BACKEND_CORS_ALLOWED_ORIGINS` 和 `BACKEND_TRUSTED_HOSTS`；默认值刻意保守，未配置真实域名时公网访问会被 Trusted Host 拦截。
+
+### 下一步
+
+- 由测试 agent 或部署验证任务在真实 Nginx 环境补跑 HTTPS 入口、子路径访问、OpenAPI server URL、登录 preflight 和受保护 API 请求。
+- 后续安全任务继续补充限流、安全响应头、登录失败审计和项目级 RBAC。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_config.py tests/test_deployment_middleware.py`，结果：13 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：54 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format .`，结果：1 个文件被格式化，45 个文件未变更。
+- 已运行 `uv run ruff format --check .`，结果：46 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：46 个源文件无类型错误。
+
+## 2026-06-20 T-0017-fix 审计修复
+
+### 已完成
+
+- 修复审计 P2：在 Settings 配置层增加 CORS 组合校验，拒绝 `BACKEND_CORS_ALLOWED_ORIGINS=*` 与 `BACKEND_CORS_ALLOW_CREDENTIALS=true` 同时配置，避免 wildcard origin 与跨域凭据共用。
+- 补充配置测试，覆盖环境变量显式配置 wildcard origin 且开启 credentials 时抛出 `ValidationError`。
+- 修复审计 P3：更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md` 的子路径反代说明，明确公网 `/xxx/api/v1/...` 应由代理剥离或映射 `/xxx` 前缀后转发给后端 `/api/v1/...`，同时 ASGI 使用 `root_path=/xxx`。
+
+### 阻塞与风险
+
+- 当前仍未在真实 Nginx + HTTPS + 公网域名环境中做端到端验证；真实反代仍需部署环境补验 `Host`、`X-Forwarded-Proto`、路径重写、`root_path` 和 TLS 终止配置。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_config.py`，结果：9 个测试通过。
+- 已运行 `uv run pytest`，结果：55 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format .`，结果：46 个文件未变更。
+- 已运行 `uv run ruff format --check .`，结果：46 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：46 个源文件无类型错误。

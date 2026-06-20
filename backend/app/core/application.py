@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
@@ -12,6 +14,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title=resolved_settings.app_name,
         version=resolved_settings.app_version,
+        root_path=resolved_settings.root_path,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved_settings.cors_allowed_origin_list,
+        allow_credentials=resolved_settings.cors_allow_credentials,
+        allow_methods=resolved_settings.cors_allowed_method_list,
+        allow_headers=resolved_settings.cors_allowed_header_list,
+    )
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=resolved_settings.trusted_host_list,
     )
     app.state.settings = resolved_settings
     app.state.db_engine = db_engine

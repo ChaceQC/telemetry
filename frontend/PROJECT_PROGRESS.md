@@ -6,6 +6,10 @@
 
 ### 已完成
 
+- `T-0018-subpath-api-config`：新增 `VITE_PUBLIC_BASE_PATH`，Vite `base` 与 React Router `basename` 共用该配置；默认 `/`，支持 `/xxx/` 子路径部署，避免生产资源仍指向 `/assets/...` 或 `/xxx/settings` 不匹配。
+- `T-0018-subpath-api-config`：新增 API 基础路径归一化工具；`VITE_API_BASE_URL` 显式配置优先，留空时使用 `VITE_API_BASE_PATH` 作为同源 API 挂载点，支持 `/api` 和 `/xxx/api`，并避免把现有 `/api/v1/...` 请求拼成 `/api/api/v1/...`。
+- `T-0018-subpath-api-config`：补充 base path/API URL 纯函数测试和 API client 同源子路径测试，覆盖 Vite base 格式、Router basename、显式 API URL 优先级、同源 API 前缀和请求路径拼接。
+- `T-0018-subpath-api-config`：更新 `.env.example`、`frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，明确子路径部署、`/api` vs `/xxx/api` 同源代理策略，以及不硬编码真实域名的约束。
 - `T-0015-authenticated-settings-client`：Settings/基础管理页面接入认证状态；有 session 且恢复完成后才请求项目、环境、服务管理接口，刷新和创建入口会随认证状态禁用。
 - `T-0015-authenticated-settings-client`：登录或恢复 session 后，API client 会在 Settings 管理请求中携带 `Authorization: Bearer <token>`；登录成功路径同步注入内存 token，避免首个请求空 token。
 - `T-0015-authenticated-settings-client`：Settings 列表读取或创建请求返回 `401` 时统一显示页面级登录提示和登录入口；普通管理表单不再把 `401` 展示为账号密码错误，`404`、`409`、`422` 仍保留表单级业务错误。
@@ -53,11 +57,14 @@
 
 ### 进行中
 
+- `T-0018-subpath-api-config`：实现、文档、验证和提交前检查已完成，待提交并推送 `feature/frontend-dev`。
 - `T-0009` 业务改动已通过提交 `70a58c7` 推送到 `feature/frontend-dev`，当前处于审计中，待总 agent 汇总审计结论并安排后续集成。
 
 ### 阻塞与风险
 
 - 暂无阻塞。
+- `T-0018-subpath-api-config` 本轮不修改后端或 Nginx；生产部署需由总 agent/部署任务确认 Nginx 对 `/api` 或 `/xxx/api` 的公网代理入口转发后，后端仍收到与契约一致的 `/api/v1/...` 和 `/health` 等实际路径。
+- `T-0018-subpath-api-config` 本轮不启动真实后端、不做浏览器直达 `/xxx/settings` 的 E2E；当前验证覆盖构建、类型、单测和静态检查，真实子路径部署仍需部署环境补验。
 - `T-0015-authenticated-settings-client` 本轮未启动真实后端做浏览器联调；Settings `401`/`403`/成功写入仍需等后端认证与管理接口同时可用后补真实联调。
 - `T-0013-auth-ui-shell` 后端认证契约尚未最终集成，当前仅以前端草案实现 `POST /api/v1/auth/login` 和 `GET /api/v1/auth/me`；真实联调、403/503/网络异常展示和 token 过期策略待后端接口可用后补验。
 - `T-0013-auth-ui-shell` 当前使用 `sessionStorage` 临时保存 access token、token type 和非敏感用户展示信息，用于阶段 1 本地会话恢复；该方案仍受同源 XSS 影响，不是生产最终方案，后续应评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 方案。
@@ -72,6 +79,7 @@
 
 ### 下一步
 
+- `T-0018-subpath-api-config` 提交并推送 `feature/frontend-dev` 后，由总 agent 安排审计，并在部署/Nginx 任务中补验 `/xxx/` 静态资源、`/xxx/settings` 刷新直达和 `/xxx/api` 代理路径。
 - `T-0013-auth-ui-shell` 等待后端认证接口落地后，补真实接口联调、401/403/过期 token 行为验证，并评估最终 token 存储与刷新策略。
 - `T-0009` 等待总 agent 汇总当前审计结论并推进集成；后端阶段 1 接口可用后补真实接口联调。
 - `T-0007-fix` 提交并推送 `feature/frontend-dev` 后，由总 agent 重新启动代码审计 agent 审计本次修复。
@@ -81,6 +89,7 @@
 
 ### 验证
 
+- `T-0018-subpath-api-config` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 初次因 `vite.config.ts` 引入 `src/config/basePaths.ts` 但 `tsconfig.node.json` 未包含该文件失败，补充 include 后重跑通过，`npm.cmd run test` 通过（6 个测试文件、28 个测试通过），`npm.cmd run build` 通过。
 - `T-0015-authenticated-settings-client` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（5 个测试文件、22 个测试通过），`npm.cmd run build` 通过。
 - `T-0015-authenticated-settings-client` 已执行 `git diff --check` 通过；已确认 `frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md`、真实 `.env*` 均命中 ignore 规则，未进入待提交列表。
 - `T-0013-fix` 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过，`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过（3 个测试文件、15 个测试通过），`npm.cmd run build` 通过。

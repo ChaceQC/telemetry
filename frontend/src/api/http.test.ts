@@ -6,6 +6,16 @@ async function loadApiClient(apiBaseUrl = 'http://localhost:28117/') {
   return import('./http');
 }
 
+async function loadApiClientWithEnv(env: { VITE_API_BASE_PATH?: string; VITE_API_BASE_URL?: string }) {
+  vi.resetModules();
+
+  for (const [key, value] of Object.entries(env)) {
+    vi.stubEnv(key, value);
+  }
+
+  return import('./http');
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -30,6 +40,25 @@ describe('apiRequest', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/health',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: 'application/json'
+        })
+      })
+    );
+  });
+
+  it('未配置 VITE_API_BASE_URL 时使用同源 API 前缀', async () => {
+    const { apiRequest } = await loadApiClientWithEnv({
+      VITE_API_BASE_URL: '',
+      VITE_API_BASE_PATH: '/xxx/api/'
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ status: 'ok' }));
+
+    await apiRequest('/api/v1/projects');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/xxx/api/v1/projects',
       expect.objectContaining({
         headers: expect.objectContaining({
           Accept: 'application/json'

@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础，以及最小认证/当前用户依赖。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、最小认证/当前用户依赖，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -29,6 +29,17 @@ uv run python main.py
 | `APP_VERSION` | 读取 `VERSION` | 应用版本 |
 | `BACKEND_RELOAD` | `false` | 是否启用 uvicorn reload |
 | `LOG_LEVEL` | `info` | uvicorn 日志级别 |
+| `BACKEND_CORS_ALLOWED_ORIGINS` | 本地/测试环境默认 `http://127.0.0.1:25173,http://localhost:25173,http://127.0.0.1:25174,http://localhost:25174`，其他环境默认空 | 允许跨域访问后端的前端 origin，逗号分隔；生产必须显式配置为真实 HTTPS origin |
+| `CORS_ALLOWED_ORIGINS` | 同上 | `BACKEND_CORS_ALLOWED_ORIGINS` 的兼容别名，优先级较低 |
+| `BACKEND_CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | CORS 允许方法，逗号分隔 |
+| `BACKEND_CORS_ALLOWED_HEADERS` | `Authorization,Content-Type,Accept,Origin` | CORS 允许请求头，逗号分隔 |
+| `BACKEND_CORS_ALLOW_CREDENTIALS` | `false` | 是否允许跨域携带凭据；当前 bearer token 推荐保持 `false`，且为 `true` 时禁止将 CORS origin 配置为 `*` |
+| `BACKEND_TRUSTED_HOSTS` | 本地/测试环境默认 `localhost,127.0.0.1,[::1],testserver`，其他环境默认 `localhost,127.0.0.1` | Trusted Host 白名单，逗号分隔；生产必须加入公网域名和反代传给后端的 Host |
+| `TRUSTED_HOSTS` | 同上 | `BACKEND_TRUSTED_HOSTS` 的兼容别名，优先级较低 |
+| `BACKEND_ROOT_PATH` | 空 | FastAPI `root_path`，仅在后端被挂载到反向代理子路径时设置，例如 `/xxx` |
+| `ROOT_PATH` | 空 | `BACKEND_ROOT_PATH` 的兼容别名，优先级较低 |
+| `BACKEND_PROXY_HEADERS` | `false` | 是否信任反向代理转发的 `X-Forwarded-*` 头；生产经 Nginx HTTPS 反代时建议开启 |
+| `BACKEND_FORWARDED_ALLOW_IPS` | `127.0.0.1` | 允许设置转发头的代理来源 IP，传给 uvicorn `forwarded_allow_ips` |
 | `DATABASE_URL` | `sqlite:///./telemetry-dev.db` | SQLAlchemy 数据库连接；MySQL 使用 `mysql+pymysql://...?...charset=utf8mb4` |
 | `AUTH_SECRET_KEY` | 未设置 | JWT 签名密钥；未设置或少于 32 个 UTF-8 字节时认证接口返回 `503`，生产环境必须使用 32 字节以上随机密钥 |
 | `AUTH_TOKEN_ALGORITHM` | `HS256` | JWT 签名算法 |
@@ -40,6 +51,35 @@ uv run python main.py
 $env:BACKEND_PORT='28117'
 uv run python main.py
 ```
+
+## 浏览器联调与反向代理
+
+本地前端默认从 `http://127.0.0.1:25173` 调用后端 `http://127.0.0.1:28117`。`APP_ENV=local` 或 `APP_ENV=test` 且未显式配置 `BACKEND_CORS_ALLOWED_ORIGINS` 时，后端默认允许项目约定的本地前端 origin，并处理 `OPTIONS /api/v1/auth/login` 等浏览器 preflight 请求。
+
+非本地环境默认不开放 CORS origin，避免生产忘配白名单时意外放开跨域。生产部署至少应配置：
+
+```powershell
+$env:APP_ENV='production'
+$env:BACKEND_CORS_ALLOWED_ORIGINS='https://example.com'
+$env:BACKEND_TRUSTED_HOSTS='example.com'
+$env:BACKEND_PROXY_HEADERS='true'
+$env:BACKEND_FORWARDED_ALLOW_IPS='127.0.0.1'
+```
+
+如果同一域名下同时承载前端和 API，且浏览器请求最终 origin 为 `https://example.com`，CORS origin 只需要配置 scheme + host + port，不包含路径。
+如需开启跨域凭据，必须配置明确 origin 白名单；后端会拒绝 `BACKEND_CORS_ALLOWED_ORIGINS=*` 与 `BACKEND_CORS_ALLOW_CREDENTIALS=true` 的组合。
+
+### 子路径部署策略
+
+推荐生产路径策略是：前端部署在 `https://example.com/xxx/` 时，API 仍由 Nginx 暴露为独立前缀，例如 `https://example.com/api/v1/...`，后端保持 `BACKEND_ROOT_PATH` 为空，前端通过配置使用 `/api/v1` 作为 API base path。
+
+如果必须把整个后端挂到子路径，例如公网访问为 `https://example.com/xxx/api/v1/...`，则需要同时满足：
+
+- 后端设置 `BACKEND_ROOT_PATH=/xxx`。
+- Nginx 公网入口匹配 `/xxx/api/v1/...` 后，应剥离或映射 `/xxx` 前缀，转发给后端实际路由 `/api/v1/...`；不要把 `/xxx` 原样留给后端路由匹配。
+- ASGI scope 使用 `root_path=/xxx`，OpenAPI、Swagger UI 和客户端生成工具以 `/xxx` 作为服务器前缀；实际接口路由仍是代码中的 `/api/v1/...`。
+
+Nginx 应继续把 `Host`、`X-Forwarded-Proto`、`X-Forwarded-For` 等头转给后端，并确保 `BACKEND_TRUSTED_HOSTS` 包含公网域名。真实域名、证书路径和密钥不得提交到仓库，应通过环境变量或部署平台配置注入。
 
 ## 数据库迁移
 
