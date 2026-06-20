@@ -63,8 +63,8 @@ closed      已关闭
 
 | 日期 | 任务 ID | 来源分支 | 目标分支 | 请求方 | 前置条件 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2026-06-20 | T-0001 | feature/frontend-dev | dev | 总 agent | agent 协作机制完成后统一合并 | todo |
-| 2026-06-20 | T-0001 | feature/backend-dev | dev | 总 agent | agent 协作机制完成后统一合并 | todo |
+| 2026-06-20 | T-0001 | feature/frontend-dev | dev | 总 agent | 已创建并推送远端分支 | done |
+| 2026-06-20 | T-0001 | feature/backend-dev | dev | 总 agent | 已创建并推送远端分支 | done |
 
 ## 10. 决策记录
 
@@ -74,3 +74,4 @@ closed      已关闭
 | 2026-06-20 | 功能完成后必须进入代码审计 | 降低缺陷、安全和架构偏离风险 | 审计通过前不得标记功能完成 |
 | 2026-06-20 | 前后端开发分支隔离 | 支持并行开发并降低互相覆盖风险 | 前端只提交 `feature/frontend-dev`，后端只提交 `feature/backend-dev`，总 agent 负责并入 `dev` 和必要时并入 `main` |
 | 2026-06-20 | 前后端和总 agent 分别维护 VERSION | 需要支持前端、后端和项目总版本独立演进 | 根目录、前端、后端各有独立 `VERSION`，内容只允许纯 `x.y.z` |
+| 2026-06-20 | 初始化 GitHub 私有仓库 | 项目需要 GitHub 远端管理 | 已创建 `https://github.com/ChaceQC/telemetry`，remote 为 `origin` |

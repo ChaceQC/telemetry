@@ -16,11 +16,11 @@
 ### 阻塞与风险
 
 - 暂无阻塞。
-- 实际前端开发分支 `feature/frontend-dev` 尚未创建。
+- 实际前端开发分支 `feature/frontend-dev` 已创建并推送。
 
 ### 下一步
 
-- 创建 `feature/frontend-dev` 分支后，创建 React + TypeScript + Vite 前端项目骨架，并配置 npm、`package-lock.json`、开发端口 `25173` 和预览端口 `25174`。
+- 在 `feature/frontend-dev` 分支创建 React + TypeScript + Vite 前端项目骨架，并配置 npm、`package-lock.json`、开发端口 `25173` 和预览端口 `25174`。
 
 ### 验证
 

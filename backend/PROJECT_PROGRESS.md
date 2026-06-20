@@ -16,11 +16,11 @@
 ### 阻塞与风险
 
 - 暂无阻塞。
-- 实际后端开发分支 `feature/backend-dev` 尚未创建。
+- 实际后端开发分支 `feature/backend-dev` 已创建并推送。
 
 ### 下一步
 
-- 创建 `feature/backend-dev` 分支后，创建 Python + uv 后端项目骨架，并配置 `uv run python main.py`、开发端口 `28117` 和基础 health check。
+- 在 `feature/backend-dev` 分支创建 Python + uv 后端项目骨架，并配置 `uv run python main.py`、开发端口 `28117` 和基础 health check。
 
 ### 验证
 

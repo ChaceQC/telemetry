@@ -18,21 +18,22 @@
 - 明确总 agent 负责将前后端分支合并入 `dev`，并在阶段验收、版本发布或必要稳定节点合并入 `main`。
 - 补充 `.gitignore`，禁止提交 `.env`、密钥、证书私钥、依赖目录、构建产物、上传文件和备份文件。
 - 补充 `.gitattributes`，统一文本文件使用 LF，降低 Windows 开发和 Debian 部署之间的换行差异风险。
+- 创建 GitHub 私有仓库 `https://github.com/ChaceQC/telemetry`，remote 命名为 `origin`。
+- 推送 `main`、`dev`、`feature/frontend-dev` 和 `feature/backend-dev` 分支。
 
 ### 进行中
 
-- 正在初始化 Git 与 GitHub，尚未创建前后端代码骨架。
+- Git 与 GitHub 初始化已完成，项目尚未创建前后端代码骨架。
 
 ### 阻塞与风险
 
 - 暂无阻塞。
 - 后续开始并行开发后，API 契约必须及时写入 `AGENT_COMMUNICATION.md`，否则前后端可能出现字段或错误码不一致。
-- 后续创建实际分支时，需要先确认当前仓库 remote 和默认分支状态。
 - 后续创建前后端代码骨架时，需要同步确认 `frontend/VERSION`、`backend/VERSION` 与各自包版本声明一致。
 
 ### 下一步
 
-- 完成 GitHub 私有仓库创建、初始提交推送、`dev`、`feature/frontend-dev`、`feature/backend-dev` 分支创建和推送。
+- 在 `feature/backend-dev` 创建后端 uv 项目骨架，在 `feature/frontend-dev` 创建前端 React + TypeScript + Vite 项目骨架，并由总 agent 后续合并到 `dev`。
 
 ### 验证
 
@@ -43,3 +44,5 @@
 - 已在 `AGENT_COMMUNICATION.md` 记录本次文档结构测试和代码审计结论。
 - 已检查 Git 当前分支、remote、用户配置和 GitHub CLI 登录状态。
 - 已完成初始提交 `docs: 初始化项目计划和协作规范`。
+- 已创建 GitHub 私有仓库并推送 `main`。
+- 已创建并推送 `dev`、`feature/frontend-dev`、`feature/backend-dev`。
