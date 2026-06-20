@@ -50,7 +50,7 @@ closed      已关闭
 | T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
 | T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
-| T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | doing | doing | doing |
+| T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | done | blocked | blocked |
 
 ## 4. API 契约登记
 
@@ -186,6 +186,9 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | metrics/logs 摄入任务登记 Actions 通过 | push `92a4717` 触发 run `27880214736`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0023 | 后端开发 agent | metrics/logs 专用摄入 API 完成 | Anscombe 已提交并 push `50c8f17` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/metrics` 与 `/api/v1/ingest/logs`，复用 API Key 鉴权和 `ingest_records`，用 `kind=metric/log` 区分，并补批量/大小/message/非有限数值/项目绑定测试；本地验证 pytest 89 passed/2 skipped、ruff、format check、mypy、diff check 通过 | audit |
 | 2026-06-20 | T-0023 | 总 agent | 启动 metrics/logs 摄入审计与真实 MySQL 补验 | 已启动代码审计 agent James 只读审计 `50c8f17`；已启动后端测试 agent Godel 使用真实 MySQL 临时库补验迁移、JSON 写入、metrics/logs 接口流、撤销 API Key、项目绑定和 validation，要求不泄露凭据或 API Key 明文 | testing |
+| 2026-06-20 | CI | 总 agent | metrics/logs 摄入进展记录 Actions 通过 | push `53bbed3` 触发 run `27880497822`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0023 | 代码审计 agent | metrics/logs 摄入审计未通过 | James 审计 `50c8f17` 发现 1 个 P2：`IngestMetricCreate.value` 使用普通 `float`，Pydantic 会把字符串或布尔值静默转成数值并接受入库，污染指标语义；需改成 strict numeric 校验并补测试。当前不得集成到 `dev` | blocked |
+| 2026-06-20 | T-0023 | 后端测试 agent | metrics/logs 摄入真实 MySQL 补验通过 | Godel 在 `50c8f17` 上完成真实 MySQL 补验：Alembic 升降级、`ingest_records` JSON/索引/外键、metrics/logs 有效写入、缺失/无效/撤销 API Key、项目绑定、嵌套 `project_id` 保留业务字段、非有限数值和边界 validation 均通过；临时库已清理，未泄露凭据或 API Key 明文 | done |
 
 ## 6. 测试记录
 
@@ -249,7 +252,7 @@ closed      已关闭
 | 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17` 已完成 metrics/logs 专用摄入 API 基础；等待代码审计和真实 MySQL/接口补验结论，通过后由总 agent 按业务路径集成 | testing |
+| 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17` 真实 MySQL 补验通过，但审计发现 metrics value 非 strict numeric 问题；需后端修复后复审 | blocked |
 
 ## 10. 决策记录
 

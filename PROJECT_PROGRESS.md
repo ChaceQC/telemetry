@@ -137,6 +137,9 @@
 - 推送 `T-0023` 启动记录提交 `92a4717` 后已读取 GitHub Actions run `27880214736`：Backend checks 与 Frontend checks 均通过。
 - `T-0023` 后端开发 agent Anscombe 已提交并推送 `50c8f17` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/metrics` 与 `/api/v1/ingest/logs`，复用 API Key 鉴权和 `ingest_records`，用 `kind=metric/log` 区分，并补批量/大小/message/非有限数值/项目绑定测试。
 - 已启动 `T-0023` 代码审计 agent James 与真实 MySQL/接口补验 agent Godel；等待审计和补验结论后决定修复或按业务路径集成到 `dev`。
+- 推送 metrics/logs 摄入进展记录提交 `53bbed3` 后已读取 GitHub Actions run `27880497822`：Backend checks 与 Frontend checks 均通过。
+- `T-0023` 代码审计 agent James 审计未通过：发现 metrics `value` 使用普通 `float`，Pydantic 会把字符串或布尔值静默转成数值并接受入库，需改成 strict numeric 校验并补测试。当前不得集成到 `dev`。
+- `T-0023` 真实 MySQL/接口补验 agent Godel 已验证 Alembic 升降级、`ingest_records` JSON/索引/外键、metrics/logs 有效写入、缺失/无效/撤销 API Key、项目绑定、嵌套 `project_id` 保留业务字段、非有限数值和边界 validation 均通过；临时库已清理且未泄露凭据或 API Key 明文。
 
 ### 阻塞与风险
 
@@ -186,6 +189,7 @@
 - 阶段 2 下一步优先推进 metrics/logs 专用摄入契约与后端 API 基础，让验收项“能通过 HTTP API 上报 metrics、logs、events”完整闭环；随后再处理 ClickHouse/MongoDB 初始化、Redis 限流和摄入统计。
 - `T-0023` 已进入进行中：先实现 metrics/logs 专用摄入 API，再安排代码审计和真实 MySQL/接口补验。
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
+- `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
 
 ### 验证
 
@@ -251,3 +255,5 @@
 - GitHub Actions run `27880132283` 已通过：T-0022 集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27880214736` 已通过：T-0023 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - `T-0023` 后端开发自测由 Anscombe 在后端 worktree 完成：`uv run pytest tests/test_ingest_api.py` 20 passed，`uv run pytest` 89 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
+- GitHub Actions run `27880497822` 已通过：metrics/logs 摄入进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- James 审计 `50c8f17` 未通过，列出 P2 metrics value 非 strict numeric 问题；Godel 在同一提交上完成真实 MySQL/接口补验，通过 `uv run pytest tests/test_ingest_api.py` 20 passed、`uv run pytest` 89 passed/2 skipped、ruff、format check、mypy，以及真实 MySQL 升降级和接口流验证。
