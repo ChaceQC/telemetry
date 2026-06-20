@@ -408,9 +408,10 @@
 
 ### 下一步
 
-- 推送 T-0029 集成后读取 Actions 并记录结果；随后继续阶段 3 logs/metrics 查询 API 或查询页前端小步。
+- T-0029 集成 CI 已通过并记录；随后继续阶段 3 logs/metrics 查询 API 或查询页前端小步。
 
 ### 验证
 
 - 总 agent 在后端 worktree 验证 `T-0029`：`uv run pytest tests/test_query_api.py` 3 passed，`uv run pytest` 109 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - 总 agent 在根仓库后端验证 `T-0029`：`uv run pytest tests/test_query_api.py` 3 passed，`uv run pytest` 109 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- GitHub Actions run `27884628747` 已通过：T-0029 事件查询 API 集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
