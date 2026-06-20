@@ -20,6 +20,7 @@
 - 补充 `.gitattributes`，统一文本文件使用 LF，降低 Windows 开发和 Debian 部署之间的换行差异风险。
 - 创建 GitHub 私有仓库 `https://github.com/ChaceQC/telemetry`，remote 命名为 `origin`。
 - 推送 `main`、`dev`、`feature/frontend-dev` 和 `feature/backend-dev` 分支。
+- 复核 GitHub 仓库可见性并确认已设置为 `PRIVATE`。
 
 ### 进行中
 
@@ -46,3 +47,4 @@
 - 已完成初始提交 `docs: 初始化项目计划和协作规范`。
 - 已创建 GitHub 私有仓库并推送 `main`。
 - 已创建并推送 `dev`、`feature/frontend-dev`、`feature/backend-dev`。
+- 已通过 `gh repo view` 确认仓库默认分支为 `main`，可见性为 `PRIVATE`。
