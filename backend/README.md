@@ -151,6 +151,26 @@ docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet
 
 真实容器补验需在后续有 Docker 运行环境时执行：启动 ClickHouse、确认 init SQL 只在新数据卷首次执行、用配置中的非默认端口连接、查询四张表存在，并复验后续 writer 写入 metrics/logs/stats/traces 的字段映射。
 
+## MongoDB 本地初始化
+
+项目根目录的 `docker-compose.dev.yml` 会将 `docker/mongodb/init-app-user.js` 挂载到 MongoDB 容器的 `/docker-entrypoint-initdb.d/10-init-app-user.js`。脚本在新数据卷首次初始化时创建应用读写用户，并初始化 `events` 集合和基础索引：
+
+| 索引 | 字段 | 说明 |
+| --- | --- | --- |
+| `idx_events_project_occurred_at` | `project_id`、`occurred_at` | 项目内按事件时间查询 |
+| `idx_events_project_env_service_time` | `project_id`、`environment_id`、`service_id`、`occurred_at` | 项目/环境/服务组合查询 |
+| `idx_events_type_occurred_at` | `event_type`、`occurred_at` | 按事件类型查找 |
+| `idx_events_expires_at_ttl` | `expires_at` | 可选临时事件 TTL，`expireAfterSeconds=0` |
+
+只检查 compose 配置展开和挂载，不启动容器：
+
+```powershell
+docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet
+uv run pytest tests/test_mongodb_init.py
+```
+
+真实容器补验需在后续有 Docker 运行环境时执行：启动 MongoDB、确认初始化脚本在新数据卷首次执行、应用用户可登录、`events` 集合和四个索引存在，并复验后续 events writer 的字段映射。
+
 ## 健康检查
 
 ```http
@@ -563,8 +583,9 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy .
 docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet
+uv run pytest tests/test_clickhouse_init.py tests/test_mongodb_init.py
 uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL/ClickHouse/MongoDB 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、代码静态检查；MySQL、ClickHouse 和 MongoDB 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、查询和告警逻辑，真实 MySQL/ClickHouse/MongoDB 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse 和 MongoDB 容器补验需在后续任务完成。

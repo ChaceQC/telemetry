@@ -34,6 +34,7 @@
   - `CLICKHOUSE_USER`：默认 `telemetry_app`。
   - `CLICKHOUSE_PASSWORD`：`.env.example` 仅使用 `change-me` 占位；真实环境必须由环境变量或密钥管理注入，不得提交真实密码。
 - 项目根目录的 `docker-compose.dev.yml` 当前定义本地 MySQL、ClickHouse、MongoDB 和 Redis 开发服务；ClickHouse 初始化文件为 `backend/docker/clickhouse/init/01-create-telemetry-tables.sql`，挂载到 `/docker-entrypoint-initdb.d/01-create-telemetry-tables.sql`。compose 静态验证命令为 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，不启动容器。
+- MongoDB 初始化文件为 `docker/mongodb/init-app-user.js`，挂载到 `/docker-entrypoint-initdb.d/10-init-app-user.js`；脚本创建应用读写用户，并初始化 `events` 集合和项目/环境/服务/时间、事件类型/时间、可选 TTL 索引。
 
 ## API-0005 用户登录
 
@@ -534,7 +535,13 @@
   - `log_records`：MergeTree，按 `toDate(timestamp)` 分区，排序键 `(project_id, level, source, timestamp)`；保存 `project_id`、`api_key_id`、`timestamp`、`received_at`、`level`、`source`、`logger`、`trace_id`、`span_id`、`message`、`attributes_json`、`payload_json`。
   - `ingest_stats`：MergeTree，按 `toDate(bucket_start)` 分区，排序键 `(project_id, bucket_start, kind, source)`；保存摄入统计时间桶、项目/API Key、kind、source、accepted/rejected 数、字节数、reason 和 `attributes_json`。
   - `trace_spans`：MergeTree 预留表，按 `toDate(start_time)` 分区，排序键 `(project_id, trace_id, start_time, name)`；保存 trace/span 标识、parent span、名称、起止时间、耗时、状态、source 和 JSON 字符串载荷。
+- MongoDB 初始化集合：
+  - `events`：保存结构变化较大的原始事件、业务遥测和扩展属性；初始化脚本不加 schema validator，保留灵活文档模型。
+  - `idx_events_project_occurred_at`：`{ project_id: 1, occurred_at: -1 }`，支持项目内按事件时间查询。
+  - `idx_events_project_env_service_time`：`{ project_id: 1, environment_id: 1, service_id: 1, occurred_at: -1 }`，支持项目/环境/服务组合查询。
+  - `idx_events_type_occurred_at`：`{ event_type: 1, occurred_at: -1 }`，支持按事件类型查询。
+  - `idx_events_expires_at_ttl`：`{ expires_at: 1 }`，`expireAfterSeconds=0` 且 `sparse=true`，用于可选临时事件过期清理。
 - Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。创建项目和创建者 `admin` 授权通过 service 层事务边界整体提交或整体回滚。
 - 真实 MySQL 回归入口：`TELEMETRY_MYSQL_TEST_DATABASE_URL` 仅用于本地或专用测试环境，未设置时相关测试会 `skip`，不影响普通 CI。该 URL 需要可创建/删除数据库；测试会创建随机 `telemetry_test_<uuid>` 临时库、执行 Alembic `upgrade head`，并在结束后删除临时库。不得在日志、agent 记录或提交中输出真实连接串、密码或临时库详情。
-- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为、events/metrics/logs 摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、payload/tags/attributes 校验错误返回 `422`、metrics 非有限 value 拒绝、logs message 长度限制、顶层 `project_id` 不能覆盖归属、嵌套业务载荷中的跨项目 `project_id` 不影响 API Key 项目上下文和 Alembic 升降级；ClickHouse 已覆盖 compose 配置展开、init SQL 挂载路径和预期表名静态检查。真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束和摄入记录写入的 MySQL 专项用例；真实 ClickHouse/MongoDB 容器初始化与写入链路仍需后续补验。
+- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为、events/metrics/logs 摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、payload/tags/attributes 校验错误返回 `422`、metrics 非有限 value 拒绝、logs message 长度限制、顶层 `project_id` 不能覆盖归属、嵌套业务载荷中的跨项目 `project_id` 不影响 API Key 项目上下文和 Alembic 升降级；ClickHouse 已覆盖 compose 配置展开、init SQL 挂载路径和预期表名静态检查；MongoDB 已覆盖 compose 配置展开、init 脚本挂载路径、events 集合和预期索引静态检查。真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束和摄入记录写入的 MySQL 专项用例；真实 ClickHouse/MongoDB 容器初始化与写入链路仍需后续补验。
 - 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；API Key 创建接口会返回一次性明文，后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志、API Key 使用审计和危险动作 `admin` 校验。

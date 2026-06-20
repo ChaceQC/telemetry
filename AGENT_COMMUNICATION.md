@@ -51,7 +51,7 @@ closed      已关闭
 | T-0021 | 阶段 1 API Key 创建与撤销后端基础 | 总 agent | todo | done | done | done | done |
 | T-0022 | 阶段 2 最小摄入 API 与 API Key 鉴权 | 总 agent | todo | done | done | done | done |
 | T-0023 | 阶段 2 metrics/logs 专用摄入 API 基础 | 总 agent | todo | done | done | done | done |
-| T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | doing | done | done | doing |
+| T-0024 | 阶段 2 ClickHouse/MongoDB 初始化基础 | 总 agent | todo | done | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -207,6 +207,8 @@ closed      已关闭
 | 2026-06-20 | T-0024 | 总 agent | ClickHouse 初始化按业务路径集成 | 已从 `feature/backend-dev` 按路径恢复 `.gitignore`、根 `docker-compose.dev.yml`、后端 ClickHouse init SQL、专项测试、后端 `.env.example`/README/进度与后端契约草案；未直接 merge feature 分支历史，未带入 runtime log 或前端/脚本误删差异；已推送 `45d0540` 到 `dev` | done |
 | 2026-06-20 | CI | 总 agent | ClickHouse 初始化集成 Actions 通过 | push `45d0540` 触发 run `27882116852`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | CI | 总 agent | ClickHouse 初始化集成结果记录 Actions 通过 | push `673d8da` 触发 run `27882171728`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | CI | 总 agent | ClickHouse CI 结果记录提交 Actions 通过 | push `e959e67` 触发 run `27882213570`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0024 | 总 agent | MongoDB events 初始化小步完成并集成 | 后端分支 `d9d5106` 更新 `docker/mongodb/init-app-user.js`，在创建应用读写用户后初始化 `events` 集合，并补项目/时间、项目/环境/服务/时间、事件类型/时间和可选 TTL 索引；总 agent 本地复审后按路径恢复到 `dev`，未直接 merge feature 分支历史 | doing |
 
 ## 6. 测试记录
 
@@ -222,6 +224,7 @@ closed      已关闭
 | 2026-06-20 | T-0006 | 后端基础管理 API | 后端测试子 agent Averroes 执行 `uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .` | 通过 | 11 个测试通过；记录未覆盖认证、MySQL 持久化、分页和若干边界测试 |
 | 2026-06-20 | T-0007 | 前端基础管理页面 | 前端测试子 agent Faraday 执行 `npm.cmd run typecheck`、`npm.cmd run test`、`npm.cmd run build` | 通过 | 1 个测试文件、4 个测试通过；未做浏览器/E2E 或真实后端联调 |
 | 2026-06-20 | T-0024 | ClickHouse 初始化静态验证 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`、`uv run pytest tests/test_clickhouse_init.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：ClickHouse 专项 2 passed，全量 pytest 91 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 ClickHouse 容器 |
+| 2026-06-20 | T-0024 | MongoDB events 初始化静态验证 | `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`、`uv run pytest tests/test_mongodb_init.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 验证：MongoDB 专项 2 passed，全量 pytest 93 passed/2 skipped，ruff、format、mypy、diff check 通过；未启动真实 MongoDB 容器 |
 
 ## 7. 审计记录
 
@@ -237,6 +240,7 @@ closed      已关闭
 | 2026-06-20 | T-0009 | 阶段 1 基础管理前端错误展示 | 通过 | 初审仅发现 P3 前端进度状态滞后；已由 `4267ed6` 修复，未发现 P0/P1/P2 阻断 | done |
 | 2026-06-20 | T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 通过 | 初审发现 2 个 P2 和 1 个 P3；`c856bcb` 已补数据库复合外键/错误分流/README 修正，复审通过；真实 MySQL 容器补验仍待后续执行 | done |
 | 2026-06-20 | T-0024 | ClickHouse 初始化 SQL、Compose 挂载和测试 | 通过 | Boyle/Singer 因 502 未产出可用结论且已关闭；总 agent 本地复审未发现 P0/P1/P2，P3 文档入口表述不一致已由 `d998ca1` 修正；真实 ClickHouse 容器首次初始化和表存在性仍需后续补验 | done |
+| 2026-06-20 | T-0024 | MongoDB events 初始化脚本、Compose 挂载和测试 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；脚本保持应用用户创建逻辑并新增幂等集合创建与索引声明，真实 MongoDB 容器首次初始化、应用用户登录和索引存在性仍需后续补验 | done |
 
 ## 8. 阻塞问题
 
@@ -273,7 +277,7 @@ closed      已关闭
 | 2026-06-20 | T-0021 | feature/backend-dev | dev | 后端开发 agent Lorentz/Newton | `8c2349b` 与 `eef00f0` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0022 | feature/backend-dev | dev | 后端开发 agent Dirac/Goodall / 审计 agent Curie/Boole / 测试 agent Nash | `9fc69bc` 与 `dcc6208` 已通过真实 MySQL 补验和复审，总 agent 已按业务路径集成到 `dev` | done |
 | 2026-06-20 | T-0023 | feature/backend-dev | dev | 后端开发 agent Anscombe / 审计 agent James / 测试 agent Godel | `50c8f17`、`6bf0024` 和 `09425a7` 已通过真实 MySQL 补验、审计修复和本地复审；总 agent 准备按业务路径集成到 `dev` | done |
-| 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 总 agent | ClickHouse 初始化小步 `1e994ee`、根 Compose 修正 `48eeb38` 和文档修正 `d998ca1` 已按业务路径集成到 `dev`，集成提交 `45d0540` CI 通过；下一步继续 MongoDB events 初始化小步 | done |
+| 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 总 agent | ClickHouse 初始化小步已集成并通过 CI；MongoDB events 初始化小步 `d9d5106` 已通过总 agent 本地复审与验证，本次按业务路径集成到 `dev` | doing |
 
 ## 10. 决策记录
 

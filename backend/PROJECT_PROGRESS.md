@@ -565,3 +565,27 @@
 - 已运行 `uv run ruff format --check .`，结果：68 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：68 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-21 T-0024 MongoDB events 集合初始化
+
+### 已完成
+
+- 更新根目录 `docker/mongodb/init-app-user.js`，在创建 MongoDB 应用读写用户后初始化 `events` 集合。
+- 为 `events` 增加基础索引：项目/时间、项目/环境/服务/时间、事件类型/时间，以及可选 `expires_at` TTL 索引。
+- 新增 `tests/test_mongodb_init.py`，静态确认 compose 配置可展开、MongoDB init 脚本被只读挂载、脚本包含预期集合和索引。
+- 更新 `README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 MongoDB events 集合初始化、索引、验证边界和真实容器补验点。
+
+### 阻塞与风险
+
+- 本次只做静态初始化脚本和配置验证，不启动 MongoDB 容器；真实容器中 entrypoint 执行、应用用户登录、集合/索引存在性和后续 events writer 字段映射仍需后续补验。
+- 暂未接入摄入写入 MongoDB，events 仍由当前 MySQL `ingest_records` 最小持久化链路兜底。
+
+### 验证
+
+- 已运行 `docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet`，结果：通过。
+- 已运行 `uv run pytest tests/test_mongodb_init.py`，结果：2 个测试通过。
+- 已运行 `uv run pytest`，结果：93 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：69 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：69 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。

@@ -15,3 +15,26 @@ if (appDb.getUser(username) === null) {
     roles: [{ role: "readWrite", db: database }],
   });
 }
+
+if (!appDb.getCollectionNames().includes("events")) {
+  appDb.createCollection("events");
+}
+
+const events = appDb.getCollection("events");
+
+events.createIndex(
+  { project_id: 1, occurred_at: -1 },
+  { name: "idx_events_project_occurred_at" }
+);
+events.createIndex(
+  { project_id: 1, environment_id: 1, service_id: 1, occurred_at: -1 },
+  { name: "idx_events_project_env_service_time" }
+);
+events.createIndex(
+  { event_type: 1, occurred_at: -1 },
+  { name: "idx_events_type_occurred_at" }
+);
+events.createIndex(
+  { expires_at: 1 },
+  { name: "idx_events_expires_at_ttl", expireAfterSeconds: 0, sparse: true }
+);
