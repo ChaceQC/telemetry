@@ -390,3 +390,4 @@
 
 - 总 agent 在后端 worktree 验证 `T-0028`：`uv run pytest tests/test_ingest_api.py` 27 passed，`uv run pytest` 106 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - 总 agent 在根仓库后端验证 `T-0028`：`uv run pytest tests/test_ingest_api.py` 27 passed，`uv run pytest` 106 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- GitHub Actions run `27884170194` 已通过：T-0028 摄入失败统计基础集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。

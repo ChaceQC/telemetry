@@ -229,6 +229,7 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | Redis 摄入限流 CI 结果记录提交 Actions 通过 | push `c8a2beb` 触发 run `27883878073`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | T-0028 | 总 agent | 启动摄入失败统计基础 | 阶段 2 已有 `ingest_stats.rejected_count` 预留字段；下一步优先统计已验证 API Key 后的拒绝路径，包括请求体验证失败和限流拒绝，暂不统计缺失/无效 API Key 这类缺少项目维度的请求 | doing |
 | 2026-06-20 | T-0028 | 总 agent | 摄入失败统计基础完成并集成 | 后端分支 `4eceeca` 新增 `rejected_count` 写入路径，请求体验证失败和限流拒绝会在已验证 API Key 后记录统计；总 agent 按路径恢复到 `dev`，未直接 merge feature 分支历史；缺失/无效/撤销 API Key 暂不统计 | done |
+| 2026-06-20 | CI | 总 agent | 摄入失败统计集成 Actions 通过 | push `f799550` 触发 run `27884170194`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -309,7 +310,7 @@ closed      已关闭
 | 2026-06-20 | T-0025 | feature/backend-dev | dev | 总 agent | 摄入 API Key 限流基础 `fbf2621` 已按业务路径集成到 `dev`，集成提交 `02d2a9e` CI 通过 | done |
 | 2026-06-20 | T-0026 | feature/backend-dev | dev | 总 agent | 摄入统计基础 `f38942e` 已按业务路径集成到 `dev`，根仓库本地验证通过；推送后读取 GitHub Actions 并补充 CI 结果记录 | done |
 | 2026-06-20 | T-0027 | feature/backend-dev | dev | 总 agent | Redis 摄入限流后端基础 `819d200` 已按业务路径集成到 `dev`，集成提交 `3334dcd` CI 通过 | done |
-| 2026-06-20 | T-0028 | feature/backend-dev | dev | 总 agent | 摄入失败统计基础 `4eceeca` 已按业务路径恢复到 `dev`；根仓库验证和 CI 结果待本次集成提交后记录 | doing |
+| 2026-06-20 | T-0028 | feature/backend-dev | dev | 总 agent | 摄入失败统计基础 `4eceeca` 已按业务路径集成到 `dev`，集成提交 `f799550` CI 通过 | done |
 
 ## 10. 决策记录
 
