@@ -155,6 +155,7 @@
 - 推送 ClickHouse 初始化进展记录提交 `29430f4` 后已读取 GitHub Actions run `27881789052`：Backend checks 与 Frontend checks 均通过。
 - `T-0024` 代码审计 agent Boyle 与验证 agent Singer 均因 502 中断，已关闭；总 agent 本地复审最新 `feature/backend-dev`，确认 ClickHouse SQL 使用 `IF NOT EXISTS`、根 Compose 单入口、init SQL 只读挂载、本机端口绑定和静态测试覆盖关键路径。
 - 总 agent 发现后端 README/API 契约仍误写为后端目录 Compose，已在后端分支追加 `d998ca1` 修正文档并 push；随后按业务路径从 `feature/backend-dev` 恢复 ClickHouse init SQL、专项测试、根 Compose 挂载、后端 env/README/进度和契约草案到 `dev`，未直接 merge feature 分支历史或 runtime log。
+- 推送 ClickHouse 初始化集成提交 `45d0540` 后已读取 GitHub Actions run `27882116852`：Backend checks 与 Frontend checks 均通过；ClickHouse 初始化小步已进入 `dev`。
 
 ### 阻塞与风险
 
@@ -206,8 +207,7 @@
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
 - 阶段 2 当前完成 HTTP 上报 metrics、logs、events 的最小 API；仍未完成 ClickHouse 表初始化、MongoDB events 集合初始化、Redis 限流和摄入统计。
-- `T-0024` ClickHouse 初始化小步已通过本地审计/验证并进入 `dev` 集成；推送后需读取 Actions 并记录结果。
-- `T-0024` 下一步继续 MongoDB events 集合初始化小步，重点补集合/index 初始化约定、Compose 挂载和静态验证，暂不接入摄入写入链路。
+- `T-0024` ClickHouse 初始化小步已完成并通过 CI；下一步继续 MongoDB events 集合初始化小步，重点补集合/index 初始化约定、Compose 挂载和静态验证，暂不接入摄入写入链路。
 
 ### 验证
 
@@ -284,3 +284,4 @@
 - GitHub Actions run `27881340239` 已通过：ClickHouse 初始化拆分记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27881789052` 已通过：ClickHouse 初始化进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - 总 agent 在后端 worktree 验证 `T-0024` ClickHouse 小步：`docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet` 通过，`uv run pytest tests/test_clickhouse_init.py` 2 passed，`uv run pytest` 91 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- GitHub Actions run `27882116852` 已通过：T-0024 ClickHouse 初始化集成提交后的 Backend checks 与 Frontend checks 均为 success。
