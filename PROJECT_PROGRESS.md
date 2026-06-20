@@ -465,3 +465,19 @@
 - GitHub Actions run `27885181530` 已通过：T-0031 启动记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
 - 总 agent 在后端 worktree 验证 `T-0031`：`uv run pytest tests/test_query_api.py` 9 passed，`uv run pytest` 115 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
 - 总 agent 在根仓库后端验证 `T-0031`：`uv run pytest tests/test_query_api.py` 9 passed，`uv run pytest` 115 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- GitHub Actions run `27885421204` 已通过：T-0031 指标查询 API 集成提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+
+## 2026-06-21 T-0032 查询页前端基础
+
+### 进行中
+
+- 已登记 `T-0032` 阶段 3 查询页前端基础任务；目标是在前端将指标、日志和事件占位页替换为可用查询工作台，接入当前 `GET /api/v1/query/metrics`、`/logs`、`/events`。
+- 本小步计划复用当前 ConsoleLayout、登录态 Bearer token、React Query 和现有全局样式，先提供基础筛选、刷新状态、错误/空态和结果列表，不引入图表、游标分页或复杂聚合。
+
+### 阻塞与风险
+
+- 本小步只做查询页基础壳和列表展示；图表、事件时间线细节、日志上下文、指标聚合窗口和多序列可视化后续拆分。
+
+### 下一步
+
+- 在前端 worktree 实现查询 API client、查询页组件和路由替换，补充测试并通过 lint/typecheck/test/build 后按业务路径集成回 `dev`。
