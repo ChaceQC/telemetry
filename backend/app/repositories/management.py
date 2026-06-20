@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -10,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.management import EnvironmentModel, ProjectModel, ServiceModel
+from app.repositories.unit_of_work import flush_or_commit, session_transaction
 from app.schemas.management import ResourceStatus
 from app.services.errors import (
     DuplicateResourceError,
@@ -53,7 +55,9 @@ class ServiceRecord:
 
 
 class ManagementRepository(Protocol):
-    def list_projects(self) -> list[ProjectRecord]: ...
+    def transaction(self) -> AbstractContextManager[None]: ...
+
+    def list_projects(self, *, project_ids: set[int] | None = None) -> list[ProjectRecord]: ...
 
     def get_project(self, project_id: int) -> ProjectRecord | None: ...
 
@@ -66,9 +70,21 @@ class ManagementRepository(Protocol):
         status: ResourceStatus,
     ) -> ProjectRecord: ...
 
-    def list_environments(self, project_id: int | None = None) -> list[EnvironmentRecord]: ...
+    def list_environments(
+        self,
+        project_id: int | None = None,
+        *,
+        project_ids: set[int] | None = None,
+    ) -> list[EnvironmentRecord]: ...
 
     def get_environment(self, environment_id: int) -> EnvironmentRecord | None: ...
+
+    def get_environment_for_project(
+        self,
+        *,
+        environment_id: int,
+        project_id: int,
+    ) -> EnvironmentRecord | None: ...
 
     def create_environment(
         self,
@@ -85,6 +101,7 @@ class ManagementRepository(Protocol):
         *,
         project_id: int | None = None,
         environment_id: int | None = None,
+        project_ids: set[int] | None = None,
     ) -> list[ServiceRecord]: ...
 
     def create_service(
@@ -258,8 +275,16 @@ class SqlAlchemyManagementRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def list_projects(self) -> list[ProjectRecord]:
-        projects = self._session.scalars(select(ProjectModel).order_by(ProjectModel.id)).all()
+    def transaction(self) -> AbstractContextManager[None]:
+        return session_transaction(self._session)
+
+    def list_projects(self, *, project_ids: set[int] | None = None) -> list[ProjectRecord]:
+        if project_ids is not None and not project_ids:
+            return []
+        statement = select(ProjectModel).order_by(ProjectModel.id)
+        if project_ids is not None:
+            statement = statement.where(ProjectModel.id.in_(project_ids))
+        projects = self._session.scalars(statement).all()
         return [_project_record(project) for project in projects]
 
     def get_project(self, project_id: int) -> ProjectRecord | None:
@@ -284,22 +309,47 @@ class SqlAlchemyManagementRepository:
         )
         self._session.add(project)
         try:
-            self._session.commit()
+            flush_or_commit(self._session)
         except IntegrityError as error:
             self._session.rollback()
             raise _project_integrity_error(error) from error
         self._session.refresh(project)
         return _project_record(project)
 
-    def list_environments(self, project_id: int | None = None) -> list[EnvironmentRecord]:
+    def list_environments(
+        self,
+        project_id: int | None = None,
+        *,
+        project_ids: set[int] | None = None,
+    ) -> list[EnvironmentRecord]:
+        if project_ids is not None and not project_ids:
+            return []
         statement = select(EnvironmentModel).order_by(EnvironmentModel.id)
         if project_id is not None:
             statement = statement.where(EnvironmentModel.project_id == project_id)
+        if project_ids is not None:
+            statement = statement.where(EnvironmentModel.project_id.in_(project_ids))
         environments = self._session.scalars(statement).all()
         return [_environment_record(environment) for environment in environments]
 
     def get_environment(self, environment_id: int) -> EnvironmentRecord | None:
         environment = self._session.get(EnvironmentModel, environment_id)
+        if environment is None:
+            return None
+        return _environment_record(environment)
+
+    def get_environment_for_project(
+        self,
+        *,
+        environment_id: int,
+        project_id: int,
+    ) -> EnvironmentRecord | None:
+        environment = self._session.scalar(
+            select(EnvironmentModel).where(
+                EnvironmentModel.id == environment_id,
+                EnvironmentModel.project_id == project_id,
+            )
+        )
         if environment is None:
             return None
         return _environment_record(environment)
@@ -322,7 +372,7 @@ class SqlAlchemyManagementRepository:
         )
         self._session.add(environment)
         try:
-            self._session.commit()
+            flush_or_commit(self._session)
         except IntegrityError as error:
             self._session.rollback()
             raise _environment_integrity_error(
@@ -338,12 +388,17 @@ class SqlAlchemyManagementRepository:
         *,
         project_id: int | None = None,
         environment_id: int | None = None,
+        project_ids: set[int] | None = None,
     ) -> list[ServiceRecord]:
+        if project_ids is not None and not project_ids:
+            return []
         statement = select(ServiceModel).order_by(ServiceModel.id)
         if project_id is not None:
             statement = statement.where(ServiceModel.project_id == project_id)
         if environment_id is not None:
             statement = statement.where(ServiceModel.environment_id == environment_id)
+        if project_ids is not None:
+            statement = statement.where(ServiceModel.project_id.in_(project_ids))
         services = self._session.scalars(statement).all()
         return [_service_record(service) for service in services]
 
@@ -367,7 +422,7 @@ class SqlAlchemyManagementRepository:
         )
         self._session.add(service)
         try:
-            self._session.commit()
+            flush_or_commit(self._session)
         except IntegrityError as error:
             self._session.rollback()
             raise _service_integrity_error(
@@ -394,8 +449,40 @@ class InMemoryManagementRepository:
         self._next_environment_id = 1
         self._next_service_id = 1
 
-    def list_projects(self) -> list[ProjectRecord]:
-        return sorted(self._projects.values(), key=lambda project: project.id)
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        snapshot = (
+            dict(self._projects),
+            dict(self._project_keys),
+            dict(self._environments),
+            dict(self._environment_keys),
+            dict(self._services),
+            dict(self._service_keys),
+            self._next_project_id,
+            self._next_environment_id,
+            self._next_service_id,
+        )
+        try:
+            yield
+        except Exception:
+            (
+                self._projects,
+                self._project_keys,
+                self._environments,
+                self._environment_keys,
+                self._services,
+                self._service_keys,
+                self._next_project_id,
+                self._next_environment_id,
+                self._next_service_id,
+            ) = snapshot
+            raise
+
+    def list_projects(self, *, project_ids: set[int] | None = None) -> list[ProjectRecord]:
+        projects: Iterable[ProjectRecord] = self._projects.values()
+        if project_ids is not None:
+            projects = [project for project in projects if project.id in project_ids]
+        return sorted(projects, key=lambda project: project.id)
 
     def get_project(self, project_id: int) -> ProjectRecord | None:
         return self._projects.get(project_id)
@@ -424,16 +511,36 @@ class InMemoryManagementRepository:
         self._project_keys[record.key] = record.id
         return record
 
-    def list_environments(self, project_id: int | None = None) -> list[EnvironmentRecord]:
+    def list_environments(
+        self,
+        project_id: int | None = None,
+        *,
+        project_ids: set[int] | None = None,
+    ) -> list[EnvironmentRecord]:
         environments: Iterable[EnvironmentRecord] = self._environments.values()
         if project_id is not None:
             environments = [
                 environment for environment in environments if environment.project_id == project_id
             ]
+        if project_ids is not None:
+            environments = [
+                environment for environment in environments if environment.project_id in project_ids
+            ]
         return sorted(environments, key=lambda environment: environment.id)
 
     def get_environment(self, environment_id: int) -> EnvironmentRecord | None:
         return self._environments.get(environment_id)
+
+    def get_environment_for_project(
+        self,
+        *,
+        environment_id: int,
+        project_id: int,
+    ) -> EnvironmentRecord | None:
+        environment = self._environments.get(environment_id)
+        if environment is None or environment.project_id != project_id:
+            return None
+        return environment
 
     def create_environment(
         self,
@@ -467,12 +574,15 @@ class InMemoryManagementRepository:
         *,
         project_id: int | None = None,
         environment_id: int | None = None,
+        project_ids: set[int] | None = None,
     ) -> list[ServiceRecord]:
         services: Iterable[ServiceRecord] = self._services.values()
         if project_id is not None:
             services = [service for service in services if service.project_id == project_id]
         if environment_id is not None:
             services = [service for service in services if service.environment_id == environment_id]
+        if project_ids is not None:
+            services = [service for service in services if service.project_id in project_ids]
         return sorted(services, key=lambda service: service.id)
 
     def create_service(

@@ -47,7 +47,7 @@ closed      已关闭
 | T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | done | done | done | done |
 | T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
 | T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
-| T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | doing | testing | blocked | doing |
+| T-0020 | 阶段 1 项目级 RBAC 与团队角色后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -143,6 +143,12 @@ closed      已关闭
 | 2026-06-20 | T-0020 | 后端测试 agent | RBAC 真实 MySQL 补验通过 | Halley 在 `57a16e9` 上完成真实 MySQL 补验：Alembic `upgrade head -> downgrade base -> upgrade head` 通过，RBAC 外键/唯一约束/role check 生效，真实 MySQL TestClient 覆盖普通用户隔离、viewer/editor/admin、superuser、停用用户；临时库已清理，未泄露凭据。该补验不替代后续 `76ad5b7` 事务修复复验 | done |
 | 2026-06-20 | T-0020-fix | 后端开发 agent | RBAC 审计修复完成 | Mendel 已提交并 push `76ad5b7` 到 `feature/backend-dev`：项目创建与创建者 admin 授权改为同一事务，服务创建按 `(environment_id, project_id)` 校验避免跨项目环境存在性泄露，并补回归测试；本地验证 pytest、ruff、mypy、diff check 通过 | audit |
 | 2026-06-20 | T-0020-fix | 总 agent | 启动 RBAC 修复复审与 MySQL 事务补验 | 已启动代码审计 agent Hilbert 复审 `76ad5b7`；已启动后端测试 agent Feynman 在真实 MySQL 临时库补验事务回滚和跨项目环境 ID 不泄露行为 | testing |
+| 2026-06-20 | CI | 总 agent | RBAC 修复复审状态 Actions 通过 | push `4617c89` 触发 run `27877650299`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0020-fix | 代码审计 agent | RBAC 修复复审通过 | Hilbert 复审 `76ad5b7` 未发现 P0/P1/P2/P3 阻断，确认事务边界有效、服务创建不再泄露无权限跨项目环境 ID、回归测试覆盖旧问题；结论为可集成到 `dev` | done |
+| 2026-06-20 | T-0020-fix | 后端测试 agent | RBAC 修复真实 MySQL 事务补验通过 | Feynman 在 `76ad5b7` 上完成真实 MySQL 临时库复验：项目创建授权失败可回滚且正常创建会授予 admin，跨项目 environment_id 与不存在环境统一 `404 环境不存在` 且不创建服务；临时库已清理，未泄露凭据。Feynman 留下 `backend/tests/test_management_api.py` 测试补丁，需后端开发 agent 接手提交 | testing |
+| 2026-06-20 | T-0020-mysql-test-adopt | 总 agent | 启动真实 MySQL 回归测试补丁归档 | 已启动后端开发 agent Hegel 接手 Feynman 留下的 `backend/tests/test_management_api.py` 真实 MySQL 回归测试补丁，要求复核安全与 CI skip 行为、验证后提交并 push 到 `feature/backend-dev` | doing |
+| 2026-06-20 | T-0020-mysql-test-adopt | 后端开发 agent | 真实 MySQL 回归测试补丁归档完成 | Hegel 已提交并 push `7bf64b7` 到 `feature/backend-dev`：可选真实 MySQL 回归测试默认在未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时 skip，不影响普通 CI；已整理临时库标识符校验、清理策略和文档。验证 `uv run pytest tests/test_management_api.py tests/test_permissions.py` 39 passed/2 skipped，`uv run pytest` 63 passed/2 skipped，ruff、mypy、diff check 通过 | done |
+| 2026-06-20 | T-0020 | 总 agent | RBAC 后端基础集成 | 总 agent 已按业务路径从 `feature/backend-dev` 恢复 `57a16e9`、`76ad5b7`、`7bf64b7` 涉及的 `backend/` 与 `agents/runtime/api-contracts/backend.md` 到 `dev`，未直接 merge feature 分支历史或运行日志；待 push 后读取 Actions | done |
 
 ## 6. 测试记录
 
@@ -203,8 +209,7 @@ closed      已关闭
 | 2026-06-20 | T-0015 | feature/frontend-dev | dev | 前端开发 agent Meitner | `a48755a` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | T-0014 | feature/backend-dev | dev | 后端开发 agent Pasteur | `1fe0d62` 已完成并通过审计；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
-| 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal | `57a16e9` 审计未通过，需先修复事务边界、服务创建越权探测和回归测试；修复复审通过后再由总 agent 按业务路径集成 | blocked |
-| 2026-06-20 | T-0020-fix | feature/backend-dev | dev | 后端开发 agent Mendel | `76ad5b7` 已完成并推送；等待 Hilbert 复审和 Feynman 真实 MySQL 事务补验，通过后由总 agent 按业务路径集成 | audit |
+| 2026-06-20 | T-0020 | feature/backend-dev | dev | 后端开发 agent Pascal/Mendel/Hegel | `57a16e9`、`76ad5b7`、`7bf64b7` 已通过测试和审计，总 agent 已按业务路径集成到 `dev` | done |
 
 ## 10. 决策记录
 

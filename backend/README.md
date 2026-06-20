@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、最小认证/当前用户依赖，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -105,8 +105,22 @@ uv run python main.py
 | `management_environments` | 环境元数据 | 外键 `project_id`，同项目下 `key` 唯一，`(id, project_id)` 供服务复合外键引用 |
 | `management_services` | 服务元数据 | 外键 `project_id`、`environment_id`，`(environment_id, project_id)` 复合外键约束环境归属，同环境下 `key` 唯一 |
 | `auth_users` | 本地登录用户 | `username` 唯一，`email` 唯一且可为空，密码仅保存哈希 |
+| `rbac_teams` | 团队元数据 | `key` 全局唯一，当前作为团队能力基础表 |
+| `rbac_team_members` | 团队成员 | 外键 `team_id`、`user_id`，同团队同用户唯一 |
+| `rbac_project_members` | 项目成员角色 | 外键 `project_id`、`user_id`，同项目同用户唯一，角色为 `viewer`、`editor`、`admin` |
 
 MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引和 API 集成验证。
+
+### 真实 MySQL 回归测试
+
+默认测试不要求 MySQL，未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时真实 MySQL 用例会 `skip`，不会影响普通本地或 CI 的 `uv run pytest`。如本机或测试环境已有可创建/删除数据库的 MySQL 账号，可在 `backend` 目录临时设置：
+
+```powershell
+$env:TELEMETRY_MYSQL_TEST_DATABASE_URL='mysql+pymysql://user:password@127.0.0.1:3306/mysql?charset=utf8mb4'
+uv run pytest tests/test_management_api.py
+```
+
+测试会基于该连接创建随机 `telemetry_test_<uuid>` 临时库，执行 Alembic `upgrade head`，跑完后删除临时库。不要在命令输出、日志或提交内容中记录真实连接串、密码或临时库详情；该环境变量只用于本地/专用测试环境复验，不应配置到默认 CI。
 
 ## 健康检查
 
@@ -140,7 +154,7 @@ GET /health
 
 ## 认证 API
 
-当前认证基础使用本地 `auth_users` 表、`pwdlib[argon2]` 密码哈希和 `PyJWT` 访问 token。后端已提供可复用的 `get_current_user` 依赖，并已将项目、环境和服务管理 API 接入最小认证要求：请求必须携带有效 Bearer token，且 token 对应用户必须处于启用状态。
+当前认证基础使用本地 `auth_users` 表、`pwdlib[argon2]` 密码哈希和 `PyJWT` 访问 token。后端已提供可复用的 `get_current_user` 依赖，并已将项目、环境和服务管理 API 接入项目级 RBAC 基础：请求必须携带有效 Bearer token，且 token 对应用户必须处于启用状态；普通用户还需要对应项目角色，超级用户可绕过项目角色检查。
 
 接口不会在响应中返回 `password`、`password_hash` 或 token payload 详情。代码当前不输出请求体日志，后续引入结构化访问日志时也必须脱敏密码、token、cookie、API Key 和数据库连接串。
 
@@ -189,17 +203,27 @@ GET /health
 | 状态码 | 场景 |
 | --- | --- |
 | `401` | 用户名或密码错误、token 缺失、token 无效、token 过期、token 对应用户不存在 |
-| `403` | 后续权限依赖可用于表达已认证但无权限，当前管理 API 尚未接入项目级 RBAC |
+| `403` | 已认证但缺少项目权限，例如普通用户访问未授权项目，或 `viewer` 尝试创建环境/服务 |
 | `503` | `AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节，认证服务不可用 |
 | `422` | 请求体字段格式错误 |
 
-登录失败统一返回 `用户名或密码错误`；账号不存在、密码错误和停用账号不会返回可区分文案。账号不存在时服务端仍执行固定 Argon2 dummy hash 校验，减少用户名枚举时序差异。当前没有开放用户注册或管理员创建用户 API；测试和后续初始化脚本可以通过 `SqlAlchemyAuthRepository.create_user()` 与 `hash_password()` 创建初始账号。后续用户管理、团队、角色和项目权限需在此基础上继续补齐。
+登录失败统一返回 `用户名或密码错误`；账号不存在、密码错误和停用账号不会返回可区分文案。账号不存在时服务端仍执行固定 Argon2 dummy hash 校验，减少用户名枚举时序差异。当前没有开放用户注册或管理员创建用户 API；测试和后续初始化脚本可以通过 `SqlAlchemyAuthRepository.create_user()` 与 `hash_password()` 创建初始账号。用户管理、团队管理和角色分配 API 仍需后续补齐。
 
 ## 基础管理 API
 
 当前阶段提供项目、环境和服务管理接口，API 契约延续 T-0006；数据访问已从进程内内存仓储切换为请求级 SQLAlchemy repository。接口暂不接收密钥、Token、Cookie、数据库连接串或通知 Webhook 等敏感字段，也不输出请求体日志。
 
-以下管理接口均需要 `Authorization: Bearer <access_token>`。当前只校验有效 token 和启用用户，不做项目级 RBAC、团队/角色授权或越权判定；这些权限策略将在后续任务中补齐。
+以下管理接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。项目级 RBAC 已接入服务层，超级用户可访问和管理全部项目；普通用户只能读取自己拥有项目权限的资源。创建项目时，项目记录和创建者 `admin` 成员授权在同一事务内提交，任一写入失败都会整体回滚。
+
+项目角色当前定义：
+
+| 角色 | 权限 |
+| --- | --- |
+| `viewer` | 可读取项目、环境和服务，不能创建环境或服务 |
+| `editor` | 包含 `viewer`，可创建环境和服务 |
+| `admin` | 包含 `editor`，当前可管理项目内环境和服务，后续危险动作和成员管理继续要求 `admin` |
+
+当前 API 尚未开放团队管理、成员授权或项目成员管理接口；`rbac_teams`、`rbac_team_members` 和 `rbac_project_members` 已作为后续管理接口的数据基础。测试和初始化脚本可通过 `SqlAlchemyPermissionRepository.add_project_member()` 写入项目成员角色。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -223,7 +247,7 @@ GET /health
 | `project_id` | number | 环境和服务所属项目 ID |
 | `environment_id` | number | 服务所属环境 ID |
 
-当前实现位于 `app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`，由 `app/api/dependencies.py` 按请求注入数据库 session。服务创建同时在 service 层校验项目/环境归属，并由数据库 `(environment_id, project_id)` 复合外键兜底。`InMemoryManagementRepository` 仅保留给不连接数据库的局部单元测试；当前 API 测试使用 SQLite SQLAlchemy repository 验证契约和约束映射。当前仍未接入项目级权限和分页，后续阶段需要在保持现有响应契约基础上补齐。
+当前实现位于 `app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`，由 `app/api/dependencies.py` 按请求注入数据库 session。项目权限判断集中在 `app/services/permissions.py` 和 `app/repositories/permissions.py`，管理路由不直接散落角色判断。服务创建先按 `(environment_id, project_id)` 校验环境归属；对无权限跨项目环境统一按环境不存在处理，避免通过 `404/409` 探测其他项目环境 ID；用户对两个相关项目都有权限时仍保留归属不匹配的 `409` 业务错误。数据库 `(environment_id, project_id)` 复合外键继续兜底。`InMemoryManagementRepository` 仅保留给不连接数据库的局部单元测试；当前 API 测试使用 SQLite SQLAlchemy repository 验证契约和约束映射。当前仍未接入分页，后续阶段需要在保持现有响应契约基础上补齐。
 
 ## 目录结构
 
@@ -264,12 +288,16 @@ tests/              # pytest 测试
 - `app/models/management.py`：项目、环境、服务 ORM 模型。
 - `app/schemas/auth.py`：认证 API 的 Pydantic 请求和响应模型。
 - `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
+- `app/schemas/permissions.py`：项目角色枚举和角色层级判断。
 - `app/services/auth.py`：密码哈希、token 签发/解析和认证规则。
 - `app/services/management.py`：基础管理业务规则和归属关系校验。
+- `app/services/permissions.py`：项目级权限判断入口，包含超级用户绕过和角色校验。
 - `app/repositories/auth.py`：认证 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/management.py`：基础管理 repository 协议、SQLAlchemy 实现和测试用内存实现。
+- `app/repositories/permissions.py`：项目成员角色 repository 协议和 SQLAlchemy 实现。
 - `migrations/versions/20260620_0001_create_management_tables.py`：项目、环境、服务表迁移。
 - `migrations/versions/20260620_0002_create_auth_users.py`：用户表迁移。
+- `migrations/versions/20260620_0003_create_rbac_tables.py`：团队、团队成员、项目成员角色表迁移。
 
 ## 验证命令
 
@@ -282,4 +310,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/角色/项目权限、API Key、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、管理 API 最小认证要求、认证 API 契约、密码哈希、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、API Key、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。

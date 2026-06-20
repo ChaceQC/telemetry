@@ -104,6 +104,10 @@
 - 已启动后端开发 agent Mendel 修复 `T-0020` 审计问题，范围限定在后端 worktree：统一项目创建与授权事务、消除服务创建跨项目环境存在性探测，并补关键回归测试。
 - `T-0020` 真实 MySQL 补验 agent Halley 已在修复前提交 `57a16e9` 上验证迁移、RBAC 外键/唯一约束、role check、普通用户隔离、viewer/editor/admin、superuser 和停用用户拒绝均通过；临时库已清理且未泄露凭据。
 - `T-0020-fix` 后端开发 agent Mendel 已提交并推送 `76ad5b7`：修复项目创建与授权事务边界，服务创建按 `(environment_id, project_id)` 校验以避免跨项目环境存在性泄露，并补回归测试；等待复审和真实 MySQL 事务补验。
+- `T-0020-fix` 代码审计 agent Hilbert 复审通过，未发现 P0/P1/P2/P3 阻断；真实 MySQL 事务补验 agent Feynman 验证项目创建授权失败可回滚、正常创建授予 admin、跨项目 environment_id 与不存在环境统一 `404 环境不存在` 且不创建服务。
+- Feynman 留下真实 MySQL 回归测试补丁，已启动后端开发 agent Hegel 接手复核、文档同步、验证、提交并 push，避免测试 agent 改动长期悬挂。
+- `T-0020-mysql-test-adopt` 后端开发 agent Hegel 已提交并推送 `7bf64b7`：可选真实 MySQL 回归测试在未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时默认 skip，不影响普通 CI；并补充临时库标识符校验、清理策略和文档。
+- 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0020` 到 `dev`，包含 RBAC 基础 `57a16e9`、审计修复 `76ad5b7` 和真实 MySQL 回归测试 `7bf64b7`，未直接 merge feature 分支历史或运行日志。
 
 ### 阻塞与风险
 
@@ -145,7 +149,7 @@
 - 等待 T-0016-rerun 结果；如通过则记录阶段 1 认证后基础管理闭环，如失败继续分派精确修复。
 - 阶段 1 认证后基础管理链路已在本地真实浏览器联调闭环；下一步可推进项目级 RBAC/团队角色/API Key 管理，或补真实 Nginx HTTPS 子路径反代演练。
 - `T-0020` 已进入进行中：优先实现后端团队/角色/项目成员权限基础，为 API Key 创建撤销、摄入鉴权和阶段 1“越权请求被拒绝”验收打底。
-- 等待 `T-0020-fix` 代码审计 agent Hilbert 复审和真实 MySQL 事务补验 agent Feynman 结论；如通过，总 agent 按业务路径集成 `57a16e9` 与 `76ad5b7` 到 `dev` 并读取 Actions。
+- 推送 `T-0020` 集成到 `dev` 后读取 GitHub Actions；通过后继续阶段 1 API Key 创建/撤销或团队/成员管理 API。
 
 ### 验证
 
@@ -188,3 +192,6 @@
 - GitHub Actions run `27877147290` 已通过：RBAC 进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27877286278` 已通过：RBAC 审计问题记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - `T-0020-fix` 后端开发自测由 Mendel 在后端 worktree 完成：`uv run pytest tests/test_management_api.py tests/test_permissions.py` 39 passed，`uv run pytest` 63 passed，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
+- GitHub Actions run `27877650299` 已通过：RBAC 修复复审状态记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- Feynman 在 `76ad5b7` 上完成真实 MySQL 事务补验：指定回归 `39 passed, 2 skipped, 1 warning`，全量回归 `63 passed, 2 skipped, 1 warning`，ruff 通过，临时库已清理，未泄露凭据。
+- Hegel 归档真实 MySQL 回归测试补丁后验证通过：`uv run pytest tests/test_management_api.py tests/test_permissions.py` 39 passed/2 skipped，`uv run pytest` 63 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。

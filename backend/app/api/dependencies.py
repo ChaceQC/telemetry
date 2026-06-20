@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.management import SqlAlchemyManagementRepository
+from app.repositories.permissions import SqlAlchemyPermissionRepository
 from app.services.auth import AuthConfigurationError, AuthenticationError, AuthService
 from app.services.management import ManagementService
+from app.services.permissions import PermissionService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -22,7 +24,8 @@ def get_db_session(request: Request) -> Iterator[Session]:
 def get_management_service(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> ManagementService:
-    return ManagementService(SqlAlchemyManagementRepository(session))
+    permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
+    return ManagementService(SqlAlchemyManagementRepository(session), permission_service)
 
 
 def get_auth_service(

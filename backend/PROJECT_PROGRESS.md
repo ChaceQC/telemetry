@@ -339,3 +339,84 @@
 - 已运行 `uv run ruff format .`，结果：46 个文件未变更。
 - 已运行 `uv run ruff format --check .`，结果：46 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：46 个源文件无类型错误。
+
+## 2026-06-20 T-0020 项目级 RBAC 与团队角色后端基础
+
+### 已完成
+
+- 新增阶段 1 项目级 RBAC 基础模型和迁移：`rbac_teams`、`rbac_team_members`、`rbac_project_members`，项目角色覆盖 `viewer`、`editor`、`admin`。
+- 新增 `PermissionService` 与 `SqlAlchemyPermissionRepository`，集中提供项目角色查询、角色层级判断、超级用户绕过和项目成员授权写入入口，避免权限逻辑散落在路由函数。
+- 将项目、环境、服务管理 API 从“有效用户均可访问全部资源”收敛为项目级权限控制：超级用户可访问全部；普通用户只读自己有项目角色的资源；创建项目后创建者自动获得该项目 `admin`；创建环境/服务需要 `editor/admin`。
+- 补充测试覆盖未授权用户无法读取他人项目、`viewer` 只能读不能创建环境/服务、`editor` 可创建环境/服务、创建者获得 `admin`、超级用户可管理、停用用户仍被 401 拒绝，以及权限 service 角色层级。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录新表、接口权限、403 错误码、验证结果和 MySQL 补验边界。
+- 追加 `agents/runtime/backend-agent.log.md` 记录本次过程和待审计/合并请求摘要；该日志保持 ignored，不提交。
+
+### 进行中
+
+- 等待总 agent 后续启动测试 agent 和代码审计 agent，对本次 RBAC 基础做独立复验与审计。
+
+### 阻塞与风险
+
+- 当前 worktree 没有真实 MySQL 服务，本次只能用 SQLite 覆盖迁移升降级、外键/唯一约束映射和 API 行为；MySQL 外键名、索引、排序规则和事务行为仍需容器环境补验。
+- 当前尚未开放团队管理、团队成员管理、项目成员授权 API 或审计日志；`rbac_teams`、`rbac_team_members` 和 `rbac_project_members` 是后续管理接口的数据基础。
+- 当前管理 API 仍未分页；普通用户列表已按可访问项目过滤，但数据量上来前仍需补分页契约和测试。
+- `uv run pytest` 仍有 1 条 FastAPI/Starlette TestClient 上游弃用警告，不影响本次验证通过。
+
+### 下一步
+
+- 由测试 agent 在真实 MySQL 容器环境中补跑 `uv run alembic upgrade head`、`uv run alembic downgrade base`、RBAC 外键/唯一约束、项目越权拒绝和 API 集成验证。
+- 后续权限管理任务补团队/成员管理 API、项目成员授权 API、审计日志和危险动作 `admin` 校验。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_management_api.py`，结果：36 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：61 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：52 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：52 个源文件无类型错误。
+- 已使用 `sqlite:///./tmp-t0020-rbac.db` 运行 `uv run alembic -x database_url=sqlite:///./tmp-t0020-rbac.db upgrade head` 和 `uv run alembic -x database_url=sqlite:///./tmp-t0020-rbac.db downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+
+## 2026-06-21 T-0020-fix Kierkegaard 审计修复
+
+### 已完成
+
+- 修复 P1：新增 repository 层事务辅助，`ManagementService.create_project()` 将项目创建和创建者 `rbac_project_members.admin` 授权放入同一事务边界；任一写入失败都会统一 rollback，避免留下无 owner/admin 项目。
+- 修复 P2：服务创建先按 `(environment_id, project_id)` 查询环境；用户仅对请求项目有权限时，传入其他项目环境 ID 与传入不存在环境 ID 一样返回 `404 环境不存在`，避免通过 `404/409` 探测跨项目环境是否存在；对用户有权限的两个项目之间仍保留 `409` 归属不匹配业务错误。
+- 补充回归测试：覆盖授权写入失败时项目创建回滚、跨项目无权限环境 ID 不泄露且不会创建服务。
+- 更新 `backend/README.md`、`agents/runtime/api-contracts/backend.md` 和 ignored 运行日志。
+
+### 阻塞与风险
+
+- 本次未修改 Alembic 迁移；未重跑 migration 升降级。事务与查询改动仍建议在真实 MySQL 容器中由测试 agent 复验。
+- `uv run pytest` 仍有 1 条 FastAPI/Starlette TestClient 上游弃用警告，不影响本次验证通过。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_management_api.py tests/test_permissions.py`，结果：39 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：63 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：53 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：53 个源文件无类型错误。
+
+## 2026-06-21 T-0020-mysql-test-adopt
+
+### 已完成
+
+- 接手测试 agent Feynman 留下的真实 MySQL 回归测试补丁，范围限定在 `backend/tests/test_management_api.py`、后端 README、API 契约草案和 ignored 后端运行日志。
+- 新增可选真实 MySQL 回归入口：设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时，测试会创建随机 `telemetry_test_<uuid>` 临时库、执行 Alembic `upgrade head`，并复验项目创建授权失败整体回滚、跨项目 `environment_id` 不泄露且不创建服务。
+- 确认默认未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时相关用例 `skip`，不影响普通本地或 CI 的 `uv run pytest`。
+- 小幅整理真实 MySQL 测试辅助代码：临时库和表名通过受控 MySQL 标识符校验/引用，清理阶段使用受控表清单并重置测试库数据，避免跨用例自增 ID 漂移。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录真实 MySQL 回归测试 env var、临时库行为和不得输出连接串/密码的安全边界。
+
+### 阻塞与风险
+
+- 本机 `C:\Users\q-lau\Documents\telemetry\auth.txt` 未发现可直接用于 SQLAlchemy 的 MySQL URL，本次未执行真实 MySQL 连接复验；真实 MySQL 路径仍需总 agent 或测试环境提供 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 后补跑。
+- `uv run pytest` 仍有 1 条 FastAPI/Starlette TestClient 上游弃用警告，不影响本次验证通过。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_management_api.py tests/test_permissions.py`，结果：39 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：63 个测试通过、2 个真实 MySQL 用例跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：53 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：53 个源文件无类型错误。

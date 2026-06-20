@@ -16,3 +16,7 @@ class ResourceConflictError(ManagementError):
 
 class ResourceIntegrityError(ManagementError):
     """数据库完整性约束冲突，且无法归类为重复 key 或缺失引用。"""
+
+
+class ResourceForbiddenError(ManagementError):
+    """已认证用户缺少当前资源所需权限。"""
