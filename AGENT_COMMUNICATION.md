@@ -59,7 +59,7 @@ closed      已关闭
 | T-0029 | 阶段 3 事件查询 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0030 | 阶段 3 日志查询 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0031 | 阶段 3 指标查询 API 基础 | 总 agent | todo | done | done | done | done |
-| T-0032 | 阶段 3 查询页前端基础 | 总 agent | done | todo | done | done | doing |
+| T-0032 | 阶段 3 查询页前端基础 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -253,6 +253,7 @@ closed      已关闭
 | 2026-06-20 | T-0032 | 总 agent | 启动查询页前端基础 | 阶段 3 events/logs/metrics 查询 API 已闭环；下一步在前端 worktree 将指标、日志和事件占位页替换为可用查询页，复用登录态 Bearer token、基础筛选、刷新状态、错误/空态和结果列表 | doing |
 | 2026-06-20 | CI | 总 agent | 查询页前端启动记录 Actions 通过 | push `bb68237` 触发 run `27885542973`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0032 | 总 agent | 查询页前端基础完成并集成中 | 前端分支提交 `062f70e` 新增查询 API client、通用 QueryPage、三条路由替换、查询样式、README 和前端进度；总 agent 已按路径恢复到 `dev`，未直接 merge feature 分支历史；功能分支自身缺少 `.github/workflows/ci.yml`，push 后无 Actions run 可读，后续以 `dev` 集成 CI 作为交付门禁 | doing |
+| 2026-06-20 | CI | 总 agent | 查询页前端集成 Actions 通过 | push `8570b68` 触发 run `27886113684`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 
 ## 6. 测试记录
 
@@ -346,7 +347,7 @@ closed      已关闭
 | 2026-06-20 | T-0029 | feature/backend-dev | dev | 总 agent | 事件查询 API 基础 `c5bae92` 已按业务路径集成到 `dev`，集成提交 `0035f6a` CI 通过 | done |
 | 2026-06-20 | T-0030 | feature/backend-dev | dev | 总 agent | 日志查询 API 基础 `023e2fa` 已按业务路径集成到 `dev`，集成提交 `08fcbd9` CI 通过 | done |
 | 2026-06-20 | T-0031 | feature/backend-dev | dev | 总 agent | 指标查询 API 基础 `4c3d96b` 已按业务路径集成到 `dev`，集成提交 `50dd219` CI 通过 | done |
-| 2026-06-20 | T-0032 | feature/frontend-dev | dev | 总 agent | 查询页前端基础 `062f70e` 已按业务路径恢复到 `dev`，待根仓库验证、提交、推送和 CI 结果记录 | doing |
+| 2026-06-20 | T-0032 | feature/frontend-dev | dev | 总 agent | 查询页前端基础 `062f70e` 已按业务路径集成到 `dev`，集成提交 `8570b68` CI 通过；功能分支无 Actions run 已记录 | done |
 
 ## 10. 决策记录
 

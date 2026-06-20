@@ -494,3 +494,4 @@
 - 前端 worktree 已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check`，均通过；Vitest 共 7 个测试文件、30 个测试通过。
 - 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/metrics`、`/logs`、`/events` 桌面宽度，以及 `/metrics` 390px 移动宽度；页面正常渲染，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
 - 根工作树已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run test -- query.test.ts`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，均通过；全量前端 Vitest 6 个测试文件、28 个测试通过，查询 API 专项 1 个测试文件、2 个测试通过。
+- GitHub Actions run `27886113684` 已通过：T-0032 查询页前端基础集成提交后的 Backend checks 与 Frontend checks 均为 success。
