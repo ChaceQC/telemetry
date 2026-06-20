@@ -46,6 +46,7 @@ closed      已关闭
 | T-0016 | 阶段 1 认证后 Settings 真实联调 | 总 agent | done | done | done | done | done |
 | T-0017 | 修复后端 CORS 与代理路径配置 | 总 agent | todo | done | done | done | done |
 | T-0018 | 修复前端子路径部署与 API base 配置 | 总 agent | done | todo | done | done | done |
+| T-0019 | 整理工作树与 Git 保护检查 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -128,6 +129,7 @@ closed      已关闭
 | 2026-06-20 | T-0016 | 总 agent | 重新启动真实联调 | 已启动集成测试 agent Maxwell，基于最新 `dev` 重跑 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置验证 | testing |
 | 2026-06-20 | T-0016 | 集成测试 agent | 真实浏览器联调通过 | Maxwell 使用本地 `auth.txt` 凭据和真实 MySQL 临时库验证通过：未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight 通过；`/xxx` 子路径前端构建产物生成 `/xxx/assets`、API base `/xxx/api`、router base `/xxx`。未覆盖真实 Nginx HTTPS 反代链路 | done |
 | 2026-06-20 | 部署 | 用户 | 明确生产访问路径形态 | 生产访问必须支持 `https://域名/xxx`；已要求联调 agent 额外检查前端路由、资源路径、API base、CORS/Trusted Host 和 Nginx 反代不要假设裸 IP、端口直连或仅根路径 | doing |
+| 2026-06-20 | T-0019 | 总 agent | 整理工作树和 Git 防混乱机制 | 三个 worktree 当前干净；新增只读体检脚本 `scripts/Test-AgentWorktreeState.ps1`，开工、集成、提交前检查分支、脏状态、敏感文件、运行日志、构建产物和 feature 分支集成风险 | done |
 
 ## 6. 测试记录
 
@@ -204,3 +206,4 @@ closed      已关闭
 | 2026-06-20 | 开发型 agent 使用独立 worktree | 共享工作树会导致分支、暂存区和未提交改动互相污染 | 前端默认 `..\telemetry-worktrees\frontend`，后端默认 `..\telemetry-worktrees\backend`；根工作树只做总协调和集成 |
 | 2026-06-20 | 子 agent 使用分片运行时日志 | 多 agent 同时改 `AGENT_COMMUNICATION.md` 容易冲突 | 子 agent 只追加 `agents/runtime/`，总 agent 统一汇总到正式沟通文件 |
 | 2026-06-20 | agent 运行日志不入库 | 多 agent 运行日志属于对话过程，push 会造成无意义冲突和历史污染 | `agents/runtime/*.log.md` 已加入 `.gitignore` 并从 Git 跟踪移除；只提交 `agents/runtime/api-contracts/*.md` 等稳定契约草案 |
+| 2026-06-20 | 开工前执行 worktree/Git 只读体检 | 共享仓库和多 worktree 容易因错分支、未提交改动、误追踪日志或敏感文件而污染后续集成 | 新增 `scripts/Test-AgentWorktreeState.ps1`；总 agent 在开工、集成、提交前运行，失败时先整理再继续 |

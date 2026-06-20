@@ -96,6 +96,7 @@
 - 推送 CORS 与子路径配置集成 `75c11f7` 后已读取 GitHub Actions run `27874100947`：Backend checks 与 Frontend checks 均通过。
 - 已启动集成测试 agent Maxwell 基于最新 `dev` 重跑真实前后端联调，重点验证 CORS/OPTIONS、登录后 Settings 创建/列表和 `/xxx` 子路径配置。
 - T-0016-rerun 已通过：真实 MySQL 临时库、后端、前端浏览器联调验证了未登录 `/settings` 提示、登录成功、创建并列出项目/环境/服务、CORS preflight；前端 `/xxx` 子路径构建验证资源路径、API base 和 router base 均正确生成。
+- 整理工作树和 Git 防混乱机制：根工作树、前端 worktree、后端 worktree当前均位于预期分支；新增 `scripts/Test-AgentWorktreeState.ps1` 作为开工、集成、提交后的严格只读体检脚本，提交前可加 `-AllowPendingChanges` 检查本次待提交改动是否触碰敏感文件、运行日志、依赖目录、构建产物和 feature 分支集成风险。
 
 ### 阻塞与风险
 
@@ -114,10 +115,12 @@
 - GitHub Actions 当前存在非阻塞注解：多个官方 action 目标 Node.js 20 runtime 已弃用，被 runner 强制运行在 Node 24；后续可关注 action 上游版本更新或升级 action 版本。
 - 认证基础仍未包含登录限流、失败审计、防爆破策略、刷新 token、HttpOnly Cookie 或全站路由守卫；这些已作为后续安全/前端联调任务保留。
 - 前后端认证接口尚未通过浏览器或真实网络服务做端到端联调；当前验证来自后端 TestClient、前端单测和静态构建。
+- feature 分支历史仍可能包含早期过程提交；后续总 agent 集成到 `dev` 时继续按明确业务路径恢复文件并提交，除非先确认历史干净，否则不要直接 `git merge feature/*`。
 
 ### 下一步
 
 - 保持根工作树只处理项目级汇总、部署、CI 和集成；前端与后端实现继续通过独立 worktree 推进。
+- 每次开工、集成或提交后执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1`；提交前如根工作树正有本次待提交改动，执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`。如发现错分支、非预期待提交改动、敏感文件或运行日志被追踪，先整理再继续。
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。

@@ -40,6 +40,20 @@ C:\Users\q-lau\Documents\telemetry-worktrees\backend
 powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-AgentWorktrees.ps1
 ```
 
+开工或提交后先执行严格只读体检：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-AgentWorktreeState.ps1
+```
+
+提交前如根工作树正有本次待提交改动，可用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-AgentWorktreeState.ps1 -AllowPendingChanges
+```
+
+该脚本检查三个 worktree 是否在预期分支、是否干净、是否误追踪 `auth.txt`、`.env`、`agents/runtime/*.log.md`、依赖目录或构建产物，并提示 feature 分支中尚未进入 `dev` 历史的提交。feature 分支若含早期过程历史，总 agent 集成时继续按业务路径恢复文件，不直接 merge。
+
 分支约定：
 
 | 范围 | 分支 | 目录 |

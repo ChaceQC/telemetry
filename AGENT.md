@@ -65,6 +65,7 @@ agents/runtime/
 18. 开发型子 agent 必须在独立 Git worktree 中工作；根工作树只允许总 agent 做规则维护、汇总、审计触发、集成和发布。
 19. 默认 worktree 路径为 `..\telemetry-worktrees\frontend` 和 `..\telemetry-worktrees\backend`，可通过 `scripts/Initialize-AgentWorktrees.ps1` 创建。
 20. 每次推送到会触发 GitHub Actions 的分支后，总 agent 必须读取对应 Actions run 结果，将成功、失败 job、失败步骤和后续处理写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
+21. 每次开工、集成或提交后，总 agent 必须执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1` 进行严格只读体检；提交前如根工作树正有本次待提交改动，可执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 检查分支和保护项。若失败，先整理 worktree、分支、敏感文件、运行日志和未提交改动，再继续开发或集成。
 
 ## 4. 并行开发规则
 
@@ -134,6 +135,8 @@ agents/runtime/
 18. `AGENT_COMMUNICATION.md` 只允许总 agent 修改；子 agent 通过 ignored 的 `agents/runtime/*.log.md` 追加本地过程日志，不提交不 push；总 agent 汇总稳定结论后再修改总沟通文件。
 19. `agents/runtime/api-contracts/*.md` 是可提交的契约草案；`agents/runtime/*.log.md` 是本地临时通信文件，已进入 `.gitignore`，不得 stage、commit 或 push。
 20. 推送后不得只依赖本地测试结论；总 agent 必须读取 GitHub Actions 对应 run，若失败则记录失败原因、处理任务和下一次复查条件。
+21. 根工作树、前端 worktree、后端 worktree 必须保持“一目录一分支一职责”：`dev` 只在根工作树，`feature/frontend-dev` 只在前端 worktree，`feature/backend-dev` 只在后端 worktree；可用 `scripts/Test-AgentWorktreeState.ps1` 检查偏离。
+22. 由于 feature 分支历史可能包含早期运行日志或已按路径集成过的提交，总 agent 集成到 `dev` 时默认按明确业务路径 `git restore --source <branch> -- <paths>` 再提交，不直接 `git merge feature/*`，除非已先确认历史干净且不会重新引入本地运行日志。
 
 ## 9. 版本文件规则
 
