@@ -54,6 +54,8 @@
 - 根工作树当前回到 `dev`，只推进项目级基础设施、汇总和集成；新的前后端开发任务仍需在独立 worktree 中完成。
 - 阶段 0 的前端骨架、后端骨架和项目级基础设施已进入 `dev`；阶段 1 基础管理最小前后端已集成到 `dev`。
 - 下一轮阶段 1 应优先推进 MySQL migration/持久化 repository、认证/权限或真实前后端联调，由对应独立 worktree agent 自行实现、测试、提交和 push。
+- 已启动后端开发 agent Linnaeus 推进 `T-0008` 管理 API MySQL 持久化基础，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev`。
+- 已启动前端开发 agent Chandrasekhar 推进 `T-0009` 基础管理前端联调准备与错误展示，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev`。
 
 ### 阻塞与风险
 
@@ -73,6 +75,7 @@
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
+- 等待 T-0008/T-0009 对应开发 agent 在所属分支提交并 push 后，由总 agent 启动代码审计 agent，再按业务路径集成到 `dev`。
 
 ### 验证
 

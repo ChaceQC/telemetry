@@ -35,6 +35,8 @@ closed      已关闭
 | T-0005 | 修复项目级基础设施审计问题 | 总 agent | done | done | done | done | done |
 | T-0006 | 阶段 1 最小基础管理后端 API | 总 agent | todo | done | done | done | done |
 | T-0007 | 阶段 1 基础管理前端页面 | 总 agent | done | todo | done | done | done |
+| T-0008 | 阶段 1 管理 API MySQL 持久化基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0009 | 阶段 1 基础管理前端联调准备与错误展示 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -70,6 +72,8 @@ closed      已关闭
 | 2026-06-20 | T-0002 | 用户 | 修正 agent 日志入库冲突 | `agents/runtime/*.log.md` 改为本地 ignored 文件，不再提交或 push；已从 Git 跟踪中移除，API 契约草案继续保留为可提交文件 | done |
 | 2026-06-20 | T-0006 | 总 agent | 基础管理后端 API 集成 | 已按业务路径从 `feature/backend-dev` 集成到 `dev`，避免把 agent 运行日志历史并入；当前实现为进程内内存 repository | done |
 | 2026-06-20 | T-0007 | 总 agent | 基础管理前端页面集成 | 已按业务路径从 `feature/frontend-dev` 集成到 `dev`，页面字段已与后端 `key`、必填 `environment_id` 契约对齐 | done |
+| 2026-06-20 | T-0008 | 总 agent | 启动后端持久化开发 agent | 已启动后端开发 agent Linnaeus，在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 推进 MySQL 持久化基础；要求不提交运行日志、不代跑测试子 agent 任务 | doing |
+| 2026-06-20 | T-0009 | 总 agent | 启动前端联调准备开发 agent | 已启动前端开发 agent Chandrasekhar，在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 推进错误展示和联调准备；要求不提交运行日志、不代跑测试子 agent 任务 | doing |
 
 ## 6. 测试记录
 
@@ -114,6 +118,8 @@ closed      已关闭
 | 2026-06-20 | T-0003 | feature/backend-dev | dev | 总 agent | 后端骨架提交 `ea39fb4` 已复审有条件通过 | done |
 | 2026-06-20 | T-0006 | feature/backend-dev | dev | 总 agent | 后端 T-0006 提交 `a119b99` 已复审有条件通过；按业务路径集成，未合入 runtime log 历史 | done |
 | 2026-06-20 | T-0007 | feature/frontend-dev | dev | 总 agent | 前端 T-0007-fix 提交 `d0b0ff2` 已复审通过；按业务路径集成，未合入 runtime log 历史 | done |
+| 2026-06-20 | T-0008 | feature/backend-dev | dev | 后端开发 agent Linnaeus | 后端持久化基础开发中，完成后需由后端 agent 自行提交并 push，再由总 agent 审计和集成 | doing |
+| 2026-06-20 | T-0009 | feature/frontend-dev | dev | 前端开发 agent Chandrasekhar | 前端错误展示与联调准备开发中，完成后需由前端 agent 自行提交并 push，再由总 agent 审计和集成 | doing |
 
 ## 10. 决策记录
 
