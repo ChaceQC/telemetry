@@ -224,6 +224,7 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 摄入统计最终记录提交 Actions 通过 | push `3f4fd7c` 触发 run `27883332840`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | T-0027 | 总 agent | 启动 Redis 摄入限流后端基础 | 阶段 2 已完成单进程内存限流和摄入统计；下一步补 Redis 固定窗口限流后端，使多实例可共享 API Key 限流计数，同时保留默认内存路径用于本地和 CI | doing |
 | 2026-06-20 | T-0027 | 总 agent | Redis 摄入限流后端基础完成并集成 | 后端分支 `819d200` 新增 `INGEST_RATE_LIMIT_BACKEND=redis`、`REDIS_URL`、Redis 固定窗口计数器和不可用时 `503` 响应；总 agent 按路径恢复到 `dev`，未直接 merge feature 分支历史；真实 Redis 容器认证和网络补验仍后续推进 | done |
+| 2026-06-20 | CI | 总 agent | Redis 摄入限流后端集成 Actions 通过 | push `3334dcd` 触发 run `27883821780`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -301,7 +302,7 @@ closed      已关闭
 | 2026-06-20 | T-0024 | feature/backend-dev | dev | 后端开发 agent Zeno / 总 agent | ClickHouse 初始化小步与 MongoDB events 初始化小步均已按业务路径集成到 `dev`，最新集成提交 `e779305` CI 通过 | done |
 | 2026-06-20 | T-0025 | feature/backend-dev | dev | 总 agent | 摄入 API Key 限流基础 `fbf2621` 已按业务路径集成到 `dev`，集成提交 `02d2a9e` CI 通过 | done |
 | 2026-06-20 | T-0026 | feature/backend-dev | dev | 总 agent | 摄入统计基础 `f38942e` 已按业务路径集成到 `dev`，根仓库本地验证通过；推送后读取 GitHub Actions 并补充 CI 结果记录 | done |
-| 2026-06-20 | T-0027 | feature/backend-dev | dev | 总 agent | Redis 摄入限流后端基础 `819d200` 已按业务路径恢复到 `dev`；根仓库验证和 CI 结果待本次集成提交后记录 | doing |
+| 2026-06-20 | T-0027 | feature/backend-dev | dev | 总 agent | Redis 摄入限流后端基础 `819d200` 已按业务路径集成到 `dev`，集成提交 `3334dcd` CI 通过 | done |
 
 ## 10. 决策记录
 
