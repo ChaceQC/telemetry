@@ -132,6 +132,8 @@
 - `T-0022-fix` 代码审计 agent Boole 复审通过，未发现 P0/P1/P2/P3 阻断；确认非有限 float 递归拒绝、payload 必填、`X-API-Key` 默认 CORS header 均已闭环，鉴权和项目归属边界无回归。
 - 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0022` 到 `dev`，包含最小摄入 API 基础 `9fc69bc` 和审计修复 `dcc6208`，未直接 merge feature 分支历史或运行日志。
 - 推送 `T-0022` 集成提交 `0606966` 后已读取 GitHub Actions run `27880065942`：Backend checks 与 Frontend checks 均通过；阶段 2 最小事件摄入 API 与 API Key 鉴权闭环。
+- 推送 `T-0022` 集成结果记录提交 `323a70b` 后已读取 GitHub Actions run `27880132283`：Backend checks 与 Frontend checks 均通过。
+- 已登记 `T-0023` 阶段 2 metrics/logs 专用摄入 API 基础任务，后续由后端开发 agent 在独立后端 worktree 推进；目标让 HTTP API 可上报 metrics、logs、events 三类数据，先复用 API Key 鉴权和 MySQL 最小持久化，ClickHouse/MongoDB/Redis 后续单独推进。
 
 ### 阻塞与风险
 
@@ -179,6 +181,7 @@
 - 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
 - 阶段 1 API Key 创建/撤销后端基础已集成并通过 CI；下一步推进最小摄入 API 与 API Key 鉴权，闭环“API Key 可用于数据上报”验收。
 - 阶段 2 下一步优先推进 metrics/logs 专用摄入契约与后端 API 基础，让验收项“能通过 HTTP API 上报 metrics、logs、events”完整闭环；随后再处理 ClickHouse/MongoDB 初始化、Redis 限流和摄入统计。
+- `T-0023` 已进入进行中：先实现 metrics/logs 专用摄入 API，再安排代码审计和真实 MySQL/接口补验。
 
 ### 验证
 
@@ -241,3 +244,4 @@
 - GitHub Actions run `27879959423` 已通过：摄入 API 审计修复进展提交后的 Backend checks 与 Frontend checks 均为 success。
 - Boole 复审 `dcc6208` 通过：`uv run pytest tests/test_ingest_api.py tests/test_deployment_middleware.py` 14 passed，额外探针确认深层 `NaN`、单条 `-Infinity`、batch 深层 `Infinity`、batch 缺失 payload 均返回 `422`，`git diff --check` 干净。
 - GitHub Actions run `27880065942` 已通过：T-0022 最小摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27880132283` 已通过：T-0022 集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
