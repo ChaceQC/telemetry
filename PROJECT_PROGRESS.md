@@ -159,6 +159,7 @@
 - 推送 ClickHouse CI 结果记录提交 `e959e67` 后已读取 GitHub Actions run `27882213570`：Backend checks 与 Frontend checks 均通过。
 - `T-0024` MongoDB events 集合初始化小步已在后端分支完成并推送 `d9d5106`：更新 `docker/mongodb/init-app-user.js`，在创建应用读写用户后初始化 `events` 集合，并补项目/时间、项目/环境/服务/时间、事件类型/时间和可选 TTL 索引；新增静态测试与文档。
 - 总 agent 本地复审 MongoDB 初始化小步未发现 P0/P1/P2；已按业务路径恢复 MongoDB init 脚本、专项测试、后端 README/进度和契约草案到 `dev`，未直接 merge feature 分支历史或 runtime log。
+- 推送 MongoDB events 初始化集成提交 `e779305` 后已读取 GitHub Actions run `27882426933`：Backend checks 与 Frontend checks 均通过；T-0024 ClickHouse/MongoDB 初始化基础已完成。
 
 ### 阻塞与风险
 
@@ -178,7 +179,7 @@
 - 认证基础仍未包含登录限流、失败审计、防爆破策略、刷新 token、HttpOnly Cookie 或全站路由守卫；这些已作为后续安全/前端联调任务保留。
 - 前后端认证接口尚未通过浏览器或真实网络服务做端到端联调；当前验证来自后端 TestClient、前端单测和静态构建。
 - feature 分支历史仍可能包含早期过程提交；后续总 agent 集成到 `dev` 时继续按明确业务路径恢复文件并提交，除非先确认历史干净，否则不要直接 `git merge feature/*`。
-- 阶段 2 当前完成 HTTP 上报 events/metrics/logs，并正在集成 ClickHouse/MongoDB 初始化基础；Redis 限流和摄入统计仍未完成。
+- 阶段 2 当前完成 HTTP 上报 events/metrics/logs，以及 ClickHouse/MongoDB 初始化基础；Redis 限流和摄入统计仍未完成。
 
 ### 下一步
 
@@ -210,8 +211,8 @@
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
 - 阶段 2 当前完成 HTTP 上报 metrics、logs、events 的最小 API；仍未完成 ClickHouse 表初始化、MongoDB events 集合初始化、Redis 限流和摄入统计。
-- `T-0024` ClickHouse 初始化小步已完成并通过 CI；MongoDB events 集合初始化小步已通过本地验证并进入 `dev` 集成，推送后需读取 Actions 并记录结果。
-- 完成 T-0024 后，下一步继续阶段 2 Redis 限流或摄入统计小步；真实 ClickHouse/MongoDB 容器启动与写入链路补验仍需后续任务覆盖。
+- `T-0024` 已完成；下一步继续阶段 2 Redis 限流或摄入统计小步。
+- 真实 ClickHouse/MongoDB 容器启动与写入链路补验仍需后续任务覆盖。
 
 ### 验证
 
@@ -292,3 +293,4 @@
 - GitHub Actions run `27882171728` 已通过：T-0024 ClickHouse 初始化集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success；存在已知官方 action Node.js 20 runtime 弃用注解，不阻塞。
 - GitHub Actions run `27882213570` 已通过：T-0024 ClickHouse CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - 总 agent 在后端 worktree 验证 `T-0024` MongoDB 小步：`docker compose --env-file .env.example -f docker-compose.dev.yml config --quiet` 通过，`uv run pytest tests/test_mongodb_init.py` 2 passed，`uv run pytest` 93 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 均通过。
+- GitHub Actions run `27882426933` 已通过：T-0024 MongoDB events 初始化集成提交后的 Backend checks 与 Frontend checks 均为 success。
