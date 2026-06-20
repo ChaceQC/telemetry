@@ -1,4 +1,5 @@
 import { apiRequest } from './http';
+import { buildQueryPath } from './queryParams';
 
 export type QueryCommonParams = {
   project_id?: number;
@@ -69,18 +70,4 @@ export function listLogs(params: LogQueryParams = {}) {
 
 export function listMetrics(params: MetricQueryParams = {}) {
   return apiRequest<MetricQueryItem[]>(buildQueryPath('/api/v1/query/metrics', params));
-}
-
-function buildQueryPath(path: string, params: Record<string, string | number | undefined>) {
-  const searchParams = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || `${value}`.trim().length === 0) {
-      return;
-    }
-    searchParams.set(key, `${value}`.trim());
-  });
-
-  const queryString = searchParams.toString();
-  return queryString ? `${path}?${queryString}` : path;
 }

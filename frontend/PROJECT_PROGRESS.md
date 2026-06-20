@@ -2,6 +2,39 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-21 T-0033 总览页摄入统计接入
+
+### 已完成
+
+- 新增 `frontend/src/api/ingestStats.ts`，封装 `GET /api/v1/ingest/stats`，沿用现有 API base URL 与 session Bearer token 行为。
+- 新增 `frontend/src/api/queryParams.ts`，将查询参数拼接逻辑从 `query.ts` 抽出复用，避免统计和查询 client 重复实现。
+- 新增 `frontend/src/features/overview/ingestStatsSummary.ts`，按 metrics、logs、events 汇总 accepted、rejected、bytes、来源数量和最近统计时间。
+- 更新 `frontend/src/pages/OverviewPage.tsx`，将静态信号占位改为摄入统计驱动；未登录或会话恢复中时暂停统计请求并显示登录提示，健康检查仍独立刷新。
+- 更新总览页样式和 `frontend/README.md`，补充统计列表、可点击信号卡、移动端布局和当前边界。
+
+### 进行中
+
+- 等待总 agent 按业务路径将前端分支提交集成回 `dev`，并读取 GitHub Actions 结果。
+
+### 阻塞与风险
+
+- 本小步未启动真实后端和真实登录账号联调；当前通过 API client 单测、汇总纯函数测试和未登录态浏览器冒烟覆盖主要前端行为。
+- 摄入统计 API 当前按 bucket/project/API key/kind/source 返回聚合行；总览页只做最近 100 行轻量汇总，项目筛选、时间序列趋势、trace 统计和图表后续拆分。
+
+### 下一步
+
+- 由总 agent 在根工作树按路径集成 T-0033，并在 CI 通过后继续阶段 3 查询展示增强：优先补真实登录联调、基础图表或查询结果分页。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- ingestStats.test.ts ingestStatsSummary.test.ts query.test.ts` 通过（3 个测试文件、6 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（9 个测试文件、34 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+- 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/` 桌面宽度和 390px 移动宽度；未登录态下总览页正常显示统计登录提示、信号摘要卡、健康检查错误态和近期进展，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
+
 ## 2026-06-21 T-0032 查询页前端基础
 
 ### 已完成

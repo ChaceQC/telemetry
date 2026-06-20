@@ -499,20 +499,27 @@
 
 ## 2026-06-21 T-0033 总览页摄入统计接入
 
-### 进行中
+### 已完成
 
 - 已登记 `T-0033` 阶段 3 总览页摄入统计接入任务；目标是将总览页的静态 metrics/logs/events 占位接入既有 `GET /api/v1/ingest/stats`，优先展示 accepted、rejected、bytes 和最近统计时间。
 - 本小步计划复用当前认证状态、React Query、API client 和控制台样式；不修改后端契约，不引入图表库，不接 traces。
+- 前端分支 `27574cf` 已完成摄入统计接入：新增 `frontend/src/api/ingestStats.ts`、`frontend/src/api/queryParams.ts`、`frontend/src/features/overview/ingestStatsSummary.ts` 和对应测试。
+- 总览页已从静态 metrics/logs/events 占位改为统计驱动，未登录或会话恢复中暂停统计请求并显示登录提示；信号摘要卡可跳转到对应查询页，健康检查仍独立刷新。
+- 总 agent 本地只读复审未发现 P0/P1/P2；已按业务路径恢复前端提交到 `dev`，未直接 merge feature 分支历史。
 
 ### 阻塞与风险
 
 - 摄入统计接口需要用户 Bearer token；未登录或会话恢复中时总览页应显示登录提示或暂停统计请求。
 - 当前后端统计按 bucket/project/API key/kind/source 返回聚合行，前端本小步只做轻量汇总；更复杂的时间序列趋势、项目筛选和真实多源统计后续拆分。
+- `feature/frontend-dev` 分支自身缺少 `.github/workflows/ci.yml`，推送 `27574cf` 后没有 Actions run 可读；本次交付以 `dev` 集成 CI 作为门禁，并已在沟通板记录。
 
 ### 下一步
 
-- 在前端 worktree 实现 ingest stats API client、总览页统计汇总和测试；通过 lint/typecheck/test/build 后提交 `feature/frontend-dev`，再由总 agent 按路径集成回 `dev`。
+- 提交并推送 T-0033 集成；读取 GitHub Actions 结果并记录。随后继续阶段 3 查询展示增强：优先补真实登录联调、基础图表或查询结果分页。
 
 ### 验证
 
-- 待补。
+- GitHub Actions run `27886268303` 已通过：T-0033 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- 前端 worktree 已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check`，均通过；Vitest 共 9 个测试文件、34 个测试通过。
+- 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/` 桌面宽度和 390px 移动宽度；未登录态下总览页正常显示统计登录提示、信号摘要卡、健康检查错误态和近期进展，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
+- 根工作树已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，均通过；全量前端 Vitest 8 个测试文件、32 个测试通过。

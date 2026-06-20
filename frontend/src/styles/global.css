@@ -414,6 +414,19 @@ h2 {
   background: var(--surface);
 }
 
+.metric-tile--link {
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.metric-tile--link:hover {
+  border-color: #b9cbcf;
+  transform: translateY(-1px);
+}
+
 .metric-tile > span {
   color: var(--text-muted);
   font-size: 13px;
@@ -425,6 +438,12 @@ h2 {
   letter-spacing: 0;
 }
 
+.metric-tile small {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
@@ -433,6 +452,7 @@ h2 {
 
 .health-panel,
 .events-panel,
+.ingest-stats-panel,
 .empty-state {
   padding: 22px;
 }
@@ -485,6 +505,68 @@ h2 {
   border-radius: 8px;
   color: var(--danger);
   background: #fff4f2;
+}
+
+.ingest-stats-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ingest-stats-list li {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.ingest-stats-list li > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ingest-stats-list strong,
+.ingest-stats-list span {
+  display: block;
+  min-width: 0;
+}
+
+.ingest-stats-list span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.ingest-stats-list dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.ingest-stats-list dl div {
+  min-width: 0;
+}
+
+.ingest-stats-list dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ingest-stats-list dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .event-list {
@@ -979,7 +1061,8 @@ h2 {
 
   .pipeline,
   .metrics-grid,
-  .settings-summary {
+  .settings-summary,
+  .ingest-stats-list dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -996,6 +1079,7 @@ h2 {
   .pipeline,
   .metrics-grid,
   .settings-summary,
+  .ingest-stats-list dl,
   .settings-auth-notice,
   .health-list div {
     grid-template-columns: 1fr;
@@ -1016,6 +1100,7 @@ h2 {
   .status-panel,
   .health-panel,
   .events-panel,
+  .ingest-stats-panel,
   .empty-state,
   .placeholder-page,
   .management-panel {

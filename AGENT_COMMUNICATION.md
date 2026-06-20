@@ -257,6 +257,8 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 查询页前端集成 Actions 通过 | push `8570b68` 触发 run `27886113684`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | CI | 总 agent | 查询页前端 CI 结果记录 Actions 通过 | push `119b6a7` 触发 run `27886166854`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0033 | 总 agent | 启动总览页摄入统计接入 | 阶段 3 查询页基础已完成；下一步在前端 worktree 将总览页的静态遥测信号占位接入既有 `GET /api/v1/ingest/stats`，优先展示 metrics/logs/events 的 accepted/rejected/bytes 摘要、未登录提示和错误/空态，不修改后端契约 | doing |
+| 2026-06-20 | CI | 总 agent | 总览页摄入统计启动记录 Actions 通过 | push `da9b688` 触发 run `27886268303`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0033 | 总 agent | 总览页摄入统计完成并集成中 | 前端分支提交 `27574cf` 新增 ingest stats API client、查询参数工具、总览统计汇总纯函数和测试，并将总览页接入 `GET /api/v1/ingest/stats`；总 agent 已按路径恢复到 `dev`，未直接 merge feature 分支历史；功能分支仍无 Actions run 可读，后续以 `dev` 集成 CI 作为交付门禁 | doing |
 
 ## 6. 测试记录
 
@@ -282,6 +284,8 @@ closed      已关闭
 | 2026-06-20 | T-0031 | 指标查询 API 基础验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` | 通过 | 后端 worktree 与根仓库均已验证：专项 9 passed，全量 pytest 115 passed/2 skipped，ruff、format、mypy、diff check 通过；未接 ClickHouse 指标查询 |
 | 2026-06-20 | T-0032 | 查询页前端基础验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、Playwright CLI + Microsoft Edge 冒烟 | 通过 | 前端 worktree 验证：7 个测试文件、30 个测试通过；桌面检查 `/metrics`、`/logs`、`/events`，移动宽度检查 `/metrics`，未发现明显布局重叠；验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程；未启动真实后端/真实登录联调 |
 | 2026-06-20 | T-0032 | 查询页前端 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run test -- query.test.ts`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：全量前端 Vitest 6 个测试文件、28 个测试通过；查询 API 专项 1 个测试文件、2 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
+| 2026-06-20 | T-0033 | 总览页摄入统计前端验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、Playwright CLI + Microsoft Edge 冒烟 | 通过 | 前端 worktree 验证：9 个测试文件、34 个测试通过；桌面和 390px 移动宽度检查 `/` 未登录态，统计登录提示、信号摘要卡、健康检查错误态和近期进展正常；验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程 |
+| 2026-06-20 | T-0033 | 总览页摄入统计 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：前端 Vitest 8 个测试文件、32 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
 
 ## 7. 审计记录
 
@@ -306,6 +310,7 @@ closed      已关闭
 | 2026-06-20 | T-0030 | 日志查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse 日志查询、关键词搜索、上下文查看、游标分页、字段过滤和脱敏后续补齐 | done |
 | 2026-06-20 | T-0031 | 指标查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse 指标查询、聚合窗口、group by、Top N、降采样和多序列对比后续补齐 | done |
 | 2026-06-20 | T-0032 | 查询页 API client、QueryPage、路由替换和响应式样式 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；当前多智能体工具规则不允许未获显式授权时新开子 agent，本轮未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后查询、图表、日志上下文、事件时间线细节和分页后续补齐 | done |
+| 2026-06-20 | T-0033 | 总览页摄入统计 API client、汇总逻辑、未登录态和响应式布局 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；本小步未修改后端契约，未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后统计、项目筛选、时间序列趋势、trace 统计和图表后续补齐 | done |
 
 ## 8. 阻塞问题
 
@@ -351,7 +356,7 @@ closed      已关闭
 | 2026-06-20 | T-0030 | feature/backend-dev | dev | 总 agent | 日志查询 API 基础 `023e2fa` 已按业务路径集成到 `dev`，集成提交 `08fcbd9` CI 通过 | done |
 | 2026-06-20 | T-0031 | feature/backend-dev | dev | 总 agent | 指标查询 API 基础 `4c3d96b` 已按业务路径集成到 `dev`，集成提交 `50dd219` CI 通过 | done |
 | 2026-06-20 | T-0032 | feature/frontend-dev | dev | 总 agent | 查询页前端基础 `062f70e` 已按业务路径集成到 `dev`，集成提交 `8570b68` CI 通过；功能分支无 Actions run 已记录 | done |
-| 2026-06-20 | T-0033 | feature/frontend-dev | dev | 总 agent | 总览页摄入统计接入启动，待前端 worktree 实现、验证、提交和总 agent 按路径集成 | doing |
+| 2026-06-20 | T-0033 | feature/frontend-dev | dev | 总 agent | 总览页摄入统计接入 `27574cf` 已按业务路径恢复到 `dev`，待提交、推送和 CI 结果记录；功能分支无 Actions run 已记录 | doing |
 
 ## 10. 决策记录
 
