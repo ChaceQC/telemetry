@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -108,6 +108,7 @@ uv run python main.py
 | `rbac_teams` | 团队元数据 | `key` 全局唯一，当前作为团队能力基础表 |
 | `rbac_team_members` | 团队成员 | 外键 `team_id`、`user_id`，同团队同用户唯一 |
 | `rbac_project_members` | 项目成员角色 | 外键 `project_id`、`user_id`，同项目同用户唯一，角色为 `viewer`、`editor`、`admin` |
+| `api_keys` | 项目 API Key | 外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一；只保存哈希和展示前缀，不保存明文 key |
 
 MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引和 API 集成验证。
 
@@ -249,6 +250,53 @@ GET /health
 
 当前实现位于 `app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`，由 `app/api/dependencies.py` 按请求注入数据库 session。项目权限判断集中在 `app/services/permissions.py` 和 `app/repositories/permissions.py`，管理路由不直接散落角色判断。服务创建先按 `(environment_id, project_id)` 校验环境归属；对无权限跨项目环境统一按环境不存在处理，避免通过 `404/409` 探测其他项目环境 ID；用户对两个相关项目都有权限时仍保留归属不匹配的 `409` 业务错误。数据库 `(environment_id, project_id)` 复合外键继续兜底。`InMemoryManagementRepository` 仅保留给不连接数据库的局部单元测试；当前 API 测试使用 SQLite SQLAlchemy repository 验证契约和约束映射。当前仍未接入分页，后续阶段需要在保持现有响应契约基础上补齐。
 
+## API Key 管理 API
+
+当前阶段提供项目范围 API Key 创建、列表和撤销接口，用于后续摄入 API 鉴权。所有 API Key 管理接口都需要 `Authorization: Bearer <access_token>`，且用户必须拥有目标项目 `admin` 角色；普通用户未处于目标项目权限范围内时与项目不存在一样返回 `404 项目不存在`，避免通过 API Key 管理端点枚举 `project_id`；已在项目内但不是 `admin` 的 `viewer`、`editor` 返回 `403`，超级用户可管理全部项目。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/projects/{project_id}/api-keys` | 列出项目 API Key 元数据 |
+| `POST` | `/api/v1/projects/{project_id}/api-keys` | 创建项目 API Key，响应仅这一次包含明文 `api_key` |
+| `POST` | `/api/v1/projects/{project_id}/api-keys/{api_key_id}/revoke` | 撤销项目 API Key，撤销后摄入校验入口返回无效 |
+
+创建请求体：
+
+```json
+{
+  "name": "生产摄入"
+}
+```
+
+创建响应示例：
+
+```json
+{
+  "id": 1,
+  "project_id": 1,
+  "name": "生产摄入",
+  "key_prefix": "tlm_xxxxxxxx",
+  "status": "active",
+  "created_by_user_id": 1,
+  "created_at": "2026-06-21T00:00:00Z",
+  "revoked_at": null,
+  "last_used_at": null,
+  "api_key": "tlm_<仅创建响应返回一次>"
+}
+```
+
+列表和撤销响应不包含 `api_key` 或 `key_hash`。数据库只保存 `key_hash`、`key_prefix` 和元数据；当前哈希为高熵随机 token 的 SHA-256 摘要，明文 key 不写入数据库、README、运行日志或测试日志。`ApiKeyService.verify_key(raw_key)` 已作为后续摄入 API 鉴权入口：有效且未撤销时返回 `api_key_id`、`project_id` 和 `key_prefix`，并更新 `last_used_at`；撤销或不存在时返回 `None`。
+
+错误边界：
+
+| 状态码 | 场景 |
+| --- | --- |
+| `401` | 缺少或无效 Bearer token |
+| `403` | 已认证且处于目标项目权限范围内，但不是目标项目 `admin` |
+| `404` | 项目不存在、普通用户不在目标项目权限范围内，或撤销的 API Key 不属于该项目/不存在 |
+| `409` | API Key 数据库完整性约束错误 |
+| `422` | 请求体字段或路径参数格式错误 |
+
 ## 目录结构
 
 ```text
@@ -282,22 +330,28 @@ tests/              # pytest 测试
 - `app/api/router.py`：聚合 API 路由。
 - `app/api/dependencies.py`：请求级数据库 session、管理服务、认证服务和当前用户依赖。
 - `app/api/routes/auth.py`：登录和当前用户接口。
+- `app/api/routes/api_keys.py`：项目 API Key 创建、列表和撤销接口。
 - `app/api/routes/health.py`：健康检查接口。
 - `app/api/routes/management.py`：项目、环境、服务管理接口。
+- `app/models/api_keys.py`：API Key ORM 模型。
 - `app/models/auth.py`：用户 ORM 模型。
 - `app/models/management.py`：项目、环境、服务 ORM 模型。
 - `app/schemas/auth.py`：认证 API 的 Pydantic 请求和响应模型。
+- `app/schemas/api_keys.py`：API Key API 的 Pydantic 请求和响应模型。
 - `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
 - `app/schemas/permissions.py`：项目角色枚举和角色层级判断。
 - `app/services/auth.py`：密码哈希、token 签发/解析和认证规则。
+- `app/services/api_keys.py`：API Key 生成、哈希、权限校验、撤销和后续摄入校验入口。
 - `app/services/management.py`：基础管理业务规则和归属关系校验。
 - `app/services/permissions.py`：项目级权限判断入口，包含超级用户绕过和角色校验。
 - `app/repositories/auth.py`：认证 repository 协议和 SQLAlchemy 实现。
+- `app/repositories/api_keys.py`：API Key repository 协议和 SQLAlchemy 实现。
 - `app/repositories/management.py`：基础管理 repository 协议、SQLAlchemy 实现和测试用内存实现。
 - `app/repositories/permissions.py`：项目成员角色 repository 协议和 SQLAlchemy 实现。
 - `migrations/versions/20260620_0001_create_management_tables.py`：项目、环境、服务表迁移。
 - `migrations/versions/20260620_0002_create_auth_users.py`：用户表迁移。
 - `migrations/versions/20260620_0003_create_rbac_tables.py`：团队、团队成员、项目成员角色表迁移。
+- `migrations/versions/20260621_0004_create_api_keys.py`：API Key 表迁移。
 
 ## 验证命令
 
@@ -310,4 +364,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、API Key、摄入、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、摄入路由、查询和告警逻辑，真实 MySQL 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、SQLite repository 约束、SQLite Alembic 升降级和代码静态检查；MySQL 容器补验需在后续任务完成。

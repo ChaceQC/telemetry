@@ -420,3 +420,67 @@
 - 已运行 `uv run ruff check .`，结果：通过。
 - 已运行 `uv run ruff format --check .`，结果：53 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：53 个源文件无类型错误。
+
+## 2026-06-21 T-0021 API Key 创建与撤销后端基础
+
+### 已完成
+
+- 新增 API Key 持久化模型、repository、service、schema 和路由：`api_keys` 表保存 `project_id`、`name`、`key_prefix`、`key_hash`、`status`、`created_by_user_id`、`created_at`、`revoked_at`、`last_used_at`。
+- 新增 Alembic 迁移 `20260621_0004_create_api_keys.py`，包含 `api_keys` 表、项目/创建用户外键、`key_hash` 全局唯一约束和常用索引。
+- 新增管理接口：`GET/POST /api/v1/projects/{project_id}/api-keys` 和 `POST /api/v1/projects/{project_id}/api-keys/{api_key_id}/revoke`。
+- API Key 管理权限收敛为项目 `admin`；`viewer`、`editor` 被拒绝，superuser 可管理全部项目。
+- API Key 明文只在创建响应的 `api_key` 字段返回一次；数据库和列表/撤销响应只保留哈希、展示前缀和元数据。
+- 新增 `ApiKeyService.verify_key(raw_key)`，为后续摄入 API 鉴权提供项目上下文校验入口；撤销后返回 `None`。
+- 补充 `backend/tests/test_api_keys.py`，覆盖明文不入库、hash 不等于明文、创建/列表/撤销响应字段、admin/superuser 权限、viewer/editor 拒绝、撤销后 verify 失败、缺失项目/无权限项目和 SQLite Alembic 升降级。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录新接口、权限、错误码、安全边界、迁移表和验证结果。
+- 追加 ignored 运行日志 `agents/runtime/backend-agent.log.md`；不提交运行日志。
+
+### 进行中
+
+- 等待总 agent 后续按流程启动测试 agent 和代码审计 agent，对 API Key 后端基础做独立复验与审计。
+
+### 阻塞与风险
+
+- 当前 worktree 没有真实 MySQL 服务，本次仅完成 SQLite Alembic 升降级、SQLite API 测试和 repository/service 行为验证；MySQL 外键、唯一索引、字符集、排序规则和撤销事务行为仍需真实 MySQL 补验。
+- 当前尚未实现摄入路由，仅提供 `ApiKeyService.verify_key(raw_key)` 作为后续摄入鉴权入口；摄入接口接入时还需补请求头契约、限流、审计日志和使用频率统计。
+- 当前 API Key 使用 SHA-256 保存高熵随机 token 的哈希；后续如引入服务端 pepper/HMAC，应规划密钥轮换和兼容策略。
+- 当前未引入 API Key 使用审计日志；创建和撤销操作后续应写入审计事件。
+
+### 下一步
+
+- 由测试 agent 在真实 MySQL 环境中补跑 `uv run alembic upgrade head`、`uv run alembic downgrade base`，并复验 API Key 外键、`key_hash` 唯一约束、撤销状态和权限拒绝。
+- 后续摄入任务接入 `ApiKeyService.verify_key(raw_key)`，定义摄入请求头和无效/撤销 key 的错误码。
+- 后续安全任务补 API Key 创建/撤销审计日志、速率限制、失败统计和可选 HMAC pepper 策略。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_api_keys.py`，结果：5 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：68 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：60 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：60 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+- 已运行 `uv run pytest`，结果：68 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：60 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：60 个源文件无类型错误。
+- 已使用 `sqlite:///./tmp-t0021-api-keys.db` 运行 `uv run alembic -x database_url=sqlite:///./tmp-t0021-api-keys.db upgrade head` 和 `uv run alembic -x database_url=sqlite:///./tmp-t0021-api-keys.db downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+
+## 2026-06-21 T-0021-fix Descartes 审计修复
+
+### 已完成
+
+- 修复 P2：`ApiKeyService` 不再对普通认证用户先查询真实项目存在性；普通用户未处于目标项目权限范围内时，API Key 列表、创建和撤销均统一返回 `404 项目不存在`，避免通过 `403/404` 枚举 `project_id`。
+- 保留项目内角色不足语义：已拥有目标项目 `viewer` 或 `editor` 的用户仍会在 API Key 创建、列表和撤销时收到 `403 无项目权限`；superuser 仍可管理所有已存在项目。
+- 补齐 P3 回归测试：`backend/tests/test_api_keys.py` 覆盖 viewer/editor 对 revoke API Key 被拒，以及陌生普通用户对列表、创建、撤销均无法区分项目不存在和无项目权限。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 API Key 管理端点的新错误边界和非枚举安全语义。
+- 追加 ignored 运行日志 `agents/runtime/backend-agent.log.md`；不提交运行日志。
+
+### 阻塞与风险
+
+- 未发现测试 agent Confucius 在 `agents/runtime` 或 `backend/PROJECT_PROGRESS.md` 中留下 T-0021 API Key 真实 MySQL 复验结果；本任务不代跑其职责，真实 MySQL 对 API Key 外键、唯一索引、撤销状态和权限拒绝的复验仍保留为总 agent 后续测试边界。
+- `uv run pytest tests/test_api_keys.py` 仍有 1 条 FastAPI/Starlette TestClient 上游弃用警告，不影响本次验证通过。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_api_keys.py`，结果：5 个测试通过，1 条 FastAPI/Starlette TestClient 上游弃用警告。

@@ -5,9 +5,11 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.repositories.api_keys import SqlAlchemyApiKeyRepository
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
+from app.services.api_keys import ApiKeyService
 from app.services.auth import AuthConfigurationError, AuthenticationError, AuthService
 from app.services.management import ManagementService
 from app.services.permissions import PermissionService
@@ -33,6 +35,18 @@ def get_auth_service(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> AuthService:
     return AuthService(SqlAlchemyAuthRepository(session), request.app.state.settings)
+
+
+def get_api_key_service(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> ApiKeyService:
+    permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
+    management_repository = SqlAlchemyManagementRepository(session)
+    return ApiKeyService(
+        SqlAlchemyApiKeyRepository(session),
+        management_repository,
+        permission_service,
+    )
 
 
 def get_current_user(

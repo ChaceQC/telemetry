@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config import Settings
 from app.db.base import Base
 from app.models import (  # noqa: F401
+    ApiKeyModel,
     EnvironmentModel,
     ProjectMemberModel,
     ProjectModel,

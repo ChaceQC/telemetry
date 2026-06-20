@@ -116,6 +116,8 @@
 - `T-0021` 真实 MySQL 补验 agent Confucius 已验证 API Key 迁移升降级、外键/唯一约束/索引、admin 创建/list/revoke、viewer/editor 拒绝、superuser 管理、verify 成功与撤销后失败均通过；临时库已清理且未泄露凭据或 API Key 明文。
 - 已启动后端开发 agent Newton 修复 `T-0021` 审计问题，范围限定在后端 worktree：统一无权限/不存在项目错误语义、补 viewer/editor revoke 拒绝测试，并记录 MySQL 补验结论。
 - `T-0021-fix` 后端开发 agent Newton 已提交并推送 `eef00f0`：普通用户不在目标项目权限范围内时 API Key list/create/revoke 统一返回 `404 项目不存在`，保留项目内 viewer/editor 角色不足 `403`，并补 revoke 拒绝和项目存在性不可区分回归测试；等待复审结论。
+- `T-0021-fix` 代码审计 agent Plato 复审通过，未发现 P0/P1/P2/P3 阻断；确认项目枚举泄露已修复、revoke 权限测试和文档契约同步到位。
+- 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0021` 到 `dev`，包含 API Key 基础 `8c2349b` 和审计修复 `eef00f0`，未直接 merge feature 分支历史或运行日志。
 
 ### 阻塞与风险
 
@@ -160,7 +162,7 @@
 - 阶段 1 项目级 RBAC 后端基础已集成并通过 CI；下一步推进 API Key 创建/撤销后端基础，让后续数据上报可用 API Key 鉴权。
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
 - 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
-- 等待 `T-0021-fix` 代码审计 agent Plato 复审 `eef00f0`；通过后总 agent 按业务路径集成 API Key 后端基础。
+- 推送 `T-0021` 集成到 `dev` 后读取 GitHub Actions；通过后继续阶段 1 团队/成员管理 API、审计日志基础能力或进入数据摄入 MVP。
 
 ### 验证
 
@@ -212,3 +214,4 @@
 - `T-0021` 后端开发自测由 Lorentz 在后端 worktree 完成：`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，SQLite Alembic `upgrade head -> downgrade base` 通过，`git diff --check` 通过；总 agent 已读取 `feature/backend-dev` Actions run 列表，未发现 `8c2349b` 对应 run。
 - GitHub Actions run `27878685852` 已通过：API Key 进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - Confucius 在 `8c2349b` 上完成真实 MySQL/API Key 补验：`uv run pytest tests/test_api_keys.py` 5 passed，`uv run pytest` 68 passed/2 skipped，`uv run ruff check .` 通过；临时库已清理，未泄露凭据或 API Key 明文。
+- GitHub Actions run `27879018195` 已通过：API Key 审计修复记录提交后的 Backend checks 与 Frontend checks 均为 success。

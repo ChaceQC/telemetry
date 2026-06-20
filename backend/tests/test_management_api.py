@@ -40,6 +40,7 @@ MYSQL_TEST_DATABASE_URL_ENV = "TELEMETRY_MYSQL_TEST_DATABASE_URL"
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 MYSQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9_]+$")
 MYSQL_TABLE_NAMES = (
+    "api_keys",
     "rbac_project_members",
     "rbac_team_members",
     "rbac_teams",

@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0020`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并保留浏览器联调所需的 CORS、Trusted Host、root_path 和代理头配置入口。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0021`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销和后续摄入校验入口。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -92,14 +92,14 @@
 
 ## 管理 API 通用认证与权限边界
 
-- `GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services` 均需要 `Authorization: Bearer <access_token>`。
+- `GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services`、`GET/POST /api/v1/projects/{project_id}/api-keys` 和 `POST /api/v1/projects/{project_id}/api-keys/{api_key_id}/revoke` 均需要 `Authorization: Bearer <access_token>`。
 - 最小认证要求：token 必须可验证、未过期，且 token 对应用户存在并处于启用状态。
 - 项目级角色：`viewer`、`editor`、`admin`；角色层级为 `admin > editor > viewer`。
 - 超级用户：`auth_users.is_superuser=true` 时绕过项目角色检查，可读取和管理全部项目资源。
 - 普通用户读取：只能读取自己拥有 `viewer`、`editor` 或 `admin` 的项目资源。未指定筛选条件的列表接口会自动过滤为可访问项目；指定无权限 `project_id` 或仅指定无权限环境时返回 `403`。
 - 普通用户创建项目：`POST /api/v1/projects` 成功后，创建者自动获得该项目 `admin` 角色；项目记录和创建者 `admin` 成员授权在同一事务内提交，授权写入失败会整体回滚。
 - 环境/服务创建：`POST /api/v1/environments`、`POST /api/v1/services` 需要对应项目至少 `editor` 权限；`viewer` 会返回 `403`。
-- 管理或危险动作：当前阶段只有创建环境/服务这类管理动作，保守要求 `editor/admin`；后续删除、成员管理、API Key 等危险动作应要求 `admin`。
+- 管理或危险动作：创建环境/服务要求 `editor/admin`；API Key 创建、列表和撤销要求目标项目 `admin`；后续删除、成员管理等危险动作也应要求 `admin`。
 - 通用认证错误：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `403 Forbidden`：已认证但缺少项目权限。
@@ -258,10 +258,84 @@
   - `409 Conflict`：其他无法归类为重复 key、缺失项目/环境或归属冲突的数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段格式错误。
 
+## API-0007 项目 API Key 管理
+
+- 方法：`GET`
+- 路径：`/api/v1/projects/{project_id}/api-keys`
+- 权限：需要 `Authorization: Bearer <access_token>`，且用户必须拥有目标项目 `admin`；超级用户绕过项目成员检查。普通用户未处于目标项目权限范围内时与项目不存在一样返回 `404 项目不存在`，避免通过 API Key 管理端点枚举 `project_id`；已在项目内但不是 `admin` 的 `viewer`、`editor` 返回 `403`。
+- 查询参数：暂无。
+- 分页：暂无；当前 SQLAlchemy repository 返回项目下全部 API Key 元数据。
+- 响应：`200 OK`
+
+```json
+[
+  {
+    "id": 1,
+    "project_id": 1,
+    "name": "生产摄入",
+    "key_prefix": "tlm_xxxxxxxx",
+    "status": "active",
+    "created_by_user_id": 1,
+    "created_at": "2026-06-21T00:00:00Z",
+    "revoked_at": null,
+    "last_used_at": null
+  }
+]
+```
+
+- 方法：`POST`
+- 路径：`/api/v1/projects/{project_id}/api-keys`
+- 权限：同上，必须是目标项目 `admin` 或 superuser。
+- 请求体：
+
+```json
+{
+  "name": "生产摄入"
+}
+```
+
+- 字段规则：
+  - `name`：必填，1 到 100 字符，首尾空白会裁剪。
+- 响应：`201 Created`，返回创建后的 API Key 元数据和一次性明文 `api_key`。
+
+```json
+{
+  "id": 1,
+  "project_id": 1,
+  "name": "生产摄入",
+  "key_prefix": "tlm_xxxxxxxx",
+  "status": "active",
+  "created_by_user_id": 1,
+  "created_at": "2026-06-21T00:00:00Z",
+  "revoked_at": null,
+  "last_used_at": null,
+  "api_key": "tlm_<仅创建响应返回一次>"
+}
+```
+
+- 方法：`POST`
+- 路径：`/api/v1/projects/{project_id}/api-keys/{api_key_id}/revoke`
+- 权限：同上，必须是目标项目 `admin` 或 superuser。
+- 请求体：无。
+- 响应：`200 OK`，返回撤销后的 API Key 元数据，不包含明文。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `403 Forbidden`：已认证且处于目标项目权限范围内，但缺少目标项目 `admin` 权限。
+  - `404 Not Found`：项目不存在、普通用户不在目标项目权限范围内，或撤销的 API Key 不属于该项目/不存在。
+  - `409 Conflict`：API Key 数据库完整性约束错误。
+  - `422 Unprocessable Entity`：请求体字段或路径参数格式错误。
+- 安全边界：
+  - 明文 API Key 仅在创建响应的 `api_key` 字段返回一次；列表、撤销响应和数据库均不包含明文。
+  - 数据库只保存 `key_hash`、`key_prefix` 和元数据；`key_hash` 为高熵随机 token 的 SHA-256 摘要，当前不保存可逆密文。
+  - 文档、测试和日志不得写入真实明文 API Key；示例必须使用占位符。
+  - API Key 管理端点不会先对任意认证用户暴露项目存在性；普通用户没有目标项目成员关系时，列表、创建、撤销均返回与项目不存在一致的 `404 项目不存在`。
+  - `ApiKeyService.verify_key(raw_key)` 是后续摄入 API 的鉴权入口：有效且未撤销时返回 `api_key_id`、`project_id`、`key_prefix` 并更新 `last_used_at`；不存在或已撤销时返回 `None`。
+
 ## 持久化实现与迁移
 
 - 当前实现位于 `backend/app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`。
 - 认证实现位于 `backend/app/services/auth.py`、`backend/app/repositories/auth.py`、`backend/app/api/routes/auth.py`，默认使用 `SqlAlchemyAuthRepository`。
+- API Key 实现位于 `backend/app/services/api_keys.py`、`backend/app/repositories/api_keys.py`、`backend/app/api/routes/api_keys.py`，默认使用 `SqlAlchemyApiKeyRepository`。
 - 权限实现位于 `backend/app/services/permissions.py`、`backend/app/repositories/permissions.py` 和 `backend/app/schemas/permissions.py`；管理 service 统一调用 `PermissionService`，路由不散落角色判断。
 - 请求级数据库 session 由 `backend/app/api/dependencies.py` 注入，engine/session factory 在 `backend/app/core/application.py` 创建。
 - 配置项：`DATABASE_URL`，默认 `sqlite:///./telemetry-dev.db`；MySQL 使用 `mysql+pymysql://...?...charset=utf8mb4`。
@@ -273,6 +347,7 @@
   - `backend/migrations/versions/20260620_0001_create_management_tables.py`
   - `backend/migrations/versions/20260620_0002_create_auth_users.py`
   - `backend/migrations/versions/20260620_0003_create_rbac_tables.py`
+  - `backend/migrations/versions/20260621_0004_create_api_keys.py`
 - MySQL 目标表：
   - `management_projects`：项目，`key` 全局唯一。
   - `management_environments`：环境，外键 `project_id`，同项目下 `key` 唯一，并提供 `(id, project_id)` 唯一约束供服务复合外键引用。
@@ -281,8 +356,9 @@
   - `rbac_teams`：团队，`key` 全局唯一。
   - `rbac_team_members`：团队成员，外键 `team_id`、`user_id`，同团队同用户唯一。
   - `rbac_project_members`：项目成员角色，外键 `project_id`、`user_id`，同项目同用户唯一，`role` 取 `viewer`、`editor`、`admin`。
+  - `api_keys`：项目 API Key，外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一，保存 `status`、`revoked_at`、`last_used_at` 和展示前缀。
 - 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
 - Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。创建项目和创建者 `admin` 授权通过 service 层事务边界整体提交或整体回滚。
 - 真实 MySQL 回归入口：`TELEMETRY_MYSQL_TEST_DATABASE_URL` 仅用于本地或专用测试环境，未设置时相关测试会 `skip`，不影响普通 CI。该 URL 需要可创建/删除数据库；测试会创建随机 `telemetry_test_<uuid>` 临时库、执行 Alembic `upgrade head`，并在结束后删除临时库。不得在日志、agent 记录或提交中输出真实连接串、密码或临时库详情。
-- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝和 Alembic 升降级；真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、用户唯一约束和 RBAC 约束的 MySQL 专项用例。
-- 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志和危险动作 `admin` 校验。
+- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为和 Alembic 升降级；真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、用户唯一约束、RBAC 约束和 API Key 约束的 MySQL 专项用例。
+- 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；API Key 创建接口会返回一次性明文，后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志、API Key 使用审计和危险动作 `admin` 校验。
