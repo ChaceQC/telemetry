@@ -495,3 +495,24 @@
 - 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/metrics`、`/logs`、`/events` 桌面宽度，以及 `/metrics` 390px 移动宽度；页面正常渲染，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
 - 根工作树已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run test -- query.test.ts`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，均通过；全量前端 Vitest 6 个测试文件、28 个测试通过，查询 API 专项 1 个测试文件、2 个测试通过。
 - GitHub Actions run `27886113684` 已通过：T-0032 查询页前端基础集成提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27886166854` 已通过：T-0032 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+
+## 2026-06-21 T-0033 总览页摄入统计接入
+
+### 进行中
+
+- 已登记 `T-0033` 阶段 3 总览页摄入统计接入任务；目标是将总览页的静态 metrics/logs/events 占位接入既有 `GET /api/v1/ingest/stats`，优先展示 accepted、rejected、bytes 和最近统计时间。
+- 本小步计划复用当前认证状态、React Query、API client 和控制台样式；不修改后端契约，不引入图表库，不接 traces。
+
+### 阻塞与风险
+
+- 摄入统计接口需要用户 Bearer token；未登录或会话恢复中时总览页应显示登录提示或暂停统计请求。
+- 当前后端统计按 bucket/project/API key/kind/source 返回聚合行，前端本小步只做轻量汇总；更复杂的时间序列趋势、项目筛选和真实多源统计后续拆分。
+
+### 下一步
+
+- 在前端 worktree 实现 ingest stats API client、总览页统计汇总和测试；通过 lint/typecheck/test/build 后提交 `feature/frontend-dev`，再由总 agent 按路径集成回 `dev`。
+
+### 验证
+
+- 待补。
