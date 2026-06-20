@@ -197,6 +197,8 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | metrics/logs 摄入集成 Actions 通过 | push `d5c5272` 触发 run `27881126781`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；存在官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-20 | CI | 总 agent | metrics/logs 摄入集成结果记录 Actions 通过 | push `3f49938` 触发 run `27881170815`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0024 | 总 agent | 启动 ClickHouse/MongoDB 初始化后端任务 | 阶段 2 HTTP 上报 metrics/logs/events 已闭环；下一步启动后端 agent 推进 ClickHouse 表初始化和 MongoDB events 集合初始化基础，优先新增 init 脚本、Compose 挂载、配置/文档和静态验证，不直接接入摄入写入链路或 Redis 限流 | doing |
+| 2026-06-20 | CI | 总 agent | ClickHouse/MongoDB 初始化任务登记 Actions 通过 | push `8d433f6` 触发 run `27881240620`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0024 | 总 agent | 拆分 ClickHouse 初始化小步 | Herschel 开发 agent 因 502 中断，后端 worktree 检查干净；已关闭 Herschel 并重派 Zeno，仅先处理 ClickHouse 初始化 SQL、Compose 挂载和静态测试，MongoDB events 集合初始化后续小步单独推进 | doing |
 
 ## 6. 测试记录
 

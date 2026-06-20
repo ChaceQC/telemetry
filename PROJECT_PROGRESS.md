@@ -148,6 +148,8 @@
 - 推送 `T-0023` 集成提交 `d5c5272` 后已读取 GitHub Actions run `27881126781`：Backend checks 与 Frontend checks 均通过；阶段 2 HTTP 上报 metrics、logs、events 三类数据的最小 API 闭环。
 - 推送 `T-0023` 集成结果记录提交 `3f49938` 后已读取 GitHub Actions run `27881170815`：Backend checks 与 Frontend checks 均通过。
 - 已登记 `T-0024` 阶段 2 ClickHouse/MongoDB 初始化基础任务，后续由后端开发 agent 在独立后端 worktree 推进；目标是新增 ClickHouse 表初始化与 MongoDB events 集合初始化脚本、Compose 挂载、配置/文档和静态验证，暂不接入摄入写入链路或 Redis 限流。
+- 推送 `T-0024` 启动记录提交 `8d433f6` 后已读取 GitHub Actions run `27881240620`：Backend checks 与 Frontend checks 均通过。
+- `T-0024` 开发 agent Herschel 因 502 中断，后端 worktree 检查干净；已关闭 Herschel 并重派 Zeno，将任务拆小为 ClickHouse 初始化 SQL、Compose 挂载和静态测试，MongoDB events 集合初始化后续单独推进。
 
 ### 阻塞与风险
 
@@ -199,6 +201,7 @@
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
 - 阶段 2 当前完成 HTTP 上报 metrics、logs、events 的最小 API；仍未完成 ClickHouse 表初始化、MongoDB events 集合初始化、Redis 限流和摄入统计。
+- `T-0024` 先推进 ClickHouse 初始化小步；完成审计/验证后再继续 MongoDB events 集合初始化。
 
 ### 验证
 
@@ -271,3 +274,4 @@
 - 总 agent 本地复审 `6bf0024`：Pydantic 探针确认 metrics `value` 为字符串或布尔值时校验失败，合法 float/int 通过；`tests/test_ingest_api.py` 20 passed。
 - GitHub Actions run `27881126781` 已通过：T-0023 metrics/logs 摄入 API 集成后的 Backend checks 与 Frontend checks 均为 success；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞。
 - GitHub Actions run `27881170815` 已通过：T-0023 集成结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27881240620` 已通过：T-0024 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
