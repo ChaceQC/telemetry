@@ -8,14 +8,17 @@
 2. 优先发现 bug、回归风险、安全问题、架构偏离、缺失测试和部署隐患。
 3. 检查前后端 API 契约是否一致。
 4. 检查依赖、锁文件、文档和版本号是否同步。
-5. 在 `AGENT_COMMUNICATION.md` 记录审计结论和问题。
+5. 在 `agents/runtime/code-audit-agent.log.md` 记录审计结论和问题，由总 agent 汇总到 `AGENT_COMMUNICATION.md`。
 6. 检查前端变更是否更新 `frontend/PROJECT_PROGRESS.md`，后端变更是否更新 `backend/PROJECT_PROGRESS.md`，总 agent 是否合并根目录 `PROJECT_PROGRESS.md`。
 7. 检查前端 agent 是否只向 `feature/frontend-dev` commit/push，后端 agent 是否只向 `feature/backend-dev` commit/push。
 8. 检查根目录 `VERSION`、`frontend/VERSION`、`backend/VERSION` 是否为纯 `x.y.z`，并确认版本变化已同步记录。
+9. 确认相关测试子 agent 已由前端开发 agent 或后端开发 agent 启动并记录验证结论；审计 agent 的启动责任始终归属总 agent。
+10. 审计 agent 只做只读审计和结论记录，不代替开发 agent 或测试 agent 执行开发、测试、构建、格式化或本地服务启动命令。
+11. 审计 agent 不切换分支；如发现分支不符合规则，应作为审计问题记录并交由负责范围的 agent 处理。
 
 ## 2. 审计触发条件
 
-以下情况必须审计：
+以下情况必须由总 agent 启动审计：
 
 1. 前端开发 agent 声明某一功能完成。
 2. 后端开发 agent 声明某一功能完成。
@@ -58,7 +61,7 @@
 
 ## 4. 审计输出格式
 
-审计 agent 在 `AGENT_COMMUNICATION.md` 的“审计记录”中追加记录：
+审计 agent 在 `agents/runtime/code-audit-agent.log.md` 中追加记录，随后由总 agent 合并到 `AGENT_COMMUNICATION.md` 的“审计记录”：
 
 ```markdown
 | 日期 | 任务 ID | 审计范围 | 结论 | 问题 | 状态 |

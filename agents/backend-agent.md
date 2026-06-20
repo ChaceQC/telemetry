@@ -6,11 +6,11 @@
 
 1. 实现 Python + uv 后端服务。
 2. 维护 API、认证、权限、数据摄入、查询、告警、后台任务和数据库迁移。
-3. 与前端开发 agent 通过 `AGENT_COMMUNICATION.md` 对齐 API 契约。
-4. 开发过程中主动请求测试 agent 执行后端相关验证。
-5. 功能完成后向总 agent 标记“待审计”，由总 agent 启动代码审计 agent。
+3. 与前端开发 agent 通过 `agents/runtime/` 分片日志和 API 契约草案对齐需求，再由总 agent 汇总到 `AGENT_COMMUNICATION.md`。
+4. 开发过程中主动启动测试子 agent 执行后端相关验证。
+5. 功能完成后向总 agent 标记“待审计”，由总 agent 启动代码审计子 agent。
 6. 同步更新后端 README、项目文档、`backend/PROJECT_PROGRESS.md` 和版本信息。
-7. 只允许在 `feature/backend-dev` 分支提交和推送后端相关改动。
+7. 只允许在独立 worktree `..\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支提交和推送后端相关改动。
 8. 维护 `backend/VERSION`，版本号必须为纯 `x.y.z` 且上线前保持 `0.y.z`。
 
 ## 2. 技术约束
@@ -58,17 +58,24 @@ backend/app/
 
 ## 5. 开发流程
 
-1. 开始任务前读取 `AGENT_COMMUNICATION.md` 的任务看板、API 契约、阻塞问题和测试记录。
-2. 新增或修改 API 时，先登记路径、方法、请求体、响应体、错误码、权限和分页规则。
-3. 修改数据库结构时，必须补充 Alembic 迁移，并记录版本影响。
-4. 新增依赖时同步更新 `pyproject.toml`、`uv.lock` 和相关文档。
-5. 缺少必要依赖时可自行补全，但必须说明用途并纳入验证。
-6. 完成实现后，请测试 agent 执行 pytest、迁移检查、接口验证、集成测试或安全验证。
-7. 测试通过或验证边界记录完成后，向总 agent 标记待审计。
-8. 每次实现、重构、测试、迁移或依赖调整后，必须更新 `backend/PROJECT_PROGRESS.md`；根目录 `PROJECT_PROGRESS.md` 由总 agent 合并维护。
-9. 提交前必须确认当前分支为 `feature/backend-dev`；不得直接向 `dev` 或 `main` commit、push 或 merge。
-10. 需要合并到 `dev` 时，只能在 `AGENT_COMMUNICATION.md` 中向总 agent 发起合并请求。
-11. 后端版本变化时，必须同步更新 `backend/VERSION`、后端版本声明、`backend/PROJECT_PROGRESS.md`，并通知总 agent 判断是否提升根目录 `VERSION`。
+1. 开始任务前确认总 agent 已启动后端子 agent，并已在 `AGENT_COMMUNICATION.md` 登记任务边界、负责目录、worktree 和当前状态。
+2. 开始任务前读取 `AGENT_COMMUNICATION.md` 的任务看板、API 契约、阻塞问题和测试记录。
+3. 后端开发 agent 必须在 `..\telemetry-worktrees\backend` 工作，不得在根工作树直接编写后端代码。
+4. 新增或修改 API 时，先在 `agents/runtime/api-contracts/backend.md` 登记路径、方法、请求体、响应体、错误码、权限和分页规则。
+5. 修改数据库结构时，必须补充 Alembic 迁移，并记录版本影响。
+6. 新增依赖时同步更新 `pyproject.toml`、`uv.lock` 和相关文档。
+7. 缺少必要依赖时可自行补全，但必须说明用途并纳入验证。
+8. 完成实现后，启动测试子 agent 执行 pytest、迁移检查、接口验证、集成测试或安全验证。
+9. 测试通过或验证边界记录完成后，向 `agents/runtime/backend-agent.log.md` 追加待审计记录，由总 agent 汇总并启动审计。
+10. 每次实现、重构、测试、迁移或依赖调整后，必须更新 `backend/PROJECT_PROGRESS.md` 和 `agents/runtime/backend-agent.log.md`；根目录 `PROJECT_PROGRESS.md` 由总 agent 合并维护。
+11. 提交前必须确认当前 worktree 分支为 `feature/backend-dev`；不得直接向 `dev` 或 `main` commit、push 或 merge。
+12. 需要合并到 `dev` 时，只能在 `agents/runtime/backend-agent.log.md` 中向总 agent 发起合并请求。
+13. 后端版本变化时，必须同步更新 `backend/VERSION`、后端版本声明、`backend/PROJECT_PROGRESS.md`，并在运行时日志通知总 agent 判断是否提升根目录 `VERSION`。
+14. 后端开发 agent 自行执行自己负责范围内的开发、测试、构建、格式化和本地服务启动命令；不得要求总 agent 代跑。
+15. 后端开发 agent 启动测试子 agent 后，不得代替测试子 agent 执行其负责的验证任务；只能接收测试结论、更新记录并处理需由后端修复的问题。
+16. 如需切换分支，后端开发 agent 只能在自己的独立 worktree 中切换，并在 `agents/runtime/backend-agent.log.md` 记录。
+17. 后端开发 agent 完成一个可验证小步后，不得长期保持未提交状态；必须自行检查 `git status`、文档、锁文件和敏感文件，并提交和尽量推送到 `feature/backend-dev`。
+18. 如果因审计未通过、worktree 未创建或阻塞问题暂不能提交，必须在 `agents/runtime/backend-agent.log.md` 和 `backend/PROJECT_PROGRESS.md` 记录原因、影响范围和下一次提交条件。
 
 ## 6. 数据与安全要求
 
@@ -82,7 +89,7 @@ backend/app/
 
 ## 7. 与测试 Agent 协作
 
-开发过程中必须在以下情况请求测试 agent：
+开发过程中必须在以下情况启动测试子 agent：
 
 1. 新增或修改 API。
 2. 新增或修改数据库迁移。
@@ -91,7 +98,8 @@ backend/app/
 5. 修改 Docker、Nginx、环境变量或部署脚本。
 6. 准备标记功能完成前。
 
-测试 agent 的验证结果必须写入 `AGENT_COMMUNICATION.md` 和 `backend/PROJECT_PROGRESS.md`，再由总 agent 合并摘要到根目录 `PROJECT_PROGRESS.md`。
+测试子 agent 的验证结果必须写入 `agents/runtime/test-agent.log.md`，后端开发 agent 将结论摘要写入 `agents/runtime/backend-agent.log.md` 和 `backend/PROJECT_PROGRESS.md`，再由总 agent 合并摘要到根目录 `PROJECT_PROGRESS.md`。
+后端开发 agent 不代跑测试子 agent 的验证命令；如果测试子 agent 不可用，必须在运行时日志和后端进度中记录原因、影响范围和由后端开发 agent 自测的边界。
 
 ## 8. 完成标准
 

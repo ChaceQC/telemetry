@@ -36,28 +36,44 @@ agents/code-audit-agent.md
 AGENT_COMMUNICATION.md
 ```
 
+运行时分片沟通目录：
+
+```text
+agents/runtime/
+```
+
 ## 3. 总协调流程
 
 1. 每个任务开始前，总 agent 先读取 `PROJECT_PLAN.md`、`AGENT.md`、相关专项 agent 文件和 `AGENT_COMMUNICATION.md`。
 2. 总 agent 将任务拆成前端、后端、测试、审计可执行事项，并写入 `AGENT_COMMUNICATION.md`。
-3. 前端开发 agent 和后端开发 agent 可以同时推进，但必须通过 `AGENT_COMMUNICATION.md` 对齐 API、字段、状态、错误码、端口和阻塞问题。
-4. 开发 agent 在开发过程中遇到测试需求时，必须调用测试 agent 设计并执行对应验证。
-5. 开发 agent 表示某一功能完成后，总 agent 必须启动代码审计 agent 进行审计。
-6. 审计通过后，总 agent 再决定是否进入提交、推送、发布或下一功能。
-7. 审计未通过时，总 agent 将问题写入 `AGENT_COMMUNICATION.md`，分派给对应开发 agent 修复，修复后再次测试和审计。
-8. 前端开发 agent 每次实现、重构、测试或依赖调整后，必须更新 `frontend/PROJECT_PROGRESS.md`。
-9. 后端开发 agent 每次实现、重构、测试、迁移或依赖调整后，必须更新 `backend/PROJECT_PROGRESS.md`。
-10. 总 agent 必须定时探测 `frontend/PROJECT_PROGRESS.md` 和 `backend/PROJECT_PROGRESS.md`，将新增进展、阻塞、验证和下一步合并摘要到根目录 `PROJECT_PROGRESS.md`。
-11. 根目录 `PROJECT_PROGRESS.md` 是项目级汇总，不替代前后端各自的进度文件。
-12. 总 agent 维护根目录 `VERSION`，前端开发 agent 维护 `frontend/VERSION`，后端开发 agent 维护 `backend/VERSION`。
+3. 涉及代码、依赖或工程配置变更的任务，总 agent 必须在开始编写代码前启动对应开发子 agent；跨端任务必须分别启动前端开发子 agent 和后端开发子 agent。
+4. 开发子 agent 的启动时间、任务边界、负责目录、当前状态和例外原因必须由总 agent 写入 `AGENT_COMMUNICATION.md`，不得用口头约定替代。
+5. 前端开发 agent 和后端开发 agent 可以同时推进，但不得直接修改 `AGENT_COMMUNICATION.md`；必须先追加自己的 `agents/runtime/*.log.md` 和 `agents/runtime/api-contracts/*.md`，再由总 agent 汇总 API、字段、状态、错误码、端口和阻塞问题。
+6. 前端开发 agent 和后端开发 agent 在开发过程中遇到测试需求时，必须各自启动测试子 agent 设计并执行对应验证。
+7. 开发 agent 表示某一功能完成后，总 agent 必须启动代码审计子 agent 进行审计。
+8. 审计通过后，总 agent 再决定是否进入提交、推送、发布或下一功能。
+9. 审计未通过时，总 agent 将问题写入 `AGENT_COMMUNICATION.md`，分派给对应开发 agent 修复，修复后再次测试和审计。
+10. 前端开发 agent 每次实现、重构、测试或依赖调整后，必须更新 `frontend/PROJECT_PROGRESS.md`。
+11. 后端开发 agent 每次实现、重构、测试、迁移或依赖调整后，必须更新 `backend/PROJECT_PROGRESS.md`。
+12. 总 agent 必须定时探测 `frontend/PROJECT_PROGRESS.md` 和 `backend/PROJECT_PROGRESS.md`，将新增进展、阻塞、验证和下一步合并摘要到根目录 `PROJECT_PROGRESS.md`。
+13. 根目录 `PROJECT_PROGRESS.md` 是项目级汇总，不替代前后端各自的进度文件。
+14. 总 agent 维护根目录 `VERSION`，前端开发 agent 维护 `frontend/VERSION`，后端开发 agent 维护 `backend/VERSION`。
+15. 总 agent 不得代替前端开发 agent、后端开发 agent 或测试 agent 执行其负责范围内的开发、测试、构建、格式化或启动命令；总 agent 只负责拆分、记录、状态探测、审计触发、根进度合并和最终集成。
+16. 子 agent 不得代替其启动的孙 agent 执行孙 agent 负责的测试、审计或修复任务；只能接收孙 agent 结论、整合记录并处理自己负责范围内的后续工作。
+17. 每个 agent 完成一个可验证小步后，不得长期保持未提交状态；负责该写入范围的 agent 必须自行检查状态、文档、锁文件和敏感文件，并按所属分支提交和尽量推送。
+18. 开发型子 agent 必须在独立 Git worktree 中工作；根工作树只允许总 agent 做规则维护、汇总、审计触发、集成和发布。
+19. 默认 worktree 路径为 `..\telemetry-worktrees\frontend` 和 `..\telemetry-worktrees\backend`，可通过 `scripts/Initialize-AgentWorktrees.ps1` 创建。
 
 ## 4. 并行开发规则
 
-1. 前后端可以同时开发，但 API 契约必须先在 `AGENT_COMMUNICATION.md` 中登记。
-2. 后端变更接口路径、请求体、响应体、错误码、权限或分页规则时，必须更新沟通文件中的 API 契约。
-3. 前端如果需要新增字段、接口、筛选条件、图表数据或交互状态，必须先在沟通文件提出契约需求。
-4. 任一 agent 发现契约冲突，应先在沟通文件登记冲突，再由总 agent 决定取舍。
-5. 不允许通过口头约定替代沟通文件记录。
+1. 前后端可以同时开发，但必须分别在独立 worktree 内工作，不得共用根工作树写代码。
+2. API 契约必须先进入 `agents/runtime/api-contracts/` 草案文件，再由总 agent 合并到 `AGENT_COMMUNICATION.md` 的正式契约。
+3. 后端变更接口路径、请求体、响应体、错误码、权限或分页规则时，必须更新 `agents/runtime/api-contracts/backend.md`。
+4. 前端如果需要新增字段、接口、筛选条件、图表数据或交互状态，必须先在 `agents/runtime/api-contracts/frontend-requests.md` 提出契约需求。
+5. 任一 agent 发现契约冲突，应先在自己的运行时日志中登记冲突，再由总 agent 决定取舍并写入 `AGENT_COMMUNICATION.md`。
+6. 总 agent 不得绕过已定义的开发子 agent 直接长期承担前端或后端开发；若因工具不可用、任务极小或用户明确要求而例外，必须在 `AGENT_COMMUNICATION.md` 记录原因。
+7. 同一时间只允许负责当前写入范围的 agent 在自己的 worktree 中切换分支；总 agent 不替子 agent 切换分支，多个 agent 不得在同一 worktree 同时执行分支切换。
+8. 不允许通过口头约定替代运行时日志和总沟通文件记录。
 
 ## 5. 测试与审计门禁
 
@@ -78,6 +94,8 @@ AGENT_COMMUNICATION.md
    - `frontend/PROJECT_PROGRESS.md`
    - `backend/PROJECT_PROGRESS.md`
    - `AGENT_COMMUNICATION.md`
+   - `agents/runtime/*.log.md`
+   - `agents/runtime/api-contracts/*.md`
 3. 合并目标为根目录 `PROJECT_PROGRESS.md`。
 4. 合并时保留项目级摘要，不逐字复制所有子进度；但必须包含日期、完成事项、阻塞风险、验证结果、审计结论和下一步。
 5. 如果前后端进度互相冲突，总 agent 必须先在 `AGENT_COMMUNICATION.md` 记录冲突和决议，再更新根目录进度。
@@ -106,6 +124,11 @@ AGENT_COMMUNICATION.md
 11. 禁止提交 `.env`、密钥、证书私钥、依赖目录、构建产物、上传文件和备份文件。
 12. 必须提交锁文件，例如 `uv.lock` 和 `package-lock.json`。
 13. 分支合并、冲突解决、`dev` 到 `main` 的提升和 tag 发布由总 agent 负责。
+14. 分支切换由拥有对应写入范围的 agent 自行执行并在 `AGENT_COMMUNICATION.md` 记录；总 agent 只有在执行集成、合并或发布时才切换分支。
+15. 不允许长期累积未提交改动；若因共享工作树、分支切换锁、审计未通过或阻塞问题暂不能提交，必须在 `AGENT_COMMUNICATION.md` 和对应进度文件记录原因、影响范围和下一次提交条件。
+16. 前端开发 agent 的默认工作目录为独立 worktree `..\telemetry-worktrees\frontend`；后端开发 agent 的默认工作目录为独立 worktree `..\telemetry-worktrees\backend`。
+17. 根工作树不得作为并行开发目录；若历史遗留改动已在根工作树或错误分支中产生，必须先冻结新开发，由总 agent 拆分迁移或要求对应 agent 在所属 worktree 重新提交。
+18. `AGENT_COMMUNICATION.md` 只允许总 agent 修改；子 agent 通过 `agents/runtime/` 追加日志，总 agent 汇总后再修改总沟通文件。
 
 ## 9. 版本文件规则
 
