@@ -10,6 +10,7 @@
 *.pfx
 *.crt
 *.csr
+/auth.txt
 secrets/
 certs/private/
 
