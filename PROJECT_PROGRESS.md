@@ -78,6 +78,9 @@
 - 后端真实 MySQL 补验已覆盖 auth users migration、登录成功/失败、`/auth/me` 和密码 hash 非明文保存；临时库已清理。
 - 总 agent 已按业务路径集成 T-0012/T-0013 认证基础到 `dev`，不合入 feature 分支历史和运行日志。
 - 推送认证集成 `6706df5` 后已读取 GitHub Actions run `27871672033`：Backend checks 与 Frontend checks 均通过。
+- 推送认证 CI 结果文档 `73dafce` 后已读取 GitHub Actions run `27871705987`：Backend checks 与 Frontend checks 均通过。
+- 已启动后端开发 agent Pasteur 推进 `T-0014`，将管理 API 接入认证依赖。
+- 已启动前端开发 agent Meitner 推进 `T-0015`，让 Settings 客户端携带认证 token 并处理未登录/401 状态。
 
 ### 阻塞与风险
 
@@ -107,6 +110,7 @@
 - 等待 T-0012 MySQL 补验、T-0012 代码审计、T-0013 代码审计结论；全部通过后按业务路径集成到 `dev` 并读取 Actions。
 - 推送认证集成到 `dev` 后读取 GitHub Actions 最新 run；若通过，再推进管理 API 接入认证/权限或前后端真实浏览器联调。
 - 提交本次认证 CI 结果记录后读取对应 Actions run；随后推进管理 API 接入认证/权限或前后端真实浏览器联调。
+- 等待 T-0014/T-0015 开发、验证和审计完成；集成后读取 GitHub Actions，并计划真实浏览器联调。
 
 ### 验证
 

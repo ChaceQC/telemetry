@@ -41,6 +41,8 @@ closed      已关闭
 | T-0011 | 修复前端 CI lint 脚本 | 总 agent | done | todo | done | done | done |
 | T-0012 | 阶段 1 后端认证基础 | 总 agent | todo | done | done | done | done |
 | T-0013 | 阶段 1 前端登录与认证状态壳 | 总 agent | done | todo | done | done | done |
+| T-0014 | 阶段 1 管理 API 接入认证 | 总 agent | todo | doing | todo | todo | doing |
+| T-0015 | 阶段 1 Settings 客户端接入认证 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -103,6 +105,9 @@ closed      已关闭
 | 2026-06-20 | T-0013 | 前端开发/审计 agent | 前端登录壳审计修复通过 | 初审发现 3 个 P3；Turing 提交 `faffb05` 修复 session 恢复错误处理、登录/普通表单 401 文案拆分和登录页产品文案；Leibniz 复审通过 | done |
 | 2026-06-20 | T-0012/T-0013 | 总 agent | 认证基础集成 | 总 agent 已按业务路径集成后端 `ccca163`/`ef09e21` 与前端 `054b792`/`faffb05` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
 | 2026-06-20 | CI | 总 agent | 认证基础集成 Actions 通过 | push `6706df5` 触发 run `27871672033`，Backend checks 与 Frontend checks 均通过；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-20 | CI | 总 agent | 认证结果文档提交 Actions 通过 | push `73dafce` 触发 run `27871705987`，Backend checks 与 Frontend checks 均通过 | done |
+| 2026-06-20 | T-0014 | 总 agent | 启动管理 API 认证保护 agent | 已启动后端开发 agent Pasteur，将项目/环境/服务管理 API 接入有效 Bearer token 和 active user 认证依赖 | doing |
+| 2026-06-20 | T-0015 | 总 agent | 启动 Settings 认证客户端 agent | 已启动前端开发 agent Meitner，让 Settings 管理接口携带 session Bearer token 并处理未登录/401 状态 | doing |
 
 ## 6. 测试记录
 
@@ -159,6 +164,8 @@ closed      已关闭
 | 2026-06-20 | T-0013 | feature/frontend-dev | dev | 前端开发 agent Avicenna | 登录壳开发中，完成后需测试/审计并由总 agent 集成 | doing |
 | 2026-06-20 | T-0012-fix | feature/backend-dev | dev | 后端开发 agent Herschel | `ef09e21` 已修复审计 P2/P3 并通过复审；总 agent 已按业务路径集成 | done |
 | 2026-06-20 | T-0013-fix | feature/frontend-dev | dev | 前端开发 agent Turing | `faffb05` 已修复审计 P3 并通过复审；总 agent 已按业务路径集成 | done |
+| 2026-06-20 | T-0014 | feature/backend-dev | dev | 后端开发 agent Pasteur | 管理 API 认证保护开发中，完成后需测试/审计并由总 agent 集成 | doing |
+| 2026-06-20 | T-0015 | feature/frontend-dev | dev | 前端开发 agent Meitner | Settings 认证客户端开发中，完成后需测试/审计并由总 agent 集成 | doing |
 | 2026-06-20 | CI | dev | dev | 总 agent | `333b11d` 推送后 run `27870604620` 通过；本次文档记录提交后仍需再读取对应 Actions run | done |
 
 ## 10. 决策记录
