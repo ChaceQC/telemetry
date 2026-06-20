@@ -109,6 +109,8 @@
 - `T-0020-mysql-test-adopt` 后端开发 agent Hegel 已提交并推送 `7bf64b7`：可选真实 MySQL 回归测试在未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 时默认 skip，不影响普通 CI；并补充临时库标识符校验、清理策略和文档。
 - 总 agent 已按业务路径从 `feature/backend-dev` 集成 `T-0020` 到 `dev`，包含 RBAC 基础 `57a16e9`、审计修复 `76ad5b7` 和真实 MySQL 回归测试 `7bf64b7`，未直接 merge feature 分支历史或运行日志。
 - 推送 `T-0020` 集成提交 `7b30d28` 后已读取 GitHub Actions run `27878169567`：Backend checks 与 Frontend checks 均通过。
+- 推送 RBAC 集成 CI 结果记录 `7a47c70` 后已读取 GitHub Actions run `27878217319`：Backend checks 与 Frontend checks 均通过；官方 action Node.js 20 runtime 弃用注解不阻塞。
+- 已登记 `T-0021` 阶段 1 API Key 创建与撤销后端基础任务，后续由后端开发 agent 在独立后端 worktree 推进；边界为 API Key 只保存哈希、创建时只返回一次明文 key、撤销/列表接口需要项目 `admin` 权限，数据摄入使用 API Key 鉴权留给后续摄入任务。
 
 ### 阻塞与风险
 
@@ -151,6 +153,7 @@
 - 阶段 1 认证后基础管理链路已在本地真实浏览器联调闭环；下一步可推进项目级 RBAC/团队角色/API Key 管理，或补真实 Nginx HTTPS 子路径反代演练。
 - `T-0020` 已进入进行中：优先实现后端团队/角色/项目成员权限基础，为 API Key 创建撤销、摄入鉴权和阶段 1“越权请求被拒绝”验收打底。
 - 阶段 1 项目级 RBAC 后端基础已集成并通过 CI；下一步推进 API Key 创建/撤销后端基础，让后续数据上报可用 API Key 鉴权。
+- `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
 
 ### 验证
 
@@ -197,3 +200,4 @@
 - Feynman 在 `76ad5b7` 上完成真实 MySQL 事务补验：指定回归 `39 passed, 2 skipped, 1 warning`，全量回归 `63 passed, 2 skipped, 1 warning`，ruff 通过，临时库已清理，未泄露凭据。
 - Hegel 归档真实 MySQL 回归测试补丁后验证通过：`uv run pytest tests/test_management_api.py tests/test_permissions.py` 39 passed/2 skipped，`uv run pytest` 63 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
 - GitHub Actions run `27878169567` 已通过：T-0020 集成后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27878217319` 已通过：RBAC 集成 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
