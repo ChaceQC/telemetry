@@ -123,6 +123,9 @@
 - 推送 `T-0022` 启动记录提交 `e99c450` 后已读取 GitHub Actions run `27879237269`：Backend checks 与 Frontend checks 均通过。
 - `T-0022` 后端开发 agent Dirac 已提交并推送 `9fc69bc` 到 `feature/backend-dev`：新增 `POST /api/v1/ingest/events` 与 `/api/v1/ingest/batch`，支持 Bearer 或 `X-API-Key` 鉴权并调用 `ApiKeyService.verify_key`，新增 `ingest_records` 持久化模型、迁移、service/repository/schema/routes 和测试。
 - 已启动 `T-0022` 代码审计 agent Curie 与真实 MySQL/接口补验 agent Nash；等待审计和补验结论后决定修复或按业务路径集成到 `dev`。
+- 推送摄入 API 进展记录提交 `8e06ed7` 后已读取 GitHub Actions run `27879625069`：Backend checks 与 Frontend checks 均通过。
+- `T-0022` 代码审计 agent Curie 审计未通过：发现 payload 可接受 `NaN/Infinity/-Infinity` 导致真实 MySQL JSON 持久化风险，`payload` 省略时被默认 `{}` 与契约不一致，默认 CORS allowed headers 未包含 `X-API-Key`。当前不得集成到 `dev`。
+- `T-0022` 真实 MySQL/接口补验 agent Nash 已验证 Alembic 升降级、`ingest_records` JSON 类型/索引/外键、有效/缺失/无效/撤销 API Key、payload validation、项目绑定和 JSON 入库查询均通过；临时库已清理且未泄露凭据或 API Key 明文。
 
 ### 阻塞与风险
 
@@ -142,6 +145,7 @@
 - 认证基础仍未包含登录限流、失败审计、防爆破策略、刷新 token、HttpOnly Cookie 或全站路由守卫；这些已作为后续安全/前端联调任务保留。
 - 前后端认证接口尚未通过浏览器或真实网络服务做端到端联调；当前验证来自后端 TestClient、前端单测和静态构建。
 - feature 分支历史仍可能包含早期过程提交；后续总 agent 集成到 `dev` 时继续按明确业务路径恢复文件并提交，除非先确认历史干净，否则不要直接 `git merge feature/*`。
+- `T-0022` 当前被代码审计阻断：需拒绝 payload 中非标准 JSON 数值、让 `payload` 真正必填，并补默认 `X-API-Key` CORS allowed header 或收窄契约；修复复审通过前不得集成。
 
 ### 下一步
 
@@ -168,7 +172,7 @@
 - `T-0021` 已进入进行中：先实现后端 API Key 管理基础，再安排代码审计和真实 MySQL 补验。
 - 等待 Newton 修复 `T-0021` 审计问题；修复后重新审计，通过后由总 agent 按业务路径集成到 `dev`。
 - 阶段 1 API Key 创建/撤销后端基础已集成并通过 CI；下一步推进最小摄入 API 与 API Key 鉴权，闭环“API Key 可用于数据上报”验收。
-- `T-0022` 已进入审计/补验：后端实现提交 `9fc69bc` 已完成，等待 Curie 代码审计和 Nash 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
+- `T-0022` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P1/P2/P3；下一步派后端开发 agent 修复 payload 非标准 JSON、payload 必填契约和 `X-API-Key` CORS 头问题，随后复审并按业务路径集成。
 
 ### 验证
 
@@ -224,3 +228,5 @@
 - GitHub Actions run `27879120167` 已通过：T-0021 集成后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27879237269` 已通过：T-0022 启动记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - `T-0022` 后端开发自测由 Dirac 在后端 worktree 完成：`uv run pytest tests/test_ingest_api.py` 6 passed，`uv run pytest` 74 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，SQLite Alembic `upgrade head` / `downgrade base` 通过，`git diff --check` 通过。
+- GitHub Actions run `27879625069` 已通过：摄入 API 进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- Curie 审计 `9fc69bc` 未通过，列出 P1/P2/P3 阻断/改进项；Nash 在同一提交上完成真实 MySQL/接口补验，通过 `uv run pytest tests/test_ingest_api.py` 6 passed、`uv run pytest` 74 passed/2 skipped、ruff、format check、mypy，以及真实 MySQL 升降级和接口流验证。
