@@ -189,6 +189,8 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | metrics/logs 摄入进展记录 Actions 通过 | push `53bbed3` 触发 run `27880497822`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0023 | 代码审计 agent | metrics/logs 摄入审计未通过 | James 审计 `50c8f17` 发现 1 个 P2：`IngestMetricCreate.value` 使用普通 `float`，Pydantic 会把字符串或布尔值静默转成数值并接受入库，污染指标语义；需改成 strict numeric 校验并补测试。当前不得集成到 `dev` | blocked |
 | 2026-06-20 | T-0023 | 后端测试 agent | metrics/logs 摄入真实 MySQL 补验通过 | Godel 在 `50c8f17` 上完成真实 MySQL 补验：Alembic 升降级、`ingest_records` JSON/索引/外键、metrics/logs 有效写入、缺失/无效/撤销 API Key、项目绑定、嵌套 `project_id` 保留业务字段、非有限数值和边界 validation 均通过；临时库已清理，未泄露凭据或 API Key 明文 | done |
+| 2026-06-20 | CI | 总 agent | metrics/logs 摄入审计补验记录 Actions 通过 | push `4a9a4e1` 触发 run `27880667752`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | T-0023-fix | 总 agent | 重派 metrics value 严格校验修复 | Parfit 修复 agent 因 502 中断，后端 worktree 检查干净且仍在 `50c8f17`；已关闭 Parfit 并重派 Franklin 修复 metrics `value` strict numeric 校验与测试 | doing |
 
 ## 6. 测试记录
 

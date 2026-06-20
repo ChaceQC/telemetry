@@ -140,6 +140,8 @@
 - 推送 metrics/logs 摄入进展记录提交 `53bbed3` 后已读取 GitHub Actions run `27880497822`：Backend checks 与 Frontend checks 均通过。
 - `T-0023` 代码审计 agent James 审计未通过：发现 metrics `value` 使用普通 `float`，Pydantic 会把字符串或布尔值静默转成数值并接受入库，需改成 strict numeric 校验并补测试。当前不得集成到 `dev`。
 - `T-0023` 真实 MySQL/接口补验 agent Godel 已验证 Alembic 升降级、`ingest_records` JSON/索引/外键、metrics/logs 有效写入、缺失/无效/撤销 API Key、项目绑定、嵌套 `project_id` 保留业务字段、非有限数值和边界 validation 均通过；临时库已清理且未泄露凭据或 API Key 明文。
+- 推送 metrics/logs 摄入审计补验记录提交 `4a9a4e1` 后已读取 GitHub Actions run `27880667752`：Backend checks 与 Frontend checks 均通过。
+- `T-0023-fix` 修复 agent Parfit 因 502 中断，后端 worktree 检查干净且仍停在 `50c8f17`；已关闭 Parfit 并重派 Franklin 修复 metrics `value` strict numeric 校验与测试。
 
 ### 阻塞与风险
 
@@ -190,6 +192,7 @@
 - `T-0023` 已进入进行中：先实现 metrics/logs 专用摄入 API，再安排代码审计和真实 MySQL/接口补验。
 - `T-0023` 已进入审计/补验：后端实现提交 `50c8f17` 已完成，等待 James 代码审计和 Godel 真实 MySQL/接口验证；通过后由总 agent 按业务路径集成到 `dev`。
 - `T-0023` 进入修复阶段：真实 MySQL/接口补验已通过，但代码审计发现 P2；下一步派后端开发 agent 修复 metrics value strict numeric 校验，随后复审并按业务路径集成。
+- 等待 Franklin 完成 `T-0023-fix`；修复提交后启动复审，确认通过后按业务路径集成到 `dev`。
 
 ### 验证
 
@@ -257,3 +260,4 @@
 - `T-0023` 后端开发自测由 Anscombe 在后端 worktree 完成：`uv run pytest tests/test_ingest_api.py` 20 passed，`uv run pytest` 89 passed/2 skipped，`uv run ruff check .` 通过，`uv run ruff format --check .` 通过，`uv run mypy .` 通过，`git diff --check` 通过。
 - GitHub Actions run `27880497822` 已通过：metrics/logs 摄入进展记录提交后的 Backend checks 与 Frontend checks 均为 success。
 - James 审计 `50c8f17` 未通过，列出 P2 metrics value 非 strict numeric 问题；Godel 在同一提交上完成真实 MySQL/接口补验，通过 `uv run pytest tests/test_ingest_api.py` 20 passed、`uv run pytest` 89 passed/2 skipped、ruff、format check、mypy，以及真实 MySQL 升降级和接口流验证。
+- GitHub Actions run `27880667752` 已通过：metrics/logs 摄入审计补验记录提交后的 Backend checks 与 Frontend checks 均为 success。
