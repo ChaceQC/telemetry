@@ -6,6 +6,10 @@
 
 ### 已完成
 
+- `T-0009`：按协调要求先同步 `origin/dev` 日志规则修正，`.gitignore` 已加入 `agents/runtime/*.log.md`，并通过 `git rm --cached` 将本地运行日志移出 Git 跟踪；清理提交 `ff21e8f` 已推送到 `feature/frontend-dev`。
+- `T-0009`：增强 API client 错误解析，FastAPI `detail` 为字符串、校验数组或对象时均可提取展示；Settings 列表错误使用页面级文案，创建表单对 `404`、`409`、`422` 使用表单级文案并保留后端返回的具体原因。
+- `T-0009`：补充 Vitest 覆盖对象型 `detail`、页面级 404 和表单级 404/409/422 错误展示；请求字段继续保持后端 T-0006/T-0008 契约的 `key` 和服务必填 `environment_id`，未新增后端不存在字段。
+- `T-0009`：更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 Settings 错误展示和 FastAPI `detail` 支持范围。
 - `T-0007-fix`：修复基础管理页面骨架审计未通过项；已读取后端 T-0006 契约并将 Settings API/types/forms 从 `slug` 对齐为 `key`。
 - `T-0007-fix`：服务创建表单已要求必选 `environment_id`，环境下拉按当前 `project_id` 过滤，切换项目时会清空不属于新项目的环境选择。
 - `T-0007-fix`：更新 `agents/runtime/api-contracts/frontend-requests.md`，标注项目、环境、服务 API 已与后端 T-0006 契约对齐，并记录服务 `environment_id` 必填。
@@ -32,12 +36,13 @@
 
 ### 进行中
 
-- `T-0004` 前端审计修复已完成并通过测试子 agent Kant 复验，等待总 agent 重新启动代码审计 agent 审计。
+- `T-0009` 业务改动已通过提交 `70a58c7` 推送到 `feature/frontend-dev`，当前处于审计中，待总 agent 汇总审计结论并安排后续集成。
 
 ### 阻塞与风险
 
 - 暂无阻塞。
 - 后端 T-0006 项目、环境、服务 API 已在后端 worktree 的 `agents/runtime/api-contracts/backend.md` 登记；前端已按该契约对齐 `key` 和必填 `environment_id`。
+- `T-0009` 本轮目标是不依赖后端服务已启动的联调准备；未启动真实后端，未执行浏览器 E2E 或真实接口联调，待后端阶段 1 服务可用后补验 404/409/422 实际响应。
 - `T-0007` 本轮未做浏览器联调；待后端接口完成后补真实接口联调和必要的 E2E 覆盖。
 - `T-0007-fix` 本轮仍未做浏览器联调；当前复验范围为 typecheck、test、build，真实后端联调和 E2E 待后续审计或集成任务补充。
 - 实际前端开发分支 `feature/frontend-dev` 已创建并推送。
@@ -45,6 +50,7 @@
 
 ### 下一步
 
+- `T-0009` 等待总 agent 汇总当前审计结论并推进集成；后端阶段 1 接口可用后补真实接口联调。
 - `T-0007-fix` 提交并推送 `feature/frontend-dev` 后，由总 agent 重新启动代码审计 agent 审计本次修复。
 - 由总 agent 启动代码审计 agent 审计 `T-0007` 前端 Settings/基础管理页面骨架。
 - 由总 agent 重新启动代码审计 agent 审计 `T-0004` 前端审计修复。
@@ -52,6 +58,11 @@
 
 ### 验证
 
+- `T-0009` 已由测试子 agent Beauvoir 复验：`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过，`npm.cmd run build` 通过；Vitest 共 1 个测试文件、7 个测试通过。
+- 测试子 agent Beauvoir 已检查待提交和 ignored 文件，未发现 `frontend/dist/`、`frontend/node_modules/`、日志或真实 env 进入待提交/未跟踪列表；`frontend/dist/`、`frontend/node_modules/`、`agents/runtime/*.log.md` 和常见真实 env 均命中 ignore 规则。
+- `T-0009` 未运行 lint，未启动 dev/preview 服务，未做浏览器交互、截图、E2E 或真实后端 API 联调，已记录为后续补验边界。
+- `T-0009` 首个测试子 agent Beauvoir 初次在 worktree 根目录执行 npm 命令失败，原因是根目录无 `package.json`；已在实际包目录 `frontend/` 重跑并通过。冗余测试子 agent Goodall 已关闭，未产生提交。
+- `T-0009` 前端开发 agent 已执行 `git check-ignore -v agents/runtime/frontend-agent.log.md agents/runtime/test-agent.log.md`，确认本地运行日志被 `.gitignore` 规则忽略；日志文件内容保留在本地。
 - `T-0007-fix` 已由测试子 agent Faraday 复验：`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过，`npm.cmd run build` 通过；前端开发 agent 未代跑测试子 agent 的验证命令。
 - 测试子 agent Faraday 已检查待提交和 ignored 文件，未发现 `.env`、密钥、证书私钥、`frontend/dist/`、`frontend/node_modules/` 进入待提交列表。
 - `T-0007-fix` 未运行 `lint`，未启动 dev/preview 服务，未做浏览器交互、截图、E2E 或后端真实 API 联调，已记录为后续补验边界。

@@ -10,8 +10,23 @@ export type ApiErrorPayload = {
   details?: unknown;
 };
 
+export type ApiErrorDisplayContext = 'page' | 'form';
+
 const DEFAULT_TIMEOUT_MS = 8_000;
 const MAX_DETAIL_MESSAGES = 3;
+
+const STATUS_MESSAGES: Record<ApiErrorDisplayContext, Partial<Record<number, string>>> = {
+  page: {
+    404: '接口或资源不存在，请确认后端基础管理接口已启用。',
+    409: '资源状态冲突，请刷新后重试。',
+    422: '请求参数未通过校验，请刷新页面后重试。'
+  },
+  form: {
+    404: '关联资源不存在，请刷新列表后重试。',
+    409: '资源标识已存在或关联关系冲突，请调整后重试。',
+    422: '表单字段未通过校验，请按提示修正。'
+  }
+};
 
 export class ApiClientError extends Error {
   readonly status?: number;
@@ -73,6 +88,25 @@ export async function apiRequest<TResponse>(
   }
 }
 
+export function formatApiErrorMessage(error: unknown, context: ApiErrorDisplayContext = 'page') {
+  if (error instanceof ApiClientError) {
+    const statusMessage = error.status ? STATUS_MESSAGES[context][error.status] : undefined;
+    const detailMessage = readPayloadMessage(error.details);
+
+    if (statusMessage && detailMessage) {
+      return `${statusMessage} ${detailMessage}`;
+    }
+
+    return statusMessage ?? detailMessage ?? error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return '请求失败，请稍后重试。';
+}
+
 function buildUrl(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${appConfig.apiBaseUrl}${normalizedPath}`;
@@ -93,7 +127,7 @@ async function readBody(response: Response) {
 }
 
 function extractErrorMessage(body: unknown, status: number) {
-  const message = readMessage(body);
+  const message = readPayloadMessage(body);
 
   if (message) {
     return message;
@@ -106,16 +140,31 @@ function extractErrorMessage(body: unknown, status: number) {
   return `请求失败，HTTP 状态码 ${status}。`;
 }
 
-function readMessage(value: unknown): string | undefined {
+function readPayloadMessage(value: unknown): string | undefined {
+  const text = readText(value);
+
+  if (text) {
+    return text;
+  }
+
+  return readMessage(value);
+}
+
+function readMessage(value: unknown, depth = 0): string | undefined {
   if (!value || typeof value !== 'object') {
     return undefined;
   }
 
   const payload = value as { detail?: unknown; error?: unknown; message?: unknown; msg?: unknown };
-  return readText(payload.message) ?? readDetail(payload.detail) ?? readText(payload.error) ?? readText(payload.msg);
+  return (
+    readText(payload.message) ??
+    readDetail(payload.detail, depth + 1) ??
+    readText(payload.error) ??
+    readText(payload.msg)
+  );
 }
 
-function readDetail(detail: unknown): string | undefined {
+function readDetail(detail: unknown, depth = 0): string | undefined {
   const text = readText(detail);
 
   if (text) {
@@ -123,14 +172,20 @@ function readDetail(detail: unknown): string | undefined {
   }
 
   if (Array.isArray(detail)) {
-    const messages = detail.map(readValidationError).filter((message): message is string => Boolean(message));
+    const messages = detail
+      .map((item) => readValidationError(item, depth + 1))
+      .filter((message): message is string => Boolean(message));
     return messages.length > 0 ? messages.slice(0, MAX_DETAIL_MESSAGES).join('；') : undefined;
   }
 
-  return readMessage(detail);
+  if (detail && typeof detail === 'object') {
+    return readMessage(detail, depth + 1) ?? readObjectMessages(detail as Record<string, unknown>, depth + 1);
+  }
+
+  return undefined;
 }
 
-function readValidationError(value: unknown): string | undefined {
+function readValidationError(value: unknown, depth = 0): string | undefined {
   const text = readText(value);
 
   if (text) {
@@ -142,7 +197,7 @@ function readValidationError(value: unknown): string | undefined {
   }
 
   const payload = value as { loc?: unknown; message?: unknown; msg?: unknown };
-  const message = readText(payload.message) ?? readText(payload.msg);
+  const message = readText(payload.message) ?? readText(payload.msg) ?? readDetail(value, depth + 1);
 
   if (!message) {
     return undefined;
@@ -153,6 +208,21 @@ function readValidationError(value: unknown): string | undefined {
   }
 
   return message;
+}
+
+function readObjectMessages(value: Record<string, unknown>, depth = 0): string | undefined {
+  if (depth > 3) {
+    return undefined;
+  }
+
+  const messages = Object.entries(value)
+    .map(([key, detail]) => {
+      const message = readText(detail) ?? readDetail(detail, depth + 1);
+      return message ? `${key}: ${message}` : undefined;
+    })
+    .filter((message): message is string => Boolean(message));
+
+  return messages.length > 0 ? messages.slice(0, MAX_DETAIL_MESSAGES).join('；') : undefined;
 }
 
 function readText(value: unknown): string | undefined {

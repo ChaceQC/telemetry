@@ -2,6 +2,26 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-20 T-0009 错误展示联调准备
+
+- task: T-0009
+- owner: frontend-agent
+- scope: Settings/基础管理页面项目、环境、服务列表与创建。
+- request fields: 无新增字段；继续使用后端契约的 `key`，服务创建继续要求 `environment_id` 必填。
+- supported error body:
+  - `{"detail":"错误说明"}`：直接展示错误说明。
+  - `{"detail":[{"loc":["body","key"],"msg":"错误说明"}]}`：展示 `body.key: 错误说明`，最多合并前三条。
+  - `{"detail":{"key":"错误说明","environment_id":"错误说明"}}`：展示 `key: 错误说明；environment_id: 错误说明`，最多合并前三条。
+- page-level display:
+  - `404 Not Found`: 接口或资源不存在，请确认后端基础管理接口已启用，并追加后端 `detail`。
+  - `409 Conflict`: 资源状态冲突，请刷新后重试，并追加后端 `detail`。
+  - `422 Unprocessable Entity`: 请求参数未通过校验，请刷新页面后重试，并追加后端 `detail`。
+- form-level display:
+  - `404 Not Found`: 关联资源不存在，请刷新列表后重试，并追加后端 `detail`。
+  - `409 Conflict`: 资源标识已存在或关联关系冲突，请调整后重试，并追加后端 `detail`。
+  - `422 Unprocessable Entity`: 表单字段未通过校验，请按提示修正，并追加后端 `detail`。
+- status: frontend-ready
+
 ## 2026-06-20 T-0007-fix 契约对齐说明
 
 - 已读取后端 T-0006 契约：`C:\Users\q-lau\Documents\telemetry-worktrees\backend\agents\runtime\api-contracts\backend.md`。

@@ -67,6 +67,58 @@ describe('apiRequest', () => {
     });
   });
 
+  it('兼容 FastAPI detail 对象错误', async () => {
+    const { apiRequest } = await loadApiClient();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(
+        {
+          detail: {
+            key: '已存在。',
+            environment_id: '必须引用已存在环境。'
+          }
+        },
+        409
+      )
+    );
+
+    await expect(apiRequest('/api/v1/services')).rejects.toMatchObject({
+      message: 'key: 已存在。；environment_id: 必须引用已存在环境。',
+      status: 409
+    });
+  });
+
+  it('按表单上下文展示 404、409、422 错误', async () => {
+    const { ApiClientError, formatApiErrorMessage } = await loadApiClient();
+
+    expect(
+      formatApiErrorMessage(new ApiClientError({ message: 'not found', status: 404, details: { detail: '项目不存在。' } }), 'form')
+    ).toBe('关联资源不存在，请刷新列表后重试。 项目不存在。');
+    expect(
+      formatApiErrorMessage(new ApiClientError({ message: 'conflict', status: 409, details: { detail: '服务 key 已存在。' } }), 'form')
+    ).toBe('资源标识已存在或关联关系冲突，请调整后重试。 服务 key 已存在。');
+    expect(
+      formatApiErrorMessage(
+        new ApiClientError({
+          message: 'invalid',
+          status: 422,
+          details: { detail: [{ loc: ['body', 'key'], msg: 'String should match pattern' }] }
+        }),
+        'form'
+      )
+    ).toBe('表单字段未通过校验，请按提示修正。 body.key: String should match pattern');
+  });
+
+  it('按页面上下文展示列表读取错误', async () => {
+    const { ApiClientError, formatApiErrorMessage } = await loadApiClient();
+
+    expect(
+      formatApiErrorMessage(
+        new ApiClientError({ message: 'missing', status: 404, details: { detail: '接口不存在。' } }),
+        'page'
+      )
+    ).toBe('接口或资源不存在，请确认后端基础管理接口已启用。 接口不存在。');
+  });
+
   it('请求超时时返回统一错误', async () => {
     vi.useFakeTimers();
     const { apiRequest } = await loadApiClient();

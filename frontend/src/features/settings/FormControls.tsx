@@ -37,7 +37,7 @@ export function FormError({ error }: { error: unknown }) {
   return (
     <div className="form-error" role="status">
       <TriangleAlert size={16} aria-hidden="true" />
-      <span>{readErrorMessage(error)}</span>
+      <span>{readErrorMessage(error, 'form')}</span>
     </div>
   );
 }
