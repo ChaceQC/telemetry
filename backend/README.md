@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取和健康检查接口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口和阶段 1 最小基础管理 API。
 
 ## 环境要求
 
@@ -67,6 +67,34 @@ GET /health
 | `environment` | string | 当前运行环境，来自 `APP_ENV` |
 | `port` | number | 当前后端监听端口 |
 
+## 基础管理 API
+
+当前阶段先提供项目、环境和服务的内存版管理接口，用于固定 API 契约和支持前端页面联调。接口暂不接收密钥、Token、Cookie、数据库连接串或通知 Webhook 等敏感字段，也不输出请求体日志。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/projects` | 列出项目 |
+| `POST` | `/api/v1/projects` | 创建项目 |
+| `GET` | `/api/v1/environments` | 列出环境，可用 `project_id` 过滤 |
+| `POST` | `/api/v1/environments` | 创建环境 |
+| `GET` | `/api/v1/services` | 列出服务，可用 `project_id`、`environment_id` 过滤 |
+| `POST` | `/api/v1/services` | 创建服务 |
+
+通用字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | number | 服务端生成的进程内自增 ID |
+| `name` | string | 展示名称，1 到 100 字符 |
+| `key` | string | 稳定标识，匹配 `^[a-z][a-z0-9_-]*$` |
+| `description` | string/null | 描述，最多 500 字符 |
+| `status` | string | `active`、`inactive` 或 `archived` |
+| `created_at` | string | 服务端创建时间，ISO 8601 格式 |
+| `project_id` | number | 环境和服务所属项目 ID |
+| `environment_id` | number | 服务所属环境 ID |
+
+当前临时实现位于 `app/repositories/management.py`，使用进程内 `InMemoryManagementRepository`。MySQL migration、SQLAlchemy model、唯一索引、事务和分页能力接入后，应替换 repository 实现并尽量保持 `app/services/management.py`、Pydantic schema 和路由契约稳定。
+
 ## 目录结构
 
 ```text
@@ -81,7 +109,7 @@ app/
   models/           # 持久化模型
   schemas/          # Pydantic DTO
   services/         # 业务服务层
-  repositories/     # 数据访问层
+  repositories/     # 数据访问层，当前管理 API 使用临时内存 repository
   providers/        # 基础设施 provider
   adapters/         # 第三方系统 adapter
   tasks/            # 后台任务
@@ -96,6 +124,10 @@ tests/              # pytest 测试
 - `app/core/application.py`：FastAPI app factory。
 - `app/api/router.py`：聚合 API 路由。
 - `app/api/routes/health.py`：健康检查接口。
+- `app/api/routes/management.py`：项目、环境、服务管理接口。
+- `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
+- `app/services/management.py`：基础管理业务规则和归属关系校验。
+- `app/repositories/management.py`：阶段 1 临时内存仓储，后续替换为 MySQL repository。
 
 ## 验证命令
 
@@ -106,4 +138,4 @@ uv run ruff format --check .
 uv run python main.py
 ```
 
-当前阶段尚未引入数据库迁移、认证、摄入、查询和告警逻辑，因此后端验证边界限定为配置读取、应用创建、健康检查契约、代码静态检查和本地启动探针。
+当前阶段尚未引入数据库迁移、认证、摄入、查询和告警逻辑，因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、代码静态检查和本地启动探针。
