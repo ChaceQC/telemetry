@@ -68,6 +68,9 @@
 - 前端开发 agent Aristotle 已提交 `6084a13`，新增 ESLint 配置和 `npm run lint`，本地 lint/typecheck/test/build 均通过。
 - 已将“每次 push 后读取 GitHub Actions run 并写入文档”固化到 `AGENT.md` 和 `PROJECT_PLAN.md`。
 - 推送 `333b11d` 后已读取 GitHub Actions run `27870604620`：Backend checks 和 Frontend checks 均通过。
+- 推送 `24e7445` 后已读取 GitHub Actions run `27870640883`：Backend checks 和 Frontend checks 均通过；仅有官方 action Node.js 20 runtime 弃用注解。
+- 已启动后端开发 agent Darwin 推进 `T-0012` 认证基础，限定在后端 worktree 的 `feature/backend-dev`。
+- 已启动前端开发 agent Avicenna 推进 `T-0013` 登录页面与认证状态壳，限定在前端 worktree 的 `feature/frontend-dev`。
 
 ### 阻塞与风险
 
@@ -91,7 +94,7 @@
 - 补验 `.github/workflows/ci.yml` 中后端和前端命令是否与实际脚本一致，并观察 GitHub Actions 首次运行结果。
 - 在 Docker Desktop 可用且允许启动容器时，执行本地数据库启动检查，补验 MySQL/MongoDB root 与应用用户实际可登录，并记录服务健康状态。
 - 启动下一批阶段 1 开发：后端优先 MySQL migration 与持久化 repository；前端优先真实接口联调和错误展示；所有子 agent 继续在独立 worktree 中推进并只提交各自范围。
-- 提交本次 CI 结果文档后，再读取对应 GitHub Actions run 并记录；随后继续阶段 1 认证/权限或真实浏览器联调任务。
+- 等待 T-0012/T-0013 对应开发 agent 提交并 push；随后启动测试/审计，集成后继续读取并记录 GitHub Actions run。
 
 ### 验证
 
