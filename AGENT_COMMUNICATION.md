@@ -111,6 +111,7 @@ closed      已关闭
 | 2026-06-20 | T-0014 | 后端开发/审计 agent | 管理 API 认证保护通过 | Pasteur 提交 `1fe0d62`，为项目/环境/服务管理 API 接入 `get_current_user`；Halley 审计未发现 P0/P1/P2/P3 阻断 | done |
 | 2026-06-20 | T-0015 | 前端开发/审计 agent | Settings 认证客户端通过 | Meitner 提交 `a48755a`，Settings 请求携带 Bearer token 并处理未登录/401；Confucius 审计未发现 P0/P1/P2/P3 阻断 | done |
 | 2026-06-20 | T-0014/T-0015 | 总 agent | 管理接口认证接入集成 | 总 agent 已按业务路径集成后端 `1fe0d62` 和前端 `a48755a` 到 `dev`，未合入 feature 分支历史或运行日志 | done |
+| 2026-06-20 | CI | 总 agent | 管理接口认证接入 Actions 通过 | push `063e99a` 触发 run `27872332372`，Backend checks 与 Frontend checks 均通过；仍有官方 action Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 

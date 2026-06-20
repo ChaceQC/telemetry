@@ -84,6 +84,7 @@
 - 后端开发 agent Pasteur 已提交 `1fe0d62`，管理 API GET/POST 已接入有效 Bearer token 和 active user；Halley 审计通过。
 - 前端开发 agent Meitner 已提交 `a48755a`，Settings 请求携带 session Bearer token，未登录/401 显示页面级提示；Confucius 审计通过。
 - 总 agent 已按业务路径集成 T-0014/T-0015 到 `dev`。
+- 推送管理接口认证接入 `063e99a` 后已读取 GitHub Actions run `27872332372`：Backend checks 与 Frontend checks 均通过。
 
 ### 阻塞与风险
 
@@ -115,6 +116,7 @@
 - 提交本次认证 CI 结果记录后读取对应 Actions run；随后推进管理 API 接入认证/权限或前后端真实浏览器联调。
 - 等待 T-0014/T-0015 开发、验证和审计完成；集成后读取 GitHub Actions，并计划真实浏览器联调。
 - 推送 T-0014/T-0015 集成到 `dev` 后读取 GitHub Actions；通过后启动前后端真实浏览器联调或继续项目级权限/RBAC。
+- 提交本次 CI 结果记录后读取对应 Actions run；随后启动前后端真实浏览器联调或继续项目级权限/RBAC。
 
 ### 验证
 
@@ -149,3 +151,4 @@
 - 真实 MySQL 复验由后端测试 agent Hubble 执行，使用本地 `auth.txt` 凭据但未泄露连接串；临时库已清理，工作树干净。
 - GitHub Actions run `27870604620` 已通过：后端依次完成 ruff lint、ruff format、mypy、pytest；前端依次完成 npm ci、lint、typecheck、test。
 - GitHub Actions run `27871672033` 已通过：认证基础集成后的后端与前端 CI 均为 success。
+- GitHub Actions run `27872332372` 已通过：管理 API 接入认证后的后端与前端 CI 均为 success。
