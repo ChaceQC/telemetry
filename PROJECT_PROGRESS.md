@@ -17,6 +17,7 @@
 - 明确前端开发 agent 只向 `feature/frontend-dev` commit 和 push，后端开发 agent 只向 `feature/backend-dev` commit 和 push。
 - 明确总 agent 负责将前后端分支合并入 `dev`，并在阶段验收、版本发布或必要稳定节点合并入 `main`。
 - 补充 `.gitignore`，禁止提交 `.env`、密钥、证书私钥、依赖目录、构建产物、上传文件和备份文件。
+- 补充 `.gitattributes`，统一文本文件使用 LF，降低 Windows 开发和 Debian 部署之间的换行差异风险。
 
 ### 进行中
 
@@ -41,3 +42,4 @@
 - 已通过关键字检索确认分支隔离、前后端子进度、总进度合并、测试 agent、代码审计 agent 和 VERSION 规则已写入相关文档。
 - 已在 `AGENT_COMMUNICATION.md` 记录本次文档结构测试和代码审计结论。
 - 已检查 Git 当前分支、remote、用户配置和 GitHub CLI 登录状态。
+- 已完成初始提交 `docs: 初始化项目计划和协作规范`。
