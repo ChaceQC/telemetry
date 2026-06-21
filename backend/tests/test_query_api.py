@@ -91,6 +91,24 @@ def create_ingest_api_key(
     return project, raw_key, auth_headers
 
 
+def set_ingest_records_received_at(
+    client: TestClient,
+    *,
+    project_id: object,
+    kind: IngestKind,
+    received_at: datetime,
+) -> None:
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        records = session.query(IngestRecordModel).filter(
+            IngestRecordModel.project_id == project_id,
+            IngestRecordModel.kind == kind.value,
+        )
+        for record in records:
+            record.received_at = received_at
+        session.commit()
+
+
 def test_query_events_lists_ingested_events_with_filters() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -407,15 +425,12 @@ def test_query_events_cursor_paginates_with_received_at_and_id() -> None:
         )
         assert ingest_response.status_code == 202
 
-    app = _tested_app(client)
-    with app.state.db_session_factory() as session:
-        records = session.query(IngestRecordModel).filter(
-            IngestRecordModel.project_id == project["id"],
-            IngestRecordModel.kind == IngestKind.event.value,
-        )
-        for record in records:
-            record.received_at = received_at
-        session.commit()
+    set_ingest_records_received_at(
+        client,
+        project_id=project["id"],
+        kind=IngestKind.event,
+        received_at=received_at,
+    )
 
     first_response = client.get(
         "/api/v1/query/events",
@@ -452,6 +467,190 @@ def test_query_events_cursor_paginates_with_received_at_and_id() -> None:
     assert second_body["next_cursor"] is None
     assert mismatched_filter_response.status_code == 422
     assert mismatched_filter_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+
+
+def test_query_logs_cursor_paginates_with_received_at_and_id() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-page-owner",
+        project_key="query-log-page-project",
+    )
+    received_at = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "log-a",
+                    "source": "app",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "log-b",
+                    "source": "app",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "log-c",
+                    "source": "app",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "ignored-source",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:03:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "ignored-level",
+                    "source": "app",
+                    "timestamp": "2026-06-20T10:04:00Z",
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_ingest_records_received_at(
+        client,
+        project_id=project["id"],
+        kind=IngestKind.log,
+        received_at=received_at,
+    )
+
+    first_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "level": "info",
+            "source": "app",
+            "limit": 2,
+        },
+    )
+    first_body = first_response.json()
+    second_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "level": "info",
+            "source": "app",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert [log["message"] for log in first_body["items"]] == ["log-c", "log-b"]
+    assert isinstance(first_body["next_cursor"], str)
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert [log["message"] for log in second_body["items"]] == ["log-a"]
+    assert second_body["next_cursor"] is None
+
+
+def test_query_metrics_cursor_paginates_with_received_at_and_id() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-metric-page-owner",
+        project_key="query-metric-page-project",
+    )
+    received_at = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "stable.metric",
+                    "value": 1,
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                    "payload": {"sample": "metric-a"},
+                },
+                {
+                    "name": "stable.metric",
+                    "value": 2,
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                    "payload": {"sample": "metric-b"},
+                },
+                {
+                    "name": "stable.metric",
+                    "value": 3,
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                    "payload": {"sample": "metric-c"},
+                },
+                {
+                    "name": "stable.metric",
+                    "value": 4,
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:03:00Z",
+                    "payload": {"sample": "ignored-source"},
+                },
+                {
+                    "name": "other.metric",
+                    "value": 5,
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:04:00Z",
+                    "payload": {"sample": "ignored-name"},
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_ingest_records_received_at(
+        client,
+        project_id=project["id"],
+        kind=IngestKind.metric,
+        received_at=received_at,
+    )
+
+    first_response = client.get(
+        "/api/v1/query/metrics",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "name": "stable.metric",
+            "source": "api",
+            "limit": 2,
+        },
+    )
+    first_body = first_response.json()
+    second_response = client.get(
+        "/api/v1/query/metrics",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "name": "stable.metric",
+            "source": "api",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert [metric["payload"]["sample"] for metric in first_body["items"]] == [
+        "metric-c",
+        "metric-b",
+    ]
+    assert isinstance(first_body["next_cursor"], str)
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert [metric["payload"]["sample"] for metric in second_body["items"]] == [
+        "metric-a"
+    ]
+    assert second_body["next_cursor"] is None
 
 
 def test_query_logs_rejects_invalid_cursor() -> None:

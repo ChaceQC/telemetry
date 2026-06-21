@@ -269,6 +269,12 @@ closed      已关闭
 | 2026-06-22 | T-0034/T-0035 | 总 agent | 启动前后端联合测试 | 后端 Lovelace 已推送 `08d57fd`，前端 Mencius 已推送 `5b498875`；按用户要求已启动测试 agent Helmholtz，组合两端改动后启动真实数据库、真实后端和真实前端进行分页联合测试。总 agent 不代跑完整测试流程 | testing |
 | 2026-06-22 | T-0034/T-0035 | 测试 agent | 真实前后端联合测试通过 | Helmholtz 在独立 detached worktree 组合后端 `08d57fd` 与前端最新 `origin/feature/frontend-dev`，使用本机真实 MySQL 8.0.42 临时库、真实后端 `28117` 和真实前端 `25173` 验证登录、项目/API Key 创建、metrics/logs/events 上报、HTTP 分页和浏览器分页交互均通过；临时库已 drop，服务端口已释放 | done |
 | 2026-06-22 | T-0034/T-0035 | 总 agent | 启动分页代码审计 | 已关闭完成的开发/测试 agent；启动后端代码审计 agent Mendel 审计 `08d57fd`，启动前端代码审计 agent Averroes 审计 `5b498875`/`7707b49`，均为只读审计，不代跑完整测试 | audit |
+| 2026-06-22 | T-0034/T-0035 | 代码审计 agent | 分页代码审计通过 | 后端 Mendel 审计 `08d57fd` 有条件通过，仅留 P3：logs/metrics 缺少同时间戳稳定翻页专项测试；前端 Averroes 审计 `5b498875`/`7707b49` 未发现代码阻断，指出正式契约登记和前端进度状态需同步；根正式契约已更新，前端 Boole 已提交 `1a81681` 同步进度 | done |
+| 2026-06-22 | T-0034/T-0035 | 总 agent | 查询分页集成到 dev | 总 agent 已按路径集成后端 `08d57fd` 与前端 `5b498875`/`7707b49`/`1a81681` 到 `dev`，提交 `66d24b2`；本地后端查询专项、后端全量 pytest/ruff/format/mypy、前端 lint/test/typecheck/build 和真实联合测试均通过 | done |
+| 2026-06-22 | CI | 总 agent | 查询分页集成 Actions 通过 | push `66d24b2` 触发 run `27921190035`；Backend checks 与 Frontend checks 均通过；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。按用户要求不再为单条 CI 结果单独提交，随本次后续实质节点记录 | done |
+| 2026-06-22 | 分支治理 | 用户/总 agent | 改为真实 merge 集成策略 | 用户要求后续采用 `git merge`，不要因 path restore 导致分支管理异常显示；总 agent 已创建本地备份分支，清理 `feature/frontend-dev` 到当前 `dev`，清理 `feature/backend-dev` 为当前 `dev` + T-0036 单提交，后续可使用真实 merge | done |
+| 2026-06-22 | T-0036 | 后端开发/测试 agent | 查询分页测试缺口补强完成 | 后端 Kuhn 提交并 push `50b63fc`，经分支清理后重放为 `e205405`：补 logs/metrics 同时间戳稳定翻页测试；测试 agent Peirce 复验通过，`uv run pytest tests/test_query_api.py` 14 passed，`git diff --check` 与 `uv run ruff check tests/test_query_api.py` 通过 | done |
+| 2026-06-22 | T-0036 | 总 agent | 通过真实 merge 集成测试补强 | 总 agent 使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0036 合入 `dev`，merge 提交 `test: 合并查询分页测试补强`；合并后 `uv run pytest tests/test_query_api.py` 14 passed，`uv run ruff check tests/test_query_api.py` 与 diff check 通过 | done |
 
 ## 6. 测试记录
 
@@ -297,6 +303,7 @@ closed      已关闭
 | 2026-06-20 | T-0033 | 总览页摄入统计前端验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、Playwright CLI + Microsoft Edge 冒烟 | 通过 | 前端 worktree 验证：9 个测试文件、34 个测试通过；桌面和 390px 移动宽度检查 `/` 未登录态，统计登录提示、信号摘要卡、健康检查错误态和近期进展正常；验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程 |
 | 2026-06-20 | T-0033 | 总览页摄入统计 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：前端 Vitest 8 个测试文件、32 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
 | 2026-06-22 | T-0034/T-0035 | 查询分页真实前后端联合测试 | 测试 agent Helmholtz 使用真实 MySQL 临时库、`uv run python main.py` 后端 `28117`、前端 dev server `25173`、HTTP 与浏览器自动化 | 通过 | 登录、项目/API Key 创建、metrics/logs/events 各 3 条上报、三类查询 `limit=2` 第一页/第二页、浏览器未登录提示、下一页、刷新回第一页、无匹配空态均通过；临时库已 drop，`25173`/`25174`/`28117` 已释放 |
+| 2026-06-22 | T-0036 | 查询分页测试补强验证 | 开发自检与测试 agent 复验；merge 后 `uv run pytest tests/test_query_api.py`、`uv run ruff check tests/test_query_api.py`、`git diff --check HEAD~1 HEAD` | 通过 | 后端专项 14 passed，ruff 通过，diff check 通过；补齐 logs/metrics 同时间戳稳定翻页专项测试 |
 
 ## 7. 审计记录
 
