@@ -807,3 +807,38 @@
 - `McClintock` 已运行 `git diff --check`，结果：通过。
 - `McClintock` 首轮发现 `app/services/query.py` 的 ruff/format 问题；开发侧修复后，`McClintock` 复跑 `uv run ruff check .` 和 `uv run ruff format --check .`，结果均通过。
 - 剩余风险：logs/metrics 依赖同一分页实现路径，当前没有各自同时间戳翻页专项用例；真实 MySQL 大数据量、索引和性能边界未验证。
+
+## 2026-06-22 T-0036 查询分页测试缺口补齐
+
+### 已完成
+
+- 在 `backend/tests/test_query_api.py` 补齐 logs 与 metrics 同一 `received_at` 下按 `id` 稳定游标翻页的专项回归测试。
+- 新增测试复用 `set_ingest_records_received_at()` helper，将指定项目和摄入类型的记录固定到同一接收时间，避免重复手写数据库调整逻辑。
+- logs 分页用例带 `level=info` 和 `source=app` 筛选，并插入不同 level/source 的干扰记录，验证筛选条件和游标翻页同时生效。
+- metrics 分页用例带 `name=stable.metric` 和 `source=api` 筛选，并插入不同 name/source 的干扰记录，验证指标路由筛选接线和同时间戳翻页稳定性。
+- 未修改业务实现、API 契约、迁移、README、根 `AGENT_COMMUNICATION.md` 或根 `PROJECT_PROGRESS.md`。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮是测试缺口补齐，不改变查询行为；真实 MySQL 大数据量分页性能、组合索引和专用查询存储仍属于后续集成/性能验证范围。
+- 开发侧按职责边界只运行最小自检；完整后端测试矩阵未在本轮开发侧执行。
+- `uv run pytest tests/test_query_api.py` 仍有 1 条 FastAPI/Starlette TestClient 上游弃用警告，不影响本次验证通过。
+
+### 下一步
+
+- 由总 agent 后续按项目流程决定是否启动代码审计 agent，或将 `feature/backend-dev` 合并入 `dev`。
+- 后续真实 MySQL 或专用查询存储接入时，继续补充分页性能、索引和跨页一致性专项验证。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：14 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `git diff --check`，结果：通过。
+
+### 测试 agent 独立复验
+
+- 已启动测试 agent `Peirce` 做独立复验，结论：通过。
+- `Peirce` 已确认当前分支为 `feature/backend-dev`，复验前后改动范围均仅有 `backend/tests/test_query_api.py` 未暂存改动。
+- `Peirce` 已运行 `uv run pytest tests/test_query_api.py`，结果：14 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- `Peirce` 已运行 `git diff --check`，结果：通过。
+- `Peirce` 已运行 `uv run ruff check tests/test_query_api.py`，结果：通过。
