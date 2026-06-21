@@ -2,6 +2,41 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0035 查询页游标分页前端对齐
+
+- task: T-0035
+- owner: frontend-agent
+- scope: `/metrics`、`/logs`、`/events` 查询页最小分页体验，配合后端 T-0034 查询 API 游标分页。
+- status: frontend-ready
+
+### 查询 API 分页契约
+
+- affected endpoints:
+  - `GET /api/v1/query/metrics`
+  - `GET /api/v1/query/logs`
+  - `GET /api/v1/query/events`
+- request query:
+  - 保留现有 `project_id`、主筛选字段、`source`、`occurred_from`、`occurred_to` 和 `limit`。
+  - 新增可选 `cursor`：字符串；首次查询不传，点击“下一页”时传入上一页响应的 `next_cursor`。
+- response body:
+
+```json
+{
+  "items": [],
+  "next_cursor": null
+}
+```
+
+- response fields:
+  - `items`：当前页记录数组，元素字段沿用各查询接口原有 item 契约。
+  - `next_cursor`：`string | null`；有值表示还可以继续下一页，`null` 表示当前筛选下没有更多结果。
+- frontend behavior:
+  - 首次进入页面或登录恢复完成后加载第一页。
+  - 点击“下一页”使用当前响应的 `next_cursor` 发起下一页请求，并替换为下一页结果。
+  - 提交新的筛选条件或点击刷新时清空旧 cursor，页码回到第一页。
+  - 未登录或 session 恢复中时保持原行为：展示登录提示并暂停查询请求。
+  - 前端 client 当前保留对旧裸数组响应的兼容兜底，转换为 `{ items, next_cursor: null }`，用于后端 T-0034 分支未落地前的本地联调；正式契约仍以 envelope 为准。
+
 ## 2026-06-20 T-0018-subpath-api-config 子路径部署与 API 前缀策略
 
 - task: T-0018-subpath-api-config

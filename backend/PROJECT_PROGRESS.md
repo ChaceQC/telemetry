@@ -763,3 +763,47 @@
 - 已运行 `uv run ruff format --check .`，结果：77 个文件已格式化。
 - 已运行 `uv run mypy .`，结果：77 个源文件无类型错误。
 - 已运行 `uv run pytest`，结果：115 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+
+## 2026-06-22 T-0034 后端查询结果分页基础
+
+### 已完成
+
+- 为 `GET /api/v1/query/events`、`GET /api/v1/query/logs`、`GET /api/v1/query/metrics` 增加最小游标分页能力。
+- 三类查询响应统一调整为 envelope：`{"items": [...], "next_cursor": string | null}`；无更多数据时 `next_cursor=null`。
+- 保留既有 `limit`、筛选参数、项目权限过滤和无权项目 `404 项目不存在` 行为，并新增可选 `cursor` 查询参数。
+- 游标由查询类型、`received_at` 和 `id` 编码生成，查询继续使用 `received_at`、`id` 倒序，避免同一接收时间记录翻页重复或漏项。
+- 非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`，不暴露内部解码细节。
+- 查询仍只使用关系库 `ingest_records`，未引入 ClickHouse/MongoDB 查询。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，同步 API-0014、API-0015、API-0016 的 envelope、`cursor`、`next_cursor` 与错误边界。
+- 扩展 `backend/tests/test_query_api.py`，覆盖统一 envelope、同一 `received_at` 下基于 `id` 的稳定翻页、坏游标、跨查询类型游标和不匹配筛选条件游标拒绝。
+- 已启动测试 agent `McClintock` 对 T-0034 查询分页后端做独立验证；独立复验确认查询分页相关测试、全量 pytest、mypy 和 `git diff --check` 通过，并发现 ruff/format 问题；后端开发侧修复后，`McClintock` 复跑 `uv run ruff check .` 和 `uv run ruff format --check .` 均通过，确认问题关闭。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本次分页仍基于关系库 `ingest_records`；真实 MySQL 大数据量性能、组合索引策略和 ClickHouse/MongoDB 专用查询链路仍需测试 agent 在后续真实服务/集成环境补验。
+- 响应从裸数组调整为统一 envelope，前端需按 T-0034 契约读取 `items` 与 `next_cursor`。
+- 按最新职责边界，后端开发侧验证收窄为实现必要的快速自检；本次在边界修正前已运行过较完整的开发自检命令，后续完整测试矩阵仍以测试 agent 独立复验为准。
+
+### 下一步
+
+- 等待总 agent 后续启动代码审计 agent。
+- 后续在真实 MySQL 或专用查询存储接入时补充分页性能、索引和跨页一致性专项验证。
+
+### 开发侧验证
+
+- 快速冒烟：已运行 `uv run pytest tests/test_query_api.py`，结果：12 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 边界修正前的开发自检：已运行 `uv run pytest`，结果：118 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 边界修正前的开发自检：已运行 `uv run ruff check .`，结果：通过。
+- 边界修正前的开发自检：已运行 `uv run ruff format --check .`，结果：通过。
+- 边界修正前的开发自检：已运行 `uv run mypy .`，结果：77 个源文件无类型错误。
+- 边界修正前的开发自检：已运行 `git diff --check`，结果：通过。
+
+### 测试 agent 独立复验
+
+- `McClintock` 已运行 `uv run pytest tests/test_query_api.py`，结果：12 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- `McClintock` 已运行 `uv run pytest`，结果：118 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- `McClintock` 已运行 `uv run mypy .`，结果：77 个源文件无类型错误。
+- `McClintock` 已运行 `git diff --check`，结果：通过。
+- `McClintock` 首轮发现 `app/services/query.py` 的 ruff/format 问题；开发侧修复后，`McClintock` 复跑 `uv run ruff check .` 和 `uv run ruff format --check .`，结果均通过。
+- 剩余风险：logs/metrics 依赖同一分页实现路径，当前没有各自同时间戳翻页专项用例；真实 MySQL 大数据量、索引和性能边界未验证。

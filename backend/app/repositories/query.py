@@ -5,11 +5,17 @@ from datetime import datetime
 from numbers import Real
 from typing import Any, Protocol
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.ingest import IngestRecordModel
 from app.schemas.ingest import IngestKind
+
+
+@dataclass(frozen=True)
+class QueryCursor:
+    received_at: datetime
+    id: int
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,7 @@ class QueryRepository(Protocol):
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
+        cursor: QueryCursor | None,
     ) -> list[EventQueryRecord]: ...
 
     def list_logs(
@@ -77,6 +84,7 @@ class QueryRepository(Protocol):
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
+        cursor: QueryCursor | None,
     ) -> list[LogQueryRecord]: ...
 
     def list_metrics(
@@ -89,6 +97,7 @@ class QueryRepository(Protocol):
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
+        cursor: QueryCursor | None,
     ) -> list[MetricQueryRecord]: ...
 
 
@@ -155,6 +164,39 @@ def _metric_query_record(model: IngestRecordModel) -> MetricQueryRecord:
     )
 
 
+def _apply_common_filters(
+    statement: Select[tuple[IngestRecordModel]],
+    *,
+    project_ids: list[int] | None,
+    project_id: int | None,
+    source: str | None,
+    occurred_from: datetime | None,
+    occurred_to: datetime | None,
+    cursor: QueryCursor | None,
+) -> Select[tuple[IngestRecordModel]]:
+    if project_ids is not None:
+        statement = statement.where(IngestRecordModel.project_id.in_(project_ids))
+    if project_id is not None:
+        statement = statement.where(IngestRecordModel.project_id == project_id)
+    if source is not None:
+        statement = statement.where(IngestRecordModel.source == source)
+    if occurred_from is not None:
+        statement = statement.where(IngestRecordModel.occurred_at >= occurred_from)
+    if occurred_to is not None:
+        statement = statement.where(IngestRecordModel.occurred_at <= occurred_to)
+    if cursor is not None:
+        statement = statement.where(
+            or_(
+                IngestRecordModel.received_at < cursor.received_at,
+                and_(
+                    IngestRecordModel.received_at == cursor.received_at,
+                    IngestRecordModel.id < cursor.id,
+                ),
+            )
+        )
+    return statement
+
+
 class SqlAlchemyQueryRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -169,6 +211,7 @@ class SqlAlchemyQueryRepository:
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
+        cursor: QueryCursor | None,
     ) -> list[EventQueryRecord]:
         statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
             IngestRecordModel.kind == IngestKind.event.value
@@ -176,17 +219,17 @@ class SqlAlchemyQueryRepository:
         if project_ids is not None:
             if not project_ids:
                 return []
-            statement = statement.where(IngestRecordModel.project_id.in_(project_ids))
-        if project_id is not None:
-            statement = statement.where(IngestRecordModel.project_id == project_id)
+        statement = _apply_common_filters(
+            statement,
+            project_ids=project_ids,
+            project_id=project_id,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            cursor=cursor,
+        )
         if event_type is not None:
             statement = statement.where(IngestRecordModel.event_type == event_type)
-        if source is not None:
-            statement = statement.where(IngestRecordModel.source == source)
-        if occurred_from is not None:
-            statement = statement.where(IngestRecordModel.occurred_at >= occurred_from)
-        if occurred_to is not None:
-            statement = statement.where(IngestRecordModel.occurred_at <= occurred_to)
 
         statement = statement.order_by(
             IngestRecordModel.received_at.desc(),
@@ -204,6 +247,7 @@ class SqlAlchemyQueryRepository:
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
+        cursor: QueryCursor | None,
     ) -> list[LogQueryRecord]:
         statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
             IngestRecordModel.kind == IngestKind.log.value
@@ -211,17 +255,17 @@ class SqlAlchemyQueryRepository:
         if project_ids is not None:
             if not project_ids:
                 return []
-            statement = statement.where(IngestRecordModel.project_id.in_(project_ids))
-        if project_id is not None:
-            statement = statement.where(IngestRecordModel.project_id == project_id)
+        statement = _apply_common_filters(
+            statement,
+            project_ids=project_ids,
+            project_id=project_id,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            cursor=cursor,
+        )
         if level is not None:
             statement = statement.where(IngestRecordModel.event_type == level)
-        if source is not None:
-            statement = statement.where(IngestRecordModel.source == source)
-        if occurred_from is not None:
-            statement = statement.where(IngestRecordModel.occurred_at >= occurred_from)
-        if occurred_to is not None:
-            statement = statement.where(IngestRecordModel.occurred_at <= occurred_to)
 
         statement = statement.order_by(
             IngestRecordModel.received_at.desc(),
@@ -239,6 +283,7 @@ class SqlAlchemyQueryRepository:
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
+        cursor: QueryCursor | None,
     ) -> list[MetricQueryRecord]:
         statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
             IngestRecordModel.kind == IngestKind.metric.value
@@ -246,17 +291,17 @@ class SqlAlchemyQueryRepository:
         if project_ids is not None:
             if not project_ids:
                 return []
-            statement = statement.where(IngestRecordModel.project_id.in_(project_ids))
-        if project_id is not None:
-            statement = statement.where(IngestRecordModel.project_id == project_id)
+        statement = _apply_common_filters(
+            statement,
+            project_ids=project_ids,
+            project_id=project_id,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            cursor=cursor,
+        )
         if name is not None:
             statement = statement.where(IngestRecordModel.event_type == name)
-        if source is not None:
-            statement = statement.where(IngestRecordModel.source == source)
-        if occurred_from is not None:
-            statement = statement.where(IngestRecordModel.occurred_at >= occurred_from)
-        if occurred_to is not None:
-            statement = statement.where(IngestRecordModel.occurred_at <= occurred_to)
 
         statement = statement.order_by(
             IngestRecordModel.received_at.desc(),

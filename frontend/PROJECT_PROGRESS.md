@@ -2,6 +2,44 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0035 查询页分页基础
+
+### 已完成
+
+- 更新 `frontend/src/api/query.ts`，为 metrics、logs、events 查询参数新增可选 `cursor`，并将查询返回类型调整为 `{ items, next_cursor }` envelope。
+- 查询 API client 保留旧裸数组响应兼容兜底，转换为 `{ items, next_cursor: null }`，便于后端 T-0034 分支未落地前本地联调；正式契约仍以 envelope 为准。
+- 更新 `frontend/src/pages/QueryPage.tsx`，支持首次加载第一页、点击“下一页”使用 `next_cursor` 继续查询，提交筛选条件或刷新时清空旧 cursor 并回到第一页；未登录和 session 恢复中仍暂停查询并显示登录提示。
+- 更新查询页分页脚注和按钮样式，窄屏下分页提示和按钮纵向排列，避免长文本挤压。
+- 更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0035/T-0034 查询分页契约、前端行为和剩余边界。
+- T-0035 前端实现已提交 `5b498875`；测试记录已提交 `7707b49`。
+- 测试 agent Helmholtz 已用真实 MySQL 8.0.42 临时库、真实后端 `28117`、真实前端 `25173` 完成 T-0034/T-0035 联合测试；登录、项目/API Key 创建、metrics/logs/events 各 3 条上报、HTTP 分页、浏览器 `/metrics` `/logs` `/events` 下一页/刷新/空态均通过。
+
+### 进行中
+
+- 暂无进行中的 T-0035 前端联调事项；等待总 agent 按业务路径安排后续集成与审计流转。
+
+### 阻塞与风险
+
+- 当前只提供最小向前分页，不提供上一页、页码缓存、追加加载、导出或分页历史回退；这些能力后续按查询页体验拆分。
+- 临时库已 drop，`25173`、`25174`、`28117` 已释放。
+- 当前未覆盖 Docker Compose MySQL、大数据量、并发分页、生产反代/子路径部署。
+
+### 下一步
+
+- 由总 agent 按业务路径推进 T-0034/T-0035 后续集成；Docker Compose MySQL、大数据量、并发分页、生产反代/子路径部署留待对应集成或部署任务补验。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- query.test.ts` 通过（1 个测试文件、3 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（9 个测试文件、35 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+- 本轮未启动 Vite dev server 或 preview server；已额外确认 `25173` 无监听进程。
+- 测试 agent Nietzsche 已完成只读复验：`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，并复核 `25173` 无监听；未做浏览器/E2E 或真实后端游标分页联调。
+- 测试 agent Helmholtz 已完成 T-0034/T-0035 真实联合测试并通过；测试记录提交为 `7707b49`。
+
 ## 2026-06-21 T-0033 总览页摄入统计接入
 
 ### 已完成

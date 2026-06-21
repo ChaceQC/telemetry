@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import cast
 
 from fastapi import FastAPI
@@ -8,7 +9,9 @@ from fastapi.testclient import TestClient
 from app.core.application import create_app
 from app.core.config import Settings
 from app.db.base import Base
+from app.models.ingest import IngestRecordModel
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
+from app.schemas.ingest import IngestKind
 from app.services.auth import AuthService, hash_password
 
 TEST_AUTH_SECRET = "test-auth-secret-key-with-at-least-thirty-two-bytes"
@@ -136,12 +139,16 @@ def test_query_events_lists_ingested_events_with_filters() -> None:
     assert first_response.status_code == 202
     assert second_response.status_code == 202
     assert all_response.status_code == 200
-    assert [event["type"] for event in all_response.json()] == [
+    all_body = all_response.json()
+    assert all_body["next_cursor"] is None
+    assert [event["type"] for event in all_body["items"]] == [
         "incident.opened",
         "deploy.started",
     ]
     assert filtered_response.status_code == 200
-    filtered_events = filtered_response.json()
+    filtered_body = filtered_response.json()
+    assert filtered_body["next_cursor"] is None
+    filtered_events = filtered_body["items"]
     assert len(filtered_events) == 1
     assert filtered_events[0]["project_id"] == project["id"]
     assert filtered_events[0]["type"] == "deploy.started"
@@ -203,9 +210,13 @@ def test_query_logs_lists_ingested_logs_with_filters() -> None:
 
     assert ingest_response.status_code == 202
     assert all_response.status_code == 200
-    assert [log["level"] for log in all_response.json()] == ["error", "info"]
+    all_body = all_response.json()
+    assert all_body["next_cursor"] is None
+    assert [log["level"] for log in all_body["items"]] == ["error", "info"]
     assert filtered_response.status_code == 200
-    filtered_logs = filtered_response.json()
+    filtered_body = filtered_response.json()
+    assert filtered_body["next_cursor"] is None
+    filtered_logs = filtered_body["items"]
     assert len(filtered_logs) == 1
     assert filtered_logs[0]["project_id"] == project["id"]
     assert filtered_logs[0]["level"] == "info"
@@ -273,12 +284,16 @@ def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
 
     assert ingest_response.status_code == 202
     assert all_response.status_code == 200
-    assert [metric["name"] for metric in all_response.json()] == [
+    all_body = all_response.json()
+    assert all_body["next_cursor"] is None
+    assert [metric["name"] for metric in all_body["items"]] == [
         "system.cpu",
         "http.requests",
     ]
     assert filtered_response.status_code == 200
-    filtered_metrics = filtered_response.json()
+    filtered_body = filtered_response.json()
+    assert filtered_body["next_cursor"] is None
+    filtered_metrics = filtered_body["items"]
     assert len(filtered_metrics) == 1
     assert filtered_metrics[0]["project_id"] == project["id"]
     assert filtered_metrics[0]["name"] == "http.requests"
@@ -314,7 +329,7 @@ def test_query_events_hide_projects_without_membership() -> None:
 
     assert ingest_response.status_code == 202
     assert all_response.status_code == 200
-    assert all_response.json() == []
+    assert all_response.json() == {"items": [], "next_cursor": None}
     assert project_response.status_code == 404
     assert project_response.json()["detail"] == "项目不存在"
 
@@ -342,7 +357,7 @@ def test_query_logs_hide_projects_without_membership() -> None:
 
     assert ingest_response.status_code == 202
     assert all_response.status_code == 200
-    assert all_response.json() == []
+    assert all_response.json() == {"items": [], "next_cursor": None}
     assert project_response.status_code == 404
     assert project_response.json()["detail"] == "项目不存在"
 
@@ -370,9 +385,124 @@ def test_query_metrics_hide_projects_without_membership() -> None:
 
     assert ingest_response.status_code == 202
     assert all_response.status_code == 200
-    assert all_response.json() == []
+    assert all_response.json() == {"items": [], "next_cursor": None}
     assert project_response.status_code == 404
     assert project_response.json()["detail"] == "项目不存在"
+
+
+def test_query_events_cursor_paginates_with_received_at_and_id() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-page-owner",
+        project_key="query-page-project",
+    )
+    received_at = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+
+    for event_type in ["event-a", "event-b", "event-c"]:
+        ingest_response = client.post(
+            "/api/v1/ingest/events",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={"type": event_type, "payload": {"type": event_type}},
+        )
+        assert ingest_response.status_code == 202
+
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        records = session.query(IngestRecordModel).filter(
+            IngestRecordModel.project_id == project["id"],
+            IngestRecordModel.kind == IngestKind.event.value,
+        )
+        for record in records:
+            record.received_at = received_at
+        session.commit()
+
+    first_response = client.get(
+        "/api/v1/query/events",
+        headers=admin_headers,
+        params={"project_id": project["id"], "limit": 2},
+    )
+    first_body = first_response.json()
+    second_response = client.get(
+        "/api/v1/query/events",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_filter_response = client.get(
+        "/api/v1/query/events",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "type": "event-a",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert [event["type"] for event in first_body["items"]] == ["event-c", "event-b"]
+    assert isinstance(first_body["next_cursor"], str)
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert [event["type"] for event in second_body["items"]] == ["event-a"]
+    assert second_body["next_cursor"] is None
+    assert mismatched_filter_response.status_code == 422
+    assert mismatched_filter_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+
+
+def test_query_logs_rejects_invalid_cursor() -> None:
+    client = build_client()
+    _project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-bad-cursor-owner",
+        project_key="query-log-bad-cursor-project",
+    )
+
+    response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"cursor": "not-a-valid-cursor"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "cursor 无效或不匹配当前查询"
+
+
+def test_query_metrics_rejects_cursor_from_other_query_kind() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-metric-cursor-owner",
+        project_key="query-metric-cursor-project",
+    )
+    for event_type in ["metric-cursor-a", "metric-cursor-b"]:
+        response = client.post(
+            "/api/v1/ingest/events",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={"type": event_type, "payload": {"type": event_type}},
+        )
+        assert response.status_code == 202
+
+    event_response = client.get(
+        "/api/v1/query/events",
+        headers=admin_headers,
+        params={"project_id": project["id"], "limit": 1},
+    )
+    event_body = event_response.json()
+    metric_response = client.get(
+        "/api/v1/query/metrics",
+        headers=admin_headers,
+        params={"cursor": event_body["next_cursor"]},
+    )
+
+    assert event_response.status_code == 200
+    assert isinstance(event_body["next_cursor"], str)
+    assert metric_response.status_code == 422
+    assert metric_response.json()["detail"] == "cursor 无效或不匹配当前查询"
 
 
 def test_query_events_requires_user_token() -> None:

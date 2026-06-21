@@ -18,6 +18,11 @@ class EventQueryResponse(BaseModel):
     received_at: datetime
 
 
+class EventQueryPageResponse(BaseModel):
+    items: list[EventQueryResponse]
+    next_cursor: str | None
+
+
 class LogQueryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -35,6 +40,11 @@ class LogQueryResponse(BaseModel):
     received_at: datetime
 
 
+class LogQueryPageResponse(BaseModel):
+    items: list[LogQueryResponse]
+    next_cursor: str | None
+
+
 class MetricQueryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,3 +59,8 @@ class MetricQueryResponse(BaseModel):
     payload: dict[str, Any]
     occurred_at: datetime | None
     received_at: datetime
+
+
+class MetricQueryPageResponse(BaseModel):
+    items: list[MetricQueryResponse]
+    next_cursor: str | None

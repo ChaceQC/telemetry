@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, Boxes, LogIn, RefreshCw, Search, ShieldAlert } from 'lucide-react';
+import { BarChart3, Boxes, ChevronRight, LogIn, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -12,7 +12,8 @@ import {
   type LogQueryItem,
   type LogQueryParams,
   type MetricQueryItem,
-  type MetricQueryParams
+  type MetricQueryParams,
+  type QueryResultPage
 } from '../api/query';
 import { formatApiErrorMessage } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
@@ -33,6 +34,18 @@ type QueryRecord = MetricQueryItem | LogQueryItem | EventQueryItem;
 
 type QueryPageProps = {
   signal: QuerySignal;
+};
+
+type SignalScopedFilters = {
+  signal: QuerySignal;
+  filters: QueryFilters;
+};
+
+type PaginationState = {
+  signal: QuerySignal;
+  cursor?: string;
+  page: number;
+  version: number;
 };
 
 const signalConfig = {
@@ -81,23 +94,75 @@ export function QueryPage({ signal }: QueryPageProps) {
   const auth = useAuth();
   const location = useLocation();
   const config = signalConfig[signal];
-  const [filters, setFilters] = useState<QueryFilters>(defaultFilters);
-  const [submittedFilters, setSubmittedFilters] = useState<QueryFilters>(defaultFilters);
+  const [draftFilters, setDraftFilters] = useState<SignalScopedFilters>({ signal, filters: defaultFilters });
+  const [submittedFilters, setSubmittedFilters] = useState<SignalScopedFilters>({ signal, filters: defaultFilters });
+  const [pagination, setPagination] = useState<PaginationState>({ signal, page: 1, version: 0 });
   const canQuery = auth.isAuthenticated && !auth.isRestoring;
-  const params = useMemo(() => buildQueryParams(signal, submittedFilters), [signal, submittedFilters]);
+  const filters = draftFilters.signal === signal ? draftFilters.filters : defaultFilters;
+  const activeSubmittedFilters = submittedFilters.signal === signal ? submittedFilters.filters : defaultFilters;
+  const pageCursor = pagination.signal === signal ? pagination.cursor : undefined;
+  const pageNumber = pagination.signal === signal ? pagination.page : 1;
+  const params = useMemo(
+    () => buildQueryParams(signal, activeSubmittedFilters, pageCursor),
+    [signal, activeSubmittedFilters, pageCursor]
+  );
   const query = useQuery({
-    queryKey: ['query', signal, params],
-    queryFn: () => config.fetch(params as never) as Promise<QueryRecord[]>,
+    queryKey: ['query', signal, params, pagination.version],
+    queryFn: () => config.fetch(params as never) as Promise<QueryResultPage<QueryRecord>>,
     enabled: canQuery,
     retry: false
   });
   const Icon = config.icon;
+  const records = query.data?.items ?? [];
+  const nextCursor = query.data?.next_cursor ?? null;
+  const hasRecords = records.length > 0;
   const badgeTone = !canQuery ? 'warning' : query.isError ? 'danger' : query.isFetching ? 'warning' : 'success';
   const badgeLabel = !canQuery ? (auth.isRestoring ? '恢复中' : '需要登录') : query.isFetching ? '查询中' : query.isError ? '查询异常' : '已就绪';
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setSubmittedFilters(filters);
+    setSubmittedFilters({ signal, filters });
+    resetPagination();
+  }
+
+  function handleRefresh() {
+    if (!canQuery) {
+      return;
+    }
+
+    resetPagination();
+  }
+
+  function handleNextPage() {
+    if (!nextCursor || query.isFetching) {
+      return;
+    }
+
+    setPagination((current) => ({
+      signal,
+      cursor: nextCursor,
+      page: current.signal === signal ? current.page + 1 : 2,
+      version: current.version
+    }));
+  }
+
+  function updateFilter(name: keyof QueryFilters, value: string) {
+    setDraftFilters({
+      signal,
+      filters: {
+        ...filters,
+        [name]: value
+      }
+    });
+  }
+
+  function resetPagination() {
+    setPagination((current) => ({
+      signal,
+      cursor: undefined,
+      page: 1,
+      version: current.version + 1
+    }));
   }
 
   return (
@@ -113,7 +178,7 @@ export function QueryPage({ signal }: QueryPageProps) {
           <button
             className="icon-button"
             type="button"
-            onClick={() => query.refetch()}
+            onClick={handleRefresh}
             disabled={!canQuery}
             title={canQuery ? '刷新查询结果' : '登录后刷新查询结果'}
           >
@@ -156,7 +221,7 @@ export function QueryPage({ signal }: QueryPageProps) {
               min="1"
               inputMode="numeric"
               value={filters.projectId}
-              onChange={(event) => setFilters({ ...filters, projectId: event.target.value })}
+              onChange={(event) => updateFilter('projectId', event.target.value)}
               placeholder="全部项目"
             />
           </label>
@@ -164,7 +229,7 @@ export function QueryPage({ signal }: QueryPageProps) {
             <span>{config.primaryLabel}</span>
             <input
               value={filters.primary}
-              onChange={(event) => setFilters({ ...filters, primary: event.target.value })}
+              onChange={(event) => updateFilter('primary', event.target.value)}
               placeholder={config.primaryPlaceholder}
             />
           </label>
@@ -172,7 +237,7 @@ export function QueryPage({ signal }: QueryPageProps) {
             <span>来源</span>
             <input
               value={filters.source}
-              onChange={(event) => setFilters({ ...filters, source: event.target.value })}
+              onChange={(event) => updateFilter('source', event.target.value)}
               placeholder="api"
             />
           </label>
@@ -181,7 +246,7 @@ export function QueryPage({ signal }: QueryPageProps) {
             <input
               type="datetime-local"
               value={filters.occurredFrom}
-              onChange={(event) => setFilters({ ...filters, occurredFrom: event.target.value })}
+              onChange={(event) => updateFilter('occurredFrom', event.target.value)}
             />
           </label>
           <label className="field">
@@ -189,7 +254,7 @@ export function QueryPage({ signal }: QueryPageProps) {
             <input
               type="datetime-local"
               value={filters.occurredTo}
-              onChange={(event) => setFilters({ ...filters, occurredTo: event.target.value })}
+              onChange={(event) => updateFilter('occurredTo', event.target.value)}
             />
           </label>
           <label className="field">
@@ -200,7 +265,7 @@ export function QueryPage({ signal }: QueryPageProps) {
               max="500"
               inputMode="numeric"
               value={filters.limit}
-              onChange={(event) => setFilters({ ...filters, limit: event.target.value })}
+              onChange={(event) => updateFilter('limit', event.target.value)}
             />
           </label>
           <button className="primary-button query-submit" type="submit" disabled={!canQuery || query.isFetching}>
@@ -214,10 +279,10 @@ export function QueryPage({ signal }: QueryPageProps) {
         <div className="section-heading">
           <div>
             <h2>结果列表</h2>
-            <p>{query.data ? `${query.data.length} 条记录` : '等待查询结果'}</p>
+            <p>{query.data ? formatResultSummary(pageNumber, records.length) : '等待查询结果'}</p>
           </div>
-          <StatusBadge tone={query.data && query.data.length > 0 ? 'success' : 'neutral'}>
-            {query.data && query.data.length > 0 ? '有数据' : '暂无数据'}
+          <StatusBadge tone={hasRecords ? 'success' : 'neutral'}>
+            {hasRecords ? '有数据' : '暂无数据'}
           </StatusBadge>
         </div>
 
@@ -231,7 +296,7 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
 
-        {!query.isError && query.data?.length === 0 ? (
+        {!query.isError && query.data && records.length === 0 ? (
           <div className="resource-state">
             <Icon size={18} aria-hidden="true" />
             <div>
@@ -241,25 +306,41 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
 
-        {!query.isError && query.data && query.data.length > 0 ? (
+        {!query.isError && hasRecords ? (
           <ol className="query-list">
-            {query.data.map((item) => (
+            {records.map((item) => (
               <li key={`${signal}-${item.id}`}>{renderRecord(signal, item)}</li>
             ))}
           </ol>
+        ) : null}
+
+        {!query.isError && query.data ? (
+          <div className="query-pagination" aria-label="分页">
+            <span>{formatPaginationHint(pageNumber, records.length, nextCursor)}</span>
+            <button
+              className="text-button query-next-button"
+              type="button"
+              onClick={handleNextPage}
+              disabled={!canQuery || query.isFetching || !nextCursor}
+            >
+              <span>下一页</span>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          </div>
         ) : null}
       </section>
     </div>
   );
 }
 
-function buildQueryParams(signal: QuerySignal, filters: QueryFilters) {
+function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cursor?: string) {
   const common = {
     project_id: toNumber(filters.projectId),
     source: toOptional(filters.source),
     occurred_from: toOptional(filters.occurredFrom),
     occurred_to: toOptional(filters.occurredTo),
-    limit: toNumber(filters.limit)
+    limit: toNumber(filters.limit),
+    cursor
   };
 
   if (signal === 'metrics') {
@@ -367,4 +448,20 @@ function formatTime(value: string) {
 
 function formatNumber(value: number, unit: string | null) {
   return `${Number.isInteger(value) ? value : value.toFixed(3)}${unit ? ` ${unit}` : ''}`;
+}
+
+function formatResultSummary(pageNumber: number, count: number) {
+  return `第 ${pageNumber} 页，${count} 条记录`;
+}
+
+function formatPaginationHint(pageNumber: number, count: number, nextCursor: string | null) {
+  if (nextCursor) {
+    return `第 ${pageNumber} 页已加载，可继续查看下一页。`;
+  }
+
+  if (count > 0) {
+    return `第 ${pageNumber} 页已加载，当前筛选已无更多结果。`;
+  }
+
+  return '当前筛选暂无结果。';
 }

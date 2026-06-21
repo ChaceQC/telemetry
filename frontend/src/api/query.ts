@@ -7,6 +7,7 @@ export type QueryCommonParams = {
   occurred_from?: string;
   occurred_to?: string;
   limit?: number;
+  cursor?: string;
 };
 
 export type EventQueryParams = QueryCommonParams & {
@@ -60,14 +61,35 @@ export type MetricQueryItem = {
   received_at: string;
 };
 
+export type QueryResultPage<TItem> = {
+  items: TItem[];
+  next_cursor: string | null;
+};
+
 export function listEvents(params: EventQueryParams = {}) {
-  return apiRequest<EventQueryItem[]>(buildQueryPath('/api/v1/query/events', params));
+  return requestQueryPage<EventQueryItem>('/api/v1/query/events', params);
 }
 
 export function listLogs(params: LogQueryParams = {}) {
-  return apiRequest<LogQueryItem[]>(buildQueryPath('/api/v1/query/logs', params));
+  return requestQueryPage<LogQueryItem>('/api/v1/query/logs', params);
 }
 
 export function listMetrics(params: MetricQueryParams = {}) {
-  return apiRequest<MetricQueryItem[]>(buildQueryPath('/api/v1/query/metrics', params));
+  return requestQueryPage<MetricQueryItem>('/api/v1/query/metrics', params);
+}
+
+async function requestQueryPage<TItem>(path: string, params: QueryCommonParams): Promise<QueryResultPage<TItem>> {
+  const response = await apiRequest<QueryResultPage<TItem> | TItem[]>(buildQueryPath(path, params));
+
+  if (Array.isArray(response)) {
+    return {
+      items: response,
+      next_cursor: null
+    };
+  }
+
+  return {
+    items: response.items,
+    next_cursor: response.next_cursor ?? null
+  };
 }

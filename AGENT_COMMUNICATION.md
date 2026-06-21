@@ -70,9 +70,9 @@ closed      已关闭
 | API-0002 | 项目管理 | GET/POST | `/api/v1/projects` | 创建时提交 `name`、`key`、可选 `description`、`status` | 返回项目列表或创建后的项目；`key` 全局唯一 | 后端开发 agent | done |
 | API-0003 | 环境管理 | GET/POST | `/api/v1/environments` | 创建时提交 `project_id`、`name`、`key`、可选 `description`、`status` | 返回环境列表或创建后的环境；`key` 在项目内唯一 | 后端开发 agent | done |
 | API-0004 | 服务管理 | GET/POST | `/api/v1/services` | 创建时提交 `project_id`、`environment_id`、`name`、`key`、可选 `description`、`status` | 返回服务列表或创建后的服务；服务必须绑定同项目环境 | 后端开发 agent | done |
-| API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit` 查询参数 | 返回事件列表；按用户项目权限过滤 | 总 agent | done |
-| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit` 查询参数 | 返回日志列表；按用户项目权限过滤 | 总 agent | done |
-| API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit` 查询参数 | 返回指标样本列表；按用户项目权限过滤 | 总 agent | done |
+| API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为事件列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
+| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
+| API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为指标样本列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -264,6 +264,11 @@ closed      已关闭
 | 2026-06-22 | CI | 总 agent | 总览页统计 CI 复查记录 Actions 通过 | push `9c2d4de` 触发 run `27919167876`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-22 | T-0034 | 总 agent | 启动查询结果分页后端任务 | 已启动后端开发 agent Lovelace，在后端 worktree `feature/backend-dev` 推进 events/logs/metrics 查询 API 的最小游标分页；目标保留 `limit` 并新增可选 `cursor` 与响应 `next_cursor`，继续保持项目权限过滤和关系库查询边界 | doing |
 | 2026-06-22 | CI | 总 agent | 查询分页任务启动记录 Actions 通过 | push `5d09815` 触发 run `27919255064`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-22 | CI | 总 agent | 查询分页启动 CI 结果记录 Actions 通过 | push `3019e33` 触发 run `27919308367`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-22 | T-0035 | 总 agent | 并行启动查询页分页前端任务 | 用户确认前后端 agent 可以同时进行；已启动前端开发 agent Mencius，在前端 worktree `feature/frontend-dev` 基于 T-0034 统一契约推进查询页分页 UI/API client，约定响应 envelope 为 `items` 与 `next_cursor` | doing |
+| 2026-06-22 | T-0034/T-0035 | 总 agent | 启动前后端联合测试 | 后端 Lovelace 已推送 `08d57fd`，前端 Mencius 已推送 `5b498875`；按用户要求已启动测试 agent Helmholtz，组合两端改动后启动真实数据库、真实后端和真实前端进行分页联合测试。总 agent 不代跑完整测试流程 | testing |
+| 2026-06-22 | T-0034/T-0035 | 测试 agent | 真实前后端联合测试通过 | Helmholtz 在独立 detached worktree 组合后端 `08d57fd` 与前端最新 `origin/feature/frontend-dev`，使用本机真实 MySQL 8.0.42 临时库、真实后端 `28117` 和真实前端 `25173` 验证登录、项目/API Key 创建、metrics/logs/events 上报、HTTP 分页和浏览器分页交互均通过；临时库已 drop，服务端口已释放 | done |
+| 2026-06-22 | T-0034/T-0035 | 总 agent | 启动分页代码审计 | 已关闭完成的开发/测试 agent；启动后端代码审计 agent Mendel 审计 `08d57fd`，启动前端代码审计 agent Averroes 审计 `5b498875`/`7707b49`，均为只读审计，不代跑完整测试 | audit |
 
 ## 6. 测试记录
 
@@ -291,6 +296,7 @@ closed      已关闭
 | 2026-06-20 | T-0032 | 查询页前端 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run test -- query.test.ts`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：全量前端 Vitest 6 个测试文件、28 个测试通过；查询 API 专项 1 个测试文件、2 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
 | 2026-06-20 | T-0033 | 总览页摄入统计前端验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、Playwright CLI + Microsoft Edge 冒烟 | 通过 | 前端 worktree 验证：9 个测试文件、34 个测试通过；桌面和 390px 移动宽度检查 `/` 未登录态，统计登录提示、信号摘要卡、健康检查错误态和近期进展正常；验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程 |
 | 2026-06-20 | T-0033 | 总览页摄入统计 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：前端 Vitest 8 个测试文件、32 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
+| 2026-06-22 | T-0034/T-0035 | 查询分页真实前后端联合测试 | 测试 agent Helmholtz 使用真实 MySQL 临时库、`uv run python main.py` 后端 `28117`、前端 dev server `25173`、HTTP 与浏览器自动化 | 通过 | 登录、项目/API Key 创建、metrics/logs/events 各 3 条上报、三类查询 `limit=2` 第一页/第二页、浏览器未登录提示、下一页、刷新回第一页、无匹配空态均通过；临时库已 drop，`25173`/`25174`/`28117` 已释放 |
 
 ## 7. 审计记录
 

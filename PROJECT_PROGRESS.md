@@ -534,20 +534,29 @@
 - 已登记 `T-0034` 阶段 3 查询结果分页后端基础任务；目标是为 `GET /api/v1/query/events`、`GET /api/v1/query/logs` 和 `GET /api/v1/query/metrics` 增加最小游标分页能力。
 - 已启动后端开发 agent Lovelace，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 工作；任务要求保留现有 `limit`，新增可选 `cursor` 参数，并在响应中返回 `next_cursor`。
 - GitHub Actions run `27919255064` 已通过：T-0034 启动记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- GitHub Actions run `27919308367` 已通过：T-0034 启动记录 CI 结果提交后的 Backend checks 与 Frontend checks 均为 success。
+- 用户确认前后端 agent 可以同时进行；已启动前端开发 agent Mencius 并行推进 `T-0035` 查询页分页前端基础，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 工作。
+- 后端 Lovelace 已完成 `T-0034` 并推送 `08d57fd` 到 `feature/backend-dev`；前端 Mencius 已完成 `T-0035` 并推送 `5b498875` 到 `feature/frontend-dev`。
+- 已按用户要求启动测试 agent Helmholtz 进行前后端联合测试：组合 T-0034/T-0035 改动，启动真实数据库、真实后端和真实前端验证查询分页链路。总 agent 不代跑完整测试流程。
+- Helmholtz 联合测试已通过：在独立 detached worktree 组合后端 `08d57fd` 与前端最新 `origin/feature/frontend-dev`，使用本机真实 MySQL 8.0.42 临时库、真实后端 `28117` 和真实前端 `25173`，验证登录、项目/API Key 创建、metrics/logs/events 上报、HTTP 分页和浏览器分页交互均通过；临时库已 drop，`25173`、`25174`、`28117` 已释放。
+- 已关闭完成的 Lovelace、Mencius 和 Helmholtz agent；已启动后端代码审计 agent Mendel 与前端代码审计 agent Averroes，分别只读审计 T-0034/T-0035。
 
 ### 进行中
 
-- Lovelace 正在后端 worktree 实现查询分页、测试、README、后端进度和后端 API 契约草案更新；完成后需提交并 push 到 `feature/backend-dev`，再由总 agent 复审、验证和按业务路径集成。
+- 等待 Mendel 与 Averroes 给出代码审计结论；若通过，再按业务路径把后端 `08d57fd` 与前端分页提交集成到 `dev`。
 
 ### 阻塞与风险
 
 - 本小步只处理关系库 `ingest_records` 查询分页，不接 ClickHouse/MongoDB，不做全文搜索、复杂聚合或前端分页控件。
 - 游标需要同时考虑 `received_at` 与 `id` 等稳定排序字段，避免同一时间记录翻页重复或漏项。
+- 前后端并行推进时需保持契约一致：查询响应统一为 `{ items, next_cursor }`，前端不得继续假设裸数组响应，后端不得改成其他 envelope 字段。
 
 ### 下一步
 
-- 等待 Lovelace 完成 `T-0034` 后端提交；随后总 agent 读取改动、运行必要验证、更新审计/测试记录，并按业务路径集成到 `dev`。
+- 等待 Lovelace 完成 `T-0034` 后端提交、Mencius 完成 `T-0035` 前端提交；随后总 agent 分别启动代码审计 agent 复审，通过后按业务路径集成到 `dev`。
 
 ### 验证
 
-- 待后端开发 agent 完成后补充。
+- 后端 Lovelace 开发侧快速冒烟 `uv run pytest tests/test_query_api.py` 12 passed；其余完整验证由测试 agent 独立复验，不作为开发 agent 交付门禁替代。
+- 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
+- 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
