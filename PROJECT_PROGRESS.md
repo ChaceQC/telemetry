@@ -533,6 +533,7 @@
 
 - 已登记 `T-0034` 阶段 3 查询结果分页后端基础任务；目标是为 `GET /api/v1/query/events`、`GET /api/v1/query/logs` 和 `GET /api/v1/query/metrics` 增加最小游标分页能力。
 - 已启动后端开发 agent Lovelace，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 工作；任务要求保留现有 `limit`，新增可选 `cursor` 参数，并在响应中返回 `next_cursor`。
+- GitHub Actions run `27919255064` 已通过：T-0034 启动记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
 
 ### 进行中
 

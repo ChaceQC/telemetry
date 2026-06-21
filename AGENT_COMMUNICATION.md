@@ -263,6 +263,7 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 总览页摄入统计 CI 结果记录 Actions 通过 | push `09a187a` 触发 run `27886740918`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-22 | CI | 总 agent | 总览页统计 CI 复查记录 Actions 通过 | push `9c2d4de` 触发 run `27919167876`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-22 | T-0034 | 总 agent | 启动查询结果分页后端任务 | 已启动后端开发 agent Lovelace，在后端 worktree `feature/backend-dev` 推进 events/logs/metrics 查询 API 的最小游标分页；目标保留 `limit` 并新增可选 `cursor` 与响应 `next_cursor`，继续保持项目权限过滤和关系库查询边界 | doing |
+| 2026-06-22 | CI | 总 agent | 查询分页任务启动记录 Actions 通过 | push `5d09815` 触发 run `27919255064`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 
