@@ -525,3 +525,28 @@
 - 根工作树已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，均通过；全量前端 Vitest 8 个测试文件、32 个测试通过。
 - GitHub Actions run `27886687066` 已通过：T-0033 总览页摄入统计集成提交后的 Backend checks 与 Frontend checks 均为 success。
 - GitHub Actions run `27886740918` 已通过：T-0033 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27919167876` 已通过：T-0033 CI 复查记录提交后的 Backend checks 与 Frontend checks 均为 success；仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+
+## 2026-06-22 T-0034 查询结果分页后端基础
+
+### 已完成
+
+- 已登记 `T-0034` 阶段 3 查询结果分页后端基础任务；目标是为 `GET /api/v1/query/events`、`GET /api/v1/query/logs` 和 `GET /api/v1/query/metrics` 增加最小游标分页能力。
+- 已启动后端开发 agent Lovelace，限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 工作；任务要求保留现有 `limit`，新增可选 `cursor` 参数，并在响应中返回 `next_cursor`。
+
+### 进行中
+
+- Lovelace 正在后端 worktree 实现查询分页、测试、README、后端进度和后端 API 契约草案更新；完成后需提交并 push 到 `feature/backend-dev`，再由总 agent 复审、验证和按业务路径集成。
+
+### 阻塞与风险
+
+- 本小步只处理关系库 `ingest_records` 查询分页，不接 ClickHouse/MongoDB，不做全文搜索、复杂聚合或前端分页控件。
+- 游标需要同时考虑 `received_at` 与 `id` 等稳定排序字段，避免同一时间记录翻页重复或漏项。
+
+### 下一步
+
+- 等待 Lovelace 完成 `T-0034` 后端提交；随后总 agent 读取改动、运行必要验证、更新审计/测试记录，并按业务路径集成到 `dev`。
+
+### 验证
+
+- 待后端开发 agent 完成后补充。
