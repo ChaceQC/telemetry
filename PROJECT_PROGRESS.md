@@ -524,3 +524,4 @@
 - 已用 Playwright CLI + Microsoft Edge 检查 `http://127.0.0.1:25173/` 桌面宽度和 390px 移动宽度；未登录态下总览页正常显示统计登录提示、信号摘要卡、健康检查错误态和近期进展，未发现明显文本重叠或布局溢出。验收后已关闭浏览器会话和 Vite dev server，`25173` 无监听进程。
 - 根工作树已执行 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，均通过；全量前端 Vitest 8 个测试文件、32 个测试通过。
 - GitHub Actions run `27886687066` 已通过：T-0033 总览页摄入统计集成提交后的 Backend checks 与 Frontend checks 均为 success。
+- GitHub Actions run `27886740918` 已通过：T-0033 CI 结果记录提交后的 Backend checks 与 Frontend checks 均为 success。

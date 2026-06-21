@@ -260,6 +260,7 @@ closed      已关闭
 | 2026-06-20 | CI | 总 agent | 总览页摄入统计启动记录 Actions 通过 | push `da9b688` 触发 run `27886268303`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 | 2026-06-20 | T-0033 | 总 agent | 总览页摄入统计完成并集成中 | 前端分支提交 `27574cf` 新增 ingest stats API client、查询参数工具、总览统计汇总纯函数和测试，并将总览页接入 `GET /api/v1/ingest/stats`；总 agent 已按路径恢复到 `dev`，未直接 merge feature 分支历史；功能分支仍无 Actions run 可读，后续以 `dev` 集成 CI 作为交付门禁 | doing |
 | 2026-06-20 | CI | 总 agent | 总览页摄入统计集成 Actions 通过 | push `76af25f` 触发 run `27886687066`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-20 | CI | 总 agent | 总览页摄入统计 CI 结果记录 Actions 通过 | push `09a187a` 触发 run `27886740918`；Backend checks 与 Frontend checks 均通过，后端完成 ruff lint、ruff format、mypy、pytest，前端完成 lint、typecheck、test | done |
 
 ## 6. 测试记录
 
