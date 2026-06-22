@@ -15,7 +15,7 @@ from app.schemas.query import (
     MetricQueryResponse,
 )
 from app.services.errors import ResourceNotFoundError
-from app.services.query import QueryCursorError, QueryService
+from app.services.query import QueryCursorError, QueryFilterError, QueryService
 
 router = APIRouter(prefix="/api/v1/query", tags=["query"])
 
@@ -75,6 +75,8 @@ def list_logs(
     level: Annotated[str | None, Query(min_length=1, max_length=32)] = None,
     source: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     keyword: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    trace_id: Annotated[str | None, Query()] = None,
+    span_id: Annotated[str | None, Query()] = None,
     occurred_from: datetime | None = None,
     occurred_to: datetime | None = None,
     limit: Annotated[int, Query(gt=0, le=500)] = 100,
@@ -87,6 +89,8 @@ def list_logs(
             level=level,
             source=source,
             keyword=keyword,
+            trace_id=trace_id,
+            span_id=span_id,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
             limit=limit,
@@ -95,6 +99,11 @@ def list_logs(
     except ResourceNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except QueryCursorError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    except QueryFilterError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),

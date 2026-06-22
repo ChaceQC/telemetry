@@ -82,6 +82,8 @@ class QueryRepository(Protocol):
         level: str | None,
         source: str | None,
         keyword: str | None,
+        trace_id: str | None,
+        span_id: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -270,6 +272,19 @@ def _payload_value_text_matches(pattern: str, *, dialect_name: str) -> ColumnEle
     )
 
 
+def _apply_log_structured_field_filters(
+    statement: Select[tuple[IngestRecordModel]],
+    *,
+    trace_id: str | None,
+    span_id: str | None,
+) -> Select[tuple[IngestRecordModel]]:
+    if trace_id is not None:
+        statement = statement.where(IngestRecordModel.payload["trace_id"].as_string() == trace_id)
+    if span_id is not None:
+        statement = statement.where(IngestRecordModel.payload["span_id"].as_string() == span_id)
+    return statement
+
+
 class SqlAlchemyQueryRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -318,6 +333,8 @@ class SqlAlchemyQueryRepository:
         level: str | None,
         source: str | None,
         keyword: str | None,
+        trace_id: str | None,
+        span_id: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -344,6 +361,11 @@ class SqlAlchemyQueryRepository:
             statement,
             keyword,
             dialect_name=self._session.get_bind().dialect.name,
+        )
+        statement = _apply_log_structured_field_filters(
+            statement,
+            trace_id=trace_id,
+            span_id=span_id,
         )
 
         statement = statement.order_by(

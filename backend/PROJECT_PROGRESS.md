@@ -2,6 +2,29 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0041 日志结构化字段过滤基础
+
+### 已完成
+
+- 为 `GET /api/v1/query/logs` 新增可选查询参数 `trace_id` 和 `span_id`；后端在服务层 trim，trim 后空白字符串按未传处理，trim 后长度超过 128 返回 `422`。
+- `trace_id` / `span_id` 只按关系库 `ingest_records.payload.trace_id` / `payload.span_id` 顶层结构化字段精确匹配，不作为 keyword 文本搜索，不搜索日志业务 `payload`，不新增 `request_id`。
+- `trace_id` / `span_id` 与现有 `project_id`、`level`、`source`、`keyword`、时间范围、`limit` 和 `cursor` 叠加生效。
+- 将规范化后的 `trace_id` / `span_id` 纳入日志查询 cursor 签名；筛选条件不匹配的旧 cursor 继续返回既有 `422 cursor 无效或不匹配当前查询`。
+- 扩展 `backend/tests/test_query_api.py`，覆盖 trace/span 精确过滤、业务 payload 同名字段不误命中、trim 与长度校验、与 keyword/level/source/project 权限组合、以及 trace/span cursor 签名不匹配。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，同步日志结构化字段过滤契约和验证边界。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮仍基于关系库 JSON 字段过滤，未启动真实 MySQL、ClickHouse、MongoDB、Redis、后端服务或前端，不做完整前后端联测；真实 MySQL JSON 表达式执行计划和大数据量性能留给后续专项/测试 agent 验证。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "trace or keyword or cursor"`，结果：13 个测试通过、12 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：26 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/query.py app/services/query.py app/repositories/query.py tests/test_query_api.py`，结果：通过。
+- 已运行 `uv run mypy app/api/routes/query.py app/services/query.py app/repositories/query.py`，结果：3 个源文件无类型错误。
+
 ## 2026-06-22 T-0039 日志关键词搜索基础
 
 ### 已完成
