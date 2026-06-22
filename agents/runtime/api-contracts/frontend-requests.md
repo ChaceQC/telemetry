@@ -2,6 +2,61 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-23 T-0046 Trace 查询页前端基础
+
+- task: T-0046
+- owner: frontend-agent
+- scope: `/traces` 占位页替换为 Trace span 查询页，接入已完成后端查询 API。
+- status: frontend-ready
+
+### Trace 查询 API 契约
+
+- endpoint: `GET /api/v1/query/traces`
+- auth: 沿用现有查询 API client，前端随请求携带 `Authorization: Bearer <access_token>`。
+- request query:
+  - `project_id`: number，可选，前端空值不传。
+  - `trace_id`: string，可选，前端 trim 空白，空值不传。
+  - `span_id`: string，可选，前端 trim 空白，空值不传。
+  - `name`: string，可选，对应 Span 名称筛选，前端 trim 空白，空值不传。
+  - `source`: string，可选，前端 trim 空白，空值不传。
+  - `occurred_from`: string，可选，来自 `datetime-local` 输入。
+  - `occurred_to`: string，可选，来自 `datetime-local` 输入。
+  - `limit`: number，可选，默认沿用前端 `100`，输入范围 1 到 500。
+  - `cursor`: string，可选，点击下一页时传入上一页 `next_cursor`。
+- response body:
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "trace_id": "trace-a",
+      "span_id": "span-db",
+      "parent_span_id": "span-root",
+      "name": "SELECT orders",
+      "start_time": "2026-06-20T10:00:00.020Z",
+      "end_time": null,
+      "duration_ms": 30.5,
+      "status_code": "error",
+      "source": "db",
+      "attributes": { "db.system": "mysql" },
+      "payload": {},
+      "occurred_at": "2026-06-20T10:00:00.020Z",
+      "received_at": "2026-06-20T10:00:01Z"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+- frontend behavior:
+  - `/traces` 使用现有查询页工作台，展示登录门禁、加载态、错误态、空态、筛选表单、结果列表、刷新、回第一页和下一页。
+  - 结果列表展示 span `name`、`status_code`、`duration_ms`、source、trace/span id 和基础元信息；单条 span 可展开查看 trace_id、span_id、parent_span_id、name、source、status、duration、start/end/occurred/received 时间、attributes 和 payload。
+  - 提交筛选、刷新和回第一页会清空旧 cursor 并回到第一页；下一页请求携带当前筛选与 `next_cursor`。
+  - `/traces` 只透传 trace/span/name/source/time/limit/cursor，不透传 logs 专属 `keyword`、`request_id` 或 `user_id`，也不透传 metrics 聚合参数。
+  - 本任务不新增后端契约，不做 waterfall/tree、服务依赖拓扑、跨信号跳转或 ClickHouse 查询。
+
 ## 2026-06-22 T-0043 日志 Request ID / User ID 字段过滤基础
 
 - task: T-0043

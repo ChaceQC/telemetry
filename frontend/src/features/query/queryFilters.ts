@@ -3,10 +3,11 @@ import type {
   LogQueryParams,
   MetricAggregateParams,
   MetricAggregation,
-  MetricQueryParams
+  MetricQueryParams,
+  TraceQueryParams
 } from '../../api/query';
 
-export type QuerySignal = 'metrics' | 'logs' | 'events';
+export type QuerySignal = 'metrics' | 'logs' | 'traces' | 'events';
 
 export const metricWindowOptions = ['1m', '5m', '15m', '1h'] as const;
 export const metricAggregationOptions = ['avg', 'sum', 'min', 'max', 'count'] as const;
@@ -45,7 +46,7 @@ export const defaultFilters: QueryFilters = {
   metricAggregation: 'avg'
 };
 
-export type BuiltQueryParams = MetricQueryParams | LogQueryParams | EventQueryParams;
+export type BuiltQueryParams = MetricQueryParams | LogQueryParams | TraceQueryParams | EventQueryParams;
 
 export function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cursor?: string): BuiltQueryParams {
   const common = {
@@ -70,6 +71,15 @@ export function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cur
       span_id: toOptional(filters.spanId),
       request_id: toOptional(filters.requestId),
       user_id: toOptional(filters.userId)
+    };
+  }
+
+  if (signal === 'traces') {
+    return {
+      ...common,
+      trace_id: toOptional(filters.traceId),
+      span_id: toOptional(filters.spanId),
+      name: toOptional(filters.primary)
     };
   }
 

@@ -65,6 +65,35 @@ describe('query filters', () => {
     });
   });
 
+  it('traces 查询参数包含 trace/span/name 且不包含 logs 专属 request/user', () => {
+    expect(
+      buildQueryParams(
+        'traces',
+        {
+          ...defaultFilters,
+          primary: ' GET /api/orders ',
+          traceId: ' trace-abc ',
+          spanId: ' span-def ',
+          requestId: 'ignored-request',
+          userId: 'ignored-user',
+          source: ' api ',
+          limit: '50'
+        },
+        'trace-cursor-1'
+      )
+    ).toEqual({
+      project_id: undefined,
+      source: 'api',
+      occurred_from: undefined,
+      occurred_to: undefined,
+      limit: 50,
+      cursor: 'trace-cursor-1',
+      trace_id: 'trace-abc',
+      span_id: 'span-def',
+      name: 'GET /api/orders'
+    });
+  });
+
   it('不传 cursor 时用于提交新筛选或刷新第一页', () => {
     expect(
       buildQueryParams('logs', {

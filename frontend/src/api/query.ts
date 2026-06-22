@@ -23,6 +23,12 @@ export type LogQueryParams = QueryCommonParams & {
   user_id?: string;
 };
 
+export type TraceQueryParams = QueryCommonParams & {
+  trace_id?: string;
+  span_id?: string;
+  name?: string;
+};
+
 export type LogContextParams = {
   before?: number;
   after?: number;
@@ -75,6 +81,24 @@ export type MetricQueryItem = {
   source: string | null;
   tags: Record<string, unknown>;
   payload: Record<string, unknown>;
+  occurred_at: string | null;
+  received_at: string;
+};
+
+export type TraceQueryItem = {
+  id: number;
+  project_id: number;
+  trace_id: string;
+  span_id: string;
+  parent_span_id: string | null;
+  name: string;
+  start_time: string | null;
+  end_time: string | null;
+  duration_ms: number | null;
+  status_code: string | null;
+  source: string | null;
+  attributes: unknown;
+  payload: unknown;
   occurred_at: string | null;
   received_at: string;
 };
@@ -145,6 +169,20 @@ export function getLogContext(logId: number | string, params: LogContextParams =
       after: normalizeLogContextWindow(params.after)
     })
   );
+}
+
+export function listTraces(params: TraceQueryParams = {}) {
+  return requestQueryPage<TraceQueryItem>('/api/v1/query/traces', {
+    project_id: params.project_id,
+    trace_id: params.trace_id,
+    span_id: params.span_id,
+    name: params.name,
+    source: params.source,
+    occurred_from: params.occurred_from,
+    occurred_to: params.occurred_to,
+    limit: params.limit,
+    cursor: params.cursor
+  });
 }
 
 export function listMetrics(params: MetricQueryParams = {}) {

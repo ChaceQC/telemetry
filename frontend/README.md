@@ -1,6 +1,6 @@
 # 遥测前端
 
-遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Metrics/Logs/Events 查询页、健康检查/API client 和环境变量示例。
+遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Metrics/Logs/Traces/Events 查询页、健康检查/API client 和环境变量示例。
 
 ## 环境要求
 
@@ -35,7 +35,7 @@ npm.cmd run preview
 
 ```text
 VITE_APP_NAME=遥测平台
-VITE_APP_VERSION=0.2.3
+VITE_APP_VERSION=0.2.4
 VITE_PUBLIC_BASE_PATH=/
 VITE_API_BASE_URL=http://localhost:28117
 VITE_API_BASE_PATH=/api
@@ -84,15 +84,16 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 
 ## 查询页基础
 
-`/metrics`、`/logs` 和 `/events` 页面已替换为阶段 3 查询工作台，使用当前 session token 访问查询接口：
+`/metrics`、`/logs`、`/traces` 和 `/events` 页面已替换为查询工作台，使用当前 session token 访问查询接口：
 
 - `/metrics`：调用 `GET /api/v1/query/metrics`，支持项目 ID、指标名、来源、时间范围、数量和 `cursor` 筛选，并在当前页结果属于同一 `name`/`unit` 序列时展示 value 随 received_at 变化的轻量趋势图。
 - `/logs`：调用 `GET /api/v1/query/logs`，支持项目 ID、日志级别、关键词、Trace ID、Span ID、Request ID、User ID、来源、时间范围、数量和 `cursor` 筛选；每条日志可展开“查看上下文”，调用 `GET /api/v1/query/logs/{log_id}/context?before=5&after=5` 展示目标日志前后记录，`before`/`after` 可在 0 到 20 内调整。
+- `/traces`：调用 `GET /api/v1/query/traces`，支持项目 ID、Trace ID、Span ID、Span 名称、来源、时间范围、数量和 `cursor` 筛选；结果列表展示 span 名称、状态、耗时和基础元信息，并提供单条 span 详情展开，可查看 trace_id、span_id、parent_span_id、name、source、status、duration、start/end/occurred/received 时间、attributes 和 payload。
 - `/events`：调用 `GET /api/v1/query/events`，支持项目 ID、事件类型、来源、时间范围、数量和 `cursor` 筛选；结果区按当前页 API 返回顺序展示为事件时间线，包含事件类型、source、occurred/received 时间、项目 ID、事件 ID，以及 payload 摘要和可展开 JSON 预览。
 
-查询响应按后端 T-0034 契约使用 envelope：`{"items": [...], "next_cursor": string | null}`。查询页首次加载第一页；点击“下一页”时使用上一页返回的 `next_cursor` 继续查询；刷新或提交新的筛选条件时会清空旧 cursor 并回到第一页。日志关键词、Trace ID、Span ID、Request ID 和 User ID 仅用于 `/logs` 请求，不会透传给 metrics 或 events。
+查询响应按后端查询契约使用 envelope：`{"items": [...], "next_cursor": string | null}`。查询页首次加载第一页；点击“下一页”时使用上一页返回的 `next_cursor` 继续查询；点击“回第一页”、刷新或提交新的筛选条件时会清空旧 cursor 并回到第一页。日志关键词、Request ID 和 User ID 仅用于 `/logs` 请求；Trace ID 和 Span ID 用于 `/logs` 与 `/traces` 各自接口，不会透传给 metrics 或 events。
 
-未登录或会话恢复中时，查询页显示登录提示并暂停请求，同时不会继续渲染旧 session 缓存的结果列表、分页或日志上下文；登录、登出和切换账号会按认证会话隔离并清理 `query` 查询缓存。登录后可刷新或提交筛选条件重新查询。当前页面提供筛选表单、刷新状态、错误/空态、结果列表、最小分页，`/metrics` 当前页指标趋势图，`/logs` 单条日志上下文面板，以及 `/events` 当前页事件时间线；当前页混合多个指标名或单位时会显示趋势不可用提示。指标聚合窗口、多序列对比、跨页趋势、事件详情跳转和事件跨页合并后续拆分。
+未登录或会话恢复中时，查询页显示登录提示并暂停请求，同时不会继续渲染旧 session 缓存的结果列表、分页或日志上下文；登录、登出和切换账号会按认证会话隔离并清理 `query` 查询缓存。登录后可刷新或提交筛选条件重新查询。当前页面提供筛选表单、加载/错误/空态、刷新、回第一页、下一页、结果列表，`/metrics` 当前页指标趋势图，`/logs` 单条日志上下文面板，`/traces` 单条 span 详情展开，以及 `/events` 当前页事件时间线；当前页混合多个指标名或单位时会显示趋势不可用提示。Trace waterfall/tree、服务依赖拓扑、跨页趋势、事件详情跳转和事件跨页合并后续拆分。
 
 ## 目录结构
 

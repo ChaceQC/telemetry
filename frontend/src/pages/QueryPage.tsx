@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ChevronUp,
   Eye,
+  GitBranch,
   LoaderCircle,
   LogIn,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   listMetricAggregates,
   listLogs,
   listMetrics,
+  listTraces,
   normalizeLogContextWindow,
   DEFAULT_LOG_CONTEXT_WINDOW,
   MAX_LOG_CONTEXT_WINDOW,
@@ -32,13 +34,16 @@ import {
   type MetricAggregateItem,
   type MetricQueryItem,
   type MetricQueryParams,
-  type QueryResultPage
+  type QueryResultPage,
+  type TraceQueryItem,
+  type TraceQueryParams
 } from '../api/query';
 import { formatApiErrorMessage } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
 import { summarizeEventPayload } from '../features/query/eventTimeline';
+import { formatJsonPreviewValue } from '../features/query/jsonPreview';
 import {
   buildMetricAggregateParams,
   buildQueryParams,
@@ -55,7 +60,7 @@ import {
   shouldRenderLogContextPanel
 } from '../features/query/querySession';
 
-type QueryRecord = MetricQueryItem | LogQueryItem | EventQueryItem;
+type QueryRecord = MetricQueryItem | LogQueryItem | TraceQueryItem | EventQueryItem;
 
 const emptyRecords: QueryRecord[] = [];
 
@@ -95,6 +100,16 @@ const signalConfig = {
     icon: Search,
     queryKey: 'logs',
     fetch: (params: LogQueryParams) => listLogs(params)
+  },
+  traces: {
+    eyebrow: 'Traces',
+    title: '链路查询',
+    summary: '按 trace、span、名称、来源和时间范围检索 span 记录。',
+    primaryLabel: 'Span 名称',
+    primaryPlaceholder: 'GET /api/orders',
+    icon: GitBranch,
+    queryKey: 'traces',
+    fetch: (params: TraceQueryParams) => listTraces(params)
   },
   events: {
     eyebrow: 'Events',
@@ -150,6 +165,7 @@ export function QueryPage({ signal }: QueryPageProps) {
   const hasAggregateError = canQuery && signal === 'metrics' && aggregateQuery.isError;
   const metricTrend = signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null;
   const isFetching = query.isFetching || (signal === 'metrics' && aggregateQuery.isFetching);
+  const isInitialLoading = canQuery && query.isFetching && !visibleData && !hasQueryError;
   const badgeTone = !canQuery ? 'warning' : query.isError || aggregateQuery.isError ? 'danger' : isFetching ? 'warning' : 'success';
   const badgeLabel = !canQuery
     ? auth.isRestoring
@@ -186,6 +202,14 @@ export function QueryPage({ signal }: QueryPageProps) {
       page: current.signal === signal ? current.page + 1 : 2,
       version: current.version
     }));
+  }
+
+  function handleFirstPage() {
+    if (pageNumber === 1 || query.isFetching) {
+      return;
+    }
+
+    resetPagination();
   }
 
   function updateFilter<TName extends keyof QueryFilters>(name: TName, value: QueryFilters[TName]) {
@@ -301,6 +325,30 @@ export function QueryPage({ signal }: QueryPageProps) {
                   placeholder="span-456"
                 />
               </label>
+            </>
+          ) : null}
+          {signal === 'traces' ? (
+            <>
+              <label className="field">
+                <span>Trace ID</span>
+                <input
+                  value={filters.traceId}
+                  onChange={(event) => updateFilter('traceId', event.target.value)}
+                  placeholder="trace-123"
+                />
+              </label>
+              <label className="field">
+                <span>Span ID</span>
+                <input
+                  value={filters.spanId}
+                  onChange={(event) => updateFilter('spanId', event.target.value)}
+                  placeholder="span-456"
+                />
+              </label>
+            </>
+          ) : null}
+          {signal === 'logs' ? (
+            <>
               <label className="field">
                 <span>Request ID</span>
                 <input
@@ -414,6 +462,16 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
 
+        {isInitialLoading ? (
+          <div className="resource-state query-loading-state" role="status">
+            <LoaderCircle size={18} aria-hidden="true" />
+            <div>
+              <strong>正在加载查询结果</strong>
+              <span>按当前筛选读取第一页记录。</span>
+            </div>
+          </div>
+        ) : null}
+
         {!hasQueryError && visibleData && records.length === 0 ? (
           <div className="resource-state">
             <Icon size={18} aria-hidden="true" />
@@ -452,15 +510,25 @@ export function QueryPage({ signal }: QueryPageProps) {
         {!hasQueryError && visibleData ? (
           <div className="query-pagination" aria-label="分页">
             <span>{formatPaginationHint(pageNumber, records.length, nextCursor)}</span>
-            <button
-              className="text-button query-next-button"
-              type="button"
-              onClick={handleNextPage}
-              disabled={!canQuery || query.isFetching || !nextCursor}
-            >
-              <span>下一页</span>
-              <ChevronRight size={16} aria-hidden="true" />
-            </button>
+            <div className="query-pagination-actions">
+              <button
+                className="text-button"
+                type="button"
+                onClick={handleFirstPage}
+                disabled={!canQuery || query.isFetching || pageNumber === 1}
+              >
+                <span>回第一页</span>
+              </button>
+              <button
+                className="text-button query-next-button"
+                type="button"
+                onClick={handleNextPage}
+                disabled={!canQuery || query.isFetching || !nextCursor}
+              >
+                <span>下一页</span>
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            </div>
           </div>
         ) : null}
       </section>
@@ -709,6 +777,70 @@ function LogContextGroup({
   );
 }
 
+function TraceRecord({ span, canQuery }: { span: TraceQueryItem; canQuery: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const expandedLabel = isExpanded ? '收起详情' : '展开详情';
+
+  return (
+    <>
+      <div className="query-record-main">
+        <strong>{span.name}</strong>
+        <div className="query-record-actions">
+          <StatusBadge tone={getTraceStatusTone(span.status_code)}>{formatTraceStatus(span.status_code)}</StatusBadge>
+          <span>{formatDuration(span.duration_ms)}</span>
+          <button
+            className="text-button log-context-toggle"
+            type="button"
+            onClick={() => setIsExpanded((current) => !current)}
+            disabled={!canQuery}
+            aria-expanded={isExpanded}
+            title={canQuery ? '查看 span 详情' : '登录后查看 span 详情'}
+          >
+            <Eye size={15} aria-hidden="true" />
+            <span>{expandedLabel}</span>
+            {isExpanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+          </button>
+        </div>
+      </div>
+      <RecordMeta item={span} extra={[span.source, span.trace_id, span.span_id]} />
+
+      {isExpanded ? <TraceDetailPanel span={span} /> : null}
+    </>
+  );
+}
+
+export function TraceDetailPanel({ span }: { span: TraceQueryItem }) {
+  return (
+    <div className="trace-detail-panel" aria-label={`Span ${span.span_id} 详情`}>
+      <dl className="trace-detail-grid">
+        <TraceDetailItem label="Trace ID" value={span.trace_id} />
+        <TraceDetailItem label="Span ID" value={span.span_id} />
+        <TraceDetailItem label="Parent Span" value={span.parent_span_id || 'root'} />
+        <TraceDetailItem label="Name" value={span.name} />
+        <TraceDetailItem label="Source" value={span.source || '未标记来源'} />
+        <TraceDetailItem label="Status" value={formatTraceStatus(span.status_code)} />
+        <TraceDetailItem label="Duration" value={formatDuration(span.duration_ms)} />
+        <TraceDetailItem label="Start" value={span.start_time ? formatTime(span.start_time) : '未提供'} />
+        <TraceDetailItem label="End" value={span.end_time ? formatTime(span.end_time) : '未提供'} />
+        <TraceDetailItem label="Occurred" value={formatTime(span.occurred_at ?? span.received_at)} />
+        <TraceDetailItem label="Received" value={formatTime(span.received_at)} />
+        <TraceDetailItem label="Project" value={`${span.project_id}`} />
+      </dl>
+      <JsonPreview label="attributes" value={span.attributes} />
+      <JsonPreview label="payload" value={span.payload} />
+    </div>
+  );
+}
+
+function TraceDetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
 function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
   if (!trend || trend.status === 'unavailable') {
     return (
@@ -885,6 +1017,10 @@ function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean,
     return <LogRecord log={log} canQuery={canQuery} sessionRevision={sessionRevision} />;
   }
 
+  if (signal === 'traces') {
+    return <TraceRecord span={item as TraceQueryItem} canQuery={canQuery} />;
+  }
+
   const event = item as EventQueryItem;
   return (
     <>
@@ -902,15 +1038,17 @@ function RecordMeta({ item, extra }: { item: QueryRecord; extra: Array<string | 
   return <p className="query-record-meta">{formatRecordMeta(item, extra)}</p>;
 }
 
-function JsonPreview({ label, value }: { label: string; value: Record<string, unknown> }) {
-  if (Object.keys(value).length === 0) {
+function JsonPreview({ label, value }: { label: string; value: unknown }) {
+  const preview = formatJsonPreviewValue(value);
+
+  if (preview === null) {
     return null;
   }
 
   return (
     <pre className="query-json">
       <span>{label}</span>
-      {JSON.stringify(value, null, 2)}
+      {preview}
     </pre>
   );
 }
@@ -957,6 +1095,31 @@ function formatMetricAggregationLabel(value: string) {
 
 function formatAggregateWindow(item: MetricAggregateItem) {
   return `${formatTime(item.window_start)} - ${formatTime(item.window_end)}`;
+}
+
+function formatDuration(value: number | null) {
+  if (value === null) {
+    return '无耗时';
+  }
+
+  return `${Number.isInteger(value) ? value : value.toFixed(3)} ms`;
+}
+
+function formatTraceStatus(status: string | null) {
+  return status || 'unknown';
+}
+
+function getTraceStatusTone(status: string | null) {
+  const normalized = (status ?? '').toLowerCase();
+  if (normalized.includes('error') || normalized.includes('fail')) {
+    return 'danger';
+  }
+
+  if (normalized.includes('unset') || normalized.includes('unknown') || normalized === '') {
+    return 'neutral';
+  }
+
+  return 'success';
 }
 
 function getLogLevelTone(level: string) {
