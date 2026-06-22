@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
@@ -11,6 +11,8 @@ from app.schemas.query import (
     LogContextQueryResponse,
     LogQueryPageResponse,
     LogQueryResponse,
+    MetricAggregatePageResponse,
+    MetricAggregateResponse,
     MetricQueryPageResponse,
     MetricQueryResponse,
 )
@@ -139,6 +141,42 @@ def get_log_context(
         target=LogQueryResponse.model_validate(context.target),
         before=[LogQueryResponse.model_validate(log) for log in context.before],
         after=[LogQueryResponse.model_validate(log) for log in context.after],
+    )
+
+
+@router.get(
+    "/metrics/aggregate",
+    response_model=MetricAggregatePageResponse,
+    summary="查询指标聚合窗口",
+)
+def aggregate_metrics(
+    query_service: Annotated[QueryService, Depends(get_query_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int | None, Query(gt=0)] = None,
+    name: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    source: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    occurred_from: datetime | None = None,
+    occurred_to: datetime | None = None,
+    window: Literal["1m", "5m", "15m", "1h"] = "5m",
+    aggregation: Literal["avg", "sum", "min", "max", "count"] = "avg",
+    limit: Annotated[int, Query(gt=0, le=500)] = 100,
+) -> MetricAggregatePageResponse:
+    try:
+        items = query_service.aggregate_metrics(
+            user=current_user,
+            project_id=project_id,
+            name=name,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            window=window,
+            aggregation=aggregation,
+            limit=limit,
+        )
+    except ResourceNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return MetricAggregatePageResponse(
+        items=[MetricAggregateResponse.model_validate(item) for item in items]
     )
 
 

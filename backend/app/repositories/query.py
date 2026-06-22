@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from numbers import Real
 from typing import Any, Protocol
 
-from sqlalchemy import ColumnElement, Select, String, and_, case, cast, func, literal, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Float,
+    Integer,
+    Select,
+    String,
+    and_,
+    case,
+    cast,
+    func,
+    literal,
+    literal_column,
+    or_,
+    select,
+)
 from sqlalchemy.orm import Session
 
 from app.models.ingest import IngestRecordModel
@@ -58,6 +72,19 @@ class MetricQueryRecord:
     payload: dict[str, Any]
     occurred_at: datetime | None
     received_at: datetime
+
+
+@dataclass(frozen=True)
+class MetricAggregateRecord:
+    project_id: int
+    name: str
+    source: str | None
+    window_start: datetime
+    window_end: datetime
+    aggregation: str
+    value: float
+    sample_count: int
+    unit: str | None
 
 
 class QueryRepository(Protocol):
@@ -118,6 +145,20 @@ class QueryRepository(Protocol):
         limit: int,
         cursor: QueryCursor | None,
     ) -> list[MetricQueryRecord]: ...
+
+    def aggregate_metrics(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        window_seconds: int,
+        aggregation: str,
+        limit: int,
+    ) -> list[MetricAggregateRecord]: ...
 
 
 def _event_query_record(model: IngestRecordModel) -> EventQueryRecord:
@@ -283,6 +324,42 @@ def _apply_log_structured_field_filters(
     if span_id is not None:
         statement = statement.where(IngestRecordModel.payload["span_id"].as_string() == span_id)
     return statement
+
+
+def _metric_window_epoch(
+    dialect_name: str,
+    *,
+    window_seconds: int,
+) -> ColumnElement[int]:
+    if dialect_name == "sqlite":
+        epoch = cast(func.strftime("%s", IngestRecordModel.occurred_at), Integer)
+    elif dialect_name in {"mysql", "mariadb"}:
+        epoch = cast(
+            func.timestampdiff(
+                literal_column("SECOND"),
+                literal_column("'1970-01-01 00:00:00'"),
+                IngestRecordModel.occurred_at,
+            ),
+            Integer,
+        )
+    else:
+        epoch = cast(func.extract("epoch", IngestRecordModel.occurred_at), Integer)
+    return cast(epoch / window_seconds, Integer) * window_seconds
+
+
+def _metric_aggregate_value(
+    aggregation: str,
+    value_expression: ColumnElement[float],
+) -> ColumnElement[float]:
+    if aggregation == "sum":
+        return func.sum(value_expression)
+    if aggregation == "min":
+        return func.min(value_expression)
+    if aggregation == "max":
+        return func.max(value_expression)
+    if aggregation == "count":
+        return cast(func.count(value_expression), Float)
+    return func.avg(value_expression)
 
 
 class SqlAlchemyQueryRepository:
@@ -476,3 +553,90 @@ class SqlAlchemyQueryRepository:
             IngestRecordModel.id.desc(),
         ).limit(limit)
         return [_metric_query_record(model) for model in self._session.scalars(statement)]
+
+    def aggregate_metrics(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        window_seconds: int,
+        aggregation: str,
+        limit: int,
+    ) -> list[MetricAggregateRecord]:
+        if project_ids is not None and not project_ids:
+            return []
+
+        dialect_name = self._session.get_bind().dialect.name
+        window_epoch = _metric_window_epoch(dialect_name, window_seconds=window_seconds).label(
+            "window_epoch"
+        )
+        metric_value = cast(IngestRecordModel.payload["value"].as_float(), Float)
+        aggregate_value = _metric_aggregate_value(aggregation, metric_value).label("value")
+        sample_count = func.count(metric_value).label("sample_count")
+        unit = func.min(IngestRecordModel.payload["unit"].as_string()).label("unit")
+
+        statement = select(
+            IngestRecordModel.project_id,
+            IngestRecordModel.event_type,
+            IngestRecordModel.source,
+            window_epoch,
+            aggregate_value,
+            sample_count,
+            unit,
+        ).where(
+            IngestRecordModel.kind == IngestKind.metric.value,
+            IngestRecordModel.occurred_at.is_not(None),
+        )
+        if project_ids is not None:
+            statement = statement.where(IngestRecordModel.project_id.in_(project_ids))
+        if project_id is not None:
+            statement = statement.where(IngestRecordModel.project_id == project_id)
+        if name is not None:
+            statement = statement.where(IngestRecordModel.event_type == name)
+        if source is not None:
+            statement = statement.where(IngestRecordModel.source == source)
+        if occurred_from is not None:
+            statement = statement.where(IngestRecordModel.occurred_at >= occurred_from)
+        if occurred_to is not None:
+            statement = statement.where(IngestRecordModel.occurred_at <= occurred_to)
+
+        statement = (
+            statement.group_by(
+                IngestRecordModel.project_id,
+                IngestRecordModel.event_type,
+                IngestRecordModel.source,
+                window_epoch,
+            )
+            .order_by(
+                window_epoch.desc(),
+                IngestRecordModel.project_id,
+                IngestRecordModel.event_type,
+                IngestRecordModel.source,
+            )
+            .limit(limit)
+        )
+
+        records: list[MetricAggregateRecord] = []
+        for row in self._session.execute(statement):
+            window_start = datetime.fromtimestamp(int(row.window_epoch), tz=UTC)
+            records.append(
+                MetricAggregateRecord(
+                    project_id=row.project_id,
+                    name=row.event_type,
+                    source=row.source,
+                    window_start=window_start,
+                    window_end=datetime.fromtimestamp(
+                        int(row.window_epoch) + window_seconds,
+                        tz=UTC,
+                    ),
+                    aggregation=aggregation,
+                    value=float(row.value),
+                    sample_count=int(row.sample_count),
+                    unit=row.unit,
+                )
+            )
+        return records
