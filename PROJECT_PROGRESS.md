@@ -586,10 +586,14 @@
 - T-0039 前后端开发 agents 已完成并关闭：后端 Confucius 提交 `037dd5b`，新增 logs `keyword` 查询、cursor 签名和测试；前端 Cicero 提交 `a6797c9`，新增 `/logs` keyword 输入、请求参数构建和测试。
 - T-0039 审计/测试 agents 已完成并关闭：前端审计和复测通过；后端审计先后发现 keyword 匹配整段 wrapper JSON 过宽、业务 payload key-only 仍会命中两个 P2，Chandrasekhar 提交 `cdbe448` 初步收窄，Hegel 提交 `975d738` 改为 message 与业务 payload value 搜索；Herschel 复审无 P0/P1/P2，Arendt 后端复测通过。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0039 后端合入 `dev`，merge 提交 `eaf43b3`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0039 前端合入 `dev`，merge 提交 `f3297b2`。本次为同阶段兼容查询增强，暂不提升 `0.2.1` 版本。
+- T-0039 merge 后本地验证、记录、CI 和前后端 feature 分支同步已完成；`dev`、`feature/frontend-dev`、`feature/backend-dev` 均已同步到 `36f46b4` 清洁点。
+- 已登记 `T-0040` 阶段 3 Events 时间线页基础任务：当前后端 `GET /api/v1/query/events` 已提供 type/source/time/payload 和分页 envelope，先由前端在 `/events` 查询结果中实现时间线呈现、事件类型/source/时间扫描和 payload 展开，不改后端 API。
+- T-0040 前端开发、审计和测试 agents 已完成并关闭：Harvey 提交并推送 `c0be58a`，新增事件时间线渲染、事件类型/source/时间扫描、payload 展开和文档/测试；Newton 审计无 P0/P1/P2；Ampere 复测专项、lint、全量测试、typecheck、build 和 diff check 均通过。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0040 前端合入 `dev`，merge 提交 `e6d2d73`；本小步不改后端 API/DB schema，根、前端、后端 VERSION 继续保持 `0.2.1`。merge 后前端专项、lint、全量测试、typecheck、build 和 `git diff --check` 已通过，worktree 预检仅因 `dev` 尚未推送领先远端 2 个提交失败。
 
 ### 进行中
 
-- T-0039 已真实 merge 到 `dev`，正在补根记录和执行合并后验证；验证通过后推送 `dev` 并同步 feature 分支。
+- T-0040 已真实 merge 到 `dev`，正在补根记录；随后推送 `dev`、读取 CI、fast-forward 同步前后端 feature 分支，并运行严格 worktree 体检。
 
 ### 阻塞与风险
 
@@ -600,10 +604,11 @@
 - T-0037 后真实联测尚未完成；启动诊断已确认服务可在备用端口启动，当前可见 MySQL 凭据不可用。后续完整联测需由测试 agent 使用自有临时 MySQL 实例或新的可用凭据，再使用临时脚本文件避免 Windows 命令长度限制、Python `subprocess.Popen` 记录 PID、前端使用 `npm.cmd`、前端根页面按 HTML 或浏览器页面判断，并继续遵守只清理自己启动资源的边界。
 - T-0038 仍保持当前关系库查询边界，不接 ClickHouse 日志查询；真实 MySQL 上的组合索引执行计划、大数据量窗口性能和降级实跑需在后续真实环境验证中继续覆盖。
 - T-0039 先做关系库 `ingest_records` 的最小关键词匹配，不接 ClickHouse 全文检索；MySQL 当前通过 `JSON_SEARCH` 覆盖业务 payload 字符串值，非字符串 JSON 标量和大数据量性能需后续真实库专项补验。
+- T-0040 只做前端 Events 时间线基础展示，不改后端查询契约；真实后端/真实数据库/浏览器端的 events 时间线联合路径仍需由后续测试 agent 覆盖。
 
 ### 下一步
 
-- 完成 T-0039 合并后后端/前端本地验证；必要时启动收窄真实联测覆盖 keyword 查询；随后推送 `dev`、读取 CI、fast-forward 同步前后端 feature 分支并运行严格 worktree 体检。
+- 推送 T-0040 记录与 merge 结果，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检；随后启动真实前后端联合测试 agent，使用真实后端、真实前端和真实数据库覆盖当前阶段查询页路径。
 
 ### 验证
 
@@ -629,3 +634,5 @@
 - T-0039 开发/审计/复测阶段通过：后端最终复测 `uv run pytest tests/test_query_api.py` 22 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 和全量 `uv run pytest` 129 passed/2 skipped；前端复测 keyword 专项 12 passed，`npm.cmd run lint`、`npm.cmd run test`（12 个测试文件、52 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过。
 - T-0039 merge 到 `dev` 后本地验证通过：后端 `uv run pytest tests/test_query_api.py` 22 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 和全量 `uv run pytest` 129 passed/2 skipped；前端 keyword 专项 12 passed，`npm.cmd run lint`、`npm.cmd run test`（12 个测试文件、52 passed）、`npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 通过。`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 6 个提交失败。
 - 已登记 `T-0040` 阶段 3 Events 时间线页基础任务：当前后端 `GET /api/v1/query/events` 已提供 type/source/time/payload 和分页 envelope，先由前端在 `/events` 查询结果中实现时间线呈现、事件类型/source/时间扫描和 payload 展开，不改后端 API。
+- T-0040 前端开发/审计/复测阶段通过：专项 `npm.cmd run test -- src/features/query/eventTimeline.test.ts src/pages/QueryPage.test.tsx` 2 个文件 7 tests passed，`npm.cmd run lint`、`npm.cmd run test`（13 个测试文件、57 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过；Newton 审计无 P0/P1/P2。
+- T-0040 merge 到 `dev` 后本地验证通过：前端 eventTimeline/page 专项 7 passed，`npm.cmd run lint`、`npm.cmd run test`（13 个测试文件、57 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 2 个提交失败。
