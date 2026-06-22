@@ -69,6 +69,7 @@ closed      已关闭
 | T-0039 | 日志关键词搜索基础 | 总 agent | done | done | done | done | done |
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
+| T-0042 | Metrics 聚合窗口基础 | 总 agent | doing | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -81,6 +82,7 @@ closed      已关闭
 | API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为事件列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`keyword`、`trace_id`、`span_id`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为指标样本列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
+| API-0019 | 指标聚合窗口查询 | GET | `/api/v1/query/metrics/aggregate` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation` | 返回 `{ items }`；`items` 为按窗口聚合的指标点，包含 `window_start`、`window_end`、`name`、`source`、`aggregation`、`value`、`sample_count`、`unit` | 总 agent | doing |
 
 ## 5. 前后端对齐记录
 
@@ -338,6 +340,7 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`；本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1` | done |
 | 2026-06-22 | T-0041 | 总 agent | CI 与 worktree 同步完成 | 推送 `e59662e` 后 GitHub Actions run `27937513862` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `e59662e` 并推送，严格 worktree 体检通过 | done |
 | 2026-06-22 | T-0041 | 测试 agent Bohr | 日志字段过滤真实联测通过 | Bohr 在 `dev` `e59662e` 上启动独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器；完成健康检查、登录、项目/环境/服务/API Key、6 条 logs 上报、`trace_id`/`span_id`/组合筛选、keyword/level/source 叠加、空结果、未认证 401、无权限显式项目 404、分页保持 trace/span 筛选、浏览器 `/logs` 表单筛选/空态/翻页以及 metrics/events 快速回归；已 drop 临时库、停止记录 PID 的前端/后端/MySQL、删除 MySQL 临时 datadir 并确认端口无残留；证据目录 `agents/runtime/e2e-t0041-trace-span-20260622-155110/` 保留为本地 ignored 运行产物 | done |
+| 2026-06-22 | T-0042 | 总 agent | 启动 Metrics 聚合窗口基础 | 阶段 3 下一步拆分为 metrics 聚合窗口：后端新增独立 `GET /api/v1/query/metrics/aggregate`，先基于关系库 `ingest_records` 支持固定窗口 `1m/5m/15m/1h` 与 `avg/sum/min/max/count` 聚合；前端在 `/metrics` 查询页新增聚合窗口控件和聚合结果视图。现有 `/api/v1/query/metrics` 样本列表与分页 envelope 不变。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
 
 ## 6. 测试记录
 

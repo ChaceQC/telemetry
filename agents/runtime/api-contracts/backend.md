@@ -687,6 +687,41 @@
   - `422`：`log_id` 非正整数，或 `before` / `after` 超出 `0..20`。
 - 当前查询来源：关系库 `ingest_records` 的 `kind=log` 记录，并由 `(project_id, kind, received_at, id)` 组合索引支撑前后窗口过滤与排序；ClickHouse 日志上下文、全文搜索窗口和更复杂字段过滤后续补齐。
 
+## API-0019 指标聚合窗口查询
+
+- `GET /api/v1/query/metrics/aggregate`
+- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 查询参数：
+  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404 项目不存在`。
+  - `name`：可选，指标名，长度 `1..128`。
+  - `source`：可选，来源，长度 `1..128`。
+  - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按指标 `occurred_at` 过滤。
+  - `window`：可选，固定窗口，默认 `5m`；本小步只支持 `1m`、`5m`、`15m`、`1h`。
+  - `aggregation`：可选，默认 `avg`；本小步只支持 `avg`、`sum`、`min`、`max`、`count`。
+  - `limit`：可选，默认 `100`，范围 `1..500`，限制返回窗口点数量。
+- 响应：统一对象，`items` 为聚合点数组；本接口不返回 cursor，不改变 `GET /api/v1/query/metrics` 样本列表 envelope。
+
+```json
+{
+  "items": [
+    {
+      "project_id": 1,
+      "name": "http.requests",
+      "source": "api",
+      "window_start": "2026-06-21T00:00:00Z",
+      "window_end": "2026-06-21T00:05:00Z",
+      "aggregation": "avg",
+      "value": 12.5,
+      "sample_count": 4,
+      "unit": "count"
+    }
+  ]
+}
+```
+
+- 分组规则：按 `project_id`、`name`、`source`、窗口开始时间聚合；`unit` 当前取同一窗口内可见样本的最小非空 unit，若混合 unit 则后续单独处理，不在本小步引入单位换算。
+- 当前查询来源：关系库 `ingest_records` 的 `kind=metric` 记录和 JSON payload 中的 `value`；暂不接 ClickHouse、group by tags、percentile、Top N、降采样或多序列对比。
+
 ## 持久化实现与迁移
 
 - 当前实现位于 `backend/app/repositories/management.py`，默认使用 `SqlAlchemyManagementRepository`。

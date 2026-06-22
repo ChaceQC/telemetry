@@ -2,6 +2,49 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0042 Metrics 聚合窗口基础
+
+- task: T-0042
+- owner: frontend-agent / backend-agent
+- scope: `/metrics` 查询页新增聚合窗口控件和聚合结果视图，接入独立指标聚合 API。
+- status: draft-aligned
+
+### Metrics 聚合 API 契约
+
+- endpoint: `GET /api/v1/query/metrics/aggregate`
+- auth: 沿用现有查询 API client，前端随请求携带 `Authorization: Bearer <access_token>`。
+- request query:
+  - 保留 metrics 查询相关筛选：`project_id`、`name`、`source`、`occurred_from`、`occurred_to`。
+  - 新增可选 `window`: `1m | 5m | 15m | 1h`，默认 `5m`。
+  - 新增可选 `aggregation`: `avg | sum | min | max | count`，默认 `avg`。
+  - 可选 `limit`: number，默认 `100`，范围由后端限制。
+  - 本接口不使用 `cursor`；现有 `GET /api/v1/query/metrics` 样本列表和分页行为不变。
+- response body:
+
+```json
+{
+  "items": [
+    {
+      "project_id": 1,
+      "name": "http.requests",
+      "source": "api",
+      "window_start": "2026-06-21T00:00:00Z",
+      "window_end": "2026-06-21T00:05:00Z",
+      "aggregation": "avg",
+      "value": 12.5,
+      "sample_count": 4,
+      "unit": "count"
+    }
+  ]
+}
+```
+
+- frontend behavior:
+  - `/metrics` 筛选区增加窗口和聚合方式控件；`/logs` 与 `/events` 不显示、不透传这些字段。
+  - `/metrics` 结果区在当前页趋势之外新增聚合摘要/图表区域，读取独立 aggregate API；样本列表仍使用现有 metrics 查询和分页。
+  - 提交筛选或刷新时同时刷新样本查询和聚合查询；聚合查询不影响样本列表 cursor。
+  - 不新增重量级图表库；优先复用当前轻量 SVG/表格模式。
+
 ## 2026-06-22 T-0041 日志结构化字段过滤基础
 
 - task: T-0041

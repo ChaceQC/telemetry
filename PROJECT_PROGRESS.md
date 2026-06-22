@@ -599,10 +599,11 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`。
 - 推送 `e59662e` 后 GitHub Actions run `27937513862` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；随后 `feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e59662e` 并推送，严格 worktree 体检通过。
 - Bohr 在 `dev` `e59662e` 上完成 T-0041 真实前后端联合测试：独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器均通过，覆盖 logs `trace_id`/`span_id`/组合筛选、keyword/level/source 叠加、空结果、未认证/无权限、分页保持筛选语义、浏览器 `/logs` 表单筛选/空态/翻页，以及 metrics/events 快速回归；已清理自己启动的 MySQL、后端、前端、浏览器和临时目录，证据目录保留为本地 ignored 运行产物。
+- 已登记 `T-0042` 阶段 3 Metrics 聚合窗口基础任务：后端新增独立 `GET /api/v1/query/metrics/aggregate`，先基于关系库 `ingest_records` 支持固定窗口 `1m/5m/15m/1h` 和 `avg/sum/min/max/count`；前端在 `/metrics` 查询页新增聚合窗口控件和聚合结果视图。现有 `/api/v1/query/metrics` 样本列表与分页 envelope 不变。
 
 ### 进行中
 
-- T-0041 已完成 dev 集成、CI、分支同步和真实联测；下一步准备进入阶段 3 的 metrics 聚合窗口或日志字段过滤后续小步。
+- T-0042 已进入启动阶段；前后端 agents 将分别在独立 worktree 并行推进，开发 agent 不做完整联测。
 
 ### 阻塞与风险
 
@@ -617,10 +618,11 @@
 - T-0041 只过滤 logs 顶层结构化字段 `trace_id` 与 `span_id`，不做任意 JSON 字段过滤、不做 `request_id` payload 查询、不接 ClickHouse；后续可单独设计字段过滤 DSL 或白名单 payload key 查询。
 - Popper 发现一个非阻断回归候选：登录后如果直接硬刷新 `/settings`，会话恢复期间 Settings 项目/环境/服务请求可能先以未认证状态发出并返回 `401`；SPA 侧边栏导航路径正常，后续可单独拆分会话恢复 gating 修复。
 - T-0041 已用真实 MySQL/真实前后端补齐 `trace_id`/`span_id` 精确查询和浏览器翻页体验；仍未实现任意 JSON 字段过滤、`request_id` payload 查询、ClickHouse 日志查询或脱敏策略。
+- T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。
 
 ### 下一步
 
-- 优先选择下一个阶段 3 小步：metrics 聚合窗口基础，或 logs 字段过滤继续扩展为白名单 payload key；开工前登记任务并继续前后端并行、开发/审计/测试职责分离。
+- 启动 T-0042 前后端开发 agents；完成后启动代码审计 agents 与测试 agents 做局部复验，随后用真实 `git merge` 合入 `dev`、读取 CI、同步 feature 分支，并安排真实前后端联合测试覆盖 metrics 聚合窗口。
 
 ### 验证
 
