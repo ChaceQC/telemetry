@@ -2,6 +2,31 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0045 Trace 查询最小后端基础
+
+### 已完成
+
+- 新增 `GET /api/v1/query/traces`，复用现有 Bearer 用户认证、项目权限过滤、`QueryService` / `SqlAlchemyQueryRepository` 分层和统一 `{items, next_cursor}` 分页 envelope。
+- 查询来源限定为关系库 `ingest_records.kind=trace`，字段从 T-0044 trace payload 顶层关键字段读取：`trace_id`、`span_id`、`parent_span_id`、`name`、`start_time`、`end_time`、`duration_ms`、`status_code`、`attributes` 和业务 `payload`。
+- 支持最小筛选：`project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、`cursor`；`trace_id` / `span_id` 在 service 层 trim，trim 后空白按未传处理，trim 后超过 128 返回 `422`。
+- 复用查询分页游标签名/校验模式：trace cursor 绑定查询类型和当前筛选条件，旧 cursor 用于不同 trace 筛选或其他查询类型时返回 `422 cursor 无效或不匹配当前查询`。
+- 排序沿用现有查询 API 的稳定模式：按 `received_at desc, id desc` 返回并生成 cursor；时间范围筛选仍按 span `occurred_at`（即 `start_time`）执行。取舍是先保证关系库分页在同一接收时间下不重复/不漏项，span 树、水瀑图所需的 start_time 拓扑排序留给后续专门接口或前端展示层。
+- 本次未新增 Alembic 迁移：trace 查询复用既有 `ingest_records(project_id, kind, received_at, id)` 组合索引，新增过滤只使用既有 `event_type` / `source` 列和 JSON payload 顶层字符串字段；已补 SQLite/MySQL/MariaDB SQL 编译断言。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`。版本暂不提升：本小步只新增后端查询能力，建议总 agent 在 T-0045 集成、审计和真实库测试通过后统一判断是否将根/后端/前端同步到 `0.2.3`。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮不接 ClickHouse，不做 trace tree/waterfall、服务拓扑、跨信号关联、日志互跳、前端页面或前端 API client。
+- 开发侧未启动本地 MySQL、Docker、真实 FastAPI 服务或浏览器；真实 MySQL JSON 字段执行语义、组合索引执行计划和真实后端 HTTP 验证留给后续测试 agent。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "traces or trace_payload" -q`，结果：6 个测试通过、37 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_query_api.py -q`，结果：43 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/query.py app/repositories/query.py app/schemas/query.py app/services/query.py tests/test_query_api.py`，结果：通过。
+- 已运行 `uv run mypy app/api/routes/query.py app/repositories/query.py app/schemas/query.py app/services/query.py tests/test_query_api.py`，结果：5 个源文件无类型错误。
+
 ## 2026-06-22 T-0044 Trace ingestion 最小后端基础
 
 ### 已完成

@@ -15,6 +15,8 @@ from app.schemas.query import (
     MetricAggregateResponse,
     MetricQueryPageResponse,
     MetricQueryResponse,
+    TraceQueryPageResponse,
+    TraceQueryResponse,
 )
 from app.services.errors import ResourceNotFoundError
 from app.services.query import QueryCursorError, QueryFilterError, QueryService
@@ -145,6 +147,55 @@ def get_log_context(
         target=LogQueryResponse.model_validate(context.target),
         before=[LogQueryResponse.model_validate(log) for log in context.before],
         after=[LogQueryResponse.model_validate(log) for log in context.after],
+    )
+
+
+@router.get(
+    "/traces",
+    response_model=TraceQueryPageResponse,
+    summary="查询 Trace spans",
+)
+def list_traces(
+    query_service: Annotated[QueryService, Depends(get_query_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int | None, Query(gt=0)] = None,
+    trace_id: Annotated[str | None, Query()] = None,
+    span_id: Annotated[str | None, Query()] = None,
+    name: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    source: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+    occurred_from: datetime | None = None,
+    occurred_to: datetime | None = None,
+    limit: Annotated[int, Query(gt=0, le=500)] = 100,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=1024)] = None,
+) -> TraceQueryPageResponse:
+    try:
+        page = query_service.list_traces(
+            user=current_user,
+            project_id=project_id,
+            trace_id=trace_id,
+            span_id=span_id,
+            name=name,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            limit=limit,
+            cursor=cursor,
+        )
+    except ResourceNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except QueryCursorError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    except QueryFilterError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    return TraceQueryPageResponse(
+        items=[TraceQueryResponse.model_validate(span) for span in page.items],
+        next_cursor=page.next_cursor,
     )
 
 
