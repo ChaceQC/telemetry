@@ -104,6 +104,8 @@ class QueryService:
         keyword: str | None,
         trace_id: str | None,
         span_id: str | None,
+        request_id: str | None,
+        user_id: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -121,6 +123,16 @@ class QueryService:
             field_name="span_id",
             max_length=128,
         )
+        normalized_request_id = _normalize_optional_text(
+            request_id,
+            field_name="request_id",
+            max_length=128,
+        )
+        normalized_user_id = _normalize_optional_text(
+            user_id,
+            field_name="user_id",
+            max_length=128,
+        )
         query = _query_signature(
             project_id=project_id,
             level=level,
@@ -128,6 +140,8 @@ class QueryService:
             keyword=normalized_keyword,
             trace_id=normalized_trace_id,
             span_id=normalized_span_id,
+            request_id=normalized_request_id,
+            user_id=normalized_user_id,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
         )
@@ -141,6 +155,8 @@ class QueryService:
             keyword=normalized_keyword,
             trace_id=normalized_trace_id,
             span_id=normalized_span_id,
+            request_id=normalized_request_id,
+            user_id=normalized_user_id,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
             limit=limit + 1,

@@ -111,6 +111,8 @@ class QueryRepository(Protocol):
         keyword: str | None,
         trace_id: str | None,
         span_id: str | None,
+        request_id: str | None,
+        user_id: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -318,11 +320,21 @@ def _apply_log_structured_field_filters(
     *,
     trace_id: str | None,
     span_id: str | None,
+    request_id: str | None,
+    user_id: str | None,
 ) -> Select[tuple[IngestRecordModel]]:
     if trace_id is not None:
         statement = statement.where(IngestRecordModel.payload["trace_id"].as_string() == trace_id)
     if span_id is not None:
         statement = statement.where(IngestRecordModel.payload["span_id"].as_string() == span_id)
+    if request_id is not None:
+        statement = statement.where(
+            IngestRecordModel.payload["attributes"]["request_id"].as_string() == request_id
+        )
+    if user_id is not None:
+        statement = statement.where(
+            IngestRecordModel.payload["attributes"]["user_id"].as_string() == user_id
+        )
     return statement
 
 
@@ -412,6 +424,8 @@ class SqlAlchemyQueryRepository:
         keyword: str | None,
         trace_id: str | None,
         span_id: str | None,
+        request_id: str | None,
+        user_id: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -443,6 +457,8 @@ class SqlAlchemyQueryRepository:
             statement,
             trace_id=trace_id,
             span_id=span_id,
+            request_id=request_id,
+            user_id=user_id,
         )
 
         statement = statement.order_by(
