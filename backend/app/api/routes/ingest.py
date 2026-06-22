@@ -14,6 +14,7 @@ from app.schemas.ingest import (
     IngestMetricsCreate,
     IngestReceiptResponse,
     IngestStatResponse,
+    IngestTracesCreate,
 )
 from app.services.api_keys import ApiKeyVerification
 from app.services.errors import ResourceNotFoundError
@@ -117,5 +118,21 @@ def ingest_logs(
     ingest_service: Annotated[IngestService, Depends(get_ingest_service)],
 ) -> IngestBatchResponse:
     accepted = ingest_service.ingest_logs(context=context, batch=payload)
+    receipts = [_receipt_response(record) for record in accepted.records]
+    return IngestBatchResponse(accepted_count=len(receipts), receipts=receipts)
+
+
+@router.post(
+    "/traces",
+    response_model=IngestBatchResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="批量摄入 trace spans",
+)
+def ingest_traces(
+    payload: IngestTracesCreate,
+    context: Annotated[ApiKeyVerification, Depends(get_ingest_api_key_context)],
+    ingest_service: Annotated[IngestService, Depends(get_ingest_service)],
+) -> IngestBatchResponse:
+    accepted = ingest_service.ingest_traces(context=context, batch=payload)
     receipts = [_receipt_response(record) for record in accepted.records]
     return IngestBatchResponse(accepted_count=len(receipts), receipts=receipts)

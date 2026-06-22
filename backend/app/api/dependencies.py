@@ -23,6 +23,18 @@ from app.services.rate_limit import RateLimiter, RateLimiterUnavailableError, Ra
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def ingest_kind_from_path(path: str) -> IngestKind | None:
+    if path.endswith("/api/v1/ingest/events") or path.endswith("/api/v1/ingest/batch"):
+        return IngestKind.event
+    if path.endswith("/api/v1/ingest/metrics"):
+        return IngestKind.metric
+    if path.endswith("/api/v1/ingest/logs"):
+        return IngestKind.log
+    if path.endswith("/api/v1/ingest/traces"):
+        return IngestKind.trace
+    return None
+
+
 def get_db_session(request: Request) -> Iterator[Session]:
     session_factory = request.app.state.db_session_factory
     with session_factory() as session:
@@ -102,9 +114,11 @@ def get_ingest_api_key_context(
             now=getattr(request.state, "rate_limit_now", None),
         )
     except RateLimitExceededError as error:
-        with request.app.state.db_session_factory() as session:
-            ingest_service = IngestService(SqlAlchemyIngestRepository(session))
-            ingest_service.record_rejected(context=context, kind=IngestKind.event)
+        ingest_kind = ingest_kind_from_path(request.url.path)
+        if ingest_kind is not None:
+            with request.app.state.db_session_factory() as session:
+                ingest_service = IngestService(SqlAlchemyIngestRepository(session))
+                ingest_service.record_rejected(context=context, kind=ingest_kind)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="摄入请求过于频繁",

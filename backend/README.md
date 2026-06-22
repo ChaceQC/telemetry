@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -190,7 +190,7 @@ GET /health
 {
   "status": "ok",
   "service": "telemetry-backend",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "environment": "local",
   "port": 28117
 }
@@ -352,7 +352,7 @@ GET /health
 
 ## 数据摄入 API
 
-当前阶段提供 events、metrics 和 logs 摄入入口，用于闭环“API Key 可用于数据上报”。摄入接口不接受登录态 JWT，也不接受客户端传入 `project_id`；后端只从 API Key 校验结果推导 `project_id` 和 `api_key_id`，并写入 `ingest_records`。支持两种鉴权头：
+当前阶段提供 events、metrics、logs 和 traces 摄入入口，用于闭环“API Key 可用于数据上报”。摄入接口不接受登录态 JWT，也不接受客户端传入 `project_id`；后端只从 API Key 校验结果推导 `project_id` 和 `api_key_id`，并写入 `ingest_records`。支持两种鉴权头：
 
 - `Authorization: Bearer <api_key>`
 - `X-API-Key: <api_key>`
@@ -365,6 +365,7 @@ GET /health
 | `POST` | `/api/v1/ingest/batch` | 批量摄入事件，当前仅支持 `events` 数组 |
 | `POST` | `/api/v1/ingest/metrics` | 批量摄入指标 datapoints，当前使用 `metrics` 数组 |
 | `POST` | `/api/v1/ingest/logs` | 批量摄入日志记录，当前使用 `logs` 数组 |
+| `POST` | `/api/v1/ingest/traces` | 批量摄入 trace spans，当前使用 `spans` 数组 |
 
 单条事件请求体：
 
@@ -476,6 +477,48 @@ GET /health
 | `attributes` | 可选对象，任意层级不得包含非有限数值 |
 | `payload` | 可选对象，任意层级不得包含非有限数值 |
 
+Trace 请求体：
+
+```json
+{
+  "spans": [
+    {
+      "trace_id": "trace-1",
+      "span_id": "span-1",
+      "parent_span_id": "root-span",
+      "name": "GET /health",
+      "start_time": "2026-06-21T00:00:00Z",
+      "end_time": "2026-06-21T00:00:00.125Z",
+      "duration_ms": 125,
+      "status_code": "ok",
+      "source": "api",
+      "attributes": {
+        "service.name": "backend"
+      },
+      "payload": {
+        "http.method": "GET"
+      }
+    }
+  ]
+}
+```
+
+Trace 规则：`spans` 至少 1 条、最多 100 条；整体 JSON 序列化后不超过 256 KiB。单条字段规则：
+
+| 字段 | 规则 |
+| --- | --- |
+| `trace_id` | 必填，1 到 128 字符 |
+| `span_id` | 必填，1 到 128 字符 |
+| `parent_span_id` | 可选，最长 128 字符 |
+| `name` | 必填，1 到 128 字符 |
+| `start_time` | 必填，ISO 8601 时间；入库为 `occurred_at` |
+| `end_time` | 可选，ISO 8601 时间；不能早于 `start_time`，且与 `start_time` 时区格式一致 |
+| `duration_ms` | 可选，有限非负数值；未传且有 `end_time` 时后端按起止时间计算 |
+| `status_code` | 可选，最长 64 字符 |
+| `source` | 可选，最长 128 字符 |
+| `attributes` | 可选对象，任意层级不得包含非有限数值 |
+| `payload` | 可选对象，任意层级不得包含非有限数值 |
+
 单条成功响应：`202 Accepted`
 
 ```json
@@ -510,11 +553,11 @@ GET /health
 | 状态码 | 场景 |
 | --- | --- |
 | `401` | 缺少 API Key、API Key 无效或已撤销 |
-| `422` | 请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长或批量条数/大小超限 |
+| `422` | 请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长、trace duration/time 无效或批量条数/大小超限 |
 
-持久化映射：events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`。三类记录都复用 `ingest_records` 的 `source`、`payload`、`occurred_at` 和 `received_at` 字段，后续可按存储策略再拆分到专用时序/日志后端。
+持久化映射：events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`；traces 写入 `kind=trace` 且 `event_type=name`。四类记录都复用 `ingest_records` 的 `source`、`payload`、`occurred_at` 和 `received_at` 字段；trace payload 会保存 `trace_id`、`span_id`、`parent_span_id`、`name`、`start_time`、`end_time`、`duration_ms`、`status_code`、`source`、`attributes`、业务 `payload` 和原始 span `raw`。`ingest_records.kind` 是字符串列，新增 `trace` kind 不需要新迁移；后续可按存储策略再拆分到专用时序/日志/trace 后端。
 
-安全边界：摄入接口当前只做最小持久化；不会把客户端 payload、tags 或 attributes 中的 `project_id` 作为项目归属，若 `project_id` 出现在顶层请求体会因额外字段返回 `422`，若出现在嵌套业务载荷内仅保存为业务字段，不影响归属；嵌套业务载荷任意层级的 `NaN`、`Infinity` 或 `-Infinity` 均返回 `422`。当前尚未实现审计日志、traces 专用 schema 或 ClickHouse/MongoDB 写入。
+安全边界：摄入接口当前只做最小持久化；不会把客户端 payload、tags 或 attributes 中的 `project_id` 作为项目归属，若 `project_id` 出现在顶层请求体会因额外字段返回 `422`，若出现在嵌套业务载荷内仅保存为业务字段，不影响归属；嵌套业务载荷任意层级的 `NaN`、`Infinity` 或 `-Infinity` 均返回 `422`。当前尚未实现审计日志、trace 查询 API 或 ClickHouse/MongoDB 写入。
 
 摄入限流：`INGEST_RATE_LIMIT_ENABLED=true` 时，后端按已验证 API Key ID 做固定窗口限流。默认 `INGEST_RATE_LIMIT_BACKEND=memory` 使用单进程内存计数器，适合本地开发、测试和单实例保护；`INGEST_RATE_LIMIT_BACKEND=redis` 时使用 `REDIS_URL` 的 Redis 固定窗口计数器，适合多实例共享限流状态。超限响应为 `429 Too Many Requests`，响应体 `detail=摄入请求过于频繁`，并返回 `Retry-After` 秒数；Redis 不可用时返回 `503 Service Unavailable`，响应体 `detail=摄入限流服务不可用`。
 
@@ -608,4 +651,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目 environment_id 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、事件/日志/指标查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套对象/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、组合筛选、空结果、非法参数和 limit、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；真实 MySQL 联测曾发现未显式下取整会把 `00:00:59`、`00:04:59` 边界样本上浮到下一桶，本轮已在 SQL 编译层锁定修复；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成，MySQL 关键词搜索的非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划和指标窗口聚合执行计划需后续真实库专项补验或扩展。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目 environment_id 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、trace spans 摄入绑定 API Key 项目、`kind=trace` 写入、trace payload/raw span 持久化、trace duration/time 校验、trace 非有限值拒绝、trace 验证失败/限流拒绝按 `kind=trace` 统计、事件/日志/指标查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套对象/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、组合筛选、空结果、非法参数和 limit、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、`ingest_records.kind` 字符串列兼容 `trace` kind、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；真实 MySQL 联测曾发现未显式下取整会把 `00:00:59`、`00:04:59` 边界样本上浮到下一桶，本轮已在 SQL 编译层锁定修复；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成，MySQL 关键词搜索的非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划、trace 真实 MySQL 写入/统计执行计划和指标窗口聚合执行计划需后续真实库专项补验或扩展。
