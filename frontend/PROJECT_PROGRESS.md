@@ -2,6 +2,28 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0043 日志 Request ID / User ID 字段过滤基础
+
+### 已完成
+
+- 更新查询 API client：`LogQueryParams` 新增可选 `request_id`、`user_id`，`listLogs` 会把非空值编入 `GET /api/v1/query/logs` 查询参数；metrics/events client 继续按白名单参数构造请求，不透传误传的 logs 专属字段。
+- 更新查询筛选构建：`QueryFilters` 新增 logs 专属 `requestId`、`userId`，仅在 logs 查询参数中 trim 后转换为 `request_id`、`user_id`。
+- 更新 `/logs` 查询表单：新增 Request ID 与 User ID 输入；`/metrics` 与 `/events` 不显示关键词、Trace ID、Span ID、Request ID 或 User ID。
+- 扩展前端测试：覆盖 API client 透传 request/user、queryFilters trim 与作用域、QueryPage 仅 logs 渲染 logs 专属筛选字段。
+- 更新 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0043 前端契约草案。
+
+### 阻塞与风险
+
+- 本轮不做完整前后端联测，不启动真实后端、数据库、dev server 或浏览器。
+- 页面交互层仍以 SSR 渲染测试和参数构建/API URL 测试覆盖；真实填写表单后的后端精确匹配由后续测试 agent 联合验证。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx` 通过（3 个测试文件、19 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-22 T-0041 日志结构化字段过滤基础
 
 ### 已完成

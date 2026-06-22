@@ -19,6 +19,8 @@ export type QueryFilters = {
   keyword: string;
   traceId: string;
   spanId: string;
+  requestId: string;
+  userId: string;
   source: string;
   occurredFrom: string;
   occurredTo: string;
@@ -33,6 +35,8 @@ export const defaultFilters: QueryFilters = {
   keyword: '',
   traceId: '',
   spanId: '',
+  requestId: '',
+  userId: '',
   source: '',
   occurredFrom: '',
   occurredTo: '',
@@ -63,7 +67,9 @@ export function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cur
       level: toOptional(filters.primary),
       keyword: toOptional(filters.keyword),
       trace_id: toOptional(filters.traceId),
-      span_id: toOptional(filters.spanId)
+      span_id: toOptional(filters.spanId),
+      request_id: toOptional(filters.requestId),
+      user_id: toOptional(filters.userId)
     };
   }
 

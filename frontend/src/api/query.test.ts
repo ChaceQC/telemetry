@@ -98,12 +98,12 @@ describe('query api client', () => {
     const { listLogs } = await loadQueryClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));
 
-    await listLogs({ level: '', source: '', limit: undefined });
+    await listLogs({ level: '', request_id: ' ', user_id: '', source: '', limit: undefined });
 
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:28117/api/v1/query/logs', expect.any(Object));
   });
 
-  it('日志查询会携带关键词和 trace/span 筛选参数', async () => {
+  it('日志查询会携带关键词、trace/span 和 request/user 筛选参数', async () => {
     const { listLogs } = await loadQueryClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));
 
@@ -112,11 +112,13 @@ describe('query api client', () => {
       keyword: 'timeout retry',
       trace_id: ' trace-abc ',
       span_id: ' span-def ',
+      request_id: ' req-789 ',
+      user_id: ' user-123 ',
       cursor: 'log-cursor-1'
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:28117/api/v1/query/logs?level=error&keyword=timeout+retry&trace_id=trace-abc&span_id=span-def&cursor=log-cursor-1',
+      'http://localhost:28117/api/v1/query/logs?level=error&keyword=timeout+retry&trace_id=trace-abc&span_id=span-def&request_id=req-789&user_id=user-123&cursor=log-cursor-1',
       expect.any(Object)
     );
   });
@@ -127,8 +129,22 @@ describe('query api client', () => {
       .spyOn(globalThis, 'fetch')
       .mockImplementation(() => Promise.resolve(jsonResponse({ items: [], next_cursor: null })));
 
-    await listMetrics({ name: 'http.requests', keyword: 'ignored', trace_id: 'ignored', span_id: 'ignored' } as never);
-    await listEvents({ type: 'deploy.started', keyword: 'ignored', trace_id: 'ignored', span_id: 'ignored' } as never);
+    await listMetrics({
+      name: 'http.requests',
+      keyword: 'ignored',
+      trace_id: 'ignored',
+      span_id: 'ignored',
+      request_id: 'ignored',
+      user_id: 'ignored'
+    } as never);
+    await listEvents({
+      type: 'deploy.started',
+      keyword: 'ignored',
+      trace_id: 'ignored',
+      span_id: 'ignored',
+      request_id: 'ignored',
+      user_id: 'ignored'
+    } as never);
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,

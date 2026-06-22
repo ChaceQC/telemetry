@@ -26,7 +26,9 @@ const defaultLogParams = {
   level: undefined,
   keyword: undefined,
   trace_id: undefined,
-  span_id: undefined
+  span_id: undefined,
+  request_id: undefined,
+  user_id: undefined
 };
 
 const staleLog: LogQueryItem = {
@@ -189,12 +191,18 @@ describe('QueryPage auth guards', () => {
     expect(logsHtml).toContain('关键词');
     expect(logsHtml).toContain('Trace ID');
     expect(logsHtml).toContain('Span ID');
+    expect(logsHtml).toContain('Request ID');
+    expect(logsHtml).toContain('User ID');
     expect(metricsHtml).not.toContain('关键词');
     expect(metricsHtml).not.toContain('Trace ID');
     expect(metricsHtml).not.toContain('Span ID');
+    expect(metricsHtml).not.toContain('Request ID');
+    expect(metricsHtml).not.toContain('User ID');
     expect(eventsHtml).not.toContain('关键词');
     expect(eventsHtml).not.toContain('Trace ID');
     expect(eventsHtml).not.toContain('Span ID');
+    expect(eventsHtml).not.toContain('Request ID');
+    expect(eventsHtml).not.toContain('User ID');
   });
 
   it('仅 metrics 查询表单渲染聚合窗口控件', () => {
