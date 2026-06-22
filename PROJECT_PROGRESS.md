@@ -609,10 +609,12 @@
 - T-0042 MySQL 分桶修复已由 Avicenna 提交并推送 `7120835` 到 `feature/backend-dev`：MySQL/MariaDB 聚合窗口改为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds) * window_seconds`，避免边界秒被上浮到下一桶；补 SQL 编译断言、README、后端进度和契约草案。
 - Hume 代码审计 `7120835` 未发现 P0/P1/P2；Lorentz 使用真实 MySQL 8.4、FastAPI TestClient 和 PyMySQL 专项验证 `1m/5m` 边界桶、5m avg/sum/min/max/count、`+00:00`/`+08:00` session time_zone、非法参数 422 和未认证 401，全部通过；两个 agent 均已关闭并清理自有资源。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0042 MySQL 分桶修复合入 `dev`，merge 提交 `5e96f7d`；未使用路径拷贝，根、前端、后端 VERSION 继续保持 `0.2.1`。
+- 推送 `388706f` 后 GitHub Actions run `27944010799` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js 20 runtime 弃用注解；随后 `feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `388706f` 并推送，严格 worktree 体检通过。
+- Parfit 在 `dev/origin/dev` `388706f` 上完成 T-0042 真实前后端联合测试重跑并通过：使用真实 MySQL 8.0.42 本机隔离实例 `3942`、真实后端 `3943`、真实前端 `3944` 和 Playwright Chromium；覆盖 metrics aggregate avg/sum/min/max/count、`1m/5m/15m/1h`、project/name/source/time 过滤、empty/401/404/无权限/非法参数、MySQL 边界分桶、session `time_zone` 对照、浏览器 `/metrics` 聚合控件/结果字段/空态/错误态、metrics sample list 分页、logs/events/log context 回归。Parfit 已清理自己启动的后端、前端、MySQL 隔离实例、datadir 和浏览器；未杀无法确认归属且不监听本轮端口的 `mysqld` PID `6768`。
 
 ### 进行中
 
-- T-0042 MySQL 分桶修复已合入 `dev`；正在补根记录，随后推送、读取 GitHub Actions、同步 `feature/frontend-dev` 和 `feature/backend-dev`，再启动真实前后端联合测试 agent 重跑 T-0042 完整联测。
+- T-0042 已完成真实前后端联测重跑并通过；当前正在补最终根记录，随后提交、推送、读取 GitHub Actions、同步前后端 feature 分支，并进入阶段 3 下一项任务。
 
 ### 阻塞与风险
 
@@ -627,11 +629,11 @@
 - T-0041 只过滤 logs 顶层结构化字段 `trace_id` 与 `span_id`，不做任意 JSON 字段过滤、不做 `request_id` payload 查询、不接 ClickHouse；后续可单独设计字段过滤 DSL 或白名单 payload key 查询。
 - Popper 发现一个非阻断回归候选：登录后如果直接硬刷新 `/settings`，会话恢复期间 Settings 项目/环境/服务请求可能先以未认证状态发出并返回 `401`；SPA 侧边栏导航路径正常，后续可单独拆分会话恢复 gating 修复。
 - T-0041 已用真实 MySQL/真实前后端补齐 `trace_id`/`span_id` 精确查询和浏览器翻页体验；仍未实现任意 JSON 字段过滤、`request_id` payload 查询、ClickHouse 日志查询或脱敏策略。
-- T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。真实 MySQL `1m/5m` 边界秒分桶上偏已在后端专项中修复并复验通过，仍需完整前后端真实联测重跑确认端到端闭环。
+- T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。真实 MySQL `1m/5m` 边界秒分桶上偏已修复，并通过后端专项与完整真实前后端联测重跑确认。
 
 ### 下一步
 
-- 推送 T-0042 MySQL 分桶修复 merge 与记录提交，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检；随后以 `xhigh` 思考强度启动真实前后端联合测试 agent，使用真实后端、真实前端和真实数据库重跑 metrics 聚合窗口 API、UI 控件、错误/空态与回归路径。
+- 提交并推送 T-0042 最终联测记录，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检。下一项阶段 3 可优先拆分 logs 任意/白名单字段过滤、`request_id` 查询、Settings session restore gating、ClickHouse 查询接入或 metrics 多序列/Top N 能力。
 
 ### 验证
 
@@ -669,3 +671,4 @@
 - T-0042 前端开发/审计/复测阶段通过：Carver 开发侧 API/filter/page 专项、typecheck、lint、全量测试、build、diff check 通过；Tesla 审计无 P0/P1/P2；Ptolemy 复验 API/filter/page 专项 3 files/19 tests、lint、全量测试 13 files/62 tests、typecheck、build、diff check 通过。
 - T-0042 真实前后端联合测试未通过：Dewey 使用真实 MySQL 8.4、真实后端、真实前端和浏览器完成 73 项 API 检查，其中 47 通过、26 失败；失败集中在 MySQL `1m/5m` 边界秒分桶向上偏移。前端 `/metrics` 浏览器验证 12/12 通过，logs/events/log context 回归通过，测试 agent 已清理自有资源。
 - T-0042 MySQL 分桶修复专项验证通过：Avicenna 开发侧聚合专项 5 passed、ruff、format、mypy、diff check 通过；Hume 审计无 P0/P1/P2；Lorentz 真实 MySQL 8.4 专项验证 `1m`/`5m` 边界桶、5m avg/sum/min/max/count、session time_zone 对照、非法参数 422 和未认证 401 全部通过，并清理自有容器和临时 worktree。
+- T-0042 真实前后端联合测试重跑通过：Parfit 使用真实 MySQL 8.0.42 隔离实例、真实后端、真实前端和 Playwright Chromium；API aggregate 覆盖 avg/sum/min/max/count、`1m/5m/15m/1h`、项目/名称/source/时间过滤、empty/401/404/无权限/非法参数；MySQL 边界分桶 `1m` 为 `00:00` 两条、`00:01` 一条、`00:04` 一条，`5m` 为 `00:00` 四条，`+00:00`/`+08:00` 一致；前端 `/metrics` 聚合控件、结果字段、空态、错误态通过；sample list 分页和 logs/events/log context 回归通过。证据目录 `tmp/t0042-real-e2e-20260622-175604/` 保留为 ignored 产物，测试 agent 已清理自有资源。

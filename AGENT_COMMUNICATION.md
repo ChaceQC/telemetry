@@ -69,7 +69,7 @@ closed      已关闭
 | T-0039 | 日志关键词搜索基础 | 总 agent | done | done | done | done | done |
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
-| T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | testing | done | doing |
+| T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -350,6 +350,7 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 后端开发 agent Avicenna | MySQL 聚合分桶修复完成 | Avicenna 提交并推送 `7120835` 到 `feature/backend-dev`：MySQL/MariaDB 聚合窗口改为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds) * window_seconds`，避免边界秒上浮；补 SQL 编译断言、README、后端进度和契约草案；开发侧聚合专项、ruff、format、mypy、diff check 通过，并由其测试 agent Pasteur 做后端专项复验通过；Avicenna 已关闭 | done |
 | 2026-06-22 | T-0042 | 审计/测试 agents | MySQL 分桶修复复验通过 | 代码审计 agent Hume 只读复审 `7120835`，未发现 P0/P1/P2；后端测试 agent Lorentz 使用真实 MySQL 8.4、FastAPI TestClient 和 PyMySQL 专项验证 1m/5m 边界桶、avg/sum/min/max/count、`+00:00`/`+08:00` session time_zone、非法参数 422 和未认证 401，全部通过；两名 agent 已关闭并清理自有资源 | done |
 | 2026-06-22 | T-0042 | 总 agent | 合并 MySQL 分桶修复到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将后端修复合入 `dev`，merge 提交 `5e96f7d`；未使用路径拷贝，根、前端、后端 VERSION 继续保持 `0.2.1`；后续提交本记录、推送、读取 Actions、同步 feature 分支并重跑真实前后端联合测试 | doing |
+| 2026-06-22 | T-0042 | 测试 agent Parfit | 真实前后端联测重跑通过 | Parfit 在 `dev/origin/dev` `388706f` 上使用真实 MySQL 8.0.42 本机隔离实例 `3942`、真实后端 `3943`、真实前端 `3944` 和 Playwright Chromium 完成重跑：metrics aggregate avg/sum/min/max/count、1m/5m/15m/1h、project/name/source/time 过滤、empty/401/404/无权限/非法参数、MySQL 边界分桶和 session time_zone 对照均通过；浏览器 `/metrics` 聚合控件、结果字段、空态、错误态通过；metrics sample list 分页、logs/events/log context 快速回归通过；Parfit 已清理自己启动的后端、前端、MySQL 隔离实例、datadir 和浏览器，未杀无法确认归属的 `mysqld` PID `6768` | done |
 
 ## 6. 测试记录
 
@@ -403,6 +404,7 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、lint、full test、typecheck、build、`git diff --check` | 通过 | Carver 开发侧与 Ptolemy 复验均通过；Ptolemy 结果为 3 files/19 tests 专项、13 files/62 tests 全量；未启动完整联测 |
 | 2026-06-22 | T-0042 | 真实前后端联测 | Dewey；真实 MySQL 8.4 Docker 容器、真实后端、真实前端、Playwright Chromium | 未通过 | API 聚合 73 项检查中 47 通过、26 失败；失败集中在 MySQL `1m/5m` 边界秒分桶向上偏移，导致 4 条样本被拆成 3+1；session `time_zone` `+00:00`/`+08:00` 对比一致，说明已关闭的时区问题未复发。认证、权限、空态、非法参数、sample list 分页、logs/events/log context 回归与前端 `/metrics` 12/12 浏览器验证通过；Dewey 已清理自有资源 |
 | 2026-06-22 | T-0042 | 后端 MySQL 分桶专项复验 | Lorentz；真实 MySQL 8.4 容器、FastAPI TestClient、PyMySQL | 通过 | commit `7120835` 上验证 `window=1m` 返回 `00:00` 两条、`00:01` 一条、`00:04` 一条，`window=5m` 返回 `00:00` 四条；5m avg/sum/min/max/count 分别为 25/100/10/40/4；`+00:00` 与 `+08:00` session time_zone 输出一致；非法 window/aggregation 422、未认证 401 通过；已清理自有 MySQL 容器和临时 worktree |
+| 2026-06-22 | T-0042 | 真实前后端联测重跑 | Parfit；真实 MySQL 8.0.42 隔离实例、真实后端、真实前端、Playwright Chromium | 通过 | `dev/origin/dev` `388706f`；API aggregate 覆盖 avg/sum/min/max/count、1m/5m/15m/1h、项目/名称/source/时间过滤、empty/401/404/无权限/非法参数；MySQL 边界分桶 `1m` 为 `00:00` 两条、`00:01` 一条、`00:04` 一条，`5m` 为 `00:00` 四条，`+00:00`/`+08:00` 一致；前端 `/metrics` 聚合控件、结果字段、空态、错误态通过；sample list 分页和 logs/events/log context 回归通过；证据目录 `tmp/t0042-real-e2e-20260622-175604/`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -430,16 +432,16 @@ closed      已关闭
 | 2026-06-20 | T-0033 | 总览页摄入统计 API client、汇总逻辑、未登录态和响应式布局 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；本小步未修改后端契约，未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后统计、项目筛选、时间序列趋势、trace 统计和图表后续补齐 | done |
 | 2026-06-22 | T-0041 | 后端 logs trace/span 字段过滤 | 通过 | Zeno 只读审计未发现 P0/P1/P2；残余风险为真实 MySQL 执行语义仍需后续专项补验，FastAPI OpenAPI 参数 schema 未直接表达长度约束但 service 运行时返回 422，未达 P2 | done |
 | 2026-06-22 | T-0041 | 前端 logs Trace ID / Span ID 筛选 | 通过 | Poincare 只读审计未发现 P0/P1/P2；残余风险为未做浏览器视觉/交互验证，真实用户填写后翻页与后端精确匹配需后续集成覆盖 | done |
-| 2026-06-22 | T-0042 | 后端 metrics aggregate API | 通过 | Curie 初审发现 MySQL/MariaDB 聚合分桶 P2；Planck 修复 `75c249b` 后 Hypatia 复审未发现 P0/P1/P2，原 P2 已关闭；残余风险为尚未连接真实 MySQL/MariaDB 执行不同 `time_zone` session 下聚合对照 | done |
-| 2026-06-22 | T-0042 | 前端 metrics aggregate 控件与视图 | 通过 | Tesla 只读审计未发现 P0/P1/P2；残余风险为未做真实接口/浏览器层 401/422 展示、移动端布局和端到端窗口切换验证 | done |
-| 2026-06-22 | T-0042-fix | 后端 metrics aggregate MySQL 分桶修复 | 通过 | Hume 只读审计 `7120835` 未发现 P0/P1/P2；确认 MySQL/MariaDB 表达式使用 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` 且未重新引入 `UNIX_TIMESTAMP` 或 session time_zone 依赖；残余风险为大数据量性能和完整前后端联测仍需后续覆盖 | done |
+| 2026-06-22 | T-0042 | 后端 metrics aggregate API | 通过 | Curie 初审发现 MySQL/MariaDB 聚合分桶 P2；Planck 修复 `75c249b` 后 Hypatia 复审未发现 P0/P1/P2；Dewey 真实联测后又发现 MySQL 边界秒上浮，Avicenna `7120835` 修复后 Hume 复审无 P0/P1/P2、Lorentz/Parfit 真实 MySQL 验证通过；残余风险为大数据量性能和 ClickHouse 聚合后续接入 | done |
+| 2026-06-22 | T-0042 | 前端 metrics aggregate 控件与视图 | 通过 | Tesla 只读审计未发现 P0/P1/P2；Parfit 已用真实前端覆盖 `/metrics` 聚合控件、结果字段、空态和错误态；残余风险为移动端细节和更复杂多序列/大数据量展示 | done |
+| 2026-06-22 | T-0042-fix | 后端 metrics aggregate MySQL 分桶修复 | 通过 | Hume 只读审计 `7120835` 未发现 P0/P1/P2；确认 MySQL/MariaDB 表达式使用 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` 且未重新引入 `UNIX_TIMESTAMP` 或 session time_zone 依赖；Parfit 完整真实前后端联测已通过，残余风险为大数据量性能 | done |
 
 ## 8. 阻塞问题
 
 | 日期 | 任务 ID | 问题 | 影响 | 负责人 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
-| 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过；仍需推送 `dev` 后重跑完整前后端真实联测 | 后端开发 agent Avicenna / 总 agent | closed |
+| 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过，Parfit 完整真实前后端联测重跑通过 | 后端开发 agent Avicenna / 总 agent | closed |
 | 2026-06-20 | T-0002 | 当前工具面板未暴露 `create_thread`、`handoff_thread` 或测试子 agent 启动工具；本机 `codex.exe` 与 `codex-command-runner.exe` 执行 `--help` 均返回 Access is denied | 后续已通过可用的多 agent 工具启动测试子 agent Boole 复验 `T-0003`，本阻塞对当前后端骨架任务已解除 | 后端开发 agent / 总 agent | closed |
 
 ## 9. 分支与合并请求
