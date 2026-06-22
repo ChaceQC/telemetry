@@ -322,6 +322,9 @@ closed      已关闭
 | 2026-06-22 | T-0038 | 测试 agent | 真实前后端联合测试通过 | Nash 在 `dev` `b01e3ba` 上启动自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189` 和 Edge 浏览器；真实 MySQL Alembic upgrade 成功并确认组合索引存在，后端 `/health` 返回 `0.2.1`，完成登录、项目/环境/服务/API Key、logs/metrics/events 上报、分页查询、日志上下文 API/浏览器验证、跨项目隔离和登出后旧上下文隐藏；已清理自己启动的进程、端口和临时目录，Nash 已关闭 | done |
 | 2026-06-22 | T-0038 | 总 agent | CI 与 worktree 同步完成 | 推送 `b8ea83a` 后 GitHub Actions run `27931510655` 通过，Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `b8ea83a` 并推送，严格 worktree 体检通过 | done |
 | 2026-06-22 | T-0039 | 总 agent | 启动日志关键词搜索基础 | 阶段 3 下一步拆分为日志关键词搜索：后端为 `GET /api/v1/query/logs` 增加 `keyword` 查询参数，限定在当前项目权限和现有筛选内搜索日志 message/基础文本字段；前端在 `/logs` 查询表单增加关键词输入并接入分页查询。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
+| 2026-06-22 | T-0039 | 开发 agents | 日志关键词搜索前后端完成 | 后端 Confucius 提交 `037dd5b`，为 `GET /api/v1/query/logs` 增加 `keyword` 参数、cursor 签名和测试；前端 Cicero 提交 `a6797c9`，在 `/logs` 查询表单增加关键词输入、请求参数和测试；两名开发 agent 均已关闭 | done |
+| 2026-06-22 | T-0039 | 审计/测试 agents | 后端 keyword 范围 P2 已修复 | 前端审计 Euler 与前端测试 Dalton 通过；后端审计 Linnaeus 发现 keyword cast 整段 JSON 过宽，Chandrasekhar 提交 `cdbe448` 初步收窄；复审 Aquinas 发现业务 payload key-only 仍命中，Hegel 提交 `975d738` 改为 message + payload value 搜索；Herschel 复审无 P0/P1/P2，Arendt 复测后端全量通过；相关 agents 均已关闭 | done |
+| 2026-06-22 | T-0039 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0039 后端合入 `dev`，merge 提交 `eaf43b3`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0039 前端合入 `dev`，merge 提交 `f3297b2`；本次为同阶段兼容查询增强，暂不提升 `0.2.1` 版本，后续验证通过后推送 | doing |
 
 ## 6. 测试记录
 
@@ -363,6 +366,8 @@ closed      已关闭
 | 2026-06-22 | T-0038 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` | 通过 | 前端最终复测 11 个测试文件、46 个测试通过；缓存旧数据 P2 复审关闭；未做真实后端或浏览器联测 |
 | 2026-06-22 | T-0038/VERSION | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py tests/test_ingest_api.py -k "query_window_index or migration or log_context or test_version_file_declares_current_backend_version"`、后端 ruff/format/mypy/full pytest；前端上下文专项 test、lint/full test/typecheck/build；`git diff --check`、版本一致性检查 | 通过 | 后端专项 6 passed、全量 124 passed/2 skipped；前端专项 10 passed、全量 11 files/46 tests；三个 VERSION 均为 `0.2.1`。worktree 体检仅因 `dev` 尚未推送领先远端 6 个提交失败 |
 | 2026-06-22 | T-0038 | 真实前后端联合测试 | Nash；自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189`、Edge 浏览器 | 通过 | MySQL `upgrade head` 成功且 `ix_ingest_records_project_kind_received_at_id` 存在；`/health` 返回 `0.2.1`；logs 上下文 target/before/after、跨项目隔离、未认证保护和登出后旧上下文隐藏均通过；资源已按记录 PID/临时目录清理 |
+| 2026-06-22 | T-0039 | 前后端开发/测试 agent 局部验证 | 后端 `uv run pytest tests/test_query_api.py`、ruff、format、mypy、full pytest；前端 keyword 专项 test、lint、full test、typecheck、build、diff check | 通过 | 后端最终复测 22 query tests、全量 129 passed/2 skipped；前端最终复测 12 files/52 tests；未启动完整联测 |
+| 2026-06-22 | T-0039 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py`、ruff、format、mypy、full pytest；前端 keyword 专项 test、lint、full test、typecheck、build；`git diff --check`、worktree 预检 | 通过 | 后端 22 query tests、全量 129 passed/2 skipped；前端专项 12 passed、全量 12 files/52 tests；worktree 体检仅因 `dev` 尚未推送领先远端 6 个提交失败 |
 
 ## 7. 审计记录
 
