@@ -2,6 +2,32 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0038 审计 P2 日志上下文索引修复
+
+### 已完成
+
+- 修复后端审计 P2：为 `ingest_records` 补充组合索引 `ix_ingest_records_project_kind_received_at_id(project_id, kind, received_at, id)`，支撑日志上下文 before/after 的 `project_id + kind + received_at/id` 窗口查询，降低真实数据量下宽扫描和 filesort 风险。
+- 同步更新 `IngestRecordModel.__table_args__` 和 Alembic 迁移 `20260622_0007_add_ingest_records_query_index.py`，保持 ORM metadata 与迁移一致；迁移兼容 SQLite 测试和 MySQL 运行。
+- 补充 `backend/tests/test_ingest_api.py` 索引元数据与 SQLite Alembic `upgrade head` 后实际索引列断言，防止模型和迁移脱节。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录该组合索引可被日志上下文和带项目过滤的 events/logs/metrics 分页查询复用，审计 P2 已修。
+
+### 阻塞与风险
+
+- 当前 worktree 未启动真实 MySQL，本轮验证覆盖 SQLite 迁移和静态检查；真实 MySQL 大数据量执行计划、基数选择和线上慢查询仍需后续在专用环境用真实数据或压测数据复验。
+- 未修改查询语义、API 契约或前端联动；不做完整前后端联测。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py -k "query_window_index or migration"`，结果：2 个测试通过、26 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：17 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已使用 `sqlite:///./tmp-t0038-index-alembic.db` 运行 `uv run alembic upgrade head` 和 `uv run alembic downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：78 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：78 个源文件无类型错误。
+- 已运行 `uv run pytest`，结果：124 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `git diff --check`，结果：通过。
+- 已运行 MySQL dialect 离线 SQL 生成：`uv run alembic -x database_url='mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4' upgrade 20260621_0006:head --sql` 和 `uv run alembic -x database_url='mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4' downgrade 20260622_0007:20260621_0006 --sql`；输出包含 `CREATE INDEX ix_ingest_records_project_kind_received_at_id ON ingest_records (project_id, kind, received_at, id)` 和对应 `DROP INDEX`。真实 MySQL 执行仍需后续专用环境补验。
+
 ## 2026-06-22 版本同步
 
 ### 已完成

@@ -120,7 +120,7 @@ uv run python main.py
 | `rbac_team_members` | 团队成员 | 外键 `team_id`、`user_id`，同团队同用户唯一 |
 | `rbac_project_members` | 项目成员角色 | 外键 `project_id`、`user_id`，同项目同用户唯一，角色为 `viewer`、`editor`、`admin` |
 | `api_keys` | 项目 API Key | 外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一；只保存哈希和展示前缀，不保存明文 key |
-| `ingest_records` | 最小摄入记录 | 外键 `project_id`、`api_key_id`；保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at` |
+| `ingest_records` | 最小摄入记录 | 外键 `project_id`、`api_key_id`；保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；`(project_id, kind, received_at, id)` 组合索引支撑日志上下文窗口和带项目过滤的查询分页 |
 
 MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
 
@@ -520,13 +520,13 @@ GET /health
 
 摄入统计：成功摄入后会按分钟桶、项目、API Key、kind 和 source 聚合写入关系库 `ingest_stats`。已认证用户可通过 `GET /api/v1/ingest/stats` 查询自己有项目角色的统计，支持 `project_id`、`kind` 和 `limit` 参数；无权项目按“不存在”处理。当前统计 accepted 计数、payload 字节数，以及已验证 API Key 后的请求体验证失败和限流拒绝；缺失/无效/撤销 API Key 等缺少可信归属的失败请求暂不统计，ClickHouse `ingest_stats` 写入和更完整聚合查询后续补齐。
 
-事件查询：已认证用户可通过 `GET /api/v1/query/events` 查询自己有项目角色的事件记录，支持 `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit` 和可选 `cursor` 参数；显式查询无权项目返回 `404 项目不存在`。响应统一为 `{"items": [...], "next_cursor": string | null}`，`next_cursor=null` 表示没有更多数据；游标绑定事件查询和当前筛选条件，并基于 `received_at` 与 `id` 倒序排序生成，避免同一接收时间记录翻页重复或漏项。非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`。当前查询来源为关系库 `ingest_records` 的 `kind=event` 记录，不接 ClickHouse/MongoDB；全文搜索和复杂聚合后续补齐。
+事件查询：已认证用户可通过 `GET /api/v1/query/events` 查询自己有项目角色的事件记录，支持 `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit` 和可选 `cursor` 参数；显式查询无权项目返回 `404 项目不存在`。响应统一为 `{"items": [...], "next_cursor": string | null}`，`next_cursor=null` 表示没有更多数据；游标绑定事件查询和当前筛选条件，并基于 `received_at` 与 `id` 倒序排序生成，避免同一接收时间记录翻页重复或漏项。非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`。当前查询来源为关系库 `ingest_records` 的 `kind=event` 记录；带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；不接 ClickHouse/MongoDB，全文搜索和复杂聚合后续补齐。
 
-日志查询：已认证用户可通过 `GET /api/v1/query/logs` 查询自己有项目角色的日志记录，支持 `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit` 和可选 `cursor` 参数；显式查询无权项目返回 `404 项目不存在`。响应统一为 `{"items": [...], "next_cursor": string | null}`，`next_cursor=null` 表示没有更多数据；游标绑定日志查询和当前筛选条件，并基于 `received_at` 与 `id` 倒序排序生成。非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`。当前查询来源为关系库 `ingest_records` 的 `kind=log` 记录，并从 JSON 载荷中展开 `message`、`logger`、`trace_id`、`span_id`、`attributes` 和业务 `payload`；ClickHouse 日志查询、关键词搜索、字段过滤和脱敏后续补齐。
+日志查询：已认证用户可通过 `GET /api/v1/query/logs` 查询自己有项目角色的日志记录，支持 `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit` 和可选 `cursor` 参数；显式查询无权项目返回 `404 项目不存在`。响应统一为 `{"items": [...], "next_cursor": string | null}`，`next_cursor=null` 表示没有更多数据；游标绑定日志查询和当前筛选条件，并基于 `received_at` 与 `id` 倒序排序生成。非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`。当前查询来源为关系库 `ingest_records` 的 `kind=log` 记录，并从 JSON 载荷中展开 `message`、`logger`、`trace_id`、`span_id`、`attributes` 和业务 `payload`；带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；ClickHouse 日志查询、关键词搜索、字段过滤和脱敏后续补齐。
 
-日志上下文：已认证用户可通过 `GET /api/v1/query/logs/{log_id}/context` 查看某条日志在同项目内的前后文，查询参数 `before` 和 `after` 默认均为 `5`，范围 `0..20`。目标日志不存在、不是日志记录，或当前用户没有目标日志所属项目角色时，统一返回 `404 日志不存在`。响应为 `{"target": LogQueryResponse, "before": LogQueryResponse[], "after": LogQueryResponse[]}`；上下文限定目标日志同一 `project_id` 且 `kind=log`，不要求同 `source` 或 `level`。排序锚点与分页一致，基于 `received_at` 和 `id`；`before` 为早于目标日志的记录，`after` 为晚于目标日志的记录，两组都按时间正序返回，便于前端按 `before + target + after` 展示。当前上下文来源仍是关系库 `ingest_records`，不接 ClickHouse 日志存储或全文搜索。
+日志上下文：已认证用户可通过 `GET /api/v1/query/logs/{log_id}/context` 查看某条日志在同项目内的前后文，查询参数 `before` 和 `after` 默认均为 `5`，范围 `0..20`。目标日志不存在、不是日志记录，或当前用户没有目标日志所属项目角色时，统一返回 `404 日志不存在`。响应为 `{"target": LogQueryResponse, "before": LogQueryResponse[], "after": LogQueryResponse[]}`；上下文限定目标日志同一 `project_id` 且 `kind=log`，不要求同 `source` 或 `level`。排序锚点与分页一致，基于 `received_at` 和 `id`；`before` 为早于目标日志的记录，`after` 为晚于目标日志的记录，两组都按时间正序返回，便于前端按 `before + target + after` 展示。当前上下文来源仍是关系库 `ingest_records`，并由 `(project_id, kind, received_at, id)` 组合索引支撑前后窗口过滤与排序；不接 ClickHouse 日志存储或全文搜索。
 
-指标查询：已认证用户可通过 `GET /api/v1/query/metrics` 查询自己有项目角色的指标样本，支持 `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit` 和可选 `cursor` 参数；显式查询无权项目返回 `404 项目不存在`。响应统一为 `{"items": [...], "next_cursor": string | null}`，`next_cursor=null` 表示没有更多数据；游标绑定指标查询和当前筛选条件，并基于 `received_at` 与 `id` 倒序排序生成。非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`。当前查询来源为关系库 `ingest_records` 的 `kind=metric` 记录，并从 JSON 载荷中展开 `value`、`unit`、`type`、`tags` 和业务 `payload`；ClickHouse 指标查询、聚合窗口、group by、Top N、降采样和多序列对比后续补齐。
+指标查询：已认证用户可通过 `GET /api/v1/query/metrics` 查询自己有项目角色的指标样本，支持 `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit` 和可选 `cursor` 参数；显式查询无权项目返回 `404 项目不存在`。响应统一为 `{"items": [...], "next_cursor": string | null}`，`next_cursor=null` 表示没有更多数据；游标绑定指标查询和当前筛选条件，并基于 `received_at` 与 `id` 倒序排序生成。非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`。当前查询来源为关系库 `ingest_records` 的 `kind=metric` 记录，并从 JSON 载荷中展开 `value`、`unit`、`type`、`tags` 和业务 `payload`；带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；ClickHouse 指标查询、聚合窗口、group by、Top N、降采样和多序列对比后续补齐。
 
 ## 目录结构
 
@@ -591,6 +591,7 @@ tests/              # pytest 测试
 - `migrations/versions/20260620_0003_create_rbac_tables.py`：团队、团队成员、项目成员角色表迁移。
 - `migrations/versions/20260621_0004_create_api_keys.py`：API Key 表迁移。
 - `migrations/versions/20260621_0005_create_ingest_records.py`：最小摄入记录表迁移。
+- `migrations/versions/20260622_0007_add_ingest_records_query_index.py`：为日志上下文和带项目过滤的查询分页补充 `ingest_records(project_id, kind, received_at, id)` 组合索引。
 
 ## 验证命令
 
@@ -605,4 +606,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、事件/日志/指标查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目环境 ID 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、事件/日志/指标查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成。

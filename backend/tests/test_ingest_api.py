@@ -7,7 +7,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import inspect, select
+from sqlalchemy import Table, inspect, select
 
 from app.core.application import create_app
 from app.core.config import Settings
@@ -19,6 +19,8 @@ from app.services.rate_limit import RateLimiterUnavailableError
 
 TEST_AUTH_SECRET = "test-auth-secret-key-with-at-least-thirty-two-bytes"
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+INGEST_RECORD_QUERY_INDEX_NAME = "ix_ingest_records_project_kind_received_at_id"
+INGEST_RECORD_QUERY_INDEX_COLUMNS = ["project_id", "kind", "received_at", "id"]
 
 
 def build_client() -> TestClient:
@@ -904,6 +906,17 @@ def test_ingest_cross_project_is_bound_to_api_key_project() -> None:
     assert record.project_id != second_project["id"]
 
 
+def test_ingest_record_model_defines_query_window_index() -> None:
+    table = cast(Table, IngestRecordModel.__table__)
+    indexes = {
+        str(index.name): [column.name for column in index.columns]
+        for index in table.indexes
+        if index.name is not None
+    }
+
+    assert indexes[INGEST_RECORD_QUERY_INDEX_NAME] == INGEST_RECORD_QUERY_INDEX_COLUMNS
+
+
 def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:
     database_path = tmp_path / "ingest-migration.db"
     database_url = f"sqlite:///{database_path}"
@@ -922,9 +935,15 @@ def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:
         )
     )
     try:
-        table_names = inspect(app.state.db_engine).get_table_names()
+        inspector = inspect(app.state.db_engine)
+        table_names = inspector.get_table_names()
+        indexes = {
+            index["name"]: index["column_names"]
+            for index in inspector.get_indexes("ingest_records")
+        }
         assert "ingest_records" in table_names
         assert "ingest_stats" in table_names
+        assert indexes[INGEST_RECORD_QUERY_INDEX_NAME] == INGEST_RECORD_QUERY_INDEX_COLUMNS
     finally:
         app.state.db_engine.dispose()
 
