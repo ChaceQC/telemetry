@@ -1,6 +1,6 @@
 # 遥测应用项目计划书
 
-版本：0.2.1
+版本：0.2.2
 日期：2026-06-20  
 状态：草案  
 目标环境：Windows 11 开发，Debian 部署  
@@ -1042,7 +1042,7 @@ npm run preview -- --host 127.0.0.1 --port 25174
 
 ```text
 APP_ENV=development
-APP_VERSION=0.2.1
+APP_VERSION=0.2.2
 APP_SECRET_KEY=change-me
 
 API_HOST=127.0.0.1
@@ -1241,7 +1241,8 @@ chore: 更新依赖版本
 1. `0.1.0`：首个 MVP 开发版本。
 2. `0.2.0`：查询与展示 MVP，包含 metrics/logs/events 查询 API、查询页、分页和基础图表展示。
 3. `0.2.1`：补齐日志上下文查看、查询窗口索引和会话隔离。
-4. `1.0.0`：达到生产可用基线。
+4. `0.2.2`：增加 traces 最小后端摄入能力，先写入关系库 `ingest_records`。
+5. `1.0.0`：达到生产可用基线。
 
 发布规则：
 

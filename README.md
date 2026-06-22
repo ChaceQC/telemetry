@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前版本为 `0.2.1`，处于阶段 3 查询与展示 MVP。当前已具备认证与基础管理、API Key、metrics/logs/events 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图和日志上下文查看基础。
+当前版本为 `0.2.2`，已进入阶段 4 Trace 和关联分析的最小后端基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图和日志上下文查看基础；traces 目前先写入关系库 `ingest_records`，尚未接入 ClickHouse、trace 查询、waterfall 或服务拓扑。
 
 ## 目录结构
 

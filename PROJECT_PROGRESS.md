@@ -624,10 +624,14 @@
 - T-0043 集成记录提交 `fc80182` 已推送并通过 GitHub Actions run `27952252667`：Frontend checks 与 Backend checks 均为 success；仅有既有官方 action Node.js 20 runtime 弃用注解，被 runner 强制运行在 Node 24，不阻塞。
 - T-0043 最终 CI 与 worktree 同步完成：推送 `0f92788` 触发 GitHub Actions run `27952371029`，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js 20 runtime 弃用注解；`feature/backend-dev` 与 `feature/frontend-dev` 已 fast-forward 到 `0f92788` 并推送，严格 worktree 体检通过，三棵 worktree 均干净且本地/远端一致。
 - 已登记 `T-0044` 阶段 4 Trace ingestion 最小后端基础任务：先新增 `POST /api/v1/ingest/traces`，复用 API Key 鉴权、项目归属、请求大小/批量边界和关系库 `ingest_records` 最小持久化，保存 trace/span 关键字段与 payload；本小步不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑或前端页面。
+- T-0044 后端开发 agent Feynman 已完成并关闭：提交 `f2c6c05` 新增 `POST /api/v1/ingest/traces`、trace schema/config、API Key 项目归属、`kind=trace` 关系库写入、统计和测试，后端版本提升到 `0.2.2`；开发侧最小验证通过，Feynman 启动并关闭的 Lagrange/Dirac 测试 agents 已完成只读基线和专项复验。
+- T-0044 代码审计 agent Meitner 已完成并关闭：只读审计 `f2c6c05` 未发现 P0/P1/P2，P3 根版本/README 同步要求已纳入总集成。
+- T-0044 测试 agent Descartes 已完成并关闭：使用真实本地 MySQL 8.0.42 临时实例、真实 FastAPI 后端和 HTTP/DB 断言验证 trace ingestion 通过；未启动 Docker，未启动前端/浏览器，已清理自有资源。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0044 后端合入 `dev`，merge 提交 `5188aef`；同步根、前端、后端版本到 `0.2.2`，并补根 README、计划书、正式 API 契约和进度记录。
 
 ### 进行中
 
-- T-0044 已以 `xhigh` 思考强度启动后端开发 agent Feynman；其在后端独立 worktree 推进 trace ingestion 最小基础。开发 agent 只做实现和最小自检，完整复验与审计由独立 agent 负责。
+- T-0044 已完成实现、审计、真实 MySQL/真实后端验证和真实 merge；当前进行 `0.2.2` 版本同步、本地门禁、推送、CI 读取和 feature 分支同步。
 
 ### 阻塞与风险
 
@@ -644,10 +648,11 @@
 - T-0041 已用真实 MySQL/真实前后端补齐 `trace_id`/`span_id` 精确查询和浏览器翻页体验；仍未实现任意 JSON 字段过滤、`request_id` payload 查询、ClickHouse 日志查询或脱敏策略。
 - T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。真实 MySQL `1m/5m` 边界秒分桶上偏已修复，并通过后端专项与完整真实前后端联测重跑确认。
 - T-0043 只扩展 logs 白名单结构化字段 `request_id`、`user_id`，优先匹配当前日志 `attributes` 对象；不实现任意 payload key 查询、复杂字段 DSL、ClickHouse 日志查询或脱敏策略，避免一次性扩大查询语义。
+- T-0044 只建立 trace ingestion 最小后端基础：traces 先落关系库 `ingest_records` 并按 `kind=trace` 统计；不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑、跨信号关联或前端页面。后续仍需覆盖 ClickHouse trace span 写入、trace 查询 API、大数据量执行计划、Redis 真实限流和 UI 联动。
 
 ### 下一步
 
-- 等待后端开发 agent Feynman 交付并推送 T-0044；完成后由测试 agent 和代码审计 agent 分别复验，再决定是否合入 `dev`。
+- 完成 T-0044 merge 后本地门禁、推送并读取 GitHub Actions；随后 fast-forward 同步 `feature/backend-dev` 和 `feature/frontend-dev` 到最新 `dev`，再进入阶段 4 trace 查询或 ClickHouse trace span 写入的小步规划。
 
 ### 验证
 
@@ -686,3 +691,5 @@
 - T-0042 真实前后端联合测试未通过：Dewey 使用真实 MySQL 8.4、真实后端、真实前端和浏览器完成 73 项 API 检查，其中 47 通过、26 失败；失败集中在 MySQL `1m/5m` 边界秒分桶向上偏移。前端 `/metrics` 浏览器验证 12/12 通过，logs/events/log context 回归通过，测试 agent 已清理自有资源。
 - T-0042 MySQL 分桶修复专项验证通过：Avicenna 开发侧聚合专项 5 passed、ruff、format、mypy、diff check 通过；Hume 审计无 P0/P1/P2；Lorentz 真实 MySQL 8.4 专项验证 `1m`/`5m` 边界桶、5m avg/sum/min/max/count、session time_zone 对照、非法参数 422 和未认证 401 全部通过，并清理自有容器和临时 worktree。
 - T-0042 真实前后端联合测试重跑通过：Parfit 使用真实 MySQL 8.0.42 隔离实例、真实后端、真实前端和 Playwright Chromium；API aggregate 覆盖 avg/sum/min/max/count、`1m/5m/15m/1h`、项目/名称/source/时间过滤、empty/401/404/无权限/非法参数；MySQL 边界分桶 `1m` 为 `00:00` 两条、`00:01` 一条、`00:04` 一条，`5m` 为 `00:00` 四条，`+00:00`/`+08:00` 一致；前端 `/metrics` 聚合控件、结果字段、空态、错误态通过；sample list 分页和 logs/events/log context 回归通过。证据目录 `tmp/t0042-real-e2e-20260622-175604/` 保留为 ignored 产物，测试 agent 已清理自有资源。
+- T-0044 开发/审计/复测阶段通过：Feynman 开发侧 `uv run pytest tests/test_ingest_api.py -q` 36 passed，`uv run pytest tests/test_ingest_api.py tests/test_config.py -q` 47 passed，ruff、format、mypy、diff check 通过；Meitner 审计无 P0/P1/P2；Descartes 使用真实本地 MySQL 8.0.42 临时实例、真实后端 `28147`、HTTP 与 DB 断言验证 trace `202/401/404/422` 边界、100 spans、stats kind 区分、metrics/events/logs 回归均通过，并清理自有资源。
+- T-0044 merge 后本地门禁通过：后端 `uv run pytest tests/test_config.py tests/test_ingest_api.py -q` 47 passed，前端 `npm.cmd run typecheck` 通过，`git diff --check` 通过；worktree 预检仅因 `dev` 尚未推送领先远端 2 个提交失败，根/前端/后端 worktree 均干净且无保护项问题。
