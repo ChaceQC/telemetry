@@ -51,6 +51,31 @@ class LogContextQueryResponse(BaseModel):
     after: list[LogQueryResponse]
 
 
+class TraceQueryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    trace_id: str
+    span_id: str
+    parent_span_id: str | None
+    name: str
+    start_time: datetime | None
+    end_time: datetime | None
+    duration_ms: float | None
+    status_code: str | None
+    source: str | None
+    attributes: dict[str, Any]
+    payload: dict[str, Any]
+    occurred_at: datetime | None
+    received_at: datetime
+
+
+class TraceQueryPageResponse(BaseModel):
+    items: list[TraceQueryResponse]
+    next_cursor: str | None
+
+
 class MetricQueryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

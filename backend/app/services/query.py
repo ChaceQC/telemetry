@@ -15,11 +15,12 @@ from app.repositories.query import (
     MetricQueryRecord,
     QueryCursor,
     QueryRepository,
+    TraceQueryRecord,
 )
 from app.services.errors import ResourceNotFoundError
 from app.services.permissions import PermissionService
 
-QueryKind = Literal["event", "log", "metric"]
+QueryKind = Literal["event", "log", "metric", "trace"]
 MetricAggregateWindow = Literal["1m", "5m", "15m", "1h"]
 MetricAggregation = Literal["avg", "sum", "min", "max", "count"]
 METRIC_WINDOW_SECONDS: dict[MetricAggregateWindow, int] = {
@@ -39,7 +40,14 @@ class QueryFilterError(Exception):
 
 
 @dataclass(frozen=True)
-class QueryPage[QueryRecordT: (EventQueryRecord, LogQueryRecord, MetricQueryRecord)]:
+class QueryPage[
+    QueryRecordT: (
+        EventQueryRecord,
+        LogQueryRecord,
+        MetricQueryRecord,
+        TraceQueryRecord,
+    )
+]:
     items: list[QueryRecordT]
     next_cursor: str | None
 
@@ -163,6 +171,56 @@ class QueryService:
             cursor=query_cursor,
         )
         return _page_records(records, limit=limit, kind="log", query=query)
+
+    def list_traces(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int | None,
+        trace_id: str | None,
+        span_id: str | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+        cursor: str | None,
+    ) -> QueryPage[TraceQueryRecord]:
+        accessible_project_ids = self._accessible_project_ids(user, project_id)
+        normalized_trace_id = _normalize_optional_text(
+            trace_id,
+            field_name="trace_id",
+            max_length=128,
+        )
+        normalized_span_id = _normalize_optional_text(
+            span_id,
+            field_name="span_id",
+            max_length=128,
+        )
+        query = _query_signature(
+            project_id=project_id,
+            trace_id=normalized_trace_id,
+            span_id=normalized_span_id,
+            name=name,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+        )
+        query_cursor = _decode_cursor(cursor, expected_kind="trace", expected_query=query)
+
+        records = self._repository.list_traces(
+            project_ids=accessible_project_ids,
+            project_id=project_id,
+            trace_id=normalized_trace_id,
+            span_id=normalized_span_id,
+            name=name,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            limit=limit + 1,
+            cursor=query_cursor,
+        )
+        return _page_records(records, limit=limit, kind="trace", query=query)
 
     def get_log_context(
         self,
@@ -329,7 +387,7 @@ def _decode_cursor(
 
 
 def _encode_cursor(
-    record: EventQueryRecord | LogQueryRecord | MetricQueryRecord,
+    record: EventQueryRecord | LogQueryRecord | MetricQueryRecord | TraceQueryRecord,
     kind: QueryKind,
     query: dict[str, int | str | None],
 ) -> str:
@@ -346,7 +404,14 @@ def _encode_cursor(
     return encoded.rstrip("=")
 
 
-def _page_records[QueryRecordT: (EventQueryRecord, LogQueryRecord, MetricQueryRecord)](
+def _page_records[
+    QueryRecordT: (
+        EventQueryRecord,
+        LogQueryRecord,
+        MetricQueryRecord,
+        TraceQueryRecord,
+    )
+](
     records: list[QueryRecordT],
     *,
     limit: int,

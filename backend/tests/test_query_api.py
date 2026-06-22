@@ -13,7 +13,11 @@ from app.core.config import Settings
 from app.db.base import Base
 from app.models.ingest import IngestRecordModel
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
-from app.repositories.query import _log_attribute_string_equals, _metric_window_epoch
+from app.repositories.query import (
+    _log_attribute_string_equals,
+    _metric_window_epoch,
+    _payload_string_field_equals,
+)
 from app.schemas.ingest import IngestKind
 from app.services.auth import AuthService, hash_password
 
@@ -1210,6 +1214,140 @@ def test_query_logs_request_user_combines_with_existing_filters_and_permissions(
     assert unauthorized_project_response.json()["detail"] == "项目不存在"
 
 
+def test_query_traces_lists_ingested_spans_with_filters() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-owner",
+        project_key="query-trace-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "trace-a",
+                    "span_id": "span-root",
+                    "name": "GET /api/orders",
+                    "start_time": "2026-06-20T10:00:00Z",
+                    "end_time": "2026-06-20T10:00:00.120Z",
+                    "source": "api",
+                    "status_code": "ok",
+                    "attributes": {"service": "orders"},
+                    "payload": {
+                        "route": "/api/orders",
+                        "trace_id": "payload-shadow-trace",
+                    },
+                },
+                {
+                    "trace_id": "trace-a",
+                    "span_id": "span-db",
+                    "parent_span_id": "span-root",
+                    "name": "SELECT orders",
+                    "start_time": "2026-06-20T10:00:00.020Z",
+                    "duration_ms": 30.5,
+                    "source": "db",
+                    "status_code": "error",
+                    "attributes": {"db.system": "mysql"},
+                },
+                {
+                    "trace_id": "trace-b",
+                    "span_id": "span-worker",
+                    "name": "worker job",
+                    "start_time": "2026-06-20T11:00:00Z",
+                    "source": "worker",
+                },
+            ]
+        },
+    )
+    all_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"]},
+    )
+    filtered_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "  trace-a  ",
+            "span_id": "  span-db  ",
+            "name": "SELECT orders",
+            "source": "db",
+            "occurred_from": "2026-06-20T10:00:00Z",
+            "occurred_to": "2026-06-20T10:00:01Z",
+        },
+    )
+    business_payload_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": "payload-shadow-trace"},
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_response.status_code == 200
+    all_body = all_response.json()
+    assert all_body["next_cursor"] is None
+    assert sorted(span["name"] for span in all_body["items"]) == [
+        "GET /api/orders",
+        "SELECT orders",
+        "worker job",
+    ]
+    assert filtered_response.status_code == 200
+    filtered_body = filtered_response.json()
+    assert filtered_body["next_cursor"] is None
+    filtered_spans = filtered_body["items"]
+    assert len(filtered_spans) == 1
+    assert filtered_spans[0]["project_id"] == project["id"]
+    assert filtered_spans[0]["trace_id"] == "trace-a"
+    assert filtered_spans[0]["span_id"] == "span-db"
+    assert filtered_spans[0]["parent_span_id"] == "span-root"
+    assert filtered_spans[0]["name"] == "SELECT orders"
+    assert filtered_spans[0]["start_time"].startswith("2026-06-20T10:00:00.020")
+    assert filtered_spans[0]["end_time"] is None
+    assert filtered_spans[0]["duration_ms"] == 30.5
+    assert filtered_spans[0]["status_code"] == "error"
+    assert filtered_spans[0]["source"] == "db"
+    assert filtered_spans[0]["attributes"] == {"db.system": "mysql"}
+    assert filtered_spans[0]["payload"] == {}
+    assert filtered_spans[0]["occurred_at"].startswith("2026-06-20T10:00:00.020")
+    assert business_payload_response.status_code == 200
+    assert business_payload_response.json() == {"items": [], "next_cursor": None}
+
+
+def test_query_traces_trace_and_span_validate_trimmed_length() -> None:
+    client = build_client()
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-length-owner",
+        project_key="query-trace-length-project",
+    )
+
+    valid_trace_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": f"  {'t' * 128}  "},
+    )
+    long_trace_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": "t" * 129},
+    )
+    long_span_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "span_id": "s" * 129},
+    )
+
+    assert valid_trace_response.status_code == 200
+    assert long_trace_response.status_code == 422
+    assert long_trace_response.json()["detail"] == "trace_id 长度不能超过 128"
+    assert long_span_response.status_code == 422
+    assert long_span_response.json()["detail"] == "span_id 长度不能超过 128"
+
+
 def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -1430,6 +1568,30 @@ def test_query_logs_request_user_attribute_filter_sql_has_json_string_type_guard
         else:
             assert "json_type(json_extract" in compiled
             assert "= 'string'" in compiled
+            assert "json_unquote(json_extract" in compiled
+
+
+def test_query_trace_payload_field_filter_sql_compiles_for_supported_dialects() -> None:
+    dialects = {
+        "sqlite": sqlite.dialect(),
+        "mysql": mysql.dialect(),
+        "mariadb": mariadb.MariaDBDialect(),
+    }
+
+    for dialect_name, dialect in dialects.items():
+        compiled = str(
+            _payload_string_field_equals("trace_id", "trace-1").compile(
+                dialect=dialect,
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+        assert "trace_id" in compiled
+        assert "json_extract" in compiled
+        assert "= 'trace-1'" in compiled
+        if dialect_name == "sqlite":
+            assert "json_unquote" not in compiled
+        else:
             assert "json_unquote(json_extract" in compiled
 
 
@@ -1689,6 +1851,43 @@ def test_query_metrics_hide_projects_without_membership() -> None:
     all_response = client.get("/api/v1/query/metrics", headers=other_headers)
     project_response = client.get(
         "/api/v1/query/metrics",
+        headers=other_headers,
+        params={"project_id": project["id"]},
+    )
+
+    assert ingest_response.status_code == 202
+    assert all_response.status_code == 200
+    assert all_response.json() == {"items": [], "next_cursor": None}
+    assert project_response.status_code == 404
+    assert project_response.json()["detail"] == "项目不存在"
+
+
+def test_query_traces_hide_projects_without_membership() -> None:
+    client = build_client()
+    project, raw_key, _owner_headers = create_ingest_api_key(
+        client,
+        username="query-trace-owner-hidden",
+        project_key="query-trace-hidden-project",
+    )
+    other_headers = create_auth_headers(client, username="query-trace-viewer")
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "hidden-trace",
+                    "span_id": "hidden-span",
+                    "name": "hidden span",
+                    "start_time": "2026-06-20T10:00:00Z",
+                }
+            ]
+        },
+    )
+    all_response = client.get("/api/v1/query/traces", headers=other_headers)
+    project_response = client.get(
+        "/api/v1/query/traces",
         headers=other_headers,
         params={"project_id": project["id"]},
     )
@@ -2127,6 +2326,128 @@ def test_query_logs_cursor_rejects_request_user_mismatch() -> None:
     assert mismatched_user_response.json()["detail"] == "cursor 无效或不匹配当前查询"
 
 
+def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-page-owner",
+        project_key="query-trace-page-project",
+    )
+    received_at = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "cursor-trace",
+                    "span_id": "cursor-span-a",
+                    "name": "cursor span-a",
+                    "source": "api",
+                    "start_time": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "trace_id": "cursor-trace",
+                    "span_id": "cursor-span-b",
+                    "name": "cursor span-b",
+                    "source": "api",
+                    "start_time": "2026-06-20T10:01:00Z",
+                },
+                {
+                    "trace_id": "cursor-trace",
+                    "span_id": "cursor-span-c",
+                    "name": "cursor span-c",
+                    "source": "api",
+                    "start_time": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "trace_id": "cursor-trace",
+                    "span_id": "ignored-source",
+                    "name": "ignored source",
+                    "source": "worker",
+                    "start_time": "2026-06-20T10:03:00Z",
+                },
+                {
+                    "trace_id": "other-trace",
+                    "span_id": "cursor-span-d",
+                    "name": "ignored trace",
+                    "source": "api",
+                    "start_time": "2026-06-20T10:04:00Z",
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_ingest_records_received_at(
+        client,
+        project_id=project["id"],
+        kind=IngestKind.trace,
+        received_at=received_at,
+    )
+
+    first_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "source": "api",
+            "limit": 2,
+        },
+    )
+    first_body = first_response.json()
+    second_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "source": "api",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_trace_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "other-trace",
+            "source": "api",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_span_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "span_id": "cursor-span-b",
+            "source": "api",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert [span["name"] for span in first_body["items"]] == [
+        "cursor span-c",
+        "cursor span-b",
+    ]
+    assert isinstance(first_body["next_cursor"], str)
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert [span["name"] for span in second_body["items"]] == ["cursor span-a"]
+    assert second_body["next_cursor"] is None
+    assert mismatched_trace_response.status_code == 422
+    assert mismatched_trace_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+    assert mismatched_span_response.status_code == 422
+    assert mismatched_span_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+
+
 def test_query_log_context_returns_target_and_neighbors_in_time_order() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -2476,6 +2797,15 @@ def test_query_metrics_requires_user_token() -> None:
     client = build_client()
 
     response = client.get("/api/v1/query/metrics")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "缺少访问令牌"
+
+
+def test_query_traces_requires_user_token() -> None:
+    client = build_client()
+
+    response = client.get("/api/v1/query/traces")
 
     assert response.status_code == 401
     assert response.json()["detail"] == "缺少访问令牌"

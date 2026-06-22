@@ -60,6 +60,25 @@ class LogQueryRecord:
 
 
 @dataclass(frozen=True)
+class TraceQueryRecord:
+    id: int
+    project_id: int
+    trace_id: str
+    span_id: str
+    parent_span_id: str | None
+    name: str
+    start_time: datetime | None
+    end_time: datetime | None
+    duration_ms: float | None
+    status_code: str | None
+    source: str | None
+    attributes: dict[str, Any]
+    payload: dict[str, Any]
+    occurred_at: datetime | None
+    received_at: datetime
+
+
+@dataclass(frozen=True)
 class MetricQueryRecord:
     id: int
     project_id: int
@@ -118,6 +137,21 @@ class QueryRepository(Protocol):
         limit: int,
         cursor: QueryCursor | None,
     ) -> list[LogQueryRecord]: ...
+
+    def list_traces(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int | None,
+        trace_id: str | None,
+        span_id: str | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+        cursor: QueryCursor | None,
+    ) -> list[TraceQueryRecord]: ...
 
     def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None: ...
 
@@ -192,6 +226,25 @@ def _payload_number(payload: dict[str, Any], key: str) -> float:
     return float(value)
 
 
+def _payload_optional_number(payload: dict[str, Any], key: str) -> float | None:
+    value = payload.get(key)
+    if isinstance(value, bool) or not isinstance(value, Real):
+        return None
+    return float(value)
+
+
+def _payload_datetime(payload: dict[str, Any], key: str) -> datetime | None:
+    value = payload.get(key)
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def _log_query_record(model: IngestRecordModel) -> LogQueryRecord:
     message = _payload_string(model.payload, "message")
     return LogQueryRecord(
@@ -203,6 +256,29 @@ def _log_query_record(model: IngestRecordModel) -> LogQueryRecord:
         logger=_payload_string(model.payload, "logger"),
         trace_id=_payload_string(model.payload, "trace_id"),
         span_id=_payload_string(model.payload, "span_id"),
+        attributes=_payload_object(model.payload, "attributes"),
+        payload=_payload_object(model.payload, "payload"),
+        occurred_at=model.occurred_at,
+        received_at=model.received_at,
+    )
+
+
+def _trace_query_record(model: IngestRecordModel) -> TraceQueryRecord:
+    trace_id = _payload_string(model.payload, "trace_id")
+    span_id = _payload_string(model.payload, "span_id")
+    name = _payload_string(model.payload, "name")
+    return TraceQueryRecord(
+        id=model.id,
+        project_id=model.project_id,
+        trace_id=trace_id or "",
+        span_id=span_id or "",
+        parent_span_id=_payload_string(model.payload, "parent_span_id"),
+        name=name or model.event_type,
+        start_time=_payload_datetime(model.payload, "start_time"),
+        end_time=_payload_datetime(model.payload, "end_time"),
+        duration_ms=_payload_optional_number(model.payload, "duration_ms"),
+        status_code=_payload_string(model.payload, "status_code"),
+        source=model.source,
         attributes=_payload_object(model.payload, "attributes"),
         payload=_payload_object(model.payload, "payload"),
         occurred_at=model.occurred_at,
@@ -325,9 +401,9 @@ def _apply_log_structured_field_filters(
     dialect_name: str,
 ) -> Select[tuple[IngestRecordModel]]:
     if trace_id is not None:
-        statement = statement.where(IngestRecordModel.payload["trace_id"].as_string() == trace_id)
+        statement = statement.where(_payload_string_field_equals("trace_id", trace_id))
     if span_id is not None:
-        statement = statement.where(IngestRecordModel.payload["span_id"].as_string() == span_id)
+        statement = statement.where(_payload_string_field_equals("span_id", span_id))
     if request_id is not None:
         statement = statement.where(
             _log_attribute_string_equals(
@@ -345,6 +421,10 @@ def _apply_log_structured_field_filters(
             )
         )
     return statement
+
+
+def _payload_string_field_equals(field_name: str, value: str) -> ColumnElement[bool]:
+    return IngestRecordModel.payload[field_name].as_string() == value
 
 
 def _log_attribute_string_equals(
@@ -498,6 +578,48 @@ class SqlAlchemyQueryRepository:
             IngestRecordModel.id.desc(),
         ).limit(limit)
         return [_log_query_record(model) for model in self._session.scalars(statement)]
+
+    def list_traces(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int | None,
+        trace_id: str | None,
+        span_id: str | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+        cursor: QueryCursor | None,
+    ) -> list[TraceQueryRecord]:
+        statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
+            IngestRecordModel.kind == IngestKind.trace.value
+        )
+        if project_ids is not None:
+            if not project_ids:
+                return []
+        statement = _apply_common_filters(
+            statement,
+            project_ids=project_ids,
+            project_id=project_id,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            cursor=cursor,
+        )
+        if trace_id is not None:
+            statement = statement.where(_payload_string_field_equals("trace_id", trace_id))
+        if span_id is not None:
+            statement = statement.where(_payload_string_field_equals("span_id", span_id))
+        if name is not None:
+            statement = statement.where(IngestRecordModel.event_type == name)
+
+        statement = statement.order_by(
+            IngestRecordModel.received_at.desc(),
+            IngestRecordModel.id.desc(),
+        ).limit(limit)
+        return [_trace_query_record(model) for model in self._session.scalars(statement)]
 
     def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None:
         statement = select(IngestRecordModel).where(
