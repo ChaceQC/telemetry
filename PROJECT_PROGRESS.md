@@ -652,6 +652,8 @@
 - T-0048 已登记为阶段 4 下一小步：前端基于现有 trace span 列表构建 `/traces` waterfall 与树形详情基础，先实现同一 trace 分组、父子缩进、相对时间/耗时条、错误/慢 span 视觉标识；不改后端契约，不接 ClickHouse，不做服务拓扑或互跳。
 - T-0048 前端开发已完成：`6c4cd92` 已推送到 `feature/frontend-dev`，新增 trace 分组、树形缩进、waterfall 耗时条、错误/慢 span 标识和纯函数测试；前端版本提升到 `0.2.5`，等待代码审计。
 - T-0048 前端审计未通过：Hegel the 2nd 发现 1 个 P2，`/traces` waterfall 双列布局在窄平板/大屏手机横屏区间存在横向溢出风险；需前端修复响应式布局后复审。
+- T-0048-fix 前端修复已完成：`a7e3de2` 已推送到 `feature/frontend-dev`，修复 720px 以下 waterfall 单列响应式、trace 组 scope key 和异常 parent 测试；等待复审确认 P2 关闭。
+- T-0048-fix 前端复审通过：Boyle the 2nd 确认原 P2 与两个 P3 均已关闭，未发现新的 P0/P1/P2/P3；可以进入 merge。
 
 ### 阻塞与风险
 
