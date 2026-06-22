@@ -11,6 +11,7 @@ from app.repositories.auth import UserRecord
 from app.repositories.query import (
     EventQueryRecord,
     LogQueryRecord,
+    MetricAggregateRecord,
     MetricQueryRecord,
     QueryCursor,
     QueryRepository,
@@ -19,6 +20,14 @@ from app.services.errors import ResourceNotFoundError
 from app.services.permissions import PermissionService
 
 QueryKind = Literal["event", "log", "metric"]
+MetricAggregateWindow = Literal["1m", "5m", "15m", "1h"]
+MetricAggregation = Literal["avg", "sum", "min", "max", "count"]
+METRIC_WINDOW_SECONDS: dict[MetricAggregateWindow, int] = {
+    "1m": 60,
+    "5m": 5 * 60,
+    "15m": 15 * 60,
+    "1h": 60 * 60,
+}
 
 
 class QueryCursorError(Exception):
@@ -194,6 +203,32 @@ class QueryService:
             cursor=query_cursor,
         )
         return _page_records(records, limit=limit, kind="metric", query=query)
+
+    def aggregate_metrics(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int | None,
+        name: str | None,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        window: MetricAggregateWindow,
+        aggregation: MetricAggregation,
+        limit: int,
+    ) -> list[MetricAggregateRecord]:
+        accessible_project_ids = self._accessible_project_ids(user, project_id)
+        return self._repository.aggregate_metrics(
+            project_ids=accessible_project_ids,
+            project_id=project_id,
+            name=name,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            window_seconds=METRIC_WINDOW_SECONDS[window],
+            aggregation=aggregation,
+            limit=limit,
+        )
 
     def _accessible_project_ids(
         self,

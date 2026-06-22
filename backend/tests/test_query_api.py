@@ -858,6 +858,284 @@ def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
     assert filtered_metrics[0]["occurred_at"].startswith("2026-06-20T10:00:00")
 
 
+def test_query_metrics_aggregate_supports_aggregations_and_windows() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-metric-aggregate-owner",
+        project_key="query-metric-aggregate-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "http.duration",
+                    "value": 10,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:05Z",
+                },
+                {
+                    "name": "http.duration",
+                    "value": 20,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:04:59Z",
+                },
+                {
+                    "name": "http.duration",
+                    "value": 40,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:05:00Z",
+                },
+                {
+                    "name": "http.duration",
+                    "value": 80,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:15:01Z",
+                },
+            ]
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    expected_values = {
+        "avg": 15.0,
+        "sum": 30.0,
+        "min": 10.0,
+        "max": 20.0,
+        "count": 2.0,
+    }
+    for aggregation, expected_value in expected_values.items():
+        response = client.get(
+            "/api/v1/query/metrics/aggregate",
+            headers=admin_headers,
+            params={
+                "project_id": project["id"],
+                "name": "http.duration",
+                "source": "api",
+                "window": "5m",
+                "aggregation": aggregation,
+            },
+        )
+        assert response.status_code == 200
+        oldest_bucket = response.json()["items"][-1]
+        assert oldest_bucket["project_id"] == project["id"]
+        assert oldest_bucket["name"] == "http.duration"
+        assert oldest_bucket["source"] == "api"
+        assert oldest_bucket["window_start"].startswith("2026-06-20T10:00:00")
+        assert oldest_bucket["window_end"].startswith("2026-06-20T10:05:00")
+        assert oldest_bucket["aggregation"] == aggregation
+        assert oldest_bucket["value"] == expected_value
+        assert oldest_bucket["sample_count"] == 2
+        assert oldest_bucket["unit"] == "ms"
+
+    one_hour_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "name": "http.duration",
+            "source": "api",
+            "window": "1h",
+            "aggregation": "count",
+        },
+    )
+    assert one_hour_response.status_code == 200
+    assert len(one_hour_response.json()["items"]) == 1
+    assert one_hour_response.json()["items"][0]["window_start"].startswith("2026-06-20T10:00:00")
+    assert one_hour_response.json()["items"][0]["value"] == 4.0
+    assert one_hour_response.json()["items"][0]["sample_count"] == 4
+
+
+def test_query_metrics_aggregate_filters_permissions_empty_and_limit() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-metric-aggregate-filter-owner",
+        project_key="query-metric-aggregate-filter-project",
+    )
+    other_project, other_key, _other_headers = create_ingest_api_key(
+        client,
+        username="query-metric-aggregate-filter-other",
+        project_key="query-metric-aggregate-filter-other-project",
+    )
+    viewer_headers = create_auth_headers(client, username="query-metric-aggregate-viewer")
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "cpu.usage",
+                    "value": 1,
+                    "unit": "ratio",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "name": "cpu.usage",
+                    "value": 3,
+                    "unit": "ratio",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+                {
+                    "name": "cpu.usage",
+                    "value": 5,
+                    "unit": "ratio",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "name": "memory.usage",
+                    "value": 7,
+                    "unit": "bytes",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:03:00Z",
+                },
+                {
+                    "name": "cpu.usage",
+                    "value": 9,
+                    "unit": "ratio",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:06:00Z",
+                },
+            ]
+        },
+    )
+    other_ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {other_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "cpu.usage",
+                    "value": 99,
+                    "unit": "ratio",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                }
+            ]
+        },
+    )
+    filtered_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "name": "cpu.usage",
+            "source": "api",
+            "occurred_from": "2026-06-20T09:59:00Z",
+            "occurred_to": "2026-06-20T10:04:00Z",
+            "aggregation": "sum",
+        },
+    )
+    empty_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={"project_id": project["id"], "name": "missing.metric"},
+    )
+    limit_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "name": "cpu.usage",
+            "source": "api",
+            "window": "1m",
+            "limit": 1,
+        },
+    )
+    hidden_all_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=viewer_headers,
+    )
+    hidden_project_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=viewer_headers,
+        params={"project_id": project["id"]},
+    )
+    unauthorized_project_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={"project_id": other_project["id"]},
+    )
+
+    assert project["id"] != other_project["id"]
+    assert ingest_response.status_code == 202
+    assert other_ingest_response.status_code == 202
+    assert filtered_response.status_code == 200
+    assert filtered_response.json()["items"] == [
+        {
+            "project_id": project["id"],
+            "name": "cpu.usage",
+            "source": "api",
+            "window_start": "2026-06-20T10:00:00Z",
+            "window_end": "2026-06-20T10:05:00Z",
+            "aggregation": "sum",
+            "value": 4.0,
+            "sample_count": 2,
+            "unit": "ratio",
+        }
+    ]
+    assert empty_response.status_code == 200
+    assert empty_response.json() == {"items": []}
+    assert limit_response.status_code == 200
+    assert len(limit_response.json()["items"]) == 1
+    assert limit_response.json()["items"][0]["window_start"].startswith("2026-06-20T10:06:00")
+    assert hidden_all_response.status_code == 200
+    assert hidden_all_response.json() == {"items": []}
+    assert hidden_project_response.status_code == 404
+    assert hidden_project_response.json()["detail"] == "项目不存在"
+    assert unauthorized_project_response.status_code == 404
+    assert unauthorized_project_response.json()["detail"] == "项目不存在"
+
+
+def test_query_metrics_aggregate_validates_window_aggregation_and_limit() -> None:
+    client = build_client()
+    _project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-metric-aggregate-validation-owner",
+        project_key="query-metric-aggregate-validation-project",
+    )
+
+    invalid_window_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={"window": "10m"},
+    )
+    invalid_aggregation_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={"aggregation": "p95"},
+    )
+    invalid_limit_response = client.get(
+        "/api/v1/query/metrics/aggregate",
+        headers=admin_headers,
+        params={"limit": 501},
+    )
+
+    assert invalid_window_response.status_code == 422
+    assert invalid_aggregation_response.status_code == 422
+    assert invalid_limit_response.status_code == 422
+
+
+def test_query_metrics_aggregate_requires_user_token() -> None:
+    client = build_client()
+
+    response = client.get("/api/v1/query/metrics/aggregate")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "缺少访问令牌"
+
+
 def test_query_events_hide_projects_without_membership() -> None:
     client = build_client()
     project, raw_key, _owner_headers = create_ingest_api_key(

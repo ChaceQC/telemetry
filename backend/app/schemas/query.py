@@ -70,3 +70,21 @@ class MetricQueryResponse(BaseModel):
 class MetricQueryPageResponse(BaseModel):
     items: list[MetricQueryResponse]
     next_cursor: str | None
+
+
+class MetricAggregateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id: int
+    name: str
+    source: str | None
+    window_start: datetime
+    window_end: datetime
+    aggregation: str
+    value: float
+    sample_count: int
+    unit: str | None
+
+
+class MetricAggregatePageResponse(BaseModel):
+    items: list[MetricAggregateResponse]
