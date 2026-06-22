@@ -370,6 +370,7 @@ closed      已关闭
 | 2026-06-22 | T-0044 | 测试 agent Descartes | Trace ingestion 真实 MySQL/真实后端验证通过 | Descartes 使用独立临时目录、真实本地 MySQL 8.0.42 临时实例 `127.0.0.1:29336`、临时库 `telemetry_t0044_20260622_2110` 和真实 FastAPI 后端 `28147` 验证通过；未启动 Docker，未启动前端/浏览器，已清理自己启动的后端、MySQL、临时库和临时文件，未触碰系统 `MySQL80` 服务；Descartes 已关闭 | done |
 | 2026-06-22 | T-0044 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0044 后端合入 `dev`，merge 提交 `5188aef`；同步根、前端、后端版本到 `0.2.2`，并补根 README、计划书、正式 API 契约和进度记录。前端无功能改动，本轮不启动前端开发 agent；前端版本文件仅做项目总版本同步 | done |
 | 2026-06-22 | T-0044 | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_config.py tests/test_ingest_api.py -q` 47 passed；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 2 个提交失败，根/前端/后端 worktree 均干净且无保护项问题 | done |
+| 2026-06-22 | T-0044 | 总 agent | CI 通过 | 推送 `db1250a` 触发 GitHub Actions run `27957299640`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -428,6 +429,7 @@ closed      已关闭
 | 2026-06-22 | T-0043 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`；前端 T-0043 专项 `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build`；`git diff --check`、worktree 体检 | 通过 | 后端 query API 37 passed、ruff/format/mypy 通过；前端专项 3 files/19 tests passed、lint/typecheck/build 通过；`git diff --check` 通过。`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 本地领先 `origin/dev` 5 个提交失败，feature 分支均已被 dev 历史包含且本地/远端一致；待提交推送后复查 |
 | 2026-06-22 | T-0044 | Trace ingestion 真实 MySQL/真实后端验证 | Descartes；真实本地 MySQL 8.0.42 临时实例、真实 FastAPI 后端、HTTP 与 DB 断言 | 通过 | MySQL `upgrade head` 到 `20260622_0007`，确认 `ingest_records.kind=varchar(32)`、payload 为 JSON、组合索引存在；`GET /health` 返回 `0.2.2`；traces 有效 API Key `202`，缺失/无效/撤销 `401`，错项目 API Key revoke `404`，顶层 `project_id`、额外字段、101 spans、超 256 KiB、end 早于 start、时区混用、非有限数值均 `422`，100 spans 边界 `202`；metrics/events/logs 回归 `202`；DB 断言 trace payload/raw span 保留、项目归属正确、stats 按 kind 区分。未启动 Docker/前端/浏览器，已清理自有资源 |
 | 2026-06-22 | T-0044 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_ingest_api.py -q`；前端 `npm.cmd run typecheck`；`git diff --check`、worktree 体检 | 通过 | 后端 47 passed，1 条既有 Starlette/TestClient 上游弃用警告；前端 typecheck 通过；`git diff --check` 通过；worktree 体检仅因 `dev` 本地领先 `origin/dev` 2 个提交失败，待提交推送后复查 |
+| 2026-06-22 | T-0044 | CI | GitHub Actions run `27957299640` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
 
 ## 7. 审计记录
 
