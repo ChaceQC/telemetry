@@ -254,7 +254,7 @@ try {
         if ($hasBranch) {
             $missingFromDev = Invoke-Git -WorkDir $RepositoryRoot log --oneline "dev..$featureBranch"
             if (($missingFromDev | Measure-Object).Count -gt 0) {
-                Write-Host "       $featureBranch has commits not in dev history. Prefer path-based restore for integration, not direct merge:"
+                Write-Host "       $featureBranch has commits not in dev history. Clean feature history if needed, then integrate with git merge:"
                 $missingFromDev | Select-Object -First 5 | ForEach-Object { Write-Host "       $_" }
             } else {
                 Write-Host "       $featureBranch has no commits missing from dev history."

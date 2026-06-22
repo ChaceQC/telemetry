@@ -58,7 +58,7 @@
 18. 每次 push 到 `main`、`dev` 或功能分支后，总 agent 必须读取 GitHub Actions 对应 run，并把成功/失败 job、失败步骤、处理决议和复查条件写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
 17. 前端开发 agent 和后端开发 agent 必须按需自行启动测试子 agent 进行验证；开发 agent 表示某一功能完成后，必须由总 agent 启动代码审计子 agent 进行审计。
 18. 前端开发 agent 只允许在独立 worktree `..\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支 commit 和 push；后端开发 agent 只允许在独立 worktree `..\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支 commit 和 push。
-18. 总 agent 负责将前后端开发分支合并到 `dev`，并在阶段验收、版本发布或必要稳定节点将 `dev` 合并到 `main`。
+18. 总 agent 负责将前后端开发分支合并到 `dev`，并在阶段验收、版本发布或必要稳定节点将 `dev` 合并到 `main`；合并到 `dev` 默认使用真实 `git merge`，如 feature 分支历史存在运行日志、已集成提交或其他污染，必须先备份并清理 feature 分支拓扑，再执行 merge。
 19. 总 agent 维护根目录 `VERSION`，前端开发 agent 维护 `frontend/VERSION`，后端开发 agent 维护 `backend/VERSION`；所有 `VERSION` 文件只允许纯 `x.y.z`。
 20. 不要把临时方案伪装成最终方案；临时实现必须在 `PROJECT_PROGRESS.md` 中标明原因、影响范围和后续处理。
 21. CI 结果是交付状态的一部分；任何触发 Actions 的提交都必须在推送后读取 run 结果并记录。
@@ -1199,6 +1199,7 @@ https://domain.example:28443/live/        -> telemetry-api:28117
 16. 分支切换由拥有对应写入范围的 agent 自行执行并记录；总 agent 不替子 agent 切换分支，子 agent 不替孙 agent 切换分支，多个 agent 不得同时切换分支。
 17. 不允许长期累积未提交改动；完成一个可验证小步后，负责该写入范围的 agent 必须自行检查状态、文档、锁文件和敏感文件，并按所属分支提交和尽量推送。
 18. 若因共享工作树、分支切换锁、审计未通过或阻塞问题暂不能提交，必须在 `AGENT_COMMUNICATION.md` 和对应进度文件记录原因、影响范围和下一次提交条件。
+19. 总 agent 合并 feature 分支到 `dev` 时默认使用真实 `git merge`，保持 GitHub 分支状态和提交拓扑清晰；如果 feature 分支包含早期运行日志、已按路径集成过的提交或其他污染，必须先创建备份引用并清理 feature 分支，使其以当前 `dev` 为基线且只包含尚未集成的有效提交，再执行 merge。
 19. 开发型 agent 必须在独立 Git worktree 中工作，根工作树只用于总 agent 汇总、集成、合并和发布。
 20. 默认独立 worktree 由 `scripts/Initialize-AgentWorktrees.ps1` 创建：前端为 `..\telemetry-worktrees\frontend`，后端为 `..\telemetry-worktrees\backend`。
 
@@ -1295,6 +1296,7 @@ CI 工作流：
 9. 总 agent 必须定时探测前后端进度文件，并将新增进展、阻塞、验证、审计结论和下一步合并摘要到根目录 `PROJECT_PROGRESS.md`。
 10. 前端开发 agent 只在 `feature/frontend-dev` 分支工作，后端开发 agent 只在 `feature/backend-dev` 分支工作。
 11. 开发 agent 需要合并时，只能在 `AGENT_COMMUNICATION.md` 中提出请求；总 agent 负责合并到 `dev`。
+11.1. 总 agent 合并到 `dev` 时使用真实 `git merge`；若 feature 分支历史不适合直接合并，先清理 feature 分支拓扑，不再长期使用 path restore 规避分支治理。
 12. 总 agent 不代替子 agent 执行开发、测试、构建、格式化或本地服务启动命令；子 agent 不代替孙 agent 执行其负责的测试、审计或修复任务，只接收结论并整合记录。
 13. 需要切换分支时，由负责当前写入范围的 agent 自行执行并登记，避免多个 agent 同时切换分支。
 14. 负责写入范围的 agent 在可验证小步完成后负责提交和尽量推送；总 agent 不替开发子 agent 提交其范围内的普通开发改动。

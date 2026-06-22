@@ -278,6 +278,8 @@ closed      已关闭
 | 2026-06-22 | CI | 总 agent | 查询分页测试补强 Actions 失败 | push `75157a0` 触发 run `27921581718`；Frontend checks 通过，Backend checks 失败于 Ruff format check：`tests/test_query_api.py` would be reformatted；已分派后端开发 agent Noether 小范围修复格式 | blocked |
 | 2026-06-22 | T-0036-fix | 后端开发 agent | 查询分页测试格式修复完成 | Noether 提交并 push `9e12615` 到 `feature/backend-dev`：格式化 `tests/test_query_api.py` 并记录后端进度；验证 `uv run ruff format --check tests/test_query_api.py`、`uv run pytest tests/test_query_api.py` 14 passed、`git diff --check` 均通过 | done |
 | 2026-06-22 | T-0036-fix | 总 agent | 通过真实 merge 集成格式修复 | 总 agent 使用 `git merge --no-ff origin/feature/backend-dev` 将 `9e12615` 合入 `dev`，merge 提交 `fix: 合并查询分页测试格式修复`；等待推送后复查 Actions | done |
+| 2026-06-22 | CI | 总 agent | 查询分页格式修复 Actions 通过 | push `a3d70a8` 触发 run `27921781087`；Backend checks 与 Frontend checks 均通过；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-22 | 分支治理 | 总 agent | 固化真实 merge 集成规则 | 已更新 `AGENT.md`、`PROJECT_PLAN.md` 和 `scripts/Test-AgentWorktreeState.ps1`：后续集成默认先清理污染 feature 分支，再使用真实 `git merge`，体检脚本不再提示长期 path restore | doing |
 
 ## 6. 测试记录
 
@@ -395,3 +397,4 @@ closed      已关闭
 | 2026-06-20 | 子 agent 使用分片运行时日志 | 多 agent 同时改 `AGENT_COMMUNICATION.md` 容易冲突 | 子 agent 只追加 `agents/runtime/`，总 agent 统一汇总到正式沟通文件 |
 | 2026-06-20 | agent 运行日志不入库 | 多 agent 运行日志属于对话过程，push 会造成无意义冲突和历史污染 | `agents/runtime/*.log.md` 已加入 `.gitignore` 并从 Git 跟踪移除；只提交 `agents/runtime/api-contracts/*.md` 等稳定契约草案 |
 | 2026-06-20 | 开工前执行 worktree/Git 只读体检 | 共享仓库和多 worktree 容易因错分支、未提交改动、误追踪日志或敏感文件而污染后续集成 | 新增 `scripts/Test-AgentWorktreeState.ps1`；总 agent 在开工、集成、提交前运行，失败时先整理再继续 |
+| 2026-06-22 | 先清理 feature 再真实 merge | 用户要求 GitHub 分支管理不再长期显示异常；path restore 只能作为历史过渡，不再作为默认集成方式 | 总 agent 已清理 `feature/frontend-dev` 和 `feature/backend-dev` 拓扑；后续 feature 合入 `dev` 默认使用真实 `git merge`，如历史污染则先备份并清理 feature 分支 |

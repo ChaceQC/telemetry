@@ -136,7 +136,7 @@ agents/runtime/
 19. `agents/runtime/api-contracts/*.md` 是可提交的契约草案；`agents/runtime/*.log.md` 是本地临时通信文件，已进入 `.gitignore`，不得 stage、commit 或 push。
 20. 推送后不得只依赖本地测试结论；总 agent 必须读取 GitHub Actions 对应 run，若失败则记录失败原因、处理任务和下一次复查条件。
 21. 根工作树、前端 worktree、后端 worktree 必须保持“一目录一分支一职责”：`dev` 只在根工作树，`feature/frontend-dev` 只在前端 worktree，`feature/backend-dev` 只在后端 worktree；可用 `scripts/Test-AgentWorktreeState.ps1` 检查偏离。
-22. 由于 feature 分支历史可能包含早期运行日志或已按路径集成过的提交，总 agent 集成到 `dev` 时默认按明确业务路径 `git restore --source <branch> -- <paths>` 再提交，不直接 `git merge feature/*`，除非已先确认历史干净且不会重新引入本地运行日志。
+22. 总 agent 集成到 `dev` 时默认使用真实 `git merge`，保持 GitHub 分支管理和提交拓扑清晰。如果 feature 分支历史包含早期运行日志、已按路径集成过的提交或其他污染，必须先备份并清理 feature 分支，使其以当前 `dev` 为基线且只包含尚未集成的有效提交，再执行 merge；不得用长期 path restore 替代分支治理。
 
 ## 9. 版本文件规则
 

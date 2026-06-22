@@ -549,10 +549,12 @@
 - 推送 `75157a0` 后 GitHub Actions run `27921581718` 失败：Frontend checks 通过，Backend checks 失败于 Ruff format check，原因是 `tests/test_query_api.py` 在 CI Linux 环境会被 ruff format 调整。
 - 已启动后端开发 agent Noether 修复格式问题；Noether 提交并 push `9e12615` 到 `feature/backend-dev`，验证 `uv run ruff format --check tests/test_query_api.py`、`uv run pytest tests/test_query_api.py` 14 passed、`git diff --check` 均通过。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将格式修复合入 `dev`，merge 提交 `fix: 合并查询分页测试格式修复`；待推送后读取 GitHub Actions。
+- 推送 `a3d70a8` 后 GitHub Actions run `27921781087` 已通过：Backend checks 与 Frontend checks 均为 success，仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- 已更新 `AGENT.md`、`PROJECT_PLAN.md` 和 `scripts/Test-AgentWorktreeState.ps1`，固化用户要求的真实 merge 策略：后续总 agent 先清理污染 feature 分支，再使用 `git merge` 集成；体检脚本不再提示长期 path restore。
 
 ### 进行中
 
-- T-0034/T-0035/T-0036 已进入 `dev`；等待推送 T-0036 格式修复 merge 后读取 GitHub Actions。
+- T-0034/T-0035/T-0036 已进入 `dev` 且 CI 已通过；正在收口分支治理规则同步，随后继续阶段 3 查询展示增强。
 
 ### 阻塞与风险
 
@@ -563,7 +565,7 @@
 
 ### 下一步
 
-- 推送 T-0036 merge 到 `dev` 并读取 GitHub Actions；随后继续阶段 3 查询展示增强，优先考虑查询页图表、日志上下文或真实部署子路径补验。
+- 完成分支治理规则同步并推送；随后继续阶段 3 查询展示增强，优先考虑查询页图表、日志上下文或真实部署子路径补验。
 
 ### 验证
 
