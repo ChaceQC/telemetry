@@ -623,10 +623,11 @@
 - T-0043 merge 后本地门禁通过：后端 `uv run pytest tests/test_query_api.py` 37 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 T-0043 专项 3 files/19 tests passed，`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 尚未推送领先远端 5 个提交失败，feature 分支均已被 `dev` 历史包含且本地/远端一致。
 - T-0043 集成记录提交 `fc80182` 已推送并通过 GitHub Actions run `27952252667`：Frontend checks 与 Backend checks 均为 success；仅有既有官方 action Node.js 20 runtime 弃用注解，被 runner 强制运行在 Node 24，不阻塞。
 - T-0043 最终 CI 与 worktree 同步完成：推送 `0f92788` 触发 GitHub Actions run `27952371029`，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js 20 runtime 弃用注解；`feature/backend-dev` 与 `feature/frontend-dev` 已 fast-forward 到 `0f92788` 并推送，严格 worktree 体检通过，三棵 worktree 均干净且本地/远端一致。
+- 已登记 `T-0044` 阶段 4 Trace ingestion 最小后端基础任务：先新增 `POST /api/v1/ingest/traces`，复用 API Key 鉴权、项目归属、请求大小/批量边界和关系库 `ingest_records` 最小持久化，保存 trace/span 关键字段与 payload；本小步不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑或前端页面。
 
 ### 进行中
 
-- T-0043 日志 request/user 字段过滤基础已完成；当前准备进入阶段 4 Trace 和关联分析的首个最小任务，需先登记任务边界，再按规则启动对应开发 agent。
+- T-0044 已以 `xhigh` 思考强度启动后端开发 agent Feynman；其在后端独立 worktree 推进 trace ingestion 最小基础。开发 agent 只做实现和最小自检，完整复验与审计由独立 agent 负责。
 
 ### 阻塞与风险
 
@@ -646,7 +647,7 @@
 
 ### 下一步
 
-- 登记阶段 4 Trace ingestion 最小后端基础任务，优先建立 traces 摄入 API、最小关系库持久化与契约边界；开始编码前以 `xhigh` 思考强度启动后端开发 agent，并由开发 agent 按需启动测试 agent。
+- 等待后端开发 agent Feynman 交付并推送 T-0044；完成后由测试 agent 和代码审计 agent 分别复验，再决定是否合入 `dev`。
 
 ### 验证
 

@@ -973,7 +973,7 @@ telemetry/
 4. uv。
 5. Node.js LTS。
 6. npm，提交 `package-lock.json`，生产镜像使用 `npm ci`。
-7. Docker Desktop。
+7. 可直接访问的本地 MySQL 服务、临时库或本地 MySQL 实例；本地开发和测试不得启动本机 Docker。
 8. Windows Terminal。
 9. VS Code 或 JetBrains IDE。
 
@@ -1028,11 +1028,13 @@ npm run dev -- --host 127.0.0.1 --port 25173
 npm run preview -- --host 127.0.0.1 --port 25174
 ```
 
-修改 `package.json` 或 `package-lock.json` 后，必须考虑生产 Linux 镜像中的 `npm ci`。如果本机 Docker 不可用，应检查并补齐 Linux 所需 lock 条目，并在 `PROJECT_PROGRESS.md` 与最终说明中写明验证边界。
+修改 `package.json` 或 `package-lock.json` 后，必须考虑生产 Linux 镜像中的 `npm ci`。本地开发不得通过启动本机 Docker 来验证镜像；应检查并补齐 Linux 所需 lock 条目，并在 `PROJECT_PROGRESS.md` 与最终说明中写明验证边界。
 
 ### 11.4 本地数据库
 
-开发环境通过 Docker Compose 启动 MySQL、ClickHouse、MongoDB、Redis，端口映射使用第 9 章规划的非默认宿主机端口。
+本地开发和测试不得启动本机 Docker。需要 MySQL 时直接使用本地 MySQL 服务、临时库或本地 MySQL 实例，并记录连接方式、临时库名、迁移范围和清理结果；ClickHouse、MongoDB、Redis 的本地验证若没有已有本地服务，应记录验证边界，不得临时启动 Docker 替代。
+
+`docker-compose.dev.yml` 作为部署拓扑和服务配置草案保留，可用于静态配置检查或后续明确允许的部署环境验证；不得作为 Windows 11 本地开发默认启动入口。
 
 ### 11.5 环境变量
 
@@ -1470,7 +1472,7 @@ CI 工作流：
 
 1. 创建后端 uv 项目。
 2. 创建前端 React 项目。
-3. 创建 Docker Compose 开发环境。
+3. 创建部署拓扑和服务配置草案，保留 Docker Compose 静态配置但不作为本地默认启动入口。
 4. 创建基础目录结构。
 5. 添加 `.env.example`。
 6. 添加 GitHub Actions 基础 CI。
@@ -1479,7 +1481,7 @@ CI 工作流：
 
 验收标准：
 
-1. Windows 11 可一键启动开发依赖。
+1. Windows 11 可按文档连接本地开发依赖，不启动本机 Docker。
 2. 后端 health check 返回正常。
 3. 前端页面可访问。
 4. CI 能运行基础检查。
@@ -1651,7 +1653,7 @@ CI 工作流：
 | 标签基数过高 | 指标查询退化 | 限制标签数量，监控高基数字段 |
 | 多数据库增加运维复杂度 | 部署和备份复杂 | 文档化、脚本化、明确职责边界 |
 | 告警噪音过大 | 用户忽略告警 | 静默、分组、抑制、恢复通知 |
-| Windows 和 Debian 环境差异 | 本地可用但生产失败 | Docker 化、CI、部署验收脚本 |
+| Windows 和 Debian 环境差异 | 本地可用但生产失败 | Debian 兼容检查、CI、部署验收脚本和生产镜像验证 |
 | 非标准端口影响访问 | 用户记忆成本增加 | Nginx 明确入口、文档和 DNS 配置 |
 | Trace 数据存储成本高 | 存储快速增长 | 采样、TTL、只保留关键字段 |
 | 自定义查询语言过早设计 | 实现成本高 | 初期使用结构化查询构造器 |
@@ -1661,7 +1663,7 @@ CI 工作流：
 P0：
 
 1. 项目初始化。
-2. Docker 开发环境。
+2. 本地依赖连接与部署拓扑配置。
 3. 用户认证。
 4. 项目、环境、服务、API Key。
 5. metrics/logs/events ingestion。

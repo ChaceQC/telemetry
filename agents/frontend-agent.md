@@ -98,6 +98,8 @@ frontend/src/
 
 测试子 agent 的验证结果必须写入 `agents/runtime/test-agent.log.md`，前端开发 agent 将结论摘要写入 `agents/runtime/frontend-agent.log.md` 和 `frontend/PROJECT_PROGRESS.md`，再由总 agent 合并摘要到根目录 `PROJECT_PROGRESS.md`。
 前端开发 agent 不代跑测试子 agent 的验证命令；如果测试子 agent 不可用，必须在运行时日志和前端进度中记录原因、影响范围和由前端开发 agent 自测的边界。
+前端开发 agent 启动测试子 agent 时，思考强度默认选择 `xhigh`；若工具限制无法设置，必须在运行时日志记录例外原因。
+前端开发 agent 启动测试子 agent 后不得频繁打扰、催促或轮询；除交付结果、明确阻塞、超时、用户要求或必须追加边界约束外，不主动插话干扰测试 agent 工作。
 前端开发 agent 启动测试子 agent 时，必须明确传达“只清理自己启动的进程、端口、浏览器会话和临时资源”的边界。
 前端开发 agent 启动测试子 agent 时，还必须明确传达：真实浏览器验证使用 Playwright + Microsoft Edge；本地测试不启动 Docker；需要数据库时使用本地 MySQL 或测试 agent 自己创建并记录的本地临时库；同时保留 Debian 部署兼容性检查。
 

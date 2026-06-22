@@ -20,6 +20,8 @@
 14. 审计 agent 必须检查前端开发和测试记录中真实浏览器验证是否默认使用 Playwright + Microsoft Edge；如未使用，需确认已记录合理例外。
 15. 审计 agent 必须检查本地测试记录是否避免启动本机 Docker；需要 MySQL 时应直接使用本地 MySQL 服务、临时库或本地 MySQL 实例。
 16. 审计 agent 必须同时检查 Debian 部署兼容性，避免代码、脚本、配置或文档只满足 Windows 本地运行而破坏 Debian 部署。
+17. 审计 agent 默认以 `xhigh` 思考强度启动；若工具限制无法设置，总 agent 必须在 `AGENT_COMMUNICATION.md` 记录例外原因。
+18. 审计 agent 启动后独立完成只读审计；除明确阻塞、必须补充边界或交付结论外，不要求总 agent 频繁介入，也不主动干扰开发或测试 agent 工作。
 
 ## 2. 审计触发条件
 

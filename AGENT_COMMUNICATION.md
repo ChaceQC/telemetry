@@ -71,6 +71,7 @@ closed      已关闭
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
 | T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | done |
 | T-0043 | 日志 request/user 字段过滤基础 | 总 agent | done | done | done | done | done |
+| T-0044 | Trace ingestion 最小后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -362,6 +363,7 @@ closed      已关闭
 | 2026-06-22 | T-0043 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`；本轮记录提交 `fc80182` 已推送并通过 GitHub Actions run `27952252667` | done |
 | 2026-06-22 | T-0043 | 总 agent | CI 通过 | 推送 `fc80182` 触发 GitHub Actions run `27952252667`；Frontend checks 和 Backend checks 均为 success。Frontend 完成 install、lint、typecheck、test；Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 | 2026-06-22 | T-0043 | 总 agent | 最终 CI 与 worktree 同步完成 | 推送 CI 记录提交 `0f92788` 触发 GitHub Actions run `27952371029`，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；随后 `feature/backend-dev` 与 `feature/frontend-dev` 已 fast-forward 到 `0f92788` 并推送，严格 worktree 体检通过，三棵 worktree 均干净且本地/远端一致 | done |
+| 2026-06-22 | T-0044 | 后端开发 agent Feynman | 启动 Trace ingestion 最小后端基础 | 已以 `xhigh` 思考强度启动后端开发 agent Feynman，在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 推进阶段 4 第一小步：新增 `POST /api/v1/ingest/traces`，复用 API Key 鉴权、项目归属、请求大小/批量边界和关系库 `ingest_records` 最小持久化，先保存 trace/span 关键字段与 payload，不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑或前端页面。已传达 Windows 11/PowerShell、本地 MySQL、不启动 Docker、Playwright + Edge、Debian 兼容、只清理自有资源、开发 agent 可启动测试 agent 但不代跑完整测试流程等约束 | doing |
 
 ## 6. 测试记录
 

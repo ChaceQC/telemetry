@@ -64,7 +64,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Test-AgentWorktreeState.ps1 -
 
 ## Windows 本地开发
 
-1. 安装 Git、Docker Desktop、Node.js LTS、uv 和 Python 3.12。
+1. 安装 Git、Node.js LTS、uv、Python 3.12，以及可直接访问的本地 MySQL 服务或临时库。
 2. 在根目录复制环境变量示例：
 
 ```powershell
@@ -72,11 +72,7 @@ Copy-Item .env.example .env
 ```
 
 3. 按需调整 `.env` 中端口、host 和本地数据库占位配置；示例中的数据库密码仅用于本地开发占位，不得用于生产。
-4. 启动本地数据库服务：
-
-```powershell
-docker compose --env-file .env -f docker-compose.dev.yml up -d
-```
+4. 按需连接本地 MySQL 服务、创建临时库或使用测试 agent 自己启动并记录的本地 MySQL 实例；本地开发和测试不得启动本机 Docker。
 
 5. 在后端独立 worktree 启动后端：
 
@@ -140,25 +136,11 @@ http://127.0.0.1:28117
 
 前端通过 `VITE_API_BASE_URL` 读取后端地址。
 
-## Docker Compose 开发环境
+## 本地数据库与部署配置
 
-`docker-compose.dev.yml` 只包含 MySQL、ClickHouse、MongoDB 和 Redis 等本地开发依赖服务。后端、前端和 Nginx 不在本轮 Compose 草案中托管。
+本地开发和测试不得启动本机 Docker。需要 MySQL 时，使用本地 MySQL 服务、临时库或测试 agent 自己启动并记录的本地 MySQL 实例，并在验证记录中写明连接方式、临时库名和清理结果，不能泄露真实凭据。
 
-MySQL 会使用 `.env` 中的 `MYSQL_ROOT_PASSWORD`、`MYSQL_DATABASE`、`MYSQL_USER` 和 `MYSQL_PASSWORD` 初始化 root 与应用用户。MongoDB 会使用 `MONGODB_ROOT_USER`、`MONGODB_ROOT_PASSWORD` 创建 root 用户，并通过 `docker/mongodb/init-app-user.js` 使用 `MONGODB_DATABASE`、`MONGODB_USER` 和 `MONGODB_PASSWORD` 创建应用库读写用户。
-
-启动：
-
-```powershell
-docker compose --env-file .env -f docker-compose.dev.yml up -d
-```
-
-停止：
-
-```powershell
-docker compose -f docker-compose.dev.yml down
-```
-
-如需清理本地数据卷，必须确认不再需要开发数据后再执行带 `-v` 的清理命令。
+`docker-compose.dev.yml` 作为部署拓扑和服务配置草案保留，可用于静态配置检查或后续明确允许的部署环境验证；不得把它作为 Windows 11 本地开发的默认启动入口。后端、前端和 Nginx 不在本轮 Compose 草案中托管，最终公网入口仍由 Debian 宿主机 Nginx 负责。
 
 ## CI 草案
 
@@ -171,4 +153,4 @@ docker compose -f docker-compose.dev.yml down
 
 ## 安全边界
 
-`.env.example` 只包含本地开发占位凭据，不包含真实密钥。真实 `.env`、证书私钥、数据库 dump、上传文件、依赖目录和构建产物不得提交。数据库服务在开发 Compose 中绑定 `127.0.0.1`，不作为公网入口。
+`.env.example` 只包含本地开发占位凭据，不包含真实密钥。真实 `.env`、证书私钥、数据库 dump、上传文件、依赖目录和构建产物不得提交。本地数据库只能绑定本机访问，不作为公网入口。

@@ -105,6 +105,8 @@ backend/app/
 
 测试子 agent 的验证结果必须写入 `agents/runtime/test-agent.log.md`，后端开发 agent 将结论摘要写入 `agents/runtime/backend-agent.log.md` 和 `backend/PROJECT_PROGRESS.md`，再由总 agent 合并摘要到根目录 `PROJECT_PROGRESS.md`。
 后端开发 agent 不代跑测试子 agent 的验证命令；如果测试子 agent 不可用，必须在运行时日志和后端进度中记录原因、影响范围和由后端开发 agent 自测的边界。
+后端开发 agent 启动测试子 agent 时，思考强度默认选择 `xhigh`；若工具限制无法设置，必须在运行时日志记录例外原因。
+后端开发 agent 启动测试子 agent 后不得频繁打扰、催促或轮询；除交付结果、明确阻塞、超时、用户要求或必须追加边界约束外，不主动插话干扰测试 agent 工作。
 后端开发 agent 启动测试子 agent 时，必须明确传达“只清理自己启动的进程、端口、数据库临时库和临时资源”的边界。
 后端开发 agent 启动测试子 agent 时，还必须明确传达：本地测试不启动 Docker；MySQL 直接使用本地服务、临时库或测试 agent 自己启动并记录的本地实例；如涉及前端或浏览器，使用 Playwright + Microsoft Edge；同时保留 Debian 部署兼容性检查。
 
