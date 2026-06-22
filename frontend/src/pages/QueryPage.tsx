@@ -14,7 +14,7 @@ import {
   Search,
   ShieldAlert
 } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { CSSProperties, FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -59,6 +59,12 @@ import {
   resolveVisibleQueryData,
   shouldRenderLogContextPanel
 } from '../features/query/querySession';
+import {
+  DEFAULT_SLOW_TRACE_SPAN_MS,
+  buildTraceWaterfallGroups,
+  type TraceWaterfallGroup,
+  type TraceWaterfallSpan
+} from '../features/query/traceWaterfall';
 
 type QueryRecord = MetricQueryItem | LogQueryItem | TraceQueryItem | EventQueryItem;
 
@@ -164,6 +170,7 @@ export function QueryPage({ signal }: QueryPageProps) {
   const hasQueryError = canQuery && query.isError;
   const hasAggregateError = canQuery && signal === 'metrics' && aggregateQuery.isError;
   const metricTrend = signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null;
+  const traceGroups = signal === 'traces' ? buildTraceWaterfallGroups(records as TraceQueryItem[]) : [];
   const isFetching = query.isFetching || (signal === 'metrics' && aggregateQuery.isFetching);
   const isInitialLoading = canQuery && query.isFetching && !visibleData && !hasQueryError;
   const badgeTone = !canQuery ? 'warning' : query.isError || aggregateQuery.isError ? 'danger' : isFetching ? 'warning' : 'success';
@@ -445,7 +452,13 @@ export function QueryPage({ signal }: QueryPageProps) {
         <div className="section-heading">
           <div>
             <h2>{signal === 'events' ? '事件时间线' : '结果列表'}</h2>
-            <p>{visibleData ? formatResultSummary(pageNumber, records.length) : '等待查询结果'}</p>
+            <p>
+              {visibleData
+                ? signal === 'traces'
+                  ? formatTraceGroupSummary(pageNumber, traceGroups.length, records.length)
+                  : formatResultSummary(pageNumber, records.length)
+                : '等待查询结果'}
+            </p>
           </div>
           <StatusBadge tone={hasRecords ? 'success' : 'neutral'}>
             {hasRecords ? '有数据' : '暂无数据'}
@@ -499,7 +512,11 @@ export function QueryPage({ signal }: QueryPageProps) {
           <EventTimeline events={records as EventQueryItem[]} />
         ) : null}
 
-        {!hasQueryError && hasRecords && signal !== 'events' ? (
+        {!hasQueryError && hasRecords && signal === 'traces' ? (
+          <TraceWaterfallView groups={traceGroups} canQuery={canQuery} />
+        ) : null}
+
+        {!hasQueryError && hasRecords && signal !== 'events' && signal !== 'traces' ? (
           <ol className="query-list">
             {records.map((item) => (
               <li key={`${signal}-${item.id}`}>{renderRecord(signal, item, canQuery, auth.sessionRevision)}</li>
@@ -774,6 +791,154 @@ function LogContextGroup({
         <p className="log-context-empty">{emptyText}</p>
       )}
     </section>
+  );
+}
+
+export function TraceWaterfallView({
+  groups,
+  canQuery,
+  defaultExpanded = true
+}: {
+  groups: TraceWaterfallGroup[];
+  canQuery: boolean;
+  defaultExpanded?: boolean;
+}) {
+  return (
+    <ol className="trace-waterfall-list" aria-label="Trace waterfall">
+      {groups.map((group) => (
+        <li key={`trace-group-${group.traceId}`}>
+          <TraceWaterfallGroupView group={group} canQuery={canQuery} defaultExpanded={defaultExpanded} />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function TraceWaterfallGroupView({
+  group,
+  canQuery,
+  defaultExpanded
+}: {
+  group: TraceWaterfallGroup;
+  canQuery: boolean;
+  defaultExpanded: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const statusTone = group.errorCount > 0 ? 'danger' : group.slowCount > 0 ? 'warning' : 'success';
+  const statusText =
+    group.errorCount > 0
+      ? `${group.errorCount} 错误`
+      : group.slowCount > 0
+        ? `${group.slowCount} 慢 span >= ${formatDuration(DEFAULT_SLOW_TRACE_SPAN_MS)}`
+        : '正常';
+  const groupStyle = {
+    '--trace-indent-max': `${Math.min(group.maxDepth + 1, 10) * 18}px`
+  } as CSSProperties;
+
+  return (
+    <article className="trace-waterfall-group" style={groupStyle} aria-label={`Trace ${group.traceId}`}>
+      <header className="trace-waterfall-heading">
+        <div className="trace-waterfall-title">
+          <button
+            className="icon-button trace-group-toggle"
+            type="button"
+            onClick={() => setIsExpanded((current) => !current)}
+            disabled={!canQuery}
+            aria-expanded={isExpanded}
+            title={isExpanded ? '收起 trace 组' : '展开 trace 组'}
+          >
+            {isExpanded ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+          </button>
+          <div>
+            <strong>{group.traceId}</strong>
+            <span>
+              {group.spanCount} spans / {group.rootCount} roots / {formatDuration(group.totalDurationMs)}
+            </span>
+          </div>
+        </div>
+        <div className="trace-waterfall-summary">
+          {group.orphanCount > 0 ? <StatusBadge tone="warning">{`${group.orphanCount} 孤儿`}</StatusBadge> : null}
+          {!group.hasTiming ? <StatusBadge tone="neutral">无时间轴</StatusBadge> : null}
+          <StatusBadge tone={statusTone}>{statusText}</StatusBadge>
+        </div>
+      </header>
+
+      {isExpanded ? (
+        <div className="trace-waterfall-body">
+          <div className="trace-waterfall-scale" aria-hidden="true">
+            <span>0 ms</span>
+            <span>{formatDuration(group.totalDurationMs)}</span>
+          </div>
+          <ol className="trace-span-tree">
+            {group.spans.map((span) => (
+              <li key={`trace-span-${span.item.id}-${span.item.span_id}`}>
+                <TraceSpanWaterfallRow span={span} canQuery={canQuery} />
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function TraceSpanWaterfallRow({ span, canQuery }: { span: TraceWaterfallSpan; canQuery: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const item = span.item;
+  const expandedLabel = isExpanded ? '收起详情' : '展开详情';
+  const barStyle = {
+    '--trace-indent': `${Math.min(span.depth + 1, 10) * 18}px`,
+    '--trace-offset': `${span.offsetPercent}%`,
+    '--trace-width': `${span.widthPercent}%`
+  } as CSSProperties;
+  const rowClassName = [
+    'trace-span-row',
+    span.isError ? 'trace-span-row--error' : '',
+    span.isSlow ? 'trace-span-row--slow' : '',
+    span.isOrphan ? 'trace-span-row--orphan' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <article className={rowClassName} style={barStyle}>
+      <div className="trace-span-content">
+        <div className="trace-span-main">
+          <div className="trace-span-name">
+            <span className="trace-tree-glyph" aria-hidden="true" />
+            <div>
+              <strong>{item.name}</strong>
+              <span>{formatTraceSpanSubline(span)}</span>
+            </div>
+          </div>
+          <div className="trace-span-actions">
+            {span.isOrphan ? <StatusBadge tone="warning">缺 parent</StatusBadge> : null}
+            {span.isSlow ? <StatusBadge tone="warning">慢</StatusBadge> : null}
+            <StatusBadge tone={getTraceStatusTone(item.status_code)}>{formatTraceStatus(item.status_code)}</StatusBadge>
+            <button
+              className="text-button log-context-toggle"
+              type="button"
+              onClick={() => setIsExpanded((current) => !current)}
+              disabled={!canQuery}
+              aria-expanded={isExpanded}
+              title={canQuery ? '查看 span 详情' : '登录后查看 span 详情'}
+            >
+              <Eye size={15} aria-hidden="true" />
+              <span>{expandedLabel}</span>
+              {isExpanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="trace-waterfall-track" aria-label={`${item.name} waterfall 耗时条`}>
+          <span className="trace-waterfall-bar">
+            <span>{formatDuration(span.durationMs)}</span>
+          </span>
+        </div>
+      </div>
+
+      {isExpanded ? <TraceDetailPanel span={item} /> : null}
+    </article>
   );
 }
 
@@ -1095,6 +1260,23 @@ function formatMetricAggregationLabel(value: string) {
 
 function formatAggregateWindow(item: MetricAggregateItem) {
   return `${formatTime(item.window_start)} - ${formatTime(item.window_end)}`;
+}
+
+function formatTraceGroupSummary(pageNumber: number, groupCount: number, spanCount: number) {
+  return `第 ${pageNumber} 页，${groupCount} 个 trace 组 / ${spanCount} 条 span`;
+}
+
+function formatTraceSpanSubline(span: TraceWaterfallSpan) {
+  return [
+    span.relativeStartMs === null ? '起点未知' : `+${formatDuration(span.relativeStartMs)}`,
+    formatDuration(span.durationMs),
+    span.item.source || '未标记来源',
+    span.item.span_id,
+    span.item.parent_span_id ? `parent ${span.item.parent_span_id}` : 'root',
+    span.hasPartialTiming ? '时间不完整' : null
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' / ');
 }
 
 function formatDuration(value: number | null) {

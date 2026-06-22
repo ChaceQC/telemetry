@@ -2,6 +2,35 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0048 Trace waterfall / 树形详情基础
+
+### 已完成
+
+- `/traces` 查询结果从单条 span 列表增强为按 `trace_id` 分组的 trace 组视图，trace 组支持展开/收起，默认展开以保留当前页结果可见性。
+- 新增 `frontend/src/features/query/traceWaterfall.ts` 纯函数模型，负责分组、父子树构建、孤儿根节点兜底、相对起点、duration 和 waterfall 条布局计算；覆盖缺失 start/end/duration、0 duration、乱序、同起点、长 duration、多根和缺失 parent。
+- 组内 span 行显示树形缩进、相对起始时间、duration、source、span/parent 信息和横向耗时条；错误 span、慢 span（本地阈值 `>=1000ms`）和孤儿 span 使用克制状态标识。
+- 保留原有 trace 筛选、刷新、回第一页、下一页、分页提示和单条 span 详情展开；`/metrics`、`/logs`、`/events` 渲染路径保持原逻辑。
+- 新增 `traceWaterfall` 单测和 `QueryPage` SSR 页面测试，覆盖树构建、waterfall layout、孤儿 span、null/缺失 duration、错误/慢标识和 trace 组收起态。
+- 更新 `frontend/README.md`、`agents/runtime/api-contracts/frontend-requests.md`、前端版本文件、`package.json`、`package-lock.json`、`.env.example` 和运行时兜底版本；前端版本提升到 `0.2.5`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不改后端代码，不启动 Docker、后端或 MySQL，不做真实前后端联测。
+- Trace waterfall 只基于当前页 `GET /api/v1/query/traces` 返回的 span 记录构建，不跨页合并，不做服务依赖拓扑、trace/log 或 trace/metric 互跳。
+- 无真实登录和后端数据时，浏览器冒烟只能覆盖未登录 `/traces` 页面和前端 shell；waterfall 数据态由纯函数与 SSR 页面测试覆盖。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/query/traceWaterfall.test.ts src/pages/QueryPage.test.tsx` 通过（2 个测试文件、14 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 初次 `npm.cmd run lint` 发现 `QueryPage.tsx` 中 `traceGroups` 手写 `useMemo` 触发 React Hooks preserve-manual-memoization 规则；已改为普通派生值，重跑 `npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（15 个测试文件、74 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+- 已用 Playwright CLI + Microsoft Edge 打开 `http://127.0.0.1:25183/traces` 做开发侧最小浏览器检查，确认页面标题、版本 `v0.2.5`、链路查询标题、未登录提示、Trace ID/Span ID/Span 名称/来源/时间筛选和结果区正常渲染；未启动真实后端，未做登录或真实查询联测。首次尝试使用默认端口 `25173` 时该端口已被占用，改用本轮自启动备用端口 `25183`；检查后已关闭 Playwright Edge 会话并停止监听 PID `39964`，确认 `25183` 无监听。
+- 浏览器控制台仅见既有 React Router future flag warning 与 `/favicon.ico` 404，未发现本任务页面运行异常。
+- 测试 agent Aquinas the 2nd 已独立复验：`git status --short --branch`、`npm.cmd run test -- src/features/query/traceWaterfall.test.ts src/pages/QueryPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过；Microsoft Edge 可用并完成 `/traces` 最小冒烟，确认未登录态、版本 `v0.2.5`、链路查询页和筛选控件正常；其自启动资源已清理。
+
 ## 2026-06-23 T-0046-fix Trace 详情 JSON 稳健性修复
 
 ### 已完成

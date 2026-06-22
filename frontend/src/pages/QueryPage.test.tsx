@@ -15,7 +15,8 @@ import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
 import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from '../features/query/queryFilters';
 import { buildLogContextQueryKey, buildSignalQueryKey } from '../features/query/querySession';
-import { QueryPage, TraceDetailPanel } from './QueryPage';
+import { buildTraceWaterfallGroups } from '../features/query/traceWaterfall';
+import { QueryPage, TraceDetailPanel, TraceWaterfallView } from './QueryPage';
 
 const defaultLogParams = {
   project_id: undefined,
@@ -259,16 +260,48 @@ describe('QueryPage auth guards', () => {
 });
 
 describe('QueryPage traces', () => {
-  it('traces 页面展示 span 列表、分页控制和基础展开入口', () => {
+  it('traces 页面按 trace 组展示树形 waterfall、分页控制和基础展开入口', () => {
     const queryClient = new QueryClient();
-    seedSignalData(queryClient, 'traces', [currentTrace], 'trace-cursor-2');
+    const rootTrace: TraceQueryItem = {
+      ...currentTrace,
+      id: 76,
+      span_id: 'span-root',
+      parent_span_id: null,
+      name: 'GET /api/orders',
+      start_time: '2026-06-22T03:10:00.000Z',
+      end_time: '2026-06-22T03:10:01.200Z',
+      duration_ms: 1200,
+      status_code: 'ok',
+      source: 'api'
+    };
+    const orphanTrace: TraceQueryItem = {
+      ...currentTrace,
+      id: 78,
+      span_id: 'span-orphan',
+      parent_span_id: 'span-missing',
+      name: 'publish event',
+      start_time: '2026-06-22T03:10:00.500Z',
+      end_time: null,
+      duration_ms: null,
+      status_code: 'ok',
+      source: 'worker'
+    };
+    seedSignalData(queryClient, 'traces', [currentTrace, rootTrace, orphanTrace], 'trace-cursor-2');
 
     const html = renderQueryPage(queryClient, createSignedInAuth(), 'traces');
 
     expect(html).toContain('链路查询');
     expect(html).toContain('Span 名称');
+    expect(html).toContain('1 个 trace 组 / 3 条 span');
+    expect(html).toContain('class="trace-waterfall-list"');
+    expect(html).toContain('Trace trace-a');
+    expect(html).toContain('GET /api/orders');
     expect(html).toContain('SELECT orders');
+    expect(html).toContain('publish event');
     expect(html).toContain('error');
+    expect(html).toContain('慢');
+    expect(html).toContain('缺 parent');
+    expect(html).toContain('时间不完整');
     expect(html).toContain('30.500 ms');
     expect(html).toContain('trace-a');
     expect(html).toContain('span-db');
@@ -279,6 +312,8 @@ describe('QueryPage traces', () => {
     expect(html).not.toContain('Request ID');
     expect(html).not.toContain('聚合窗口');
     expect(html).not.toContain('class="event-timeline"');
+    expect(html).not.toContain('class="query-list"');
+    expect(html.indexOf('GET /api/orders')).toBeLessThan(html.indexOf('SELECT orders'));
   });
 
   it('trace 展开详情在 attributes 和 payload 为 null 时稳定展示 JSON 占位', () => {
@@ -294,6 +329,17 @@ describe('QueryPage traces', () => {
     expect(html).toContain('Span span-null-json 详情');
     expect(html).toContain('<span>attributes</span>null');
     expect(html).toContain('<span>payload</span>null');
+  });
+
+  it('trace 组收起时仅保留组头，不渲染组内 span 行', () => {
+    const groups = buildTraceWaterfallGroups([currentTrace]);
+
+    const html = renderToString(<TraceWaterfallView groups={groups} canQuery defaultExpanded={false} />);
+
+    expect(html).toContain('Trace trace-a');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('SELECT orders');
+    expect(html).not.toContain('class="trace-span-row');
   });
 });
 
@@ -328,8 +374,10 @@ describe('QueryPage events timeline', () => {
 
     expect(metricsHtml).toContain('class="query-list"');
     expect(metricsHtml).not.toContain('class="event-timeline"');
+    expect(metricsHtml).not.toContain('class="trace-waterfall-list"');
     expect(logsHtml).toContain('class="query-list"');
     expect(logsHtml).not.toContain('class="event-timeline"');
+    expect(logsHtml).not.toContain('class="trace-waterfall-list"');
   });
 });
 
