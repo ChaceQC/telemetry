@@ -97,8 +97,8 @@ export type TraceQueryItem = {
   duration_ms: number | null;
   status_code: string | null;
   source: string | null;
-  attributes: Record<string, unknown>;
-  payload: Record<string, unknown>;
+  attributes: unknown;
+  payload: unknown;
   occurred_at: string | null;
   received_at: string;
 };

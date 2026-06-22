@@ -2,6 +2,31 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0046-fix Trace 详情 JSON 稳健性修复
+
+### 已完成
+
+- 修复 Copernicus the 2nd 审计发现的 P2：trace 详情展开时 `attributes` / `payload` 不再直接依赖 `Object.keys(value)`，统一经 JSON 预览格式化兜底处理。
+- `TraceQueryItem.attributes` / `TraceQueryItem.payload` 类型放宽为 `unknown`，匹配后端、历史数据或异常响应可能返回 `null`、数组或原始 JSON 值的情况；logs/events/metrics 现有数据类型和展示调用保持不变。
+- 新增 `features/query/jsonPreview.ts`，空对象继续不展示；`null`、非对象、数组和长 JSON 均能稳定渲染为可滚动 JSON 预览。
+- 将 trace 展开详情面板抽为 `TraceDetailPanel`，补充 SSR 组件测试覆盖 `attributes` / `payload` 为 `null` 时不崩溃并展示 `null` 占位。
+- 版本不变：本轮为 T-0046 审计修复，不新增前端功能或契约版本能力，`frontend/VERSION`、`package.json` 和运行时兜底版本继续保持 `0.2.4`。
+
+### 阻塞与风险
+
+- 本轮未修改后端契约、未启动 Docker、未启动后端/MySQL、未做真实前后端联测。
+- 未启动浏览器冒烟；该修复为窄的渲染健壮性问题，已用单元/组件 SSR 测试覆盖展开详情核心路径。
+- 未启动测试 agent；由当前修复 agent 本地完成专项与全量前端验证，建议总 agent 对新提交发起复审。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/query/jsonPreview.test.ts src/pages/QueryPage.test.tsx` 通过（2 个测试文件、12 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（14 个测试文件、69 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-23 T-0046 Trace 查询页前端基础
 
 ### 已完成

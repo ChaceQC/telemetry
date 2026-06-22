@@ -43,6 +43,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
 import { summarizeEventPayload } from '../features/query/eventTimeline';
+import { formatJsonPreviewValue } from '../features/query/jsonPreview';
 import {
   buildMetricAggregateParams,
   buildQueryParams,
@@ -803,27 +804,31 @@ function TraceRecord({ span, canQuery }: { span: TraceQueryItem; canQuery: boole
       </div>
       <RecordMeta item={span} extra={[span.source, span.trace_id, span.span_id]} />
 
-      {isExpanded ? (
-        <div className="trace-detail-panel" aria-label={`Span ${span.span_id} 详情`}>
-          <dl className="trace-detail-grid">
-            <TraceDetailItem label="Trace ID" value={span.trace_id} />
-            <TraceDetailItem label="Span ID" value={span.span_id} />
-            <TraceDetailItem label="Parent Span" value={span.parent_span_id || 'root'} />
-            <TraceDetailItem label="Name" value={span.name} />
-            <TraceDetailItem label="Source" value={span.source || '未标记来源'} />
-            <TraceDetailItem label="Status" value={formatTraceStatus(span.status_code)} />
-            <TraceDetailItem label="Duration" value={formatDuration(span.duration_ms)} />
-            <TraceDetailItem label="Start" value={span.start_time ? formatTime(span.start_time) : '未提供'} />
-            <TraceDetailItem label="End" value={span.end_time ? formatTime(span.end_time) : '未提供'} />
-            <TraceDetailItem label="Occurred" value={formatTime(span.occurred_at ?? span.received_at)} />
-            <TraceDetailItem label="Received" value={formatTime(span.received_at)} />
-            <TraceDetailItem label="Project" value={`${span.project_id}`} />
-          </dl>
-          <JsonPreview label="attributes" value={span.attributes} />
-          <JsonPreview label="payload" value={span.payload} />
-        </div>
-      ) : null}
+      {isExpanded ? <TraceDetailPanel span={span} /> : null}
     </>
+  );
+}
+
+export function TraceDetailPanel({ span }: { span: TraceQueryItem }) {
+  return (
+    <div className="trace-detail-panel" aria-label={`Span ${span.span_id} 详情`}>
+      <dl className="trace-detail-grid">
+        <TraceDetailItem label="Trace ID" value={span.trace_id} />
+        <TraceDetailItem label="Span ID" value={span.span_id} />
+        <TraceDetailItem label="Parent Span" value={span.parent_span_id || 'root'} />
+        <TraceDetailItem label="Name" value={span.name} />
+        <TraceDetailItem label="Source" value={span.source || '未标记来源'} />
+        <TraceDetailItem label="Status" value={formatTraceStatus(span.status_code)} />
+        <TraceDetailItem label="Duration" value={formatDuration(span.duration_ms)} />
+        <TraceDetailItem label="Start" value={span.start_time ? formatTime(span.start_time) : '未提供'} />
+        <TraceDetailItem label="End" value={span.end_time ? formatTime(span.end_time) : '未提供'} />
+        <TraceDetailItem label="Occurred" value={formatTime(span.occurred_at ?? span.received_at)} />
+        <TraceDetailItem label="Received" value={formatTime(span.received_at)} />
+        <TraceDetailItem label="Project" value={`${span.project_id}`} />
+      </dl>
+      <JsonPreview label="attributes" value={span.attributes} />
+      <JsonPreview label="payload" value={span.payload} />
+    </div>
   );
 }
 
@@ -1033,15 +1038,17 @@ function RecordMeta({ item, extra }: { item: QueryRecord; extra: Array<string | 
   return <p className="query-record-meta">{formatRecordMeta(item, extra)}</p>;
 }
 
-function JsonPreview({ label, value }: { label: string; value: Record<string, unknown> }) {
-  if (Object.keys(value).length === 0) {
+function JsonPreview({ label, value }: { label: string; value: unknown }) {
+  const preview = formatJsonPreviewValue(value);
+
+  if (preview === null) {
     return null;
   }
 
   return (
     <pre className="query-json">
       <span>{label}</span>
-      {JSON.stringify(value, null, 2)}
+      {preview}
     </pre>
   );
 }

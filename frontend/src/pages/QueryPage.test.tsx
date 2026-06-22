@@ -15,7 +15,7 @@ import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
 import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from '../features/query/queryFilters';
 import { buildLogContextQueryKey, buildSignalQueryKey } from '../features/query/querySession';
-import { QueryPage } from './QueryPage';
+import { QueryPage, TraceDetailPanel } from './QueryPage';
 
 const defaultLogParams = {
   project_id: undefined,
@@ -279,6 +279,21 @@ describe('QueryPage traces', () => {
     expect(html).not.toContain('Request ID');
     expect(html).not.toContain('聚合窗口');
     expect(html).not.toContain('class="event-timeline"');
+  });
+
+  it('trace 展开详情在 attributes 和 payload 为 null 时稳定展示 JSON 占位', () => {
+    const traceWithNullJson: TraceQueryItem = {
+      ...currentTrace,
+      span_id: 'span-null-json',
+      attributes: null,
+      payload: null
+    };
+
+    const html = renderToString(<TraceDetailPanel span={traceWithNullJson} />);
+
+    expect(html).toContain('Span span-null-json 详情');
+    expect(html).toContain('<span>attributes</span>null');
+    expect(html).toContain('<span>payload</span>null');
   });
 });
 
