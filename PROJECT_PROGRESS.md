@@ -641,6 +641,7 @@
 - Agent 本地开发约束已补充并提交 `7ffc625`：所有 agent 文档明确 Windows 11/PowerShell、Playwright + Microsoft Edge、本地不启动 Docker、本地 MySQL、Debian 部署兼容、不频繁干扰子 agent 和 xhigh 启动边界；`dev`、`feature/frontend-dev`、`feature/backend-dev` 已同步到该基线。
 - T-0046 已登记为阶段 4 下一小步：前端 `/traces` 查询页基础，消费现有 `GET /api/v1/query/traces`，先实现筛选、列表、分页和基础 span 详情展开。
 - T-0046 前端开发已完成：`ed9e7b9` 已推送到 `feature/frontend-dev`，`/traces` 接入真实 trace 查询页面，前端版本提升到 `0.2.4`；等待代码审计与后续真实前后端联合测试。
+- T-0046 前端审计未通过：Copernicus the 2nd 发现 1 个 P2，trace 详情展开对 `attributes` / `payload = null` 不稳健，可能触发 `Object.keys(null)` 运行时异常；需前端修复并补测试后复审。
 - T-0047 已登记为阶段 4 后端并行小步：为 `GET /api/v1/query/traces` 增加可选 `status_code`、`duration_min_ms`、`duration_max_ms` 过滤，支撑后续错误 trace 和慢 trace 查询；不改变响应 envelope，不做前端接入。
 - T-0047 后端开发和审计已完成：`844bfdc` 已推送到 `feature/backend-dev`，后端版本提升到 `0.2.4`；代码审计未发现 P0/P1/P2，仅保留 duration JSON 脏数据类型 coercion 的 P3 后续风险。
 
