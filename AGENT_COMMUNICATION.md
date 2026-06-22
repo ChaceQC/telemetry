@@ -74,6 +74,7 @@ closed      已关闭
 | T-0044 | Trace ingestion 最小后端基础 | 总 agent | todo | done | done | done | done |
 | T-0045 | Trace 查询最小后端基础 | 总 agent | todo | done | done | done | done |
 | T-0046 | Trace 查询页前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -394,7 +395,11 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | 总 agent | CI 通过 | 推送 `59fc629` 触发 GitHub Actions run `27969246519`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 | 2026-06-22 | T-0045-fix | 测试 agent Boole the 2nd | 真实前后端联合测试重跑通过 | Boole the 2nd 在 `dev/origin/dev` `c96ca3b` 上使用自有临时 MySQL 8.0.42 `127.0.0.1:14429`、临时库 `telemetry_t0045_20260622t170940_i1stio`、真实后端 `14430`、真实前端 `14431` 和 Playwright + Microsoft Edge 完成重跑；确认 Alembic head `20260622_0008`，`ingest_records.occurred_at/received_at=datetime(6)` 且 `received_at` 默认 `CURRENT_TIMESTAMP(6)`，不存在项目返回 `404 项目不存在`，`occurred_to=...00.075Z` 不再返回 `.100000Z` span，精确边界命中正常；metrics/logs/events 真实摄入查询和前端 `/` `/metrics` `/logs` `/events` `/traces` 回归通过。Boole the 2nd 已清理自有资源并关闭 | done |
 | 2026-06-23 | T-0045-fix | 总 agent | T-0045 收尾完成 | `01813d3` 已记录真实前后端联合测试重跑通过；`dev`、`feature/backend-dev`、`feature/frontend-dev` 均同步到 `01813d3` 且严格 worktree 体检通过。T-0045 及其修复、审计、测试 agents 均已关闭 | done |
+| 2026-06-23 | DOCS | 总 agent | Agent 本地开发约束同步完成 | 已提交并推送 `7ffc625`：将 Windows 11/PowerShell、Playwright + Microsoft Edge、本地不启动 Docker、MySQL 使用本地服务/临时库、Debian 部署兼容和不干扰 agent/xhigh 相关边界固化到总 agent 与各专项 agent 文档；`feature/frontend-dev`、`feature/backend-dev` 已通过 `git merge --ff-only origin/dev` 同步到同一基线。GitHub Actions 在 `dev` run `27979229909`、`feature/frontend-dev` run `27979246288`、`feature/backend-dev` run `27979248451` 均通过，Frontend checks 与 Backend checks 均为 success | done |
 | 2026-06-23 | T-0046 | 总 agent | 登记 Trace 查询页前端基础 | 阶段 4 下一小步限定为前端 `/traces` 查询页基础：消费现有 `GET /api/v1/query/traces`，实现项目/trace_id/span_id/name/source/时间范围筛选、列表、稳定分页和基础 span 详情展开；不修改后端契约，不做 waterfall、trace 树布局、服务依赖拓扑、日志/指标互跳或 ClickHouse 查询。将以 `xhigh` 思考强度启动前端开发 agent，在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 工作；要求 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、需要数据库时使用本地 MySQL 或测试 agent 自有临时库、保留 Debian 部署兼容、只清理自有资源、可启动测试 agent 但不得代跑完整测试流程 | doing |
+| 2026-06-23 | T-0046 | 总 agent | 启动前端开发 agent | 已启动前端开发 agent Russell the 2nd（agent id `019ef0dd-2e03-7e01-b190-18393830a747`），在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 推进 `/traces` 查询页基础；启动时已传达 xhigh 思考强度、Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、本地 MySQL/测试 agent 自有临时库、Debian 部署兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程，以及总 agent 不频繁干扰的边界 | doing |
+| 2026-06-23 | T-0047 | 总 agent | 登记 Trace 状态与耗时过滤后端基础 | 阶段 4 后端并行小步限定为扩展 `GET /api/v1/query/traces` 的可选筛选条件：`status_code`、`duration_min_ms`、`duration_max_ms`，用于后续错误 trace 与慢 trace 查询；保持响应 `{ items, next_cursor }` 不变，并将新筛选纳入 cursor 签名和权限/项目过滤。范围不包含前端接入、waterfall、trace 树、服务拓扑、ClickHouse 查询或真实前后端联测。将以 `xhigh` 思考强度启动后端开发 agent，在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 工作；要求 Windows 11/PowerShell/UTF-8、本地不启动 Docker、MySQL 使用本地服务/临时库或测试 agent 自有实例、保留 Debian 部署兼容、只清理自有资源、可启动测试 agent 但不得代跑完整测试流程 | doing |
+| 2026-06-23 | T-0047 | 总 agent | 启动后端开发 agent | 已启动后端开发 agent Archimedes the 2nd（agent id `019ef0e0-d9ce-7731-955d-b338b3e5d161`），在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 推进 trace `status_code` 与 `duration_min_ms/max_ms` 过滤；启动时已传达 xhigh 思考强度、Windows 11/PowerShell/UTF-8、本地不启动 Docker、本地 MySQL/测试 agent 自有实例、Debian 部署兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程，以及不干扰前端 agent 的边界 | doing |
 
 ## 6. 测试记录
 
