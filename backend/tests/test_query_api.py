@@ -289,6 +289,15 @@ def test_query_logs_keyword_matches_message_and_payload_text() -> None:
                 },
                 {
                     "level": "info",
+                    "message": "nested payload",
+                    "source": "app",
+                    "payload": {
+                        "details": {"release": "nested-keyword-001"},
+                        "steps": ["array-keyword-001"],
+                    },
+                },
+                {
+                    "level": "info",
                     "message": "unrelated log",
                     "source": "app",
                     "payload": {"request_id": "boring"},
@@ -306,6 +315,21 @@ def test_query_logs_keyword_matches_message_and_payload_text() -> None:
         headers=admin_headers,
         params={"project_id": project["id"], "keyword": "payload-keyword-001"},
     )
+    nested_payload_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "nested-keyword-001"},
+    )
+    array_payload_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "array-keyword-001"},
+    )
+    payload_key_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "request_id"},
+    )
     miss_response = client.get(
         "/api/v1/query/logs",
         headers=admin_headers,
@@ -319,6 +343,12 @@ def test_query_logs_keyword_matches_message_and_payload_text() -> None:
     ]
     assert payload_response.status_code == 200
     assert [log["message"] for log in payload_response.json()["items"]] == ["cache warmed"]
+    assert nested_payload_response.status_code == 200
+    assert [log["message"] for log in nested_payload_response.json()["items"]] == ["nested payload"]
+    assert array_payload_response.status_code == 200
+    assert [log["message"] for log in array_payload_response.json()["items"]] == ["nested payload"]
+    assert payload_key_response.status_code == 200
+    assert payload_key_response.json() == {"items": [], "next_cursor": None}
     assert miss_response.status_code == 200
     assert miss_response.json() == {"items": [], "next_cursor": None}
 

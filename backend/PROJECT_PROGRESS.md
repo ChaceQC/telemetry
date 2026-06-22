@@ -8,14 +8,14 @@
 
 - 为 `GET /api/v1/query/logs` 新增可选查询参数 `keyword`，沿用用户 Bearer token 鉴权、项目权限过滤、`project_id`、`level`、`source`、`occurred_from/to` 和游标分页约束。
 - `keyword` 进入服务层后会去除前后空白，空白字符串按未传处理；非空关键词参与日志查询游标签名，筛选条件变化后复用旧 cursor 会返回既有 `422 cursor 无效或不匹配当前查询`。
-- 在关系库 `ingest_records` 的 `kind=log` 查询上实现基础关键词搜索：匹配日志 `message`，并覆盖日志业务 `payload` 子值 JSON 文本；未引入 ClickHouse、全文索引或新外部服务。
-- 修复审计 P2：不再将整份日志 wrapper JSON cast 为 text 后匹配，避免 keyword 因 wrapper key 名 `payload`/`trace_id`/`logger` 或 `null` 脚手架命中无关日志；LIKE 参数继续转义 `%`、`_` 和反斜杠，按字面搜索。
-- 扩展 `backend/tests/test_query_api.py`，覆盖 keyword 命中 message、命中业务 payload JSON 文本、不命中 wrapper key/null 脚手架、LIKE 通配符字面匹配、与 level/source/time/project 权限叠加、分页 cursor 与 keyword 不匹配返回 `422`。
+- 在关系库 `ingest_records` 的 `kind=log` 查询上实现基础关键词搜索：匹配日志 `message`，并覆盖日志业务 `payload` 的值文本；未引入 ClickHouse、全文索引或新外部服务。
+- 修复审计 P2：不再将整份日志 wrapper JSON 或业务 payload 对象 cast 为 text 后匹配，避免 keyword 因 wrapper key 名 `payload`/`trace_id`/`logger`、业务 payload key 名或 `null` 脚手架命中无关日志；LIKE 参数继续转义 `%`、`_` 和反斜杠，按字面搜索。
+- 扩展 `backend/tests/test_query_api.py`，覆盖 keyword 命中 message、命中业务 payload 值文本、业务 payload key-only 不命中、SQLite 递归命中业务 payload 嵌套/数组值、不命中 wrapper key/null 脚手架、LIKE 通配符字面匹配、与 level/source/time/project 权限叠加、分页 cursor 与 keyword 不匹配返回 `422`。
 - 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，同步 API-0015 的 `keyword` 参数、游标签名边界和当前验证边界。
 
 ### 阻塞与风险
 
-- 本轮关键词搜索仍基于关系库 JSON 子路径文本 `LIKE` 匹配，适合作为基础能力；真实 MySQL 大数据量性能、排序分页执行计划、大小写/字符集匹配细节和未来 ClickHouse/全文搜索链路仍需后续专项验证。
+- 本轮关键词搜索仍基于关系库 JSON 子路径值文本 `LIKE` 匹配，适合作为基础能力；SQLite 覆盖业务 payload 嵌套对象/数组中的字符串、数字和布尔值，MySQL 兼容层通过 `JSON_SEARCH` 覆盖业务 payload 字符串值；真实 MySQL 非字符串 JSON 标量值、大数据量性能、排序分页执行计划、大小写/字符集匹配细节和未来 ClickHouse/全文搜索链路仍需后续专项验证。
 - 未做完整前后端联测；未启动后端服务、数据库容器或后台进程。
 
 ### 开发侧验证
