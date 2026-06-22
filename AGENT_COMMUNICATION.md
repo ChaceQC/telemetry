@@ -382,6 +382,14 @@ closed      已关闭
 | 2026-06-22 | T-0045 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 后端合入 `dev`，merge 提交 `2916df9`；本次同步根、前端、后端版本到 `0.2.3`，并补根 README、计划书、正式 API 契约和进度记录。前端无功能改动，前端版本文件仅做项目总版本同步 | done |
 | 2026-06-22 | T-0045 | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q` 54 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 3 个提交失败，根/前端/后端 worktree 均干净且无保护项问题 | done |
 | 2026-06-22 | T-0045 | 总 agent | CI 通过 | 推送 `d906627` 触发 GitHub Actions run `27962733862`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
+| 2026-06-22 | T-0045 | 测试 agent Epicurus | 真实前后端联合测试未通过 | Epicurus 在最新 `dev/origin/dev` 上使用自有隔离 MySQL 8.0.42 `127.0.0.1:8796`、临时库 `telemetry_t0045_e2e_20260622_153304`、真实后端 `8797`、真实前端 `8798` 和 Playwright + Microsoft Edge 完成联测；发现 2 个后端 trace 查询问题：超级用户查询不存在 `project_id=999999999` 返回空 `200` 而非 `404`，以及真实 MySQL 下 `occurred_to=...00.075Z` 仍返回 `start_time=...00.100000Z` span，疑似 `occurred_at` 秒级截断导致毫秒过滤不精确。Epicurus 已清理自有资源并关闭 | blocked |
+| 2026-06-22 | T-0045-fix | 后端开发 agent Darwin | Trace 查询联测问题修复完成 | Darwin 提交并推送 `2d357a7` 到 `feature/backend-dev`：显式 `project_id` 查询先校验项目存在性，events/logs/metrics/traces/metrics aggregate 对不存在项目统一 `404 项目不存在`；MySQL/MariaDB 下 `ingest_records.occurred_at`、`received_at` 改为 `DATETIME(6)` 并新增 Alembic `20260622_0008`，修复 trace 毫秒级 `occurred_from/to` 过滤。Darwin 已关闭 | done |
+| 2026-06-22 | T-0045-fix | 测试 agent Pauli | Trace 查询后端专项复验通过 | Pauli 由 Darwin 启动并完成只读专项复验，覆盖超级用户缺失项目 `404`、trace 毫秒过滤测试、MySQL/MariaDB 离线 SQL、ruff/mypy；结论通过，Pauli 已关闭 | done |
+| 2026-06-22 | T-0045-fix | 代码审计 agent Russell | Trace 查询修复审计有条件通过 | Russell 只读审计 `2d357a7` 未发现 P0/P1/P2；发现 2 个 P3：ORM `received_at` server default 与 MySQL/MariaDB `CURRENT_TIMESTAMP(6)` 迁移最终态不完全一致，以及 0008 大表在线 DDL 风险需部署记录；Russell 已关闭 | done |
+| 2026-06-22 | T-0045-fix | 后端开发 agent Carver the 2nd | 审计 P3 收口完成 | Carver the 2nd 提交并推送 `0928e6f`：`received_at` ORM 默认值改为方言感知表达式，MySQL/MariaDB DDL 输出 `CURRENT_TIMESTAMP(6)`、SQLite 保持 `CURRENT_TIMESTAMP`；补 DDL 编译测试，并在后端 README/迁移文档记录生产使用 Alembic、大表在线 DDL 锁等待、备份回滚、复制延迟和维护窗口风险。Carver the 2nd 已关闭 | done |
+| 2026-06-22 | T-0045-fix | 代码审计 agent Hume the 2nd | P3 修复复审通过 | Hume the 2nd 只读复审 `0928e6f`，未发现新的 P0/P1/P2/P3；确认 Russell 两个 P3 已关闭，残余风险为真实 MySQL/MariaDB 大表 ALTER 锁行为和执行耗时仍需影子库或维护窗口前演练；Hume the 2nd 已关闭 | done |
+| 2026-06-22 | T-0045-fix | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 修复合入 `dev`，merge 提交 `89506c5`；未使用路径覆盖。后续执行收窄本地门禁、推送、读取 CI，并重新启动真实前后端联合测试 agent 复验 | done |
+| 2026-06-22 | T-0045-fix | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q` 83 passed；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过。未启动 Docker、数据库、后端服务、前端服务或浏览器，完整真实联测交由测试 agent 重跑 | done |
 
 ## 6. 测试记录
 
@@ -444,6 +452,9 @@ closed      已关闭
 | 2026-06-22 | T-0045 | Trace 查询真实 MySQL/真实后端验证 | James；本地 MySQL 8.0.42、真实 FastAPI 后端、HTTP 与 DB 断言 | 通过 | 使用本地 MySQL `127.0.0.1:33317` 和临时库 `telemetry_t0045_trace_20260622`，后端 `127.0.0.1:28145`；覆盖 trace ingest + query、`trace_id`/`span_id`/`name`/`source`/时间过滤、cursor、`401/404/422` 和 metric 快速回归；未启动 Docker，临时库和自有进程已清理 |
 | 2026-06-22 | T-0045 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q`、`uv lock --check`；前端 `npm.cmd run typecheck`；`git diff --check`、worktree 体检 | 通过 | 后端 54 passed，1 条既有 Starlette/TestClient 上游弃用警告；`uv lock --check` resolved 49 packages；前端 typecheck 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 本地领先 `origin/dev` 3 个提交失败，待提交推送后复查 |
 | 2026-06-22 | T-0045 | CI | GitHub Actions run `27962733862` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
+| 2026-06-22 | T-0045 | 真实前后端联合测试 | Epicurus；自有本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未通过 | 通过项：`/health=0.2.3`、登录、项目/API Key、trace 摄入、trace items 字段、trace/span/name/source/occurred_from 过滤、cursor 翻页、坏 cursor/筛选不匹配 cursor/超长 trace_id 422、未认证 401、无权限项目 404、metrics/logs/events 快速回归、`/metrics` `/logs` `/events` Edge 回归；失败项：超级用户查询不存在项目返回空 200；`occurred_to` 毫秒边界未排除晚于上界的 span。证据目录 `tmp/t0045_e2e/runs/t0045-20260622-153304/evidence` |
+| 2026-06-22 | T-0045-fix | 后端专项复验 | Pauli；后端单元/离线 SQL/静态检查 | 通过 | 覆盖超级用户缺失项目 `404`、trace 毫秒过滤测试、MySQL/MariaDB 离线 SQL、ruff/mypy；未启动 Docker、真实服务或浏览器 |
+| 2026-06-22 | T-0045-fix | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q`；前端 `npm.cmd run typecheck`；`git diff --check` | 通过 | 后端 83 passed，1 条既有 Starlette/TestClient 上游弃用警告；前端 typecheck 通过；diff check 通过。完整真实前后端联测待测试 agent 重跑 |
 
 ## 7. 审计记录
 
@@ -478,6 +489,7 @@ closed      已关闭
 | 2026-06-22 | T-0043 | 前端 logs Request ID / User ID 筛选 | 通过 | Volta 只读审计 `faef5c0` 未发现 P0/P1/P2/P3 阻断；确认 logs 专属 Request ID/User ID 参数、metrics/events 不误传、文档进度和最新 Windows/Edge/本地 MySQL/Debian 兼容规则未见阻断问题；Plato 已完成真实浏览器联测 | done |
 | 2026-06-22 | T-0044 | 后端 trace ingestion 最小基础 | 通过 | Meitner 只读审计 `f2c6c05` 未发现 P0/P1/P2；P3 为总集成时同步根版本/README，已在 `0.2.2` 同步中处理。残余风险为后续 ClickHouse/Redis/Trace 查询/waterfall/拓扑和大数据量执行计划 | done |
 | 2026-06-22 | T-0045 | 后端 trace 查询最小基础 | 通过 | Heisenberg 只读审计 `a249fe7` 未发现 P0/P1/P2；P3 契约状态文字滞后已由 Aristotle `c87a60f` 修复。残余风险为 ClickHouse trace 查询、trace tree/waterfall、服务拓扑、跨信号关联和大数据量执行计划后续接入 | done |
+| 2026-06-22 | T-0045-fix | Trace 查询真实联测问题修复 | 通过 | Russell 审计 `2d357a7` 未发现 P0/P1/P2，仅有 2 个 P3；Carver the 2nd 在 `0928e6f` 关闭 P3 后，Hume the 2nd 复审未发现新的 P0/P1/P2/P3。残余风险为真实 MySQL/MariaDB 大表 ALTER 锁行为、耗时和复制影响需按文档演练 | done |
 
 ## 8. 阻塞问题
 
@@ -485,6 +497,7 @@ closed      已关闭
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
 | 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过，Parfit 完整真实前后端联测重跑通过 | 后端开发 agent Avicenna / 总 agent | closed |
+| 2026-06-22 | T-0045 | 真实 MySQL trace 查询存在项目和毫秒时间过滤偏差 | 已由 Darwin `2d357a7` 修复显式项目存在性校验和 MySQL/MariaDB `DATETIME(6)` 精度；Carver the 2nd `0928e6f` 关闭 ORM 默认值与在线 DDL 文档 P3，Hume the 2nd 复审通过；等待 merge 后真实前后端联测重跑最终确认 | 后端开发 agent / 总 agent | testing |
 | 2026-06-20 | T-0002 | 当前工具面板未暴露 `create_thread`、`handoff_thread` 或测试子 agent 启动工具；本机 `codex.exe` 与 `codex-command-runner.exe` 执行 `--help` 均返回 Access is denied | 后续已通过可用的多 agent 工具启动测试子 agent Boole 复验 `T-0003`，本阻塞对当前后端骨架任务已解除 | 后端开发 agent / 总 agent | closed |
 
 ## 9. 分支与合并请求
@@ -527,6 +540,7 @@ closed      已关闭
 | 2026-06-20 | T-0033 | feature/frontend-dev | dev | 总 agent | 总览页摄入统计接入 `27574cf` 已按业务路径集成到 `dev`，集成提交 `76af25f` CI 通过；功能分支无 Actions run 已记录 | done |
 | 2026-06-22 | T-0044 | feature/backend-dev | dev | 总 agent | 后端 trace ingestion 最小基础 `f2c6c05` 已通过 Meitner 审计和 Descartes 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `5188aef`；版本同步到 `0.2.2` | done |
 | 2026-06-22 | T-0045 | feature/backend-dev | dev | 总 agent | 后端 trace 查询最小基础 `a249fe7` 与契约修复 `c87a60f` 已通过 Heisenberg 审计和 James 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `2916df9`；版本同步到 `0.2.3` | done |
+| 2026-06-22 | T-0045-fix | feature/backend-dev | dev | 总 agent | 后端修复 `2d357a7` 与 P3 收口 `0928e6f` 已通过 Pauli 专项复验、Russell 审计和 Hume the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `89506c5` | doing |
 
 ## 10. 决策记录
 
