@@ -621,10 +621,11 @@
 - T-0043 前端代码审计 agent Volta 已完成并关闭：只读审计 `origin/dev...faef5c0` 未发现 P0/P1/P2/P3 阻断；按要求未运行测试、未启动服务、浏览器、数据库或 Docker。前端真实交互由既有测试和 Plato 联测覆盖。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`。
 - T-0043 merge 后本地门禁通过：后端 `uv run pytest tests/test_query_api.py` 37 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 T-0043 专项 3 files/19 tests passed，`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 尚未推送领先远端 5 个提交失败，feature 分支均已被 `dev` 历史包含且本地/远端一致。
+- T-0043 集成记录提交 `fc80182` 已推送并通过 GitHub Actions run `27952252667`：Frontend checks 与 Backend checks 均为 success；仅有既有官方 action Node.js 20 runtime 弃用注解，被 runner 强制运行在 Node 24，不阻塞。
 
 ### 进行中
 
-- T-0043 已通过真实前后端联合测试和前后端审计，且已通过真实 `git merge` 合入 `dev`；当前待提交、推送本轮文档/测试/规则记录，读取 GitHub Actions，并同步前后端 feature 分支。
+- T-0043 已通过真实前后端联合测试、前后端审计、真实 `git merge` 合入 `dev` 和 GitHub Actions；当前待同步前后端 feature 分支并运行严格 worktree 体检。
 
 ### 阻塞与风险
 
@@ -644,7 +645,7 @@
 
 ### 下一步
 
-- 提交并推送 T-0043 集成与规则记录，读取 GitHub Actions；通过后同步前后端 feature 分支，运行严格 worktree 体检，再继续阶段 3 后续任务。
+- 同步前后端 feature 分支到 `origin/dev`，运行严格 worktree 体检；随后继续阶段 3 下一项任务。
 
 ### 验证
 

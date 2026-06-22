@@ -359,7 +359,8 @@ closed      已关闭
 | 2026-06-22 | T-0043 | 测试 agent Plato | 启动真实前后端联合测试 | 已以 `xhigh` 思考强度启动测试 agent Plato，要求在独立临时 worktree 组合 `origin/feature/backend-dev` `ab95d34` 与 `origin/feature/frontend-dev` `faef5c0`，使用真实 MySQL/MariaDB、真实 FastAPI 后端、真实前端和真实浏览器覆盖 request/user 精确匹配、JSON 类型守卫、业务 payload 不误命中、组合筛选、cursor、权限和前端 `/logs` 表单；Plato 只允许清理自己启动并记录的资源，不提交文件 | testing |
 | 2026-06-22 | T-0043 | 代码审计 agent Volta | 启动前端 request/user 筛选只读审计 | 已以 `xhigh` 思考强度启动前端代码审计 agent Volta，只读审计 `origin/feature/frontend-dev` 最新 `faef5c0` 相对 `origin/dev` 的前端改动；要求不修改、不提交、不推送、不启动服务/浏览器/数据库/Docker，重点检查 logs 专属 Request ID/User ID 参数、metrics/events 不误传、cursor/key 行为、文档进度和 Windows/Edge/本地 MySQL/Debian 兼容规则 | audit |
 | 2026-06-22 | T-0043 | 代码审计 agent Volta | 前端 request/user 筛选审计通过 | Volta 只读审计 `origin/dev...faef5c0` 未发现 P0/P1/P2/P3 阻断；按要求未运行测试、未启动服务、浏览器、数据库或 Docker。残余风险为表单真实交互主要依赖既有 SSR/参数构建/API URL 测试与 Plato 真实联测覆盖，本轮未新增浏览器级布局或交互验证；Volta 已关闭 | done |
-| 2026-06-22 | T-0043 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`；待提交并推送本轮文档/测试记录后读取 GitHub Actions | doing |
+| 2026-06-22 | T-0043 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`；本轮记录提交 `fc80182` 已推送并通过 GitHub Actions run `27952252667` | done |
+| 2026-06-22 | T-0043 | 总 agent | CI 通过 | 推送 `fc80182` 触发 GitHub Actions run `27952252667`；Frontend checks 和 Backend checks 均为 success。Frontend 完成 install、lint、typecheck、test；Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 
 ## 6. 测试记录
 
