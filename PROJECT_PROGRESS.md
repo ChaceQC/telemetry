@@ -584,7 +584,7 @@
 
 ### 进行中
 
-- T-0038 已真实 merge 到 `dev`，`0.2.1` 版本声明和根进度记录已同步，本地静态/单元验证已通过；随后提交当前状态并启动测试 agent 使用真实后端、真实前端和测试 agent 自有真实数据库资源做联合测试。
+- T-0038 已真实 merge 到 `dev`，`0.2.1` 版本声明和根进度记录已同步，本地静态/单元验证已通过；真实前后端联合测试 agent Nash 已在 `dev` `b01e3ba` 上使用自有临时 MySQL、真实后端、真实前端和浏览器完成验证并清理资源。
 
 ### 阻塞与风险
 
@@ -597,7 +597,7 @@
 
 ### 下一步
 
-- 完成 `0.2.1` 版本同步和根仓库本地验证；启动专门测试 agent，使用真实前后端和测试 agent 自有真实数据库资源重跑联合测试，覆盖登录、API Key、摄入、logs 上下文查看、分页和趋势图回归。
+- 提交真实联测记录并推送 `dev`，等待 GitHub Actions 通过；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 同步到最新 `dev` 并推送，最后运行严格 worktree 体检。
 
 ### 验证
 
@@ -619,3 +619,4 @@
 - T-0038 后端最终局部验证通过：`uv run pytest tests/test_query_api.py` 17 passed，`uv run pytest tests/test_ingest_api.py -k "query_window_index or migration"` 2 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 通过，后端全量 `uv run pytest` 124 passed/2 skipped；SQLite Alembic 升降级和 MySQL dialect 离线 SQL 生成通过。
 - T-0038 前端最终局部验证通过：`npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts`、`npm.cmd run lint`、`npm.cmd run test`（11 个测试文件、46 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过。
 - T-0038 合并到 `dev` 并同步 `0.2.1` 后根仓库验证通过：后端版本/日志上下文/索引专项 `6 passed`，后端 `uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 和全量 `uv run pytest` 124 passed/2 skipped；前端上下文专项 10 passed，`npm.cmd run lint`、`npm.cmd run test`（11 个测试文件、46 passed）、`npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 和版本一致性检查通过。`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 6 个提交失败。
+- T-0038 真实前后端联合测试通过：Nash 使用自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189` 和 Edge 浏览器；MySQL `upgrade head` 成功并确认 `ix_ingest_records_project_kind_received_at_id` 实际存在；`/health` 返回 `0.2.1`；真实业务流覆盖登录、项目/环境/服务/API Key、logs/metrics/events 上报、多页查询、events 过滤、ingest stats、日志上下文 target/before/after、跨项目隔离、未认证保护和登出后旧上下文隐藏。测试 agent 已停止并清理自己启动的前端、后端、MySQL、浏览器和临时目录，未触碰现有 MySQL80 或用户库。

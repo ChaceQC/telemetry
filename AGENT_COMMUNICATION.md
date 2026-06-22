@@ -313,6 +313,7 @@ closed      已关闭
 | 2026-06-22 | T-0038 | 修复 agents | 审计 P2 已修复并复验 | Kierkegaard 提交并推送后端 `112a60b`，新增组合索引、Alembic migration、索引/迁移测试和文档；Sartre 提交并推送前端 `a837c59`，按 auth session 隔离查询缓存、登出清理缓存并补页面测试；Beauvoir/Schrodinger 复审无 P0/P1/P2，Erdos/Copernicus 复测通过，全部已关闭 | done |
 | 2026-06-22 | T-0038 | 总 agent | 真实 merge 集成到 dev | 已按项目管理要求使用 `git merge --no-ff` 将 `origin/feature/backend-dev` 合入 `dev`，merge 提交 `5d7bd14`；随后使用 `git merge --no-ff` 将 `origin/feature/frontend-dev` 合入 `dev`，merge 提交 `172b423`；当前同步版本到 `0.2.1` 并准备根验证与真实联测 | doing |
 | 2026-06-22 | VERSION | 总 agent | 同步 T-0038 版本到 0.2.1 | 日志上下文 API/UI 和查询窗口索引迁移已进入 `dev`，版本影响为向后兼容功能增强和数据库索引迁移；已同步根、前端、后端 VERSION、env 示例、前端 package/lock/config、后端 pyproject/uv.lock/config/test、README、计划书和进度记录；本地版本/静态/单元验证通过，正式 changelog 待发布/tag 前生成 | done |
+| 2026-06-22 | T-0038 | 测试 agent | 真实前后端联合测试通过 | Nash 在 `dev` `b01e3ba` 上启动自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189` 和 Edge 浏览器；真实 MySQL Alembic upgrade 成功并确认组合索引存在，后端 `/health` 返回 `0.2.1`，完成登录、项目/环境/服务/API Key、logs/metrics/events 上报、分页查询、日志上下文 API/浏览器验证、跨项目隔离和登出后旧上下文隐藏；已清理自己启动的进程、端口和临时目录，Nash 已关闭 | done |
 
 ## 6. 测试记录
 
@@ -353,6 +354,7 @@ closed      已关闭
 | 2026-06-22 | T-0038 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest tests/test_ingest_api.py -k "query_window_index or migration"`、`uv run pytest`、ruff、format、mypy、diff check、SQLite migration、MySQL dialect SQL | 通过 | 后端最终复测 `124 passed, 2 skipped`，组合索引 P2 复审关闭；未连接真实 MySQL 执行迁移或 EXPLAIN |
 | 2026-06-22 | T-0038 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` | 通过 | 前端最终复测 11 个测试文件、46 个测试通过；缓存旧数据 P2 复审关闭；未做真实后端或浏览器联测 |
 | 2026-06-22 | T-0038/VERSION | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py tests/test_ingest_api.py -k "query_window_index or migration or log_context or test_version_file_declares_current_backend_version"`、后端 ruff/format/mypy/full pytest；前端上下文专项 test、lint/full test/typecheck/build；`git diff --check`、版本一致性检查 | 通过 | 后端专项 6 passed、全量 124 passed/2 skipped；前端专项 10 passed、全量 11 files/46 tests；三个 VERSION 均为 `0.2.1`。worktree 体检仅因 `dev` 尚未推送领先远端 6 个提交失败 |
+| 2026-06-22 | T-0038 | 真实前后端联合测试 | Nash；自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189`、Edge 浏览器 | 通过 | MySQL `upgrade head` 成功且 `ix_ingest_records_project_kind_received_at_id` 存在；`/health` 返回 `0.2.1`；logs 上下文 target/before/after、跨项目隔离、未认证保护和登出后旧上下文隐藏均通过；资源已按记录 PID/临时目录清理 |
 
 ## 7. 审计记录
 
