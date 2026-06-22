@@ -361,6 +361,7 @@ closed      已关闭
 | 2026-06-22 | T-0043 | 代码审计 agent Volta | 前端 request/user 筛选审计通过 | Volta 只读审计 `origin/dev...faef5c0` 未发现 P0/P1/P2/P3 阻断；按要求未运行测试、未启动服务、浏览器、数据库或 Docker。残余风险为表单真实交互主要依赖既有 SSR/参数构建/API URL 测试与 Plato 真实联测覆盖，本轮未新增浏览器级布局或交互验证；Volta 已关闭 | done |
 | 2026-06-22 | T-0043 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`；本轮记录提交 `fc80182` 已推送并通过 GitHub Actions run `27952252667` | done |
 | 2026-06-22 | T-0043 | 总 agent | CI 通过 | 推送 `fc80182` 触发 GitHub Actions run `27952252667`；Frontend checks 和 Backend checks 均为 success。Frontend 完成 install、lint、typecheck、test；Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
+| 2026-06-22 | T-0043 | 总 agent | 最终 CI 与 worktree 同步完成 | 推送 CI 记录提交 `0f92788` 触发 GitHub Actions run `27952371029`，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；随后 `feature/backend-dev` 与 `feature/frontend-dev` 已 fast-forward 到 `0f92788` 并推送，严格 worktree 体检通过，三棵 worktree 均干净且本地/远端一致 | done |
 
 ## 6. 测试记录
 
