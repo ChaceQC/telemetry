@@ -226,7 +226,7 @@ def _apply_log_keyword_filter(
         return statement
 
     pattern = f"%{_escape_like(keyword)}%"
-    payload_text = cast(IngestRecordModel.payload, String)
+    payload_text = cast(IngestRecordModel.payload["payload"], String)
     message_text = cast(IngestRecordModel.payload["message"].as_string(), String)
     return statement.where(
         or_(

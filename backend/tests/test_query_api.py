@@ -323,6 +323,102 @@ def test_query_logs_keyword_matches_message_and_payload_text() -> None:
     assert miss_response.json() == {"items": [], "next_cursor": None}
 
 
+def test_query_logs_keyword_ignores_wrapper_keys_and_null_scaffold() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-wrapper-owner",
+        project_key="query-log-keyword-wrapper-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "ordinary health check",
+                    "source": "app",
+                }
+            ]
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    for keyword in ("payload", "trace_id", "logger", "null"):
+        response = client.get(
+            "/api/v1/query/logs",
+            headers=admin_headers,
+            params={"project_id": project["id"], "keyword": keyword},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"items": [], "next_cursor": None}
+
+
+def test_query_logs_keyword_escapes_like_wildcards_as_literals() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-literal-owner",
+        project_key="query-log-keyword-literal-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "literal percent 100% done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal percent 100X done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal underscore job_alpha done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal underscore jobXalpha done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": r"literal backslash C:\logs\app",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal backslash C:/logs/app",
+                    "source": "app",
+                },
+            ]
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    expected_messages_by_keyword = {
+        "100%": ["literal percent 100% done"],
+        "job_alpha": ["literal underscore job_alpha done"],
+        "\\": [r"literal backslash C:\logs\app"],
+    }
+    for keyword, expected_messages in expected_messages_by_keyword.items():
+        response = client.get(
+            "/api/v1/query/logs",
+            headers=admin_headers,
+            params={"project_id": project["id"], "keyword": keyword},
+        )
+        assert response.status_code == 200
+        assert [log["message"] for log in response.json()["items"]] == expected_messages
+
+
 def test_query_logs_keyword_combines_with_filters_and_project_permissions() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
