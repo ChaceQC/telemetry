@@ -73,8 +73,8 @@ closed      已关闭
 | T-0043 | 日志 request/user 字段过滤基础 | 总 agent | done | done | done | done | done |
 | T-0044 | Trace ingestion 最小后端基础 | 总 agent | todo | done | done | done | done |
 | T-0045 | Trace 查询最小后端基础 | 总 agent | todo | done | done | done | done |
-| T-0046 | Trace 查询页前端基础 | 总 agent | doing | todo | todo | todo | doing |
-| T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
+| T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -406,6 +406,7 @@ closed      已关闭
 | 2026-06-23 | T-0047 | 总 agent | 启动后端开发 agent | 已启动后端开发 agent Archimedes the 2nd（agent id `019ef0e0-d9ce-7731-955d-b338b3e5d161`），在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 推进 trace `status_code` 与 `duration_min_ms/max_ms` 过滤；启动时已传达 xhigh 思考强度、Windows 11/PowerShell/UTF-8、本地不启动 Docker、本地 MySQL/测试 agent 自有实例、Debian 部署兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程，以及不干扰前端 agent 的边界 | doing |
 | 2026-06-23 | T-0047 | 后端开发 agent Archimedes the 2nd | Trace 状态与耗时过滤完成 | Archimedes the 2nd 提交并推送 `844bfdc` 到 `feature/backend-dev`：`GET /api/v1/query/traces` 新增 `status_code`、`duration_min_ms`、`duration_max_ms` 过滤，纳入 cursor 签名；`status_code` trim 后空白按未传处理，duration 要求非负有限且下界不大于上界；同步后端契约、README、进度和版本 `0.2.4`。开发侧最小验证通过，并由测试 agent Lagrange the 2nd 完成后端专项复验；两名 agent 已关闭 | done |
 | 2026-06-23 | T-0047 | 代码审计 agent Leibniz the 2nd | 后端过滤审计有条件通过 | Leibniz the 2nd 只读审计 `844bfdc`，未发现 P0/P1/P2；仅 P3 提醒 duration JSON 数值过滤对历史导入或手工脏数据的字符串值在 SQLite/MySQL/MariaDB 可能存在 coercion 差异，建议后续补 JSON 数值类型守卫或脏数据回归测试。Leibniz the 2nd 已关闭 | done |
+| 2026-06-23 | T-0046/T-0047 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0047 后端过滤合入 `dev`，merge 提交 `7e79c01`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0046 前端 trace 查询页和 P2 修复合入 `dev`，merge 提交 `15f46d5`。本次同步根、前端、后端版本到 `0.2.4`，不使用路径覆盖替代分支 merge | done |
 
 ## 6. 测试记录
 

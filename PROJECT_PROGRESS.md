@@ -646,6 +646,7 @@
 - T-0046-fix 前端复审通过：Schrodinger the 2nd 确认原 P2 已关闭，未发现新的 P0/P1/P2；修复 agent 未启动测试 agent 的残余风险交由后续真实联测覆盖。
 - T-0047 已登记为阶段 4 后端并行小步：为 `GET /api/v1/query/traces` 增加可选 `status_code`、`duration_min_ms`、`duration_max_ms` 过滤，支撑后续错误 trace 和慢 trace 查询；不改变响应 envelope，不做前端接入。
 - T-0047 后端开发和审计已完成：`844bfdc` 已推送到 `feature/backend-dev`，后端版本提升到 `0.2.4`；代码审计未发现 P0/P1/P2，仅保留 duration JSON 脏数据类型 coercion 的 P3 后续风险。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0047 合入 `dev`，merge 提交 `7e79c01`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0046/T-0046-fix 合入 `dev`，merge 提交 `15f46d5`。当前同步根、前端、后端版本到 `0.2.4`。
 
 ### 阻塞与风险
 
@@ -667,7 +668,7 @@
 
 ### 下一步
 
-- 前端开发 agent 在 `feature/frontend-dev` 推进 T-0046；后端开发 agent 在 `feature/backend-dev` 并行推进 T-0047。开发 agent 可启动测试 agent 做专项验证，但不得代跑完整测试流程。当前进度完成后由总 agent 启动代码审计 agent，并启动真实前后端联合测试 agent，使用真实本地 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 做联测。
+- 完成 T-0046/T-0047 merge 后的收窄本地门禁、推送并读取 GitHub Actions；随后同步 `feature/backend-dev` 和 `feature/frontend-dev` 到最新 `dev`，再启动真实前后端联合测试 agent，使用真实本地 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 trace 查询页、状态/耗时过滤和主要回归。
 
 ### 验证
 
