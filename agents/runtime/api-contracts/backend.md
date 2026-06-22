@@ -549,7 +549,7 @@
   - 项目归属只来自 API Key 校验结果，不接受客户端顶层 `project_id`。
   - 若 `project_id` 出现在 `payload`、`tags` 或 `attributes` 内，仅作为业务载荷保存，不影响归属。
   - 应用当前不输出请求体日志；后续结构化日志必须脱敏 `Authorization`、`X-API-Key` 和 payload 中可能存在的敏感字段。
-  - 当前尚未实现审计日志、trace 查询 API 或 ClickHouse/MongoDB 写入。
+  - 当前尚未实现审计日志或 ClickHouse/MongoDB 写入。
 
 ## API-0013 摄入统计查询
 
