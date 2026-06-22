@@ -1,12 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BarChart3, Boxes, ChevronRight, LogIn, RefreshCw, Search, ShieldAlert } from 'lucide-react';
+import {
+  Activity,
+  BarChart3,
+  Boxes,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Eye,
+  LoaderCircle,
+  LogIn,
+  RefreshCw,
+  Search,
+  ShieldAlert
+} from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   listEvents,
+  getLogContext,
   listLogs,
   listMetrics,
+  normalizeLogContextWindow,
+  DEFAULT_LOG_CONTEXT_WINDOW,
+  MAX_LOG_CONTEXT_WINDOW,
   type EventQueryItem,
   type EventQueryParams,
   type LogQueryItem,
@@ -318,7 +335,7 @@ export function QueryPage({ signal }: QueryPageProps) {
         {!query.isError && hasRecords ? (
           <ol className="query-list">
             {records.map((item) => (
-              <li key={`${signal}-${item.id}`}>{renderRecord(signal, item)}</li>
+              <li key={`${signal}-${item.id}`}>{renderRecord(signal, item, canQuery)}</li>
             ))}
           </ol>
         ) : null}
@@ -339,6 +356,181 @@ export function QueryPage({ signal }: QueryPageProps) {
         ) : null}
       </section>
     </div>
+  );
+}
+
+function LogRecord({ log, canQuery }: { log: LogQueryItem; canQuery: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [before, setBefore] = useState(DEFAULT_LOG_CONTEXT_WINDOW);
+  const [after, setAfter] = useState(DEFAULT_LOG_CONTEXT_WINDOW);
+  const contextQuery = useQuery({
+    queryKey: ['query', 'logs', 'context', log.id, before, after],
+    queryFn: () => getLogContext(log.id, { before, after }),
+    enabled: canQuery && isExpanded,
+    retry: false
+  });
+  const context = contextQuery.data;
+  const hasContext =
+    Boolean(context?.target) || (context?.before.length ?? 0) > 0 || (context?.after.length ?? 0) > 0;
+
+  function updateWindow(kind: 'before' | 'after', value: string) {
+    const normalized = normalizeLogContextWindow(Number(value));
+
+    if (kind === 'before') {
+      setBefore(normalized);
+      return;
+    }
+
+    setAfter(normalized);
+  }
+
+  return (
+    <>
+      <div className="query-record-main">
+        <strong>{log.message}</strong>
+        <div className="query-record-actions">
+          <StatusBadge tone={getLogLevelTone(log.level)}>{log.level}</StatusBadge>
+          <button
+            className="text-button log-context-toggle"
+            type="button"
+            onClick={() => setIsExpanded((current) => !current)}
+            disabled={!canQuery}
+            aria-expanded={isExpanded}
+            title={canQuery ? '查看日志上下文' : '登录后查看日志上下文'}
+          >
+            <Eye size={15} aria-hidden="true" />
+            <span>查看上下文</span>
+            {isExpanded ? <ChevronUp size={15} aria-hidden="true" /> : <ChevronDown size={15} aria-hidden="true" />}
+          </button>
+        </div>
+      </div>
+      <RecordMeta item={log} extra={[log.source, log.logger, log.trace_id]} />
+      <JsonPreview label="attributes" value={log.attributes} />
+      <JsonPreview label="payload" value={log.payload} />
+
+      {isExpanded ? (
+        <div className="log-context-panel" aria-label={`日志 #${log.id} 上下文`}>
+          <div className="log-context-toolbar">
+            <div>
+              <strong>日志上下文</strong>
+              <span>围绕目标日志展示相邻记录。</span>
+            </div>
+            <div className="log-context-controls">
+              <label>
+                <span>前</span>
+                <input
+                  type="number"
+                  min="0"
+                  max={MAX_LOG_CONTEXT_WINDOW}
+                  inputMode="numeric"
+                  value={before}
+                  onChange={(event) => updateWindow('before', event.target.value)}
+                />
+              </label>
+              <label>
+                <span>后</span>
+                <input
+                  type="number"
+                  min="0"
+                  max={MAX_LOG_CONTEXT_WINDOW}
+                  inputMode="numeric"
+                  value={after}
+                  onChange={(event) => updateWindow('after', event.target.value)}
+                />
+              </label>
+              <button
+                className="icon-button log-context-refresh"
+                type="button"
+                onClick={() => void contextQuery.refetch()}
+                disabled={!canQuery || contextQuery.isFetching}
+                title="刷新日志上下文"
+              >
+                <RefreshCw size={16} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+
+          {contextQuery.isFetching && !context ? (
+            <div className="resource-state log-context-state" role="status">
+              <LoaderCircle size={18} aria-hidden="true" />
+              <div>
+                <strong>正在加载上下文</strong>
+                <span>读取目标日志前后 {before + after} 条记录。</span>
+              </div>
+            </div>
+          ) : null}
+
+          {contextQuery.isError ? (
+            <div className="resource-state resource-state--error log-context-state" role="status">
+              <ShieldAlert size={18} aria-hidden="true" />
+              <div>
+                <strong>上下文加载失败</strong>
+                <span>{formatApiErrorMessage(contextQuery.error)}</span>
+              </div>
+            </div>
+          ) : null}
+
+          {!contextQuery.isError && context && !hasContext ? (
+            <div className="resource-state log-context-state">
+              <Search size={18} aria-hidden="true" />
+              <div>
+                <strong>暂无上下文</strong>
+                <span>后端未返回目标日志或邻近日志。</span>
+              </div>
+            </div>
+          ) : null}
+
+          {!contextQuery.isError && context && hasContext ? (
+            <div className="log-context-groups" aria-busy={contextQuery.isFetching}>
+              <LogContextGroup title="Before" logs={context.before} emptyText="目标日志之前暂无记录。" />
+              <LogContextGroup
+                title="Target"
+                logs={context.target ? [context.target] : []}
+                emptyText="目标日志未返回。"
+                isTarget
+              />
+              <LogContextGroup title="After" logs={context.after} emptyText="目标日志之后暂无记录。" />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function LogContextGroup({
+  title,
+  logs,
+  emptyText,
+  isTarget = false
+}: {
+  title: string;
+  logs: LogQueryItem[];
+  emptyText: string;
+  isTarget?: boolean;
+}) {
+  return (
+    <section className={`log-context-group${isTarget ? ' log-context-group--target' : ''}`}>
+      <div className="log-context-group-heading">
+        <strong>{title}</strong>
+        <span>{logs.length} 条</span>
+      </div>
+      {logs.length > 0 ? (
+        <ol className="log-context-list">
+          {logs.map((item) => (
+            <li key={`log-context-${title}-${item.id}`}>
+              <div className="log-context-line-main">
+                <strong>{item.message}</strong>
+                <StatusBadge tone={getLogLevelTone(item.level)}>{item.level}</StatusBadge>
+              </div>
+              <p className="query-record-meta">{formatLogMeta(item)}</p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="log-context-empty">{emptyText}</p>
+      )}
+    </section>
   );
 }
 
@@ -428,7 +620,7 @@ function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cursor?: s
   return { ...common, type: toOptional(filters.primary) };
 }
 
-function renderRecord(signal: QuerySignal, item: QueryRecord) {
+function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean) {
   if (signal === 'metrics') {
     const metric = item as MetricQueryItem;
     return (
@@ -446,17 +638,7 @@ function renderRecord(signal: QuerySignal, item: QueryRecord) {
 
   if (signal === 'logs') {
     const log = item as LogQueryItem;
-    return (
-      <>
-        <div className="query-record-main">
-          <strong>{log.message}</strong>
-          <StatusBadge tone={log.level.toLowerCase().includes('error') ? 'danger' : 'neutral'}>{log.level}</StatusBadge>
-        </div>
-        <RecordMeta item={log} extra={[log.source, log.logger, log.trace_id]} />
-        <JsonPreview label="attributes" value={log.attributes} />
-        <JsonPreview label="payload" value={log.payload} />
-      </>
-    );
+    return <LogRecord log={log} canQuery={canQuery} />;
   }
 
   const event = item as EventQueryItem;
@@ -473,10 +655,7 @@ function renderRecord(signal: QuerySignal, item: QueryRecord) {
 }
 
 function RecordMeta({ item, extra }: { item: QueryRecord; extra: Array<string | null | undefined> }) {
-  const parts = [`#${item.id}`, `project ${item.project_id}`, formatTime(item.occurred_at ?? item.received_at), ...extra]
-    .filter((part): part is string => Boolean(part))
-    .filter((part, index, array) => array.indexOf(part) === index);
-  return <p className="query-record-meta">{parts.join(' / ')}</p>;
+  return <p className="query-record-meta">{formatRecordMeta(item, extra)}</p>;
 }
 
 function JsonPreview({ label, value }: { label: string; value: Record<string, unknown> }) {
@@ -522,6 +701,30 @@ function formatTime(value: string) {
 
 function formatNumber(value: number, unit: string | null) {
   return `${Number.isInteger(value) ? value : value.toFixed(3)}${unit ? ` ${unit}` : ''}`;
+}
+
+function getLogLevelTone(level: string) {
+  const normalized = level.toLowerCase();
+  if (normalized.includes('error') || normalized.includes('fatal')) {
+    return 'danger';
+  }
+
+  if (normalized.includes('warn')) {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
+function formatLogMeta(item: LogQueryItem) {
+  return formatRecordMeta(item, [item.source, item.logger, item.trace_id]);
+}
+
+function formatRecordMeta(item: QueryRecord, extra: Array<string | null | undefined>) {
+  return [`#${item.id}`, `project ${item.project_id}`, formatTime(item.occurred_at ?? item.received_at), ...extra]
+    .filter((part): part is string => Boolean(part))
+    .filter((part, index, array) => array.indexOf(part) === index)
+    .join(' / ');
 }
 
 function formatResultSummary(pageNumber: number, count: number) {
