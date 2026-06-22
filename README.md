@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前版本为 `0.1.0`，处于阶段 0 项目初始化。阶段 0 的目标是补齐前端、后端、本地数据库、Docker Compose、GitHub Actions、README 和基础开发文档。
+当前版本为 `0.2.0`，处于阶段 3 查询与展示 MVP。当前已具备认证与基础管理、API Key、metrics/logs/events 摄入、摄入统计、查询 API、查询页分页和 metrics 当前页趋势图基础。
 
 ## 目录结构
 
@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Test-AgentWorktreeState.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Test-AgentWorktreeState.ps1 -AllowPendingChanges
 ```
 
-该脚本检查三个 worktree 是否在预期分支、是否干净、是否误追踪 `auth.txt`、`.env`、`agents/runtime/*.log.md`、依赖目录或构建产物，并提示 feature 分支中尚未进入 `dev` 历史的提交。feature 分支若含早期过程历史，总 agent 集成时继续按业务路径恢复文件，不直接 merge。
+该脚本检查三个 worktree 是否在预期分支、是否干净、是否误追踪 `auth.txt`、`.env`、`agents/runtime/*.log.md`、依赖目录或构建产物，并提示 feature 分支中尚未进入 `dev` 历史的提交。feature 分支若含早期过程历史、运行日志或已集成提交，总 agent 先创建备份引用并清理 feature 分支拓扑，再使用真实 `git merge` 集成到 `dev`。
 
 分支约定：
 

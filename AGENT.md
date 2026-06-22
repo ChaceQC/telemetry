@@ -66,6 +66,7 @@ agents/runtime/
 19. 默认 worktree 路径为 `..\telemetry-worktrees\frontend` 和 `..\telemetry-worktrees\backend`，可通过 `scripts/Initialize-AgentWorktrees.ps1` 创建。
 20. 每次推送到会触发 GitHub Actions 的分支后，总 agent 必须读取对应 Actions run 结果，将成功、失败 job、失败步骤和后续处理写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
 21. 每次开工、集成或提交后，总 agent 必须执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1` 进行严格只读体检；提交前如根工作树正有本次待提交改动，可执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 检查分支和保护项。若失败，先整理 worktree、分支、敏感文件、运行日志和未提交改动，再继续开发或集成。
+22. 总 agent、开发 agent、测试 agent 和审计 agent 只允许关闭或清理由自己本次明确启动并记录的进程、端口、浏览器会话、临时数据库和临时资源；不得按端口或进程名宽泛关闭可能属于用户或其他 agent 的服务。
 
 ## 4. 并行开发规则
 
@@ -137,6 +138,7 @@ agents/runtime/
 20. 推送后不得只依赖本地测试结论；总 agent 必须读取 GitHub Actions 对应 run，若失败则记录失败原因、处理任务和下一次复查条件。
 21. 根工作树、前端 worktree、后端 worktree 必须保持“一目录一分支一职责”：`dev` 只在根工作树，`feature/frontend-dev` 只在前端 worktree，`feature/backend-dev` 只在后端 worktree；可用 `scripts/Test-AgentWorktreeState.ps1` 检查偏离。
 22. 总 agent 集成到 `dev` 时默认使用真实 `git merge`，保持 GitHub 分支管理和提交拓扑清晰。如果 feature 分支历史包含早期运行日志、已按路径集成过的提交或其他污染，必须先备份并清理 feature 分支，使其以当前 `dev` 为基线且只包含尚未集成的有效提交，再执行 merge；不得用长期 path restore 替代分支治理。
+23. 任一 agent 启动本地服务、浏览器自动化、数据库临时库或后台辅助进程时，必须记录启动方式、PID 或唯一资源标识；结束时只清理这些自己启动的资源。如果端口已被他人占用，应换端口或报告阻塞，不得直接终止占用进程。
 
 ## 9. 版本文件规则
 

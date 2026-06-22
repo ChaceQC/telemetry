@@ -562,10 +562,15 @@
 - Anscombe 复审 `7120af1` 通过，未发现 P0/P1/P2/P3；确认混合 `name` 或 `unit` 时不再绘制单条趋势线，同序列多点/单点/空数据行为合理，logs/events 无回归。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0037 合入 `dev`，merge 提交 `feat: 合并指标查询趋势图`；待本地门禁和 GitHub Actions。
 - T-0037 根仓库本地门禁已通过：前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check` 均通过；worktree 体检仅因 `dev` 尚未推送领先远端 3 个提交而失败，等待推送后复查。
+- 推送 `d8f9675` 后 GitHub Actions run `27923674625` 已通过：Frontend checks 与 Backend checks 均为 success，仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- 已将 `feature/frontend-dev` 与 `feature/backend-dev` 都用 fast-forward merge 同步到 `d8f9675` 并推送；`scripts/Test-AgentWorktreeState.ps1` 复查通过，三棵 worktree 均干净且本地/远端一致。
+- 已按要求启动测试 agent Jason，对当前 `dev` 执行真实 MySQL、真实后端、真实前端和浏览器联合测试；总 agent 不代跑完整测试流程。已补发硬性边界：Jason 以及后续所有子 agent 只清理自己启动并记录的 PID、端口、浏览器会话、临时数据库和临时资源。
+- 已更新 `AGENT.md`、`PROJECT_PLAN.md`、`agents/frontend-agent.md`、`agents/backend-agent.md`、`agents/test-agent.md` 和 `agents/code-audit-agent.md`，固化“只清理自己启动资源”的进程边界。
+- 已将根、前端、后端版本声明同步到阶段 3 目标版本 `0.2.0`：覆盖 `VERSION`、`frontend/VERSION`、`backend/VERSION`、根/前端 env 示例、前端 package/lock/config、后端 pyproject/uv.lock/config/test、README 和前后端进度文件；同时将 `.playwright-cli/` 加入 `.gitignore`，避免浏览器自动化快照误入库；待本地验证、提交和 Actions 复查。
 
 ### 进行中
 
-- T-0037 已合入 `dev` 且本地门禁通过；等待推送后 GitHub Actions。
+- T-0037 已合入 `dev` 且 CI 通过；当前正在收口 `0.2.0` 版本同步，并等待测试 agent Jason 返回真实前后端联合测试结论。
 
 ### 阻塞与风险
 
@@ -576,7 +581,7 @@
 
 ### 下一步
 
-- 推送 T-0037 到 `dev` 后读取 GitHub Actions；通过后同步清理前后端 feature 分支基线，再继续阶段 3 查询展示增强或补真实部署子路径验证。
+- 完成 `0.2.0` 版本同步本地验证、提交、推送和 GitHub Actions 复查；等待 Jason 联测结论并关闭完成的测试 agent；随后继续阶段 3 查询展示增强，优先拆分日志上下文或事件时间线细节。
 
 ### 验证
 
@@ -586,3 +591,5 @@
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
 - T-0036 merge 后验证通过：`uv run pytest tests/test_query_api.py` 14 passed，`uv run ruff check tests/test_query_api.py` 通过，`git diff --check HEAD~1 HEAD` 通过。
 - T-0037 merge 后根仓库前端验证通过：`npm.cmd run lint`、`npm.cmd run test`（9 个测试文件、39 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 未推送领先远端 3 个提交失败，推送后复查。
+- T-0037 push 后 GitHub Actions run `27923674625` 通过：Frontend checks 与 Backend checks 均为 success；随后 worktree 体检通过，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均同步到 `d8f9675`。
+- `0.2.0` 版本同步本地验证通过：后端 `uv run pytest tests/test_config.py` 11 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。该验证未启动或关闭任何本地服务。

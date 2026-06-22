@@ -41,13 +41,13 @@ def test_port_reads_from_environment_when_backend_port_is_missing(monkeypatch) -
     assert settings.port == 28120
 
 
-def test_version_file_declares_initial_backend_version(monkeypatch) -> None:
+def test_version_file_declares_current_backend_version(monkeypatch) -> None:
     monkeypatch.delenv("APP_VERSION", raising=False)
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
     settings = Settings()
 
-    assert version_file.read_text(encoding="utf-8").strip() == "0.1.0"
-    assert settings.app_version == "0.1.0"
+    assert version_file.read_text(encoding="utf-8").strip() == "0.2.0"
+    assert settings.app_version == "0.2.0"
 
 
 def test_local_environment_allows_project_frontend_origins_by_default(monkeypatch) -> None:

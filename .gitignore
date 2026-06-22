@@ -76,5 +76,6 @@ agents/runtime/*.log.md
 Thumbs.db
 
 # Local generated files
+.playwright-cli/
 playwright-report/
 test-results/

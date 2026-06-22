@@ -291,6 +291,11 @@ closed      已关闭
 | 2026-06-22 | T-0037-fix | 代码审计 agent | 趋势图修复复审通过 | Anscombe 复审 `7120af1` 未发现 P0/P1/P2/P3；确认混合 `name` 或 `unit` 时不再绘制单条趋势线，同序列多点/单点/空数据行为合理，logs/events 无回归 | done |
 | 2026-06-22 | T-0037 | 总 agent | 通过真实 merge 集成指标趋势图 | 总 agent 使用 `git merge --no-ff origin/feature/frontend-dev` 将 `a4ace13` 与 `7120af1` 合入 `dev`，merge 提交 `feat: 合并指标查询趋势图`；等待本地门禁和 Actions | done |
 | 2026-06-22 | T-0037 | 总 agent | 指标趋势图本地门禁通过 | 根仓库前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check` 均通过；worktree 体检仅因 `dev` 尚未推送领先远端 3 个提交而失败，等待推送后复查 | done |
+| 2026-06-22 | CI | 总 agent | 指标趋势图 Actions 通过 | push `d8f9675` 触发 run `27923674625`；Frontend checks 与 Backend checks 均通过，仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-22 | 分支治理 | 总 agent | 前后端 feature 分支快进到 dev | 已将 `feature/frontend-dev` 与 `feature/backend-dev` 都用 fast-forward merge 同步到 `d8f9675` 并推送；`scripts/Test-AgentWorktreeState.ps1` 复查通过，三棵 worktree 均干净且本地/远端一致 | done |
+| 2026-06-22 | 联合测试 | 总 agent | 启动 T-0037 后真实联测 agent | 已启动测试 agent Jason，要求真实 MySQL 临时库、真实后端、真实前端和浏览器联测当前 `dev`；已补发进程清理边界：只清理自己启动并记录的 PID、端口、浏览器会话和临时库，不得关闭他人进程 | testing |
+| 2026-06-22 | 进程规则 | 总 agent | 固化只清理自己启动资源 | 按用户要求更新 `AGENT.md`、`PROJECT_PLAN.md` 与专项 agent 文档：总 agent 和所有子 agent 只允许关闭自己本次明确启动并记录的进程、端口、浏览器会话、临时数据库和临时资源 | done |
+| 2026-06-22 | VERSION | 总 agent | 同步阶段 3 版本到 0.2.0 | 将根、前端、后端版本声明同步到 `0.2.0`，覆盖 `VERSION`、前端 package/lock/env/config、后端 pyproject/uv.lock/config/test、README 和进度文件；同时将 `.playwright-cli/` 加入 ignore，防止浏览器自动化快照误入库；本地验证已通过，等待提交和 Actions | doing |
 
 ## 6. 测试记录
 
@@ -320,6 +325,7 @@ closed      已关闭
 | 2026-06-20 | T-0033 | 总览页摄入统计 dev 集成验证 | `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 根工作树验证：前端 Vitest 8 个测试文件、32 个测试通过；lint、typecheck、build、diff check 和工作树保护检查均通过 |
 | 2026-06-22 | T-0034/T-0035 | 查询分页真实前后端联合测试 | 测试 agent Helmholtz 使用真实 MySQL 临时库、`uv run python main.py` 后端 `28117`、前端 dev server `25173`、HTTP 与浏览器自动化 | 通过 | 登录、项目/API Key 创建、metrics/logs/events 各 3 条上报、三类查询 `limit=2` 第一页/第二页、浏览器未登录提示、下一页、刷新回第一页、无匹配空态均通过；临时库已 drop，`25173`/`25174`/`28117` 已释放 |
 | 2026-06-22 | T-0036 | 查询分页测试补强验证 | 开发自检与测试 agent 复验；merge 后 `uv run pytest tests/test_query_api.py`、`uv run ruff check tests/test_query_api.py`、`git diff --check HEAD~1 HEAD` | 通过 | 后端专项 14 passed，ruff 通过，diff check 通过；补齐 logs/metrics 同时间戳稳定翻页专项测试 |
+| 2026-06-22 | VERSION | 版本同步静态验证 | `uv run pytest tests/test_config.py`、`uv lock --check`、`npm.cmd run typecheck`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 后端配置专项 11 passed；前端 typecheck 通过；未启动或关闭任何本地服务；`.playwright-cli/` 已加入 ignore 防误提交 |
 
 ## 7. 审计记录
 

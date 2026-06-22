@@ -2,6 +2,22 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 版本同步
+
+### 已完成
+
+- 随阶段 3 查询与展示 MVP 当前进度，将 `backend/VERSION`、`backend/pyproject.toml`、`backend/uv.lock` 和后端配置兜底版本同步到 `0.2.0`。
+- 更新 `backend/tests/test_config.py` 的版本文件断言，以及 `backend/README.md` 的健康检查示例版本。
+
+### 阻塞与风险
+
+- 本轮仅做版本声明同步，不修改后端 API、数据库迁移或业务行为。
+- 运行中的真实联测 agent 如启动了后端服务或真实数据库临时库，应由该 agent 自行清理自己的进程和临时资源；本次版本同步不关闭任何进程。
+
+### 下一步
+
+- 等待总 agent 完成根仓库验证、提交、推送和 GitHub Actions 复查。
+
 ## 2026-06-20
 
 ### 已完成
