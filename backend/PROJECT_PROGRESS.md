@@ -2,6 +2,36 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0047 Trace 查询筛选扩展
+
+### 已完成
+
+- 扩展 `GET /api/v1/query/traces` 可选筛选：`status_code` 精确匹配 trace payload 顶层 `status_code`，trim 后空白按未传处理，长度边界为 `1..64`；`duration_min_ms` / `duration_max_ms` 按 trace payload 顶层 `duration_ms` 做数值上下界过滤。
+- 新筛选已纳入 trace cursor 签名：`status_code` 使用规范化后的值，`duration_min_ms` / `duration_max_ms` 使用查询数值；旧 cursor 用于不同 status 或 duration 范围时继续返回 `422 cursor 无效或不匹配当前查询`。
+- 保持响应 envelope `{items, next_cursor}`、既有字段、Bearer 用户认证、项目权限过滤、显式不存在项目 `404`、source/name/trace_id/span_id/time/cursor 现有行为不变。
+- 补充 pytest 覆盖 status/duration 组合筛选、status trim 空白、status 长度、duration 非负/有限/反向区间、cursor 签名不匹配和 SQLite/MySQL/MariaDB duration JSON 数值比较 SQL 编译。
+- 更新 `backend/README.md`、`agents/runtime/api-contracts/backend.md`、版本声明和版本测试；后端版本提升到 `0.2.4`，建议总 agent 判断是否同步根 `VERSION`。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 开发侧未启动 Docker，未启动真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL JSON 数值比较执行语义、执行计划和前后端联测留给测试/总 agent 后续专项。
+- 根工作树曾因工具相对路径误落 3 个后端文件改动，已停止在根工作树写入；正确改动已重新落到 `C:\Users\q-lau\Documents\telemetry-worktrees\backend`。根工作树错误位置残留待总 agent 确认 backend 分支包含后清理。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "traces or trace_duration or trace_payload" -q`，结果：10 个测试通过、38 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_query_api.py tests/test_config.py -q`，结果：59 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/query.py app/services/query.py app/repositories/query.py tests/test_query_api.py app/core/config.py tests/test_config.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/api/routes/query.py app/services/query.py app/repositories/query.py tests/test_query_api.py app/core/config.py tests/test_config.py`，结果：通过。
+- 已运行 `uv run mypy app/api/routes/query.py app/services/query.py app/repositories/query.py tests/test_query_api.py app/core/config.py tests/test_config.py`，结果：6 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+- 测试 agent `Lagrange the 2nd` 完成后端专项复验，结论：通过。其执行 `uv run pytest tests/test_query_api.py -k "query_traces or hide_projects_without_membership or hide_missing_project_from_superuser or trace_payload_field_filter or trace_duration_filter"`、`uv run pytest tests/test_config.py`、`uv run pytest --ignore=tests/test_clickhouse_init.py --ignore=tests/test_mongodb_init.py`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 均通过；未启动 Docker、真实 MySQL、后端服务或浏览器，无需清理资源。
+
+### 待审计
+
+- 请总 agent 在确认根工作树错误位置改动处理策略后，启动代码审计 agent 审查 T-0047 trace 查询筛选扩展、cursor 签名、SQLAlchemy JSON 数值比较和测试边界。
+
 ## 2026-06-23 T-0045 审计 P3 小修
 
 ### 已完成
