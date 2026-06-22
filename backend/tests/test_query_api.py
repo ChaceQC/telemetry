@@ -647,9 +647,7 @@ def test_query_metrics_cursor_paginates_with_received_at_and_id() -> None:
     assert isinstance(first_body["next_cursor"], str)
     assert second_response.status_code == 200
     second_body = second_response.json()
-    assert [metric["payload"]["sample"] for metric in second_body["items"]] == [
-        "metric-a"
-    ]
+    assert [metric["payload"]["sample"] for metric in second_body["items"]] == ["metric-a"]
     assert second_body["next_cursor"] is None
 
 

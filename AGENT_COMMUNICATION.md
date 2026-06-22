@@ -275,6 +275,9 @@ closed      已关闭
 | 2026-06-22 | 分支治理 | 用户/总 agent | 改为真实 merge 集成策略 | 用户要求后续采用 `git merge`，不要因 path restore 导致分支管理异常显示；总 agent 已创建本地备份分支，清理 `feature/frontend-dev` 到当前 `dev`，清理 `feature/backend-dev` 为当前 `dev` + T-0036 单提交，后续可使用真实 merge | done |
 | 2026-06-22 | T-0036 | 后端开发/测试 agent | 查询分页测试缺口补强完成 | 后端 Kuhn 提交并 push `50b63fc`，经分支清理后重放为 `e205405`：补 logs/metrics 同时间戳稳定翻页测试；测试 agent Peirce 复验通过，`uv run pytest tests/test_query_api.py` 14 passed，`git diff --check` 与 `uv run ruff check tests/test_query_api.py` 通过 | done |
 | 2026-06-22 | T-0036 | 总 agent | 通过真实 merge 集成测试补强 | 总 agent 使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0036 合入 `dev`，merge 提交 `test: 合并查询分页测试补强`；合并后 `uv run pytest tests/test_query_api.py` 14 passed，`uv run ruff check tests/test_query_api.py` 与 diff check 通过 | done |
+| 2026-06-22 | CI | 总 agent | 查询分页测试补强 Actions 失败 | push `75157a0` 触发 run `27921581718`；Frontend checks 通过，Backend checks 失败于 Ruff format check：`tests/test_query_api.py` would be reformatted；已分派后端开发 agent Noether 小范围修复格式 | blocked |
+| 2026-06-22 | T-0036-fix | 后端开发 agent | 查询分页测试格式修复完成 | Noether 提交并 push `9e12615` 到 `feature/backend-dev`：格式化 `tests/test_query_api.py` 并记录后端进度；验证 `uv run ruff format --check tests/test_query_api.py`、`uv run pytest tests/test_query_api.py` 14 passed、`git diff --check` 均通过 | done |
+| 2026-06-22 | T-0036-fix | 总 agent | 通过真实 merge 集成格式修复 | 总 agent 使用 `git merge --no-ff origin/feature/backend-dev` 将 `9e12615` 合入 `dev`，merge 提交 `fix: 合并查询分页测试格式修复`；等待推送后复查 Actions | done |
 
 ## 6. 测试记录
 
