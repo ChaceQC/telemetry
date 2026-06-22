@@ -301,6 +301,22 @@ export function QueryPage({ signal }: QueryPageProps) {
                   placeholder="span-456"
                 />
               </label>
+              <label className="field">
+                <span>Request ID</span>
+                <input
+                  value={filters.requestId}
+                  onChange={(event) => updateFilter('requestId', event.target.value)}
+                  placeholder="req-789"
+                />
+              </label>
+              <label className="field">
+                <span>User ID</span>
+                <input
+                  value={filters.userId}
+                  onChange={(event) => updateFilter('userId', event.target.value)}
+                  placeholder="user-123"
+                />
+              </label>
             </>
           ) : null}
           <label className="field">
