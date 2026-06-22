@@ -567,10 +567,18 @@
 - 已按要求启动测试 agent Jason，对当前 `dev` 执行真实 MySQL、真实后端、真实前端和浏览器联合测试；总 agent 不代跑完整测试流程。已补发硬性边界：Jason 以及后续所有子 agent 只清理自己启动并记录的 PID、端口、浏览器会话、临时数据库和临时资源。
 - 已更新 `AGENT.md`、`PROJECT_PLAN.md`、`agents/frontend-agent.md`、`agents/backend-agent.md`、`agents/test-agent.md` 和 `agents/code-audit-agent.md`，固化“只清理自己启动资源”的进程边界。
 - 已将根、前端、后端版本声明同步到阶段 3 目标版本 `0.2.0`：覆盖 `VERSION`、`frontend/VERSION`、`backend/VERSION`、根/前端 env 示例、前端 package/lock/config、后端 pyproject/uv.lock/config/test、README 和前后端进度文件；同时将 `.playwright-cli/` 加入 `.gitignore`，避免浏览器自动化快照误入库；待本地验证、提交和 Actions 复查。
+- 版本同步已提交并推送 `95b81bd`；GitHub Actions run `27924826986` 已通过，Frontend checks 与 Backend checks 均为 success，仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- 已将 `feature/frontend-dev` 与 `feature/backend-dev` 都用 fast-forward merge 同步到 `95b81bd` 并推送；严格 worktree 体检通过，三棵 worktree 均干净且本地/远端一致。
+- 代码审计 agent Mill 只读审计 `95b81bd` 有条件通过：未发现 P0/P1/P2，仅 P3 指出 VERSION 看板状态滞后；当前记录已关闭该状态。Mill 已关闭。
+- 测试 agent Faraday 尝试执行 T-0037 后真实前后端联合测试但未完成：真实 MySQL 8.0.42 可连接，临时库 `telemetry_it_a0ad36ecd2f2` 创建、Alembic 迁移和清理成功；隐藏启动后端/前端并收集 PID 摘要阶段超时，随后 `28117`、`25173`、`25174` 均无监听，未完成 `/health`、前端页面、登录、Settings/API Key、上报、分页、趋势图和 logs/events 回归。Faraday 只清理自己创建的临时库，未 kill 无法确认归属的进程，已关闭。
+- 测试诊断 agent Godel 已完成服务启动诊断并关闭：使用备用端口和 Python `subprocess.Popen` 可记录 PID 地启动后端和前端，后端 `28119` `/health` 返回 `status=ok`、`version=0.2.0`，前端 `25179` 根页面 HTTP 200 且 Vite ready；确认服务本身可启动，上一轮更可能卡在启动/PID 摘要收集方式。Godel 只清理自己记录的 PID 和临时目录，未连接 MySQL，未跑完整业务联测。
+- 测试 agent Ohm 按 Godel 启动方式重跑真实联测但仍未完成：真实 MySQL 8.0.42 临时库 `telemetry_it_20260622_codex1` 创建、Alembic 迁移和 seed 成功；后端 `28119` `/health` 返回 `version=0.2.0`；前端 `25179` Vite 已启动并监听，但 Ohm 使用通用 JSON HTTP 请求探活前端根页面导致 `404 body=None`，未进入浏览器业务流。Ohm 已按记录 PID 清理后端、前端父/派生进程和临时库，未修改文件，已关闭。
+- 测试 agent Einstein 未真正启动业务资源：确认当前提交、MySQL 8.0.42 可连接、依赖存在、前端根页面应按 HTML/browser 探活，但将一次性编排脚本塞进 PowerShell 命令时触发 Windows `文件名或扩展名太长`，脚本未进入执行阶段；未创建临时库、未启动后端/前端/浏览器，无需清理业务资源。Einstein 已关闭。
+- 测试 agent Locke 未真正启动业务资源：确认后端/前端依赖可用、`npm.cmd`/`npx.cmd` 可用且 `npx.ps1` 受 PowerShell 策略限制；探测到 Docker 不可用、`mysql` CLI 不在 PATH、本机 `MySQL80` 在 `3306` 运行但当前可见凭据登录失败。Locke 未启动临时 MySQL、后端、前端或浏览器，仅删除自己创建的临时探测脚本，未关闭或修改现有 MySQL 服务，已关闭。
 
 ### 进行中
 
-- T-0037 已合入 `dev` 且 CI 通过；当前正在收口 `0.2.0` 版本同步，并等待测试 agent Jason 返回真实前后端联合测试结论。
+- T-0037 与 `0.2.0` 版本同步均已进入 `dev` 且 CI 通过；完整联测暂停在环境准备阶段：需要明确可用 MySQL 凭据，或允许测试 agent 启动自有临时 MySQL 实例后再重跑。
 
 ### 阻塞与风险
 
@@ -578,10 +586,11 @@
 - 游标需要同时考虑 `received_at` 与 `id` 等稳定排序字段，避免同一时间记录翻页重复或漏项。
 - 前后端并行推进时需保持契约一致：查询响应统一为 `{ items, next_cursor }`，前端不得继续假设裸数组响应，后端不得改成其他 envelope 字段。
 - T-0036 已补齐 logs/metrics 同时间戳稳定翻页测试；剩余未覆盖为真实 MySQL 大数据量、并发分页、Docker Compose MySQL 路径和生产反代/子路径部署。
+- T-0037 后真实联测尚未完成；启动诊断已确认服务可在备用端口启动，后续完整联测需先解决 MySQL 可用凭据/临时实例问题，再使用临时脚本文件避免 Windows 命令长度限制、Python `subprocess.Popen` 记录 PID、前端使用 `npm.cmd`、前端根页面按 HTML 或浏览器页面判断，并继续遵守只清理自己启动资源的边界。
 
 ### 下一步
 
-- 完成 `0.2.0` 版本同步本地验证、提交、推送和 GitHub Actions 复查；等待 Jason 联测结论并关闭完成的测试 agent；随后继续阶段 3 查询展示增强，优先拆分日志上下文或事件时间线细节。
+- 暂停继续启动联测 agent，先明确可用 MySQL 凭据或允许测试 agent 启动自有临时 MySQL 实例；随后重跑真实 MySQL + 真实后端 + 真实前端联合测试。联测通过后继续阶段 3 查询展示增强，优先拆分日志上下文或事件时间线细节。
 
 ### 验证
 
@@ -593,3 +602,9 @@
 - T-0037 merge 后根仓库前端验证通过：`npm.cmd run lint`、`npm.cmd run test`（9 个测试文件、39 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 未推送领先远端 3 个提交失败，推送后复查。
 - T-0037 push 后 GitHub Actions run `27923674625` 通过：Frontend checks 与 Backend checks 均为 success；随后 worktree 体检通过，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均同步到 `d8f9675`。
 - `0.2.0` 版本同步本地验证通过：后端 `uv run pytest tests/test_config.py` 11 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 和 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。该验证未启动或关闭任何本地服务。
+- `0.2.0` 版本同步 push 后 GitHub Actions run `27924826986` 通过：Frontend checks 与 Backend checks 均为 success。
+- Faraday 真实联测未完成：真实 MySQL 8.0.42 临时库创建、迁移和 drop 成功；后端/前端启动收集 PID 摘要阶段超时，默认端口无监听，因此未覆盖浏览器端登录、Settings、API Key、上报、分页、趋势图和 logs/events 回归。
+- Godel 启动诊断通过：备用端口后端 `/health` 返回 `0.2.0`，前端根 HTML HTTP 200；诊断未连接 MySQL，未跑完整业务联测。
+- Ohm 真实联测重跑未完成：真实 MySQL 迁移、后端 `/health`、前端 Vite 监听均成功；因前端根页面探活脚本误按 JSON 响应判断，未进入登录、上报、分页、趋势图和 logs/events 浏览器业务流。
+- Einstein 真实联测重跑未启动业务资源：PowerShell 命令长度限制导致一次性编排脚本未执行；未创建临时库或进程。
+- Locke 真实联测重跑未启动业务资源：Docker 不可用、`mysql` CLI 缺失、本机 `MySQL80` 当前可见凭据登录失败；未启动临时 MySQL/后端/前端/浏览器。

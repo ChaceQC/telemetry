@@ -295,7 +295,15 @@ closed      已关闭
 | 2026-06-22 | 分支治理 | 总 agent | 前后端 feature 分支快进到 dev | 已将 `feature/frontend-dev` 与 `feature/backend-dev` 都用 fast-forward merge 同步到 `d8f9675` 并推送；`scripts/Test-AgentWorktreeState.ps1` 复查通过，三棵 worktree 均干净且本地/远端一致 | done |
 | 2026-06-22 | 联合测试 | 总 agent | 启动 T-0037 后真实联测 agent | 已启动测试 agent Jason，要求真实 MySQL 临时库、真实后端、真实前端和浏览器联测当前 `dev`；已补发进程清理边界：只清理自己启动并记录的 PID、端口、浏览器会话和临时库，不得关闭他人进程 | testing |
 | 2026-06-22 | 进程规则 | 总 agent | 固化只清理自己启动资源 | 按用户要求更新 `AGENT.md`、`PROJECT_PLAN.md` 与专项 agent 文档：总 agent 和所有子 agent 只允许关闭自己本次明确启动并记录的进程、端口、浏览器会话、临时数据库和临时资源 | done |
-| 2026-06-22 | VERSION | 总 agent | 同步阶段 3 版本到 0.2.0 | 将根、前端、后端版本声明同步到 `0.2.0`，覆盖 `VERSION`、前端 package/lock/env/config、后端 pyproject/uv.lock/config/test、README 和进度文件；同时将 `.playwright-cli/` 加入 ignore，防止浏览器自动化快照误入库；本地验证已通过，等待提交和 Actions | doing |
+| 2026-06-22 | VERSION | 总 agent | 同步阶段 3 版本到 0.2.0 | 已提交并推送 `95b81bd`：将根、前端、后端版本声明同步到 `0.2.0`，覆盖 `VERSION`、前端 package/lock/env/config、后端 pyproject/uv.lock/config/test、README 和进度文件；同时将 `.playwright-cli/` 加入 ignore，防止浏览器自动化快照误入库 | done |
+| 2026-06-22 | CI | 总 agent | 版本同步 Actions 通过 | push `95b81bd` 触发 run `27924826986`；Frontend checks 与 Backend checks 均通过，仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-22 | 分支治理 | 总 agent | 版本同步后 feature 分支快进到 dev | 已将 `feature/frontend-dev` 与 `feature/backend-dev` 都用 fast-forward merge 同步到 `95b81bd` 并推送；严格 worktree 体检通过，三棵 worktree 均干净且本地/远端一致 | done |
+| 2026-06-22 | VERSION | 代码审计 agent | 版本同步审计有条件通过 | Mill 只读审计 `95b81bd`：未发现 P0/P1/P2；仅 P3 指出 VERSION 看板状态滞后，已在本记录中关闭；确认版本声明一致、进程边界规则覆盖各 agent、`.playwright-cli/` 未入库；Mill 已关闭 | done |
+| 2026-06-22 | 联合测试 | 测试 agent | T-0037 后真实联测未完成 | Faraday 使用真实 MySQL 8.0.42 创建并迁移临时库 `telemetry_it_a0ad36ecd2f2` 后，在隐藏启动后端/前端并收集 PID 摘要阶段超时；随后 `28117`、`25173`、`25174` 均无监听，未完成 `/health`、前端页面、登录、上报、分页、趋势图和 logs/events 回归；临时库已 drop，未 kill 无法确认归属的进程；Faraday 已关闭 | blocked |
+| 2026-06-22 | 联合测试诊断 | 测试诊断 agent | 真实服务启动诊断通过 | Godel 使用备用端口和可记录 PID 的 Python `subprocess.Popen` 模式完成诊断：后端 `28119` `/health` 返回 `version=0.2.0`，前端 `25179` 根页面 HTTP 200；确认服务本身可启动，上一轮更可能卡在启动/PID 摘要收集方式；`npm.cmd` 可避免 PowerShell `npm.ps1` 签名策略拦截；Godel 只清理自己记录的 PID/临时目录并已关闭 | done |
+| 2026-06-22 | 联合测试 | 测试 agent | 真实联测卡在前端探活 | Ohm 使用 Godel 的 Python `subprocess.Popen` 模式：真实 MySQL 8.0.42 临时库 `telemetry_it_20260622_codex1` 创建、迁移、seed 成功，后端 `28119` `/health` 返回 `version=0.2.0`，前端 `25179` Vite 已监听；但 Ohm 用 JSON HTTP 探活前端根页面导致 `404 body=None`，未进入浏览器业务流；已按记录 PID 清理后端、前端派生链和临时库，Ohm 已关闭 | blocked |
+| 2026-06-22 | 联合测试 | 测试 agent | 真实联测编排脚本传输失败 | Einstein 未启动业务资源；确认 MySQL 8.0.42 可连接、依赖存在、前端根页面应按 HTML/browser 探活，但将一次性编排脚本塞进 PowerShell 命令时触发 Windows `文件名或扩展名太长`，因此未创建临时库、未启动后端/前端/浏览器，无需清理业务资源；Einstein 已关闭 | blocked |
+| 2026-06-22 | 联合测试 | 测试 agent | 真实联测环境准备阻塞 | Locke 未启动业务资源；确认后端/前端依赖可用、`npm.cmd`/`npx.cmd` 可用且 `npx.ps1` 受策略限制；探测到 Docker 不可用、`mysql` CLI 不在 PATH、本机 `MySQL80` 在 `3306` 运行但当前可见凭据登录失败；未启动临时 MySQL/后端/前端/浏览器，仅删除自己创建的临时探测脚本；Locke 已关闭。完整联测暂停，需先明确可用 MySQL 凭据或允许测试 agent 启动自有临时 MySQL 实例 | blocked |
 
 ## 6. 测试记录
 
@@ -326,6 +334,12 @@ closed      已关闭
 | 2026-06-22 | T-0034/T-0035 | 查询分页真实前后端联合测试 | 测试 agent Helmholtz 使用真实 MySQL 临时库、`uv run python main.py` 后端 `28117`、前端 dev server `25173`、HTTP 与浏览器自动化 | 通过 | 登录、项目/API Key 创建、metrics/logs/events 各 3 条上报、三类查询 `limit=2` 第一页/第二页、浏览器未登录提示、下一页、刷新回第一页、无匹配空态均通过；临时库已 drop，`25173`/`25174`/`28117` 已释放 |
 | 2026-06-22 | T-0036 | 查询分页测试补强验证 | 开发自检与测试 agent 复验；merge 后 `uv run pytest tests/test_query_api.py`、`uv run ruff check tests/test_query_api.py`、`git diff --check HEAD~1 HEAD` | 通过 | 后端专项 14 passed，ruff 通过，diff check 通过；补齐 logs/metrics 同时间戳稳定翻页专项测试 |
 | 2026-06-22 | VERSION | 版本同步静态验证 | `uv run pytest tests/test_config.py`、`uv lock --check`、`npm.cmd run typecheck`、`git diff --check`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 后端配置专项 11 passed；前端 typecheck 通过；未启动或关闭任何本地服务；`.playwright-cli/` 已加入 ignore 防误提交 |
+| 2026-06-22 | VERSION | 版本同步 CI | GitHub Actions run `27924826986` | 通过 | Frontend checks 与 Backend checks 均 success；仅有已知 Node.js 20 runtime 弃用注解 |
+| 2026-06-22 | 联合测试 | 真实前后端联测 | 测试 agent Faraday；真实 MySQL 8.0.42 临时库、计划启动真实后端/前端 | 无法验证 | MySQL 临时库创建、迁移和清理成功；后端/前端启动收集 PID 阶段超时，默认端口无监听，未完成浏览器联调；未关闭无法确认归属的进程 |
+| 2026-06-22 | 联合测试诊断 | 服务启动与 PID 记录 | Godel；备用端口 `28119`/`25179`，Python `subprocess.Popen` 启动，HTTP health/root 检查 | 通过 | 后端 `/health` 返回 `0.2.0`，前端根 HTML 200；确认端口释放；未连接 MySQL，未跑完整业务联测 |
+| 2026-06-22 | 联合测试 | 真实前后端联测重跑 | Ohm；真实 MySQL 8.0.42 临时库、真实后端 `28119`、真实前端 `25179` | 无法验证 | MySQL 迁移、后端 health 和前端监听成功；前端根页面探活脚本误按 JSON 响应判断导致未进入浏览器业务流；资源已按记录 PID/临时库清理 |
+| 2026-06-22 | 联合测试 | 真实前后端联测重跑 | Einstein；计划使用真实 MySQL、真实后端/前端 | 无法验证 | 未启动业务资源；PowerShell 命令过长导致编排脚本未执行；无临时库/PID/浏览器会话需要清理 |
+| 2026-06-22 | 联合测试 | 真实前后端联测重跑 | Locke；计划使用真实 MySQL、真实后端/前端 | 无法验证 | 未启动业务资源；Docker 不可用、`mysql` CLI 缺失、本机 MySQL 可见凭据登录失败；未关闭或修改现有 MySQL 服务 |
 
 ## 7. 审计记录
 
