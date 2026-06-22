@@ -581,10 +581,12 @@
 - 后端开发 agent Carson 已提交并推送 `31fe9de`，新增 `GET /api/v1/query/logs/{log_id}/context`、项目权限隐藏、`before/after` 窗口参数和上下文排序测试；前端开发 agent Galileo 已提交并推送 `ef3c89f`，新增日志上下文 API client、`/logs` 展开查看交互、loading/error/empty 状态和样式；两名 agent 已关闭。
 - 代码审计 agents 初审发现两个 P2：后端缺匹配日志上下文窗口的组合索引，前端登出/切换会话后可能继续显示旧上下文缓存。后端修复 agent Kierkegaard 提交 `112a60b`，新增 `(project_id, kind, received_at, id)` 组合索引、Alembic migration 和索引/迁移测试；前端修复 agent Sartre 提交 `a837c59`，按 auth session 隔离查询缓存并在登录/登出边界清理 `['query']` 缓存。复审 agents Beauvoir/Schrodinger 确认无 P0/P1/P2；复测 agents Erdos/Copernicus 验证通过；相关 agents 均已关闭。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0038 后端合入 `dev`，merge 提交 `5d7bd14`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0038 前端合入 `dev`，merge 提交 `172b423`。本次新增 API 契约、前端交互和数据库索引迁移，版本影响同步提升为 `0.2.1`。
+- 推送 `b8ea83a` 后 GitHub Actions run `27931510655` 通过，Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；随后已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `b8ea83a` 并推送，严格 `scripts/Test-AgentWorktreeState.ps1` 体检通过。
+- 已登记 `T-0039` 阶段 3 日志关键词搜索基础任务：后端为 `GET /api/v1/query/logs` 增加 `keyword` 查询参数，前端在 `/logs` 查询表单增加关键词输入并接入现有分页查询；前后端开发 agent 并行推进，开发 agent 不做完整联测。
 
 ### 进行中
 
-- T-0038 已真实 merge 到 `dev`，`0.2.1` 版本声明和根进度记录已同步，本地静态/单元验证已通过；真实前后端联合测试 agent Nash 已在 `dev` `b01e3ba` 上使用自有临时 MySQL、真实后端、真实前端和浏览器完成验证并清理资源。
+- T-0038 已完成 merge、`0.2.1` 版本同步、真实联测、CI 和 worktree 同步；当前推进 T-0039 日志关键词搜索基础。
 
 ### 阻塞与风险
 
@@ -594,10 +596,11 @@
 - T-0036 已补齐 logs/metrics 同时间戳稳定翻页测试；剩余未覆盖为真实 MySQL 大数据量、并发分页、Docker Compose MySQL 路径和生产反代/子路径部署。
 - T-0037 后真实联测尚未完成；启动诊断已确认服务可在备用端口启动，当前可见 MySQL 凭据不可用。后续完整联测需由测试 agent 使用自有临时 MySQL 实例或新的可用凭据，再使用临时脚本文件避免 Windows 命令长度限制、Python `subprocess.Popen` 记录 PID、前端使用 `npm.cmd`、前端根页面按 HTML 或浏览器页面判断，并继续遵守只清理自己启动资源的边界。
 - T-0038 仍保持当前关系库查询边界，不接 ClickHouse 日志查询；真实 MySQL 上的组合索引执行计划、大数据量窗口性能和降级实跑需在后续真实环境验证中继续覆盖。
+- T-0039 先做关系库 `ingest_records` 的最小关键词匹配，不接 ClickHouse 全文检索；需保持项目权限过滤、现有 level/source/time 筛选和游标分页条件一致，避免换筛选条件后复用旧游标。
 
 ### 下一步
 
-- 提交真实联测记录并推送 `dev`，等待 GitHub Actions 通过；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 同步到最新 `dev` 并推送，最后运行严格 worktree 体检。
+- 启动后端开发 agent 与前端开发 agent 并行推进 T-0039；开发完成后由代码审计 agent 和测试 agent 复验，再使用真实 `git merge` 集成回 `dev`。
 
 ### 验证
 

@@ -61,6 +61,12 @@ closed      已关闭
 | T-0031 | 阶段 3 指标查询 API 基础 | 总 agent | todo | done | done | done | done |
 | T-0032 | 阶段 3 查询页前端基础 | 总 agent | done | todo | done | done | done |
 | T-0033 | 阶段 3 总览页摄入统计接入 | 总 agent | done | todo | done | done | done |
+| T-0034 | 阶段 3 查询结果分页后端基础 | 总 agent | todo | done | done | done | done |
+| T-0035 | 阶段 3 查询结果分页前端对齐 | 总 agent | done | todo | done | done | done |
+| T-0036 | 查询分页测试补强 | 总 agent | todo | done | done | done | done |
+| T-0037 | Metrics 查询页当前页趋势图 | 总 agent | done | todo | done | done | done |
+| T-0038 | 日志上下文增强 | 总 agent | done | done | done | done | done |
+| T-0039 | 日志关键词搜索基础 | 总 agent | doing | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -314,6 +320,8 @@ closed      已关闭
 | 2026-06-22 | T-0038 | 总 agent | 真实 merge 集成到 dev | 已按项目管理要求使用 `git merge --no-ff` 将 `origin/feature/backend-dev` 合入 `dev`，merge 提交 `5d7bd14`；随后使用 `git merge --no-ff` 将 `origin/feature/frontend-dev` 合入 `dev`，merge 提交 `172b423`；当前同步版本到 `0.2.1` 并准备根验证与真实联测 | doing |
 | 2026-06-22 | VERSION | 总 agent | 同步 T-0038 版本到 0.2.1 | 日志上下文 API/UI 和查询窗口索引迁移已进入 `dev`，版本影响为向后兼容功能增强和数据库索引迁移；已同步根、前端、后端 VERSION、env 示例、前端 package/lock/config、后端 pyproject/uv.lock/config/test、README、计划书和进度记录；本地版本/静态/单元验证通过，正式 changelog 待发布/tag 前生成 | done |
 | 2026-06-22 | T-0038 | 测试 agent | 真实前后端联合测试通过 | Nash 在 `dev` `b01e3ba` 上启动自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189` 和 Edge 浏览器；真实 MySQL Alembic upgrade 成功并确认组合索引存在，后端 `/health` 返回 `0.2.1`，完成登录、项目/环境/服务/API Key、logs/metrics/events 上报、分页查询、日志上下文 API/浏览器验证、跨项目隔离和登出后旧上下文隐藏；已清理自己启动的进程、端口和临时目录，Nash 已关闭 | done |
+| 2026-06-22 | T-0038 | 总 agent | CI 与 worktree 同步完成 | 推送 `b8ea83a` 后 GitHub Actions run `27931510655` 通过，Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `b8ea83a` 并推送，严格 worktree 体检通过 | done |
+| 2026-06-22 | T-0039 | 总 agent | 启动日志关键词搜索基础 | 阶段 3 下一步拆分为日志关键词搜索：后端为 `GET /api/v1/query/logs` 增加 `keyword` 查询参数，限定在当前项目权限和现有筛选内搜索日志 message/基础文本字段；前端在 `/logs` 查询表单增加关键词输入并接入分页查询。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
 
 ## 6. 测试记录
 
