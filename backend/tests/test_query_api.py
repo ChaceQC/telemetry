@@ -5,12 +5,15 @@ from typing import cast
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects.mysql import mariadb
 
 from app.core.application import create_app
 from app.core.config import Settings
 from app.db.base import Base
 from app.models.ingest import IngestRecordModel
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
+from app.repositories.query import _metric_window_epoch
 from app.schemas.ingest import IngestKind
 from app.services.auth import AuthService, hash_password
 
@@ -951,6 +954,26 @@ def test_query_metrics_aggregate_supports_aggregations_and_windows() -> None:
     assert one_hour_response.json()["items"][0]["window_start"].startswith("2026-06-20T10:00:00")
     assert one_hour_response.json()["items"][0]["value"] == 4.0
     assert one_hour_response.json()["items"][0]["sample_count"] == 4
+
+
+def test_query_metrics_aggregate_mysql_epoch_bucket_ignores_session_timezone() -> None:
+    dialects = {
+        "mysql": mysql.dialect(),
+        "mariadb": mariadb.MariaDBDialect(),
+    }
+
+    for dialect_name, dialect in dialects.items():
+        compiled = str(
+            _metric_window_epoch(dialect_name, window_seconds=300).compile(
+                dialect=dialect,
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+        assert "timestampdiff" in compiled
+        assert "'1970-01-01 00:00:00'" in compiled
+        assert "occurred_at" in compiled
+        assert "unix_timestamp" not in compiled
 
 
 def test_query_metrics_aggregate_filters_permissions_empty_and_limit() -> None:

@@ -16,6 +16,7 @@ from sqlalchemy import (
     cast,
     func,
     literal,
+    literal_column,
     or_,
     select,
 )
@@ -333,7 +334,14 @@ def _metric_window_epoch(
     if dialect_name == "sqlite":
         epoch = cast(func.strftime("%s", IngestRecordModel.occurred_at), Integer)
     elif dialect_name in {"mysql", "mariadb"}:
-        epoch = cast(func.unix_timestamp(IngestRecordModel.occurred_at), Integer)
+        epoch = cast(
+            func.timestampdiff(
+                literal_column("SECOND"),
+                literal_column("'1970-01-01 00:00:00'"),
+                IngestRecordModel.occurred_at,
+            ),
+            Integer,
+        )
     else:
         epoch = cast(func.extract("epoch", IngestRecordModel.occurred_at), Integer)
     return cast(epoch / window_seconds, Integer) * window_seconds

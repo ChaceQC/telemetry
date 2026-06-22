@@ -10,14 +10,15 @@
 - 聚合接口沿用现有 Bearer 用户鉴权和项目权限过滤；无权限显式 `project_id` 继续返回 `404 项目不存在`，未指定项目时仅返回当前用户可访问项目的数据。
 - 支持查询参数 `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation`、`limit`；`window` 默认 `5m`，支持 `1m/5m/15m/1h`；`aggregation` 默认 `avg`，支持 `avg/sum/min/max/count`；`limit` 默认 `100`，范围 `1..500`。
 - 基于关系库 `ingest_records.kind=metric` 与 JSON payload `value` 实现固定窗口聚合，按 `project_id`、指标名、`source` 和窗口开始时间分组；响应为 `{"items": [...]}`，item 包含 `project_id`、`name`、`source`、`window_start`、`window_end`、`aggregation`、`value`、`sample_count`、`unit`。
+- 修复审计 P2：MySQL/MariaDB 指标聚合窗口不再使用受 session time zone 影响的 `UNIX_TIMESTAMP(DATETIME)`，改用 `TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', occurred_at)` 按 UTC 存储时间相对 Unix epoch 稳定分桶；SQLite 路径保持原有 epoch seconds 行为。
 - `unit` 当前取窗口内最小非空 unit；初版不引入 cursor、tags group by、percentile、Top N、单位换算或 ClickHouse。
-- 扩展 `backend/tests/test_query_api.py`，覆盖 avg/sum/min/max/count、窗口分桶、项目权限、name/source/time 叠加过滤、无匹配空数组、非法 window/aggregation 422、limit 和未登录拒绝。
-- 更新 `backend/README.md` 与 `agents/runtime/api-contracts/backend.md`，同步 API-0019 当前契约和验证边界。
+- 扩展 `backend/tests/test_query_api.py`，覆盖 avg/sum/min/max/count、窗口分桶、项目权限、name/source/time 叠加过滤、无匹配空数组、非法 window/aggregation 422、limit、未登录拒绝，以及 MySQL/MariaDB 聚合窗口 SQL 编译为 `TIMESTAMPDIFF` 且不出现 `UNIX_TIMESTAMP(occurred_at)`。
+- 更新 `backend/README.md` 与 `agents/runtime/api-contracts/backend.md`，同步 API-0019 当前契约、MySQL/MariaDB UTC epoch 分桶说明和验证边界。
 
 ### 阻塞与风险
 
 - 暂无阻塞。
-- 本轮不启动真实前端、后端服务、数据库容器或完整前后端联测；聚合实现已用 SQLite API 测试覆盖，真实 MySQL JSON 数值表达式、窗口分桶执行计划、大数据量性能和后续 ClickHouse 聚合仍需测试/专项任务补验。
+- 本轮不启动真实前端、后端服务、数据库容器或完整前后端联测；聚合实现已用 SQLite API 测试覆盖，并用 MySQL/MariaDB SQL 编译断言覆盖 timezone 偏移风险。真实 MySQL JSON 数值表达式、窗口分桶执行计划、大数据量性能和后续 ClickHouse 聚合仍需测试/专项任务补验。
 
 ### 开发侧验证
 
@@ -27,6 +28,12 @@
 - 已运行 `uv run ruff format --check app/api/routes/query.py app/services/query.py app/repositories/query.py app/schemas/query.py tests/test_query_api.py`，结果：通过。
 - 已运行 `uv run mypy app/api/routes/query.py app/services/query.py app/repositories/query.py app/schemas/query.py`，结果：4 个源文件无类型错误。
 - 已运行 `git diff --check`，结果：通过。
+- 本次 P2 修复已运行 `uv run pytest tests/test_query_api.py -k "aggregate"`，结果：5 个测试通过、26 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 本次 P2 修复已运行 `uv run pytest tests/test_query_api.py`，结果：31 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 本次 P2 修复已运行 `uv run ruff check app/repositories/query.py tests/test_query_api.py`，结果：通过。
+- 本次 P2 修复已运行 `uv run ruff format --check app/repositories/query.py tests/test_query_api.py`，结果：通过。
+- 本次 P2 修复已运行 `uv run mypy app/repositories/query.py tests/test_query_api.py`，结果：2 个源文件无类型错误。
+- 本次 P2 修复已运行 `git diff --check`，结果：通过。
 
 ## 2026-06-22 T-0041 日志结构化字段过滤基础
 
