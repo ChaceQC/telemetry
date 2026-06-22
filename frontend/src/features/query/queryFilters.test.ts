@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildQueryParams, defaultFilters } from './queryFilters';
+import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from './queryFilters';
 
 describe('query filters', () => {
   it('logs 查询参数包含 keyword 和 trace/span 且保留分页 cursor', () => {
@@ -68,6 +68,31 @@ describe('query filters', () => {
     ).toMatchObject({
       cursor: undefined,
       keyword: 'database'
+    });
+  });
+
+  it('metrics 聚合参数包含窗口和聚合方式但不包含 cursor', () => {
+    expect(
+      buildMetricAggregateParams({
+        ...defaultFilters,
+        projectId: '12',
+        primary: ' http.requests ',
+        source: ' api ',
+        occurredFrom: '2026-06-20T10:00',
+        occurredTo: '2026-06-20T11:00',
+        limit: '20',
+        metricWindow: '15m',
+        metricAggregation: 'sum'
+      })
+    ).toEqual({
+      project_id: 12,
+      name: 'http.requests',
+      source: 'api',
+      occurred_from: '2026-06-20T10:00',
+      occurred_to: '2026-06-20T11:00',
+      limit: 20,
+      window: '15m',
+      aggregation: 'sum'
     });
   });
 });

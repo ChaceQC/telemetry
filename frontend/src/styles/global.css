@@ -1030,6 +1030,112 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.metric-aggregate {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.metric-aggregate-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.metric-aggregate-heading > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.metric-aggregate-heading span,
+.metric-aggregate-value span,
+.metric-aggregate-count span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric-aggregate-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+  font-size: 16px;
+}
+
+.metric-aggregate-state {
+  min-height: 96px;
+}
+
+.metric-aggregate-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.metric-aggregate-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(130px, 0.8fr) minmax(72px, auto);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.metric-aggregate-window,
+.metric-aggregate-value,
+.metric-aggregate-count {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.metric-aggregate-window strong,
+.metric-aggregate-value strong,
+.metric-aggregate-count strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+}
+
+.metric-aggregate-window span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.metric-aggregate-value strong {
+  color: var(--accent-strong);
+}
+
+.metric-aggregate-bar {
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #e9eef0;
+}
+
+.metric-aggregate-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
 .query-record-main {
   display: flex;
   align-items: flex-start;
@@ -1617,6 +1723,15 @@ h2 {
 
   .metric-trend-heading {
     grid-template-columns: 1fr;
+  }
+
+  .metric-aggregate-heading,
+  .metric-aggregate-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-aggregate-heading {
+    display: grid;
   }
 
   .metric-trend-footer {

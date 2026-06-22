@@ -30,6 +30,14 @@ export type MetricQueryParams = QueryCommonParams & {
   name?: string;
 };
 
+export type MetricAggregation = 'avg' | 'sum' | 'min' | 'max' | 'count';
+
+export type MetricAggregateParams = Omit<QueryCommonParams, 'cursor'> & {
+  name?: string;
+  window?: string;
+  aggregation?: MetricAggregation;
+};
+
 export type EventQueryItem = {
   id: number;
   project_id: number;
@@ -72,6 +80,22 @@ export type MetricQueryItem = {
 export type QueryResultPage<TItem> = {
   items: TItem[];
   next_cursor: string | null;
+};
+
+export type MetricAggregateItem = {
+  project_id: number;
+  name: string;
+  source: string | null;
+  window_start: string;
+  window_end: string;
+  aggregation: MetricAggregation;
+  value: number;
+  sample_count: number;
+  unit: string | null;
+};
+
+export type MetricAggregateResponse = {
+  items: MetricAggregateItem[];
 };
 
 export type LogContextResponse = {
@@ -129,6 +153,25 @@ export function listMetrics(params: MetricQueryParams = {}) {
     limit: params.limit,
     cursor: params.cursor
   });
+}
+
+export async function listMetricAggregates(params: MetricAggregateParams = {}): Promise<MetricAggregateResponse> {
+  const response = await apiRequest<MetricAggregateResponse | MetricAggregateItem[]>(
+    buildQueryPath('/api/v1/query/metrics/aggregate', {
+      project_id: params.project_id,
+      name: params.name,
+      source: params.source,
+      occurred_from: params.occurred_from,
+      occurred_to: params.occurred_to,
+      window: params.window,
+      aggregation: params.aggregation,
+      limit: params.limit
+    })
+  );
+
+  return {
+    items: Array.isArray(response) ? response : response.items
+  };
 }
 
 async function requestQueryPage<TItem>(

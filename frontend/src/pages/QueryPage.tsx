@@ -19,6 +19,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   listEvents,
   getLogContext,
+  listMetricAggregates,
   listLogs,
   listMetrics,
   normalizeLogContextWindow,
@@ -28,6 +29,7 @@ import {
   type EventQueryParams,
   type LogQueryItem,
   type LogQueryParams,
+  type MetricAggregateItem,
   type MetricQueryItem,
   type MetricQueryParams,
   type QueryResultPage
@@ -37,7 +39,15 @@ import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
 import { summarizeEventPayload } from '../features/query/eventTimeline';
-import { buildQueryParams, defaultFilters, type QueryFilters, type QuerySignal } from '../features/query/queryFilters';
+import {
+  buildMetricAggregateParams,
+  buildQueryParams,
+  defaultFilters,
+  metricAggregationOptions,
+  metricWindowOptions,
+  type QueryFilters,
+  type QuerySignal
+} from '../features/query/queryFilters';
 import {
   buildLogContextQueryKey,
   buildSignalQueryKey,
@@ -114,21 +124,42 @@ export function QueryPage({ signal }: QueryPageProps) {
     () => buildQueryParams(signal, activeSubmittedFilters, pageCursor),
     [signal, activeSubmittedFilters, pageCursor]
   );
+  const aggregateParams = useMemo(
+    () => (signal === 'metrics' ? buildMetricAggregateParams(activeSubmittedFilters) : null),
+    [signal, activeSubmittedFilters]
+  );
   const query = useQuery({
     queryKey: buildSignalQueryKey(auth.sessionRevision, signal, params, pagination.version),
     queryFn: () => config.fetch(params as never) as Promise<QueryResultPage<QueryRecord>>,
     enabled: canQuery,
     retry: false
   });
+  const aggregateQuery = useQuery({
+    queryKey: buildSignalQueryKey(auth.sessionRevision, 'metrics-aggregate', aggregateParams, pagination.version),
+    queryFn: () => listMetricAggregates(aggregateParams ?? undefined),
+    enabled: canQuery && signal === 'metrics' && aggregateParams !== null,
+    retry: false
+  });
   const Icon = config.icon;
   const visibleData = resolveVisibleQueryData(canQuery, query.data);
+  const aggregateData = resolveVisibleQueryData(canQuery && signal === 'metrics', aggregateQuery.data);
   const records = visibleData?.items ?? emptyRecords;
   const nextCursor = visibleData?.next_cursor ?? null;
   const hasRecords = records.length > 0;
   const hasQueryError = canQuery && query.isError;
+  const hasAggregateError = canQuery && signal === 'metrics' && aggregateQuery.isError;
   const metricTrend = signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null;
-  const badgeTone = !canQuery ? 'warning' : query.isError ? 'danger' : query.isFetching ? 'warning' : 'success';
-  const badgeLabel = !canQuery ? (auth.isRestoring ? '恢复中' : '需要登录') : query.isFetching ? '查询中' : query.isError ? '查询异常' : '已就绪';
+  const isFetching = query.isFetching || (signal === 'metrics' && aggregateQuery.isFetching);
+  const badgeTone = !canQuery ? 'warning' : query.isError || aggregateQuery.isError ? 'danger' : isFetching ? 'warning' : 'success';
+  const badgeLabel = !canQuery
+    ? auth.isRestoring
+      ? '恢复中'
+      : '需要登录'
+    : isFetching
+      ? '查询中'
+      : query.isError || aggregateQuery.isError
+        ? '查询异常'
+        : '已就绪';
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -157,7 +188,7 @@ export function QueryPage({ signal }: QueryPageProps) {
     }));
   }
 
-  function updateFilter(name: keyof QueryFilters, value: string) {
+  function updateFilter<TName extends keyof QueryFilters>(name: TName, value: QueryFilters[TName]) {
     setDraftFilters({
       signal,
       filters: {
@@ -307,9 +338,41 @@ export function QueryPage({ signal }: QueryPageProps) {
               onChange={(event) => updateFilter('limit', event.target.value)}
             />
           </label>
-          <button className="primary-button query-submit" type="submit" disabled={!canQuery || query.isFetching}>
+          {signal === 'metrics' ? (
+            <>
+              <label className="field">
+                <span>窗口</span>
+                <select
+                  value={filters.metricWindow}
+                  onChange={(event) => updateFilter('metricWindow', event.target.value as QueryFilters['metricWindow'])}
+                >
+                  {metricWindowOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {formatMetricWindowLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>聚合方式</span>
+                <select
+                  value={filters.metricAggregation}
+                  onChange={(event) =>
+                    updateFilter('metricAggregation', event.target.value as QueryFilters['metricAggregation'])
+                  }
+                >
+                  {metricAggregationOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {formatMetricAggregationLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : null}
+          <button className="primary-button query-submit" type="submit" disabled={!canQuery || isFetching}>
             <Search size={16} aria-hidden="true" />
-            <span>{query.isFetching ? '查询中' : '查询'}</span>
+            <span>{isFetching ? '查询中' : '查询'}</span>
           </button>
         </form>
       </section>
@@ -346,6 +409,17 @@ export function QueryPage({ signal }: QueryPageProps) {
         ) : null}
 
         {!hasQueryError && hasRecords && signal === 'metrics' ? <MetricTrend trend={metricTrend} /> : null}
+
+        {signal === 'metrics' && canQuery ? (
+          <MetricAggregatePanel
+            items={aggregateData?.items ?? []}
+            isLoading={aggregateQuery.isFetching && !aggregateData}
+            isError={hasAggregateError}
+            error={aggregateQuery.error}
+            windowLabel={formatMetricWindowLabel(activeSubmittedFilters.metricWindow)}
+            aggregationLabel={formatMetricAggregationLabel(activeSubmittedFilters.metricAggregation)}
+          />
+        ) : null}
 
         {!hasQueryError && hasRecords && signal === 'events' ? (
           <EventTimeline events={records as EventQueryItem[]} />
@@ -684,6 +758,96 @@ function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
   );
 }
 
+function MetricAggregatePanel({
+  items,
+  isLoading,
+  isError,
+  error,
+  windowLabel,
+  aggregationLabel
+}: {
+  items: MetricAggregateItem[];
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  windowLabel: string;
+  aggregationLabel: string;
+}) {
+  const maxMagnitude = Math.max(...items.map((item) => Math.abs(item.value)), 0);
+
+  return (
+    <div className="metric-aggregate" aria-label="指标聚合窗口结果" aria-busy={isLoading}>
+      <div className="metric-aggregate-heading">
+        <div>
+          <span>聚合窗口</span>
+          <strong>{`${windowLabel} / ${aggregationLabel}`}</strong>
+        </div>
+        <StatusBadge tone={items.length > 0 ? 'success' : isError ? 'danger' : 'neutral'}>
+          {isLoading ? '加载中' : isError ? '加载失败' : `${items.length} 个窗口`}
+        </StatusBadge>
+      </div>
+
+      {isLoading ? (
+        <div className="resource-state metric-aggregate-state" role="status">
+          <LoaderCircle size={18} aria-hidden="true" />
+          <div>
+            <strong>正在加载聚合结果</strong>
+            <span>按当前筛选读取指标窗口聚合。</span>
+          </div>
+        </div>
+      ) : null}
+
+      {isError ? (
+        <div className="resource-state resource-state--error metric-aggregate-state" role="status">
+          <ShieldAlert size={18} aria-hidden="true" />
+          <div>
+            <strong>聚合查询失败</strong>
+            <span>{formatApiErrorMessage(error)}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && items.length === 0 ? (
+        <div className="resource-state metric-aggregate-state">
+          <BarChart3 size={18} aria-hidden="true" />
+          <div>
+            <strong>暂无聚合窗口</strong>
+            <span>调整指标名、来源、时间范围或窗口后重试。</span>
+          </div>
+        </div>
+      ) : null}
+
+      {!isError && items.length > 0 ? (
+        <ol className="metric-aggregate-list">
+          {items.map((item) => {
+            const magnitude = maxMagnitude > 0 ? Math.min(100, Math.max(6, (Math.abs(item.value) / maxMagnitude) * 100)) : 0;
+
+            return (
+              <li key={`${item.project_id}-${item.name}-${item.source ?? 'none'}-${item.window_start}-${item.window_end}`}>
+                <div className="metric-aggregate-window">
+                  <strong>{formatAggregateWindow(item)}</strong>
+                  <span>{`${item.name} / ${item.source || '未标记来源'} / ${item.unit || '无单位'}`}</span>
+                </div>
+                <div className="metric-aggregate-value">
+                  <span>{formatMetricAggregationLabel(item.aggregation)}</span>
+                  <strong>{formatNumber(item.value, item.unit)}</strong>
+                  <div className="metric-aggregate-bar" aria-hidden="true">
+                    <span style={{ inlineSize: `${magnitude}%` }} />
+                  </div>
+                </div>
+                <div className="metric-aggregate-count">
+                  <span>样本数</span>
+                  <strong>{item.sample_count}</strong>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
+    </div>
+  );
+}
+
 function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean, sessionRevision: number) {
   if (signal === 'metrics') {
     const metric = item as MetricQueryItem;
@@ -750,6 +914,33 @@ function formatTime(value: string) {
 
 function formatNumber(value: number, unit: string | null) {
   return `${Number.isInteger(value) ? value : value.toFixed(3)}${unit ? ` ${unit}` : ''}`;
+}
+
+function formatMetricWindowLabel(value: string) {
+  const labels: Record<string, string> = {
+    '1m': '1 分钟',
+    '5m': '5 分钟',
+    '15m': '15 分钟',
+    '1h': '1 小时'
+  };
+
+  return labels[value] ?? value;
+}
+
+function formatMetricAggregationLabel(value: string) {
+  const labels: Record<string, string> = {
+    avg: '平均值',
+    sum: '求和',
+    min: '最小值',
+    max: '最大值',
+    count: '计数'
+  };
+
+  return labels[value] ?? value;
+}
+
+function formatAggregateWindow(item: MetricAggregateItem) {
+  return `${formatTime(item.window_start)} - ${formatTime(item.window_end)}`;
 }
 
 function getLogLevelTone(level: string) {
