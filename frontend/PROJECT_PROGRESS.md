@@ -2,6 +2,30 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0037 趋势图审计 P2 修复
+
+### 已完成
+
+- 修复 `frontend/src/features/metrics/metricTrend.ts`，趋势模型生成前校验当前页 metrics 是否属于同一 `name` 和 `unit` 序列；不同指标或不同单位时返回不可用状态，不再生成单条折线路径。
+- 更新 `frontend/src/pages/QueryPage.tsx`，metrics 当前页混合多个指标或单位时显示“当前页包含多个指标或单位，趋势图暂不可用。”用户提示；同一指标/单位仍正常展示当前页趋势。
+- 扩展 `frontend/src/features/metrics/metricTrend.test.ts`，覆盖同 `name`/`unit` 可绘制、不同 `name` 不绘制、不同 `unit` 不绘制，以及无可绘制点兜底。
+- 更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，同步记录 `/metrics` 当前页趋势图需要同一 `name`/`unit` 序列。
+
+### 进行中
+
+- 实现、开发侧自检和测试 agent 独立复验已完成；准备提交并推送 `feature/frontend-dev`。
+
+### 阻塞与风险
+
+- 本次只阻止混合 `name`/`unit` 的当前页单线趋势；标签组合、多序列对比、跨页连续趋势和聚合窗口仍留给后续任务。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/metrics/metricTrend.test.ts` 通过（1 个测试文件、6 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已执行 `git diff --check` 通过。
+- 测试 agent Singer 已独立复验：`git diff --check`、`npm.cmd test -- metricTrend`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd test` 均通过；全量 Vitest 为 9 个测试文件、39 个测试通过。Singer 未跑后端测试、浏览器矩阵或真实页面截图；PowerShell 拦截 `npm.ps1` 后已改用 `npm.cmd`。
+
 ## 2026-06-22 T-0037 查询页指标趋势图基础
 
 ### 已完成

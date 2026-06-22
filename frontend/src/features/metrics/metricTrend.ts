@@ -11,7 +11,17 @@ export type MetricTrendPoint = {
   y: number;
 };
 
-export type MetricTrendModel = {
+export type MetricTrendUnavailableReason = 'mixed-series' | 'no-plottable-points';
+
+export type MetricTrendUnavailableModel = {
+  status: 'unavailable';
+  reason: MetricTrendUnavailableReason;
+};
+
+export type MetricTrendReadyModel = {
+  status: 'ready';
+  seriesName: string;
+  seriesUnit: string | null;
   points: MetricTrendPoint[];
   linePath: string;
   areaPath: string;
@@ -20,6 +30,8 @@ export type MetricTrendModel = {
   firstPoint: MetricTrendPoint;
   lastPoint: MetricTrendPoint;
 };
+
+export type MetricTrendModel = MetricTrendReadyModel | MetricTrendUnavailableModel;
 
 const chartWidth = 640;
 const chartHeight = 168;
@@ -32,7 +44,16 @@ const padding = {
 
 export const metricTrendViewBox = `0 0 ${chartWidth} ${chartHeight}`;
 
-export function buildMetricTrendModel(items: MetricQueryItem[]): MetricTrendModel | null {
+export function buildMetricTrendModel(items: MetricQueryItem[]): MetricTrendModel {
+  const sharedSeries = getSharedMetricSeries(items);
+
+  if (items.length > 0 && !sharedSeries) {
+    return {
+      status: 'unavailable',
+      reason: 'mixed-series'
+    };
+  }
+
   const validItems = items
     .map((item) => ({
       item,
@@ -42,7 +63,10 @@ export function buildMetricTrendModel(items: MetricQueryItem[]): MetricTrendMode
     .sort((left, right) => left.timestamp - right.timestamp || left.item.id - right.item.id);
 
   if (validItems.length === 0) {
-    return null;
+    return {
+      status: 'unavailable',
+      reason: 'no-plottable-points'
+    };
   }
 
   const values = validItems.map(({ item }) => item.value);
@@ -81,6 +105,9 @@ export function buildMetricTrendModel(items: MetricQueryItem[]): MetricTrendMode
       : '';
 
   return {
+    status: 'ready',
+    seriesName: sharedSeries?.name ?? points[0].name,
+    seriesUnit: sharedSeries?.unit ?? points[0].unit,
     points,
     linePath,
     areaPath,
@@ -89,6 +116,21 @@ export function buildMetricTrendModel(items: MetricQueryItem[]): MetricTrendMode
     firstPoint: points[0],
     lastPoint: points[points.length - 1]
   };
+}
+
+function getSharedMetricSeries(items: MetricQueryItem[]) {
+  const [firstItem] = items;
+
+  if (!firstItem) {
+    return null;
+  }
+
+  return items.every((item) => item.name === firstItem.name && item.unit === firstItem.unit)
+    ? {
+        name: firstItem.name,
+        unit: firstItem.unit
+      }
+    : null;
 }
 
 function roundCoordinate(value: number) {

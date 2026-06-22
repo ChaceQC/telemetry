@@ -343,23 +343,26 @@ export function QueryPage({ signal }: QueryPageProps) {
 }
 
 function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
-  if (!trend) {
+  if (!trend || trend.status === 'unavailable') {
     return (
       <div className="metric-trend metric-trend--empty">
         <Activity size={18} aria-hidden="true" />
         <div>
           <strong>当前页趋势不可用</strong>
-          <span>当前页没有可绘制的 received_at 与 value。</span>
+          <span>
+            {trend?.reason === 'mixed-series'
+              ? '当前页包含多个指标或单位，趋势图暂不可用。'
+              : '当前页没有可绘制的 received_at 与 value。'}
+          </span>
         </div>
       </div>
     );
   }
 
   const hasLine = trend.points.length > 1;
-  const sharedUnit = getSharedMetricUnit(trend);
 
   return (
-    <div className="metric-trend" aria-label="当前页指标 value 趋势">
+    <div className="metric-trend" aria-label={`${trend.seriesName} 当前页 value 趋势`}>
       <div className="metric-trend-heading">
         <div>
           <span>当前页趋势</span>
@@ -368,11 +371,11 @@ function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
         <dl>
           <div>
             <dt>最小</dt>
-            <dd>{formatNumber(trend.minValue, sharedUnit)}</dd>
+            <dd>{formatNumber(trend.minValue, trend.seriesUnit)}</dd>
           </div>
           <div>
             <dt>最大</dt>
-            <dd>{formatNumber(trend.maxValue, sharedUnit)}</dd>
+            <dd>{formatNumber(trend.maxValue, trend.seriesUnit)}</dd>
           </div>
         </dl>
       </div>
@@ -402,13 +405,6 @@ function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
       </div>
     </div>
   );
-}
-
-function getSharedMetricUnit(trend: MetricTrendModel) {
-  const [firstPoint] = trend.points;
-  const firstUnit = firstPoint.unit;
-
-  return trend.points.every((point) => point.unit === firstUnit) ? firstUnit : null;
 }
 
 function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cursor?: string) {
