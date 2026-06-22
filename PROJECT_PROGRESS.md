@@ -651,6 +651,7 @@
 - T-0046/T-0047 真实前后端联合测试通过：Meitner the 2nd 使用本机 MySQL 8.0.42 临时库、真实后端 `7319`、真实前端和 Playwright + Microsoft Edge，覆盖 trace 上报、`trace_id`/`span_id`/`name`/`source`/`status_code`/duration/time 过滤、cursor 与错误边界、浏览器 `/traces` 查询/分页/详情展开/null 与长 JSON、metrics/logs/events 快速回归；测试 agent 已清理自有资源，证据目录 `tmp/T-0046-T0047-e2e-20260623-050157`。
 - T-0048 已登记为阶段 4 下一小步：前端基于现有 trace span 列表构建 `/traces` waterfall 与树形详情基础，先实现同一 trace 分组、父子缩进、相对时间/耗时条、错误/慢 span 视觉标识；不改后端契约，不接 ClickHouse，不做服务拓扑或互跳。
 - T-0048 前端开发已完成：`6c4cd92` 已推送到 `feature/frontend-dev`，新增 trace 分组、树形缩进、waterfall 耗时条、错误/慢 span 标识和纯函数测试；前端版本提升到 `0.2.5`，等待代码审计。
+- T-0048 前端审计未通过：Hegel the 2nd 发现 1 个 P2，`/traces` waterfall 双列布局在窄平板/大屏手机横屏区间存在横向溢出风险；需前端修复响应式布局后复审。
 
 ### 阻塞与风险
 
