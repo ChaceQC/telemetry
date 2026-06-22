@@ -628,10 +628,16 @@
 - T-0044 代码审计 agent Meitner 已完成并关闭：只读审计 `f2c6c05` 未发现 P0/P1/P2，P3 根版本/README 同步要求已纳入总集成。
 - T-0044 测试 agent Descartes 已完成并关闭：使用真实本地 MySQL 8.0.42 临时实例、真实 FastAPI 后端和 HTTP/DB 断言验证 trace ingestion 通过；未启动 Docker，未启动前端/浏览器，已清理自有资源。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0044 后端合入 `dev`，merge 提交 `5188aef`；同步根、前端、后端版本到 `0.2.2`，并补根 README、计划书、正式 API 契约和进度记录。
+- T-0044 最终 worktree 同步完成：`feature/backend-dev` 与 `feature/frontend-dev` 已 fast-forward 到 `295ad18` 并推送；严格 worktree 体检通过，`dev`、前端、后端三棵 worktree 均干净且本地/远端一致。
+- 已登记 `T-0045` 阶段 4 Trace 查询最小后端基础任务：新增 `GET /api/v1/query/traces`，基于关系库 `ingest_records` 的 `kind=trace` 返回 span 列表与稳定分页，复用用户认证、项目权限、时间/source/name/trace_id/span_id 过滤和 cursor 签名；本小步不接 ClickHouse，不做 waterfall、服务拓扑、跨信号关联或前端页面。
+- T-0045 后端开发 agent Halley 已完成并关闭：提交 `a249fe7` 新增 `GET /api/v1/query/traces`、trace span 响应 schema、关系库 `kind=trace` 查询、筛选、cursor 签名和测试；开发侧最小验证通过。
+- T-0045 代码审计 agent Heisenberg 已完成并关闭：只读审计 `a249fe7` 未发现 P0/P1/P2，仅发现 P3 契约状态文字滞后；文档修复 agent Aristotle 提交 `c87a60f` 修复后已关闭。
+- T-0045 测试 agent James 已完成并关闭：使用本地 MySQL 8.0.42 `127.0.0.1:33317`、临时库 `telemetry_t0045_trace_20260622` 和真实 FastAPI 后端 `127.0.0.1:28145` 验证 trace 摄入与查询、筛选、cursor、`401/404/422` 和 metric 快速回归通过；未启动 Docker，已清理自有资源。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 后端合入 `dev`，merge 提交 `2916df9`；当前同步根、前端、后端版本到 `0.2.3`，并补根 README、计划书、正式 API 契约和进度记录。
 
 ### 进行中
 
-- T-0044 已完成实现、审计、真实 MySQL/真实后端验证和真实 merge；当前进行 `0.2.2` 版本同步、本地门禁、推送、CI 读取和 feature 分支同步。
+- T-0045 已完成实现、审计、真实 MySQL/真实后端验证和真实 merge；当前进行 `0.2.3` 版本同步、本地门禁、推送、CI 读取和 feature 分支同步。
 
 ### 阻塞与风险
 
@@ -649,10 +655,11 @@
 - T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。真实 MySQL `1m/5m` 边界秒分桶上偏已修复，并通过后端专项与完整真实前后端联测重跑确认。
 - T-0043 只扩展 logs 白名单结构化字段 `request_id`、`user_id`，优先匹配当前日志 `attributes` 对象；不实现任意 payload key 查询、复杂字段 DSL、ClickHouse 日志查询或脱敏策略，避免一次性扩大查询语义。
 - T-0044 只建立 trace ingestion 最小后端基础：traces 先落关系库 `ingest_records` 并按 `kind=trace` 统计；不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑、跨信号关联或前端页面。后续仍需覆盖 ClickHouse trace span 写入、trace 查询 API、大数据量执行计划、Redis 真实限流和 UI 联动。
+- T-0045 只查询当前关系库中已摄入的 trace span 列表；不做 trace 树构建、waterfall 排版、服务依赖拓扑、日志互跳、ClickHouse 查询或前端页面，避免一次性扩大阶段 4 范围。
 
 ### 下一步
 
-- 完成 T-0044 merge 后本地门禁、推送并读取 GitHub Actions；随后 fast-forward 同步 `feature/backend-dev` 和 `feature/frontend-dev` 到最新 `dev`，再进入阶段 4 trace 查询或 ClickHouse trace span 写入的小步规划。
+- 完成 T-0045 merge 后本地门禁、推送并读取 GitHub Actions；随后 fast-forward 同步 `feature/backend-dev` 和 `feature/frontend-dev` 到最新 `dev`，再启动真实前后端联合测试 agent，使用真实本地 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 T-0045 后的端到端回归。
 
 ### 验证
 
@@ -694,3 +701,5 @@
 - T-0044 开发/审计/复测阶段通过：Feynman 开发侧 `uv run pytest tests/test_ingest_api.py -q` 36 passed，`uv run pytest tests/test_ingest_api.py tests/test_config.py -q` 47 passed，ruff、format、mypy、diff check 通过；Meitner 审计无 P0/P1/P2；Descartes 使用真实本地 MySQL 8.0.42 临时实例、真实后端 `28147`、HTTP 与 DB 断言验证 trace `202/401/404/422` 边界、100 spans、stats kind 区分、metrics/events/logs 回归均通过，并清理自有资源。
 - T-0044 merge 后本地门禁通过：后端 `uv run pytest tests/test_config.py tests/test_ingest_api.py -q` 47 passed，前端 `npm.cmd run typecheck` 通过，`git diff --check` 通过；worktree 预检仅因 `dev` 尚未推送领先远端 2 个提交失败，根/前端/后端 worktree 均干净且无保护项问题。
 - T-0044 推送后 GitHub Actions run `27957299640` 通过：Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解。
+- T-0045 开发/审计/复测阶段通过：Halley 开发侧完成 trace 查询最小实现并提交 `a249fe7`；Heisenberg 审计无 P0/P1/P2，P3 契约状态文字滞后已由 Aristotle `c87a60f` 修复；James 使用本地 MySQL 8.0.42、真实 FastAPI 后端和 HTTP/DB 断言验证 trace ingest + query、筛选、cursor、`401/404/422` 和 metric 快速回归通过，并清理临时库和自有资源。
+- T-0045 merge 后本地门禁通过：后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q` 54 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；worktree 预检仅因 `dev` 尚未推送领先远端 3 个提交失败，根/前端/后端 worktree 均干净且无保护项问题。

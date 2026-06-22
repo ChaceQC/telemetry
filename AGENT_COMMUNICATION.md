@@ -72,6 +72,7 @@ closed      已关闭
 | T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | done |
 | T-0043 | 日志 request/user 字段过滤基础 | 总 agent | done | done | done | done | done |
 | T-0044 | Trace ingestion 最小后端基础 | 总 agent | todo | done | done | done | done |
+| T-0045 | Trace 查询最小后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -86,6 +87,7 @@ closed      已关闭
 | API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为指标样本列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0019 | 指标聚合窗口查询 | GET | `/api/v1/query/metrics/aggregate` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation` | 返回 `{ items }`；`items` 为按窗口聚合的指标点，包含 `window_start`、`window_end`、`name`、`source`、`aggregation`、`value`、`sample_count`、`unit` | 总 agent | done |
 | API-0020 | Trace 摄入 | POST | `/api/v1/ingest/traces` | 使用 `Authorization: Bearer <api_key>` 或 `X-API-Key`；请求体包含 `spans` 数组，每个 span 含 `trace_id`、`span_id`、`name`、`start_time`、可选 `end_time`、`duration_ms`、`parent_span_id`、`source`、`status`、`attributes`、`payload`，最多 100 spans，总体最大 256 KiB；顶层不得提交 `project_id` 覆盖归属 | 返回 `202` 与 accepted/rejected 统计；按 API Key 项目归属写入关系库 `ingest_records`，`kind=trace`，payload 保留 trace/span 关键字段、raw span 与业务 payload；本小步不接 ClickHouse、不提供 trace 查询/waterfall/拓扑 | 总 agent | done |
+| API-0021 | Trace 查询 | GET | `/api/v1/query/traces` | `project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数；`trace_id`/`span_id` trim 后空白按未传处理，超过 128 返回 `422` | 返回 `{ items, next_cursor }`；`items` 为 trace span 列表，展开 trace/span 关键字段、`attributes`、业务 `payload`、`occurred_at` 和 `received_at`；按用户项目权限过滤，当前来源为关系库 `ingest_records.kind=trace` | 总 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -371,6 +373,14 @@ closed      已关闭
 | 2026-06-22 | T-0044 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0044 后端合入 `dev`，merge 提交 `5188aef`；同步根、前端、后端版本到 `0.2.2`，并补根 README、计划书、正式 API 契约和进度记录。前端无功能改动，本轮不启动前端开发 agent；前端版本文件仅做项目总版本同步 | done |
 | 2026-06-22 | T-0044 | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_config.py tests/test_ingest_api.py -q` 47 passed；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 2 个提交失败，根/前端/后端 worktree 均干净且无保护项问题 | done |
 | 2026-06-22 | T-0044 | 总 agent | CI 通过 | 推送 `db1250a` 触发 GitHub Actions run `27957299640`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
+| 2026-06-22 | T-0044 | 总 agent | 最终 worktree 同步完成 | `feature/backend-dev` 与 `feature/frontend-dev` 已 fast-forward 到 `295ad18` 并推送；严格 worktree 体检通过，`dev`、前端、后端三棵 worktree 均干净且本地/远端一致 | done |
+| 2026-06-22 | T-0045 | 总 agent | 启动 Trace 查询最小后端基础 | 阶段 4 下一小步限定为后端 trace 查询最小基础：新增 `GET /api/v1/query/traces`，基于关系库 `ingest_records` 的 `kind=trace` 返回 span 列表和稳定分页，复用用户认证、项目权限、时间/source/name/trace_id/span_id 过滤和 cursor 签名；不接 ClickHouse，不做 waterfall、服务拓扑、跨信号关联或前端页面。开发 agent 使用 Windows 11/PowerShell、本地 MySQL、不启动 Docker，并保持 Debian 部署兼容性 | doing |
+| 2026-06-22 | T-0045 | 后端开发 agent Halley | Trace 查询后端实现完成 | Halley 提交并推送 `a249fe7` 到 `feature/backend-dev`：新增 `GET /api/v1/query/traces`，基于关系库 `ingest_records.kind=trace` 返回 span 列表，支持 `project_id`、`trace_id`、`span_id`、`name`、`source`、时间范围、`limit` 和 `cursor`，复用认证、项目权限、查询 envelope 与稳定 cursor；Halley 已关闭 | done |
+| 2026-06-22 | T-0045 | 代码审计 agent Heisenberg | Trace 查询后端审计通过 | Heisenberg 只读审计 `a249fe7` 未发现 P0/P1/P2；仅发现 P3 契约状态文字滞后，已转交文档修复；Heisenberg 已关闭 | done |
+| 2026-06-22 | T-0045 | 测试 agent James | Trace 查询真实 MySQL/真实后端验证通过 | James 使用本地 MySQL 8.0.42 实例 `127.0.0.1:33317`、临时库 `telemetry_t0045_trace_20260622` 和真实 FastAPI 后端 `127.0.0.1:28145` 验证 trace 摄入与查询、筛选、cursor、`401/404/422` 和 metric 快速回归通过；未启动 Docker，临时库和自有资源已清理；James 已关闭 | done |
+| 2026-06-22 | T-0045 | 文档修复 agent Aristotle | Trace 查询契约 P3 修复完成 | Aristotle 提交并推送 `c87a60f`，将 trace 查询契约状态和后端记录更新为已完成；Aristotle 已关闭 | done |
+| 2026-06-22 | T-0045 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 后端合入 `dev`，merge 提交 `2916df9`；本次同步根、前端、后端版本到 `0.2.3`，并补根 README、计划书、正式 API 契约和进度记录。前端无功能改动，前端版本文件仅做项目总版本同步 | done |
+| 2026-06-22 | T-0045 | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q` 54 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 3 个提交失败，根/前端/后端 worktree 均干净且无保护项问题 | done |
 
 ## 6. 测试记录
 
@@ -430,6 +440,8 @@ closed      已关闭
 | 2026-06-22 | T-0044 | Trace ingestion 真实 MySQL/真实后端验证 | Descartes；真实本地 MySQL 8.0.42 临时实例、真实 FastAPI 后端、HTTP 与 DB 断言 | 通过 | MySQL `upgrade head` 到 `20260622_0007`，确认 `ingest_records.kind=varchar(32)`、payload 为 JSON、组合索引存在；`GET /health` 返回 `0.2.2`；traces 有效 API Key `202`，缺失/无效/撤销 `401`，错项目 API Key revoke `404`，顶层 `project_id`、额外字段、101 spans、超 256 KiB、end 早于 start、时区混用、非有限数值均 `422`，100 spans 边界 `202`；metrics/events/logs 回归 `202`；DB 断言 trace payload/raw span 保留、项目归属正确、stats 按 kind 区分。未启动 Docker/前端/浏览器，已清理自有资源 |
 | 2026-06-22 | T-0044 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_ingest_api.py -q`；前端 `npm.cmd run typecheck`；`git diff --check`、worktree 体检 | 通过 | 后端 47 passed，1 条既有 Starlette/TestClient 上游弃用警告；前端 typecheck 通过；`git diff --check` 通过；worktree 体检仅因 `dev` 本地领先 `origin/dev` 2 个提交失败，待提交推送后复查 |
 | 2026-06-22 | T-0044 | CI | GitHub Actions run `27957299640` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
+| 2026-06-22 | T-0045 | Trace 查询真实 MySQL/真实后端验证 | James；本地 MySQL 8.0.42、真实 FastAPI 后端、HTTP 与 DB 断言 | 通过 | 使用本地 MySQL `127.0.0.1:33317` 和临时库 `telemetry_t0045_trace_20260622`，后端 `127.0.0.1:28145`；覆盖 trace ingest + query、`trace_id`/`span_id`/`name`/`source`/时间过滤、cursor、`401/404/422` 和 metric 快速回归；未启动 Docker，临时库和自有进程已清理 |
+| 2026-06-22 | T-0045 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q`、`uv lock --check`；前端 `npm.cmd run typecheck`；`git diff --check`、worktree 体检 | 通过 | 后端 54 passed，1 条既有 Starlette/TestClient 上游弃用警告；`uv lock --check` resolved 49 packages；前端 typecheck 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 本地领先 `origin/dev` 3 个提交失败，待提交推送后复查 |
 
 ## 7. 审计记录
 
@@ -463,6 +475,7 @@ closed      已关闭
 | 2026-06-22 | T-0043 | 后端 logs request/user 字段过滤 | 通过 | Wegener 只读审计 `ab95d34` 未发现 P0/P1/P2，原 JSON 类型守卫 P2 已关闭；确认 `request_id/user_id` 只查 `$.attributes.*`，不查业务 payload 同名字段；SQLite 与 MySQL/MariaDB supported paths 均有 JSON string/text 类型守卫和 SQL 编译断言。残余风险为完整测试与真实 MySQL/MariaDB 联测仍待测试 agent 覆盖 | done |
 | 2026-06-22 | T-0043 | 前端 logs Request ID / User ID 筛选 | 通过 | Volta 只读审计 `faef5c0` 未发现 P0/P1/P2/P3 阻断；确认 logs 专属 Request ID/User ID 参数、metrics/events 不误传、文档进度和最新 Windows/Edge/本地 MySQL/Debian 兼容规则未见阻断问题；Plato 已完成真实浏览器联测 | done |
 | 2026-06-22 | T-0044 | 后端 trace ingestion 最小基础 | 通过 | Meitner 只读审计 `f2c6c05` 未发现 P0/P1/P2；P3 为总集成时同步根版本/README，已在 `0.2.2` 同步中处理。残余风险为后续 ClickHouse/Redis/Trace 查询/waterfall/拓扑和大数据量执行计划 | done |
+| 2026-06-22 | T-0045 | 后端 trace 查询最小基础 | 通过 | Heisenberg 只读审计 `a249fe7` 未发现 P0/P1/P2；P3 契约状态文字滞后已由 Aristotle `c87a60f` 修复。残余风险为 ClickHouse trace 查询、trace tree/waterfall、服务拓扑、跨信号关联和大数据量执行计划后续接入 | done |
 
 ## 8. 阻塞问题
 
@@ -511,6 +524,7 @@ closed      已关闭
 | 2026-06-20 | T-0032 | feature/frontend-dev | dev | 总 agent | 查询页前端基础 `062f70e` 已按业务路径集成到 `dev`，集成提交 `8570b68` CI 通过；功能分支无 Actions run 已记录 | done |
 | 2026-06-20 | T-0033 | feature/frontend-dev | dev | 总 agent | 总览页摄入统计接入 `27574cf` 已按业务路径集成到 `dev`，集成提交 `76af25f` CI 通过；功能分支无 Actions run 已记录 | done |
 | 2026-06-22 | T-0044 | feature/backend-dev | dev | 总 agent | 后端 trace ingestion 最小基础 `f2c6c05` 已通过 Meitner 审计和 Descartes 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `5188aef`；版本同步到 `0.2.2` | done |
+| 2026-06-22 | T-0045 | feature/backend-dev | dev | 总 agent | 后端 trace 查询最小基础 `a249fe7` 与契约修复 `c87a60f` 已通过 Heisenberg 审计和 James 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `2916df9`；版本同步到 `0.2.3` | done |
 
 ## 10. 决策记录
 

@@ -1,6 +1,6 @@
 [project]
 name = "telemetry-backend"
-version = "0.2.2"
+version = "0.2.3"
 description = "遥测平台后端服务"
 readme = "README.md"
 requires-python = ">=3.12"
