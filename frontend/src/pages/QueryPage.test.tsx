@@ -16,6 +16,7 @@ import type { AuthContextValue } from '../features/auth/authContext';
 import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from '../features/query/queryFilters';
 import { buildLogContextQueryKey, buildSignalQueryKey } from '../features/query/querySession';
 import { buildTraceWaterfallGroups } from '../features/query/traceWaterfall';
+import { buildTraceWaterfallScopeKey } from '../features/query/traceWaterfallScope';
 import { QueryPage, TraceDetailPanel, TraceWaterfallView } from './QueryPage';
 
 const defaultLogParams = {
@@ -340,6 +341,35 @@ describe('QueryPage traces', () => {
     expect(html).toContain('aria-expanded="false"');
     expect(html).not.toContain('SELECT orders');
     expect(html).not.toContain('class="trace-span-row');
+  });
+
+  it('trace waterfall 展开状态 scope 覆盖分页、刷新、session 和筛选参数', () => {
+    const firstPageKey = buildTraceWaterfallScopeKey(1, 1, 0, {
+      ...buildQueryParams('traces', defaultFilters),
+      trace_id: 'trace-a'
+    });
+    const nextPageKey = buildTraceWaterfallScopeKey(1, 2, 0, {
+      ...buildQueryParams('traces', defaultFilters),
+      trace_id: 'trace-a',
+      cursor: 'trace-cursor-2'
+    });
+    const refreshedKey = buildTraceWaterfallScopeKey(1, 1, 1, {
+      ...buildQueryParams('traces', defaultFilters),
+      trace_id: 'trace-a'
+    });
+    const filteredKey = buildTraceWaterfallScopeKey(1, 1, 0, {
+      ...buildQueryParams('traces', defaultFilters),
+      trace_id: 'trace-b'
+    });
+    const nextSessionKey = buildTraceWaterfallScopeKey(2, 1, 0, {
+      ...buildQueryParams('traces', defaultFilters),
+      trace_id: 'trace-a'
+    });
+
+    expect(firstPageKey).not.toBe(nextPageKey);
+    expect(firstPageKey).not.toBe(refreshedKey);
+    expect(firstPageKey).not.toBe(filteredKey);
+    expect(firstPageKey).not.toBe(nextSessionKey);
   });
 });
 

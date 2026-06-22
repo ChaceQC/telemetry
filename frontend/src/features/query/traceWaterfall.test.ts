@@ -92,6 +92,31 @@ describe('trace waterfall model', () => {
     });
   });
 
+  it('异常 parent 关系不会让 self parent、环或重复 span_id 丢失展示', () => {
+    const [group] = buildTraceWaterfallGroups([
+      span({ id: 1, span_id: 'self-parent', parent_span_id: 'self-parent', name: 'self parent' }),
+      span({ id: 2, span_id: 'cycle-a', parent_span_id: 'cycle-b', name: 'cycle a' }),
+      span({ id: 3, span_id: 'cycle-b', parent_span_id: 'cycle-a', name: 'cycle b' }),
+      span({ id: 4, span_id: 'duplicate', parent_span_id: null, name: 'first duplicate' }),
+      span({ id: 5, span_id: 'duplicate', parent_span_id: 'missing-duplicate-parent', name: 'second duplicate' })
+    ]);
+
+    expect(group.spanCount).toBe(5);
+    expect(group.orphanCount).toBe(4);
+    expect(group.rootCount).toBe(5);
+    expect(group.spans.map((item) => `${item.depth}:${item.item.id}:${item.item.span_id}`)).toEqual([
+      '0:1:self-parent',
+      '0:2:cycle-a',
+      '0:3:cycle-b',
+      '0:4:duplicate',
+      '0:5:duplicate'
+    ]);
+    expect(group.spans.find((item) => item.item.span_id === 'self-parent')).toMatchObject({
+      depth: 0,
+      isOrphan: true
+    });
+  });
+
   it('处理缺失 duration、0 duration、乱序、同起点和长 duration 的 waterfall 布局', () => {
     const [group] = buildTraceWaterfallGroups([
       span({

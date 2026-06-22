@@ -65,6 +65,7 @@ import {
   type TraceWaterfallGroup,
   type TraceWaterfallSpan
 } from '../features/query/traceWaterfall';
+import { buildTraceWaterfallScopeKey } from '../features/query/traceWaterfallScope';
 
 type QueryRecord = MetricQueryItem | LogQueryItem | TraceQueryItem | EventQueryItem;
 
@@ -171,6 +172,10 @@ export function QueryPage({ signal }: QueryPageProps) {
   const hasAggregateError = canQuery && signal === 'metrics' && aggregateQuery.isError;
   const metricTrend = signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null;
   const traceGroups = signal === 'traces' ? buildTraceWaterfallGroups(records as TraceQueryItem[]) : [];
+  const traceWaterfallScopeKey =
+    signal === 'traces'
+      ? buildTraceWaterfallScopeKey(auth.sessionRevision, pageNumber, pagination.version, params)
+      : 'traces-idle';
   const isFetching = query.isFetching || (signal === 'metrics' && aggregateQuery.isFetching);
   const isInitialLoading = canQuery && query.isFetching && !visibleData && !hasQueryError;
   const badgeTone = !canQuery ? 'warning' : query.isError || aggregateQuery.isError ? 'danger' : isFetching ? 'warning' : 'success';
@@ -513,7 +518,7 @@ export function QueryPage({ signal }: QueryPageProps) {
         ) : null}
 
         {!hasQueryError && hasRecords && signal === 'traces' ? (
-          <TraceWaterfallView groups={traceGroups} canQuery={canQuery} />
+          <TraceWaterfallView groups={traceGroups} canQuery={canQuery} scopeKey={traceWaterfallScopeKey} />
         ) : null}
 
         {!hasQueryError && hasRecords && signal !== 'events' && signal !== 'traces' ? (
@@ -797,17 +802,24 @@ function LogContextGroup({
 export function TraceWaterfallView({
   groups,
   canQuery,
-  defaultExpanded = true
+  defaultExpanded = true,
+  scopeKey = 'default'
 }: {
   groups: TraceWaterfallGroup[];
   canQuery: boolean;
   defaultExpanded?: boolean;
+  scopeKey?: string;
 }) {
   return (
     <ol className="trace-waterfall-list" aria-label="Trace waterfall">
       {groups.map((group) => (
         <li key={`trace-group-${group.traceId}`}>
-          <TraceWaterfallGroupView group={group} canQuery={canQuery} defaultExpanded={defaultExpanded} />
+          <TraceWaterfallGroupView
+            key={`trace-group-view-${scopeKey}-${group.traceId}`}
+            group={group}
+            canQuery={canQuery}
+            defaultExpanded={defaultExpanded}
+          />
         </li>
       ))}
     </ol>

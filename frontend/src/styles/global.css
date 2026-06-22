@@ -1948,6 +1948,34 @@ h2 {
   }
 }
 
+@media (max-width: 720px) {
+  .trace-waterfall-heading,
+  .trace-waterfall-summary,
+  .trace-span-main,
+  .trace-span-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trace-waterfall-summary,
+  .trace-span-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .trace-span-content {
+    grid-template-columns: 1fr;
+  }
+
+  .trace-waterfall-scale {
+    padding-left: 0;
+  }
+
+  .trace-waterfall-track {
+    height: 34px;
+  }
+}
+
 @media (max-width: 560px) {
   .navigation {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2023,11 +2051,6 @@ h2 {
   .query-record-main,
   .event-timeline-main,
   .query-record-actions,
-  .trace-waterfall-heading,
-  .trace-waterfall-summary,
-  .trace-span-content,
-  .trace-span-main,
-  .trace-span-actions,
   .log-context-toolbar,
   .log-context-controls,
   .log-context-line-main {
@@ -2037,24 +2060,6 @@ h2 {
 
   .query-record-actions {
     justify-content: flex-start;
-  }
-
-  .trace-waterfall-summary,
-  .trace-span-actions {
-    align-items: flex-start;
-    justify-content: flex-start;
-  }
-
-  .trace-span-content {
-    grid-template-columns: 1fr;
-  }
-
-  .trace-waterfall-scale {
-    padding-left: 0;
-  }
-
-  .trace-waterfall-track {
-    height: 34px;
   }
 
   .event-timeline {
