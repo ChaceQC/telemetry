@@ -5,7 +5,7 @@ from datetime import datetime
 from numbers import Real
 from typing import Any, Protocol
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, String, and_, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.ingest import IngestRecordModel
@@ -81,6 +81,7 @@ class QueryRepository(Protocol):
         project_id: int | None,
         level: str | None,
         source: str | None,
+        keyword: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -213,6 +214,28 @@ def _apply_common_filters(
     return statement
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _apply_log_keyword_filter(
+    statement: Select[tuple[IngestRecordModel]],
+    keyword: str | None,
+) -> Select[tuple[IngestRecordModel]]:
+    if keyword is None:
+        return statement
+
+    pattern = f"%{_escape_like(keyword)}%"
+    payload_text = cast(IngestRecordModel.payload, String)
+    message_text = cast(IngestRecordModel.payload["message"].as_string(), String)
+    return statement.where(
+        or_(
+            message_text.ilike(pattern, escape="\\"),
+            payload_text.ilike(pattern, escape="\\"),
+        )
+    )
+
+
 class SqlAlchemyQueryRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -260,6 +283,7 @@ class SqlAlchemyQueryRepository:
         project_id: int | None,
         level: str | None,
         source: str | None,
+        keyword: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -282,6 +306,7 @@ class SqlAlchemyQueryRepository:
         )
         if level is not None:
             statement = statement.where(IngestRecordModel.event_type == level)
+        statement = _apply_log_keyword_filter(statement, keyword)
 
         statement = statement.order_by(
             IngestRecordModel.received_at.desc(),

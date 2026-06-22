@@ -2,6 +2,30 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0039 日志关键词搜索基础
+
+### 已完成
+
+- 为 `GET /api/v1/query/logs` 新增可选查询参数 `keyword`，沿用用户 Bearer token 鉴权、项目权限过滤、`project_id`、`level`、`source`、`occurred_from/to` 和游标分页约束。
+- `keyword` 进入服务层后会去除前后空白，空白字符串按未传处理；非空关键词参与日志查询游标签名，筛选条件变化后复用旧 cursor 会返回既有 `422 cursor 无效或不匹配当前查询`。
+- 在关系库 `ingest_records` 的 `kind=log` 查询上实现基础关键词搜索：匹配日志 `message`，并覆盖日志 JSON `payload` 文本中的基础字段；未引入 ClickHouse、全文索引或新外部服务。
+- 扩展 `backend/tests/test_query_api.py`，覆盖 keyword 命中 message、命中 payload JSON 文本、不命中排除、与 level/source/time/project 权限叠加、分页 cursor 与 keyword 不匹配返回 `422`。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，同步 API-0015 的 `keyword` 参数、游标签名边界和当前验证边界。
+
+### 阻塞与风险
+
+- 本轮关键词搜索仍基于关系库 JSON 文本 `LIKE` 匹配，适合作为基础能力；真实 MySQL 大数据量性能、排序分页执行计划、大小写/字符集匹配细节和未来 ClickHouse/全文搜索链路仍需后续专项验证。
+- 未做完整前后端联测；未启动后端服务、数据库容器或后台进程。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：20 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff format .`，结果：1 个测试文件格式化，77 个文件未变化。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run mypy .`，结果：78 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+- 已运行 `uv run pytest`，结果：127 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+
 ## 2026-06-22 T-0038 审计 P2 日志上下文索引修复
 
 ### 已完成
