@@ -2,6 +2,34 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0040 Events 时间线展示基础
+
+- task: T-0040
+- owner: frontend-agent
+- scope: `/events` 查询页将当前结果列表增强为事件时间线展示。
+- status: frontend-ready
+
+### API 契约影响
+
+- 不新增后端接口、请求参数或响应 envelope。
+- 继续使用既有 `GET /api/v1/query/events`。
+- request query: 保留现有 `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit` 和 `cursor`。
+- response body: 不变，继续使用查询 envelope。
+
+```json
+{
+  "items": [],
+  "next_cursor": null
+}
+```
+
+- event item fields: 前端仅使用现有 `id`、`project_id`、`type`、`source`、`payload`、`occurred_at`、`received_at`。
+- frontend behavior:
+  - `/events` 结果区展示为当前页事件时间线，保留 API 返回顺序，不在前端重新排序，也不重新解释分页语义。
+  - 每条事件展示事件类型、source、occurred/received 时间、项目 ID、事件 ID、payload 摘要和可展开 JSON 预览；`occurred_at` 缺失时展示 `received_at` 作为 occurred fallback。
+  - `/metrics` 和 `/logs` 保持现有结果列表展示；`/metrics` 当前页趋势图和 `/logs` 上下文面板不受影响。
+  - 筛选、刷新、分页、错误/空态和登录保护逻辑不变。
+
 ## 2026-06-22 T-0039 日志关键词搜索基础前端
 
 - task: T-0039

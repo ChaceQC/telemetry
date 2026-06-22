@@ -36,6 +36,7 @@ import { formatApiErrorMessage } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
+import { summarizeEventPayload } from '../features/query/eventTimeline';
 import { buildQueryParams, defaultFilters, type QueryFilters, type QuerySignal } from '../features/query/queryFilters';
 import {
   buildLogContextQueryKey,
@@ -298,7 +299,7 @@ export function QueryPage({ signal }: QueryPageProps) {
       <section className="query-results" aria-label="查询结果">
         <div className="section-heading">
           <div>
-            <h2>结果列表</h2>
+            <h2>{signal === 'events' ? '事件时间线' : '结果列表'}</h2>
             <p>{visibleData ? formatResultSummary(pageNumber, records.length) : '等待查询结果'}</p>
           </div>
           <StatusBadge tone={hasRecords ? 'success' : 'neutral'}>
@@ -328,7 +329,11 @@ export function QueryPage({ signal }: QueryPageProps) {
 
         {!hasQueryError && hasRecords && signal === 'metrics' ? <MetricTrend trend={metricTrend} /> : null}
 
-        {!hasQueryError && hasRecords ? (
+        {!hasQueryError && hasRecords && signal === 'events' ? (
+          <EventTimeline events={records as EventQueryItem[]} />
+        ) : null}
+
+        {!hasQueryError && hasRecords && signal !== 'events' ? (
           <ol className="query-list">
             {records.map((item) => (
               <li key={`${signal}-${item.id}`}>{renderRecord(signal, item, canQuery, auth.sessionRevision)}</li>
@@ -352,6 +357,63 @@ export function QueryPage({ signal }: QueryPageProps) {
         ) : null}
       </section>
     </div>
+  );
+}
+
+function EventTimeline({ events }: { events: EventQueryItem[] }) {
+  return (
+    <ol className="event-timeline" aria-label="事件时间线">
+      {events.map((event) => (
+        <li key={`event-${event.id}`} className="event-timeline-item">
+          <div className="event-timeline-marker" aria-hidden="true">
+            <span />
+          </div>
+          <article className="event-timeline-body" aria-label={`事件 ${event.type}`}>
+            <div className="event-timeline-main">
+              <div>
+                <strong>{event.type}</strong>
+                <span>{event.source || '未标记来源'}</span>
+              </div>
+              <StatusBadge tone="neutral">{`#${event.id}`}</StatusBadge>
+            </div>
+
+            <dl className="event-timeline-meta">
+              <div>
+                <dt>Occurred</dt>
+                <dd>
+                  <time dateTime={event.occurred_at ?? event.received_at}>
+                    {formatTime(event.occurred_at ?? event.received_at)}
+                  </time>
+                  {!event.occurred_at ? <span>使用 received</span> : null}
+                </dd>
+              </div>
+              <div>
+                <dt>Received</dt>
+                <dd>
+                  <time dateTime={event.received_at}>{formatTime(event.received_at)}</time>
+                </dd>
+              </div>
+              <div>
+                <dt>Project</dt>
+                <dd>{event.project_id}</dd>
+              </div>
+              <div>
+                <dt>Source</dt>
+                <dd>{event.source || '未标记来源'}</dd>
+              </div>
+            </dl>
+
+            <details className="event-payload-preview">
+              <summary>
+                <span>payload 摘要</span>
+                <strong>{summarizeEventPayload(event.payload)}</strong>
+              </summary>
+              <pre>{JSON.stringify(event.payload, null, 2)}</pre>
+            </details>
+          </article>
+        </li>
+      ))}
+    </ol>
   );
 }
 
