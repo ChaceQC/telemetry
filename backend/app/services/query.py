@@ -25,6 +25,10 @@ class QueryCursorError(Exception):
     """查询游标无效或不适用于当前查询。"""
 
 
+class QueryFilterError(Exception):
+    """查询筛选参数无效。"""
+
+
 @dataclass(frozen=True)
 class QueryPage[QueryRecordT: (EventQueryRecord, LogQueryRecord, MetricQueryRecord)]:
     items: list[QueryRecordT]
@@ -89,6 +93,8 @@ class QueryService:
         level: str | None,
         source: str | None,
         keyword: str | None,
+        trace_id: str | None,
+        span_id: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -96,11 +102,23 @@ class QueryService:
     ) -> QueryPage[LogQueryRecord]:
         accessible_project_ids = self._accessible_project_ids(user, project_id)
         normalized_keyword = _normalize_keyword(keyword)
+        normalized_trace_id = _normalize_optional_text(
+            trace_id,
+            field_name="trace_id",
+            max_length=128,
+        )
+        normalized_span_id = _normalize_optional_text(
+            span_id,
+            field_name="span_id",
+            max_length=128,
+        )
         query = _query_signature(
             project_id=project_id,
             level=level,
             source=source,
             keyword=normalized_keyword,
+            trace_id=normalized_trace_id,
+            span_id=normalized_span_id,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
         )
@@ -112,6 +130,8 @@ class QueryService:
             level=level,
             source=source,
             keyword=normalized_keyword,
+            trace_id=normalized_trace_id,
+            span_id=normalized_span_id,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
             limit=limit + 1,
@@ -197,11 +217,23 @@ def _query_signature(**values: int | str | datetime | None) -> dict[str, int | s
     }
 
 
-def _normalize_keyword(value: str | None) -> str | None:
+def _normalize_optional_text(
+    value: str | None,
+    *,
+    field_name: str | None = None,
+    max_length: int | None = None,
+) -> str | None:
     if value is None:
         return None
-    keyword = value.strip()
-    return keyword or None
+    normalized = value.strip()
+    if max_length is not None and len(normalized) > max_length:
+        name = field_name or "查询参数"
+        raise QueryFilterError(f"{name} 长度不能超过 {max_length}")
+    return normalized or None
+
+
+def _normalize_keyword(value: str | None) -> str | None:
+    return _normalize_optional_text(value)
 
 
 def _decode_cursor(

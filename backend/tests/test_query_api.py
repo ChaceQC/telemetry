@@ -537,6 +537,251 @@ def test_query_logs_keyword_combines_with_filters_and_project_permissions() -> N
     assert unauthorized_project_response.json()["detail"] == "项目不存在"
 
 
+def test_query_logs_trace_and_span_filter_exact_structured_fields() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-trace-owner",
+        project_key="query-log-trace-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "trace span target",
+                    "source": "api",
+                    "trace_id": "trace-a",
+                    "span_id": "span-a",
+                    "payload": {
+                        "trace_id": "payload-shadow-trace",
+                        "span_id": "payload-shadow-span",
+                    },
+                },
+                {
+                    "level": "info",
+                    "message": "same trace different span",
+                    "source": "api",
+                    "trace_id": "trace-a",
+                    "span_id": "span-b",
+                },
+                {
+                    "level": "info",
+                    "message": "same span different trace",
+                    "source": "api",
+                    "trace_id": "trace-b",
+                    "span_id": "span-a",
+                },
+                {
+                    "level": "info",
+                    "message": "business payload only",
+                    "source": "api",
+                    "payload": {"trace_id": "trace-a", "span_id": "span-a"},
+                },
+            ]
+        },
+    )
+    trace_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": "  trace-a  "},
+    )
+    span_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "span_id": "span-a"},
+    )
+    combined_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "trace-a",
+            "span_id": "  span-a  ",
+        },
+    )
+    business_payload_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "payload-shadow-trace",
+            "span_id": "payload-shadow-span",
+        },
+    )
+    blank_trace_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": "   "},
+    )
+
+    assert ingest_response.status_code == 202
+    assert trace_response.status_code == 200
+    assert sorted(log["message"] for log in trace_response.json()["items"]) == [
+        "same trace different span",
+        "trace span target",
+    ]
+    assert span_response.status_code == 200
+    assert sorted(log["message"] for log in span_response.json()["items"]) == [
+        "same span different trace",
+        "trace span target",
+    ]
+    assert combined_response.status_code == 200
+    assert [log["message"] for log in combined_response.json()["items"]] == ["trace span target"]
+    assert business_payload_response.status_code == 200
+    assert business_payload_response.json() == {"items": [], "next_cursor": None}
+    assert blank_trace_response.status_code == 200
+    assert len(blank_trace_response.json()["items"]) == 4
+
+
+def test_query_logs_trace_and_span_validate_trimmed_length() -> None:
+    client = build_client()
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-trace-length-owner",
+        project_key="query-log-trace-length-project",
+    )
+
+    valid_trace_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": f"  {'t' * 128}  "},
+    )
+    long_trace_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "trace_id": "t" * 129},
+    )
+    long_span_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "span_id": "s" * 129},
+    )
+
+    assert valid_trace_response.status_code == 200
+    assert long_trace_response.status_code == 422
+    assert long_trace_response.json()["detail"] == "trace_id 长度不能超过 128"
+    assert long_span_response.status_code == 422
+    assert long_span_response.json()["detail"] == "span_id 长度不能超过 128"
+
+
+def test_query_logs_trace_span_combines_with_keyword_filters_and_permissions() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-structured-filter-owner",
+        project_key="query-log-structured-filter-project",
+    )
+    other_project, other_key, _other_headers = create_ingest_api_key(
+        client,
+        username="query-log-structured-filter-other",
+        project_key="query-log-structured-filter-other-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "needle structured target",
+                    "source": "api",
+                    "trace_id": "combo-trace",
+                    "span_id": "combo-span",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "structured target without keyword",
+                    "source": "api",
+                    "trace_id": "combo-trace",
+                    "span_id": "combo-span",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "needle wrong level",
+                    "source": "api",
+                    "trace_id": "combo-trace",
+                    "span_id": "combo-span",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "needle wrong source",
+                    "source": "worker",
+                    "trace_id": "combo-trace",
+                    "span_id": "combo-span",
+                    "timestamp": "2026-06-20T10:03:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "needle wrong trace",
+                    "source": "api",
+                    "trace_id": "other-trace",
+                    "span_id": "combo-span",
+                    "timestamp": "2026-06-20T10:04:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "needle wrong span",
+                    "source": "api",
+                    "trace_id": "combo-trace",
+                    "span_id": "other-span",
+                    "timestamp": "2026-06-20T10:05:00Z",
+                },
+            ]
+        },
+    )
+    other_ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {other_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "needle other project structured target",
+                    "source": "api",
+                    "trace_id": "combo-trace",
+                    "span_id": "combo-span",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                }
+            ]
+        },
+    )
+    filtered_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "keyword": "needle",
+            "level": "error",
+            "source": "api",
+            "trace_id": "combo-trace",
+            "span_id": "combo-span",
+        },
+    )
+    unauthorized_project_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": other_project["id"], "trace_id": "combo-trace"},
+    )
+
+    assert project["id"] != other_project["id"]
+    assert ingest_response.status_code == 202
+    assert other_ingest_response.status_code == 202
+    assert filtered_response.status_code == 200
+    filtered_logs = filtered_response.json()["items"]
+    assert [log["message"] for log in filtered_logs] == ["needle structured target"]
+    assert filtered_logs[0]["project_id"] == project["id"]
+    assert unauthorized_project_response.status_code == 404
+    assert unauthorized_project_response.json()["detail"] == "项目不存在"
+
+
 def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -910,6 +1155,108 @@ def test_query_logs_cursor_rejects_keyword_mismatch() -> None:
     assert [log["message"] for log in second_response.json()["items"]] == ["cursor-keyword log-a"]
     assert mismatched_keyword_response.status_code == 422
     assert mismatched_keyword_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+
+
+def test_query_logs_cursor_rejects_trace_span_mismatch() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-trace-page-owner",
+        project_key="query-log-trace-page-project",
+    )
+    received_at = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "cursor trace log-a",
+                    "trace_id": "cursor-trace",
+                    "span_id": "cursor-span",
+                },
+                {
+                    "level": "info",
+                    "message": "cursor trace log-b",
+                    "trace_id": "cursor-trace",
+                    "span_id": "cursor-span",
+                },
+                {
+                    "level": "info",
+                    "message": "cursor trace log-c",
+                    "trace_id": "cursor-trace",
+                    "span_id": "cursor-span",
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_ingest_records_received_at(
+        client,
+        project_id=project["id"],
+        kind=IngestKind.log,
+        received_at=received_at,
+    )
+
+    first_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "span_id": "cursor-span",
+            "limit": 2,
+        },
+    )
+    first_body = first_response.json()
+    second_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "span_id": "cursor-span",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_trace_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "other-trace",
+            "span_id": "cursor-span",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_span_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "span_id": "other-span",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert [log["message"] for log in first_body["items"]] == [
+        "cursor trace log-c",
+        "cursor trace log-b",
+    ]
+    assert isinstance(first_body["next_cursor"], str)
+    assert second_response.status_code == 200
+    assert [log["message"] for log in second_response.json()["items"]] == ["cursor trace log-a"]
+    assert mismatched_trace_response.status_code == 422
+    assert mismatched_trace_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+    assert mismatched_span_response.status_code == 422
+    assert mismatched_span_response.json()["detail"] == "cursor 无效或不匹配当前查询"
 
 
 def test_query_log_context_returns_target_and_neighbors_in_time_order() -> None:
