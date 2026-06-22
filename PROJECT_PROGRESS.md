@@ -640,7 +640,9 @@
 - T-0045 与 T-0045-fix 已完成实现、审计、真实 merge、CI 和真实前后端联合测试重跑；`dev`、`feature/backend-dev`、`feature/frontend-dev` 已同步到 `01813d3` 并通过严格 worktree 体检。
 - Agent 本地开发约束已补充并提交 `7ffc625`：所有 agent 文档明确 Windows 11/PowerShell、Playwright + Microsoft Edge、本地不启动 Docker、本地 MySQL、Debian 部署兼容、不频繁干扰子 agent 和 xhigh 启动边界；`dev`、`feature/frontend-dev`、`feature/backend-dev` 已同步到该基线。
 - T-0046 已登记为阶段 4 下一小步：前端 `/traces` 查询页基础，消费现有 `GET /api/v1/query/traces`，先实现筛选、列表、分页和基础 span 详情展开。
+- T-0046 前端开发已完成：`ed9e7b9` 已推送到 `feature/frontend-dev`，`/traces` 接入真实 trace 查询页面，前端版本提升到 `0.2.4`；等待代码审计与后续真实前后端联合测试。
 - T-0047 已登记为阶段 4 后端并行小步：为 `GET /api/v1/query/traces` 增加可选 `status_code`、`duration_min_ms`、`duration_max_ms` 过滤，支撑后续错误 trace 和慢 trace 查询；不改变响应 envelope，不做前端接入。
+- T-0047 后端开发和审计已完成：`844bfdc` 已推送到 `feature/backend-dev`，后端版本提升到 `0.2.4`；代码审计未发现 P0/P1/P2，仅保留 duration JSON 脏数据类型 coercion 的 P3 后续风险。
 
 ### 阻塞与风险
 
@@ -713,3 +715,5 @@
 - T-0045-fix 推送后 GitHub Actions run `27969246519` 通过：Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解。
 - T-0045-fix 真实前后端联合测试重跑通过：Boole the 2nd 使用自有临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端和 Playwright + Microsoft Edge，在 `c96ca3b` 上确认 Alembic head `20260622_0008`、MySQL 微秒时间列/default、trace 不存在项目 `404`、毫秒边界过滤、trace cursor/错误边界、metrics/logs/events 快速回归和前端 `/` `/metrics` `/logs` `/events` `/traces` 回归均通过；`/traces` 仍为占位页，按当前范围预期。Boole the 2nd 已清理自有资源并关闭。
 - Agent 本地开发约束提交 `7ffc625` 推送后 GitHub Actions 均通过：`dev` run `27979229909`、`feature/frontend-dev` run `27979246288`、`feature/backend-dev` run `27979248451` 均为 success，Frontend checks 与 Backend checks 均通过。
+- T-0047 后端开发侧验证通过：`pytest tests/test_query_api.py tests/test_config.py -q`、ruff、format check、mypy、`git diff --check` 通过；测试 agent Lagrange the 2nd 完成 trace 专项、config、排除 Docker compose 静态测试的 pytest、ruff、format、mypy 复验，未启动 Docker/MySQL/服务/浏览器。
+- T-0046 前端开发侧验证通过：targeted Vitest 3 files/22 tests、typecheck、lint、全量 Vitest 13 files/65 tests、build、diff check 通过；开发 agent 用 Playwright CLI + Microsoft Edge 冒烟 `/traces` 未登录态并清理自有 Vite PID/浏览器；测试 agent Kant the 2nd 完成前端专项复验，浏览器冒烟因外层超时未形成有效结论。
