@@ -683,7 +683,7 @@ h2 {
 
 .query-form {
   display: grid;
-  grid-template-columns: repeat(6, minmax(120px, 1fr)) 118px;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   gap: 12px;
   align-items: end;
 }

@@ -2,6 +2,30 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0039 日志关键词搜索基础前端
+
+### 已完成
+
+- 更新查询 API client：`LogQueryParams` 新增可选 `keyword`，`listLogs` 会把非空 keyword 编入 `GET /api/v1/query/logs` 查询参数；metrics/events client 保持白名单参数，不透传误传的 keyword。
+- 更新 `/logs` 查询表单：新增“关键词”输入，沿用现有 signal scoped filter 状态；`/metrics` 与 `/events` 不显示关键词字段。
+- 将查询筛选参数构建抽到 `frontend/src/features/query/queryFilters.ts`，提交筛选或刷新时继续以无 cursor 参数回到第一页，下一页请求携带当前筛选和 `next_cursor`。
+- 更新 `frontend/src/styles/global.css`，让查询表单在 logs 多一个筛选字段时按现有样式自适应排列。
+- 更新 `frontend/README.md` 与 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0039 keyword 请求参数、只影响 logs 的边界和分页行为。
+
+### 阻塞与风险
+
+- 本轮不做完整前后端联测，不启动真实后端、dev server 或浏览器。
+- 页面交互层当前没有 jsdom/testing-library 基础；关键词填写后的参数和 cursor 重置通过筛选构建单元测试与 API URL 测试覆盖。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx` 通过（3 个测试文件、12 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（12 个测试文件、52 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-22 T-0038 审计 P2 日志上下文会话隔离修复
 
 ### 已完成
