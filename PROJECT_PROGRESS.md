@@ -592,11 +592,15 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0040 前端合入 `dev`，merge 提交 `e6d2d73`；本小步不改后端 API/DB schema，根、前端、后端 VERSION 继续保持 `0.2.1`。merge 后前端专项、lint、全量测试、typecheck、build 和 `git diff --check` 已通过，worktree 预检仅因 `dev` 尚未推送领先远端 2 个提交失败。
 - T-0040 记录提交 `0fe3550` 已推送，GitHub Actions run `27935754921` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `0fe3550` 并推送，严格 worktree 体检通过。
 - 已启动真实前后端联合测试 agent Popper，要求使用真实后端、真实前端和真实数据库覆盖当前阶段查询页路径，并只清理自己启动和记录的资源。
+- Popper 在 `dev`/`origin/dev` `62e6b7f` 上完成真实前后端联合测试：自有临时 MySQL 8 `23317`、真实后端 `28117`、真实前端 `25173` 和浏览器均通过，覆盖健康检查、登录、项目/环境/服务/API Key、metrics/logs/events 上报、metrics 趋势图、logs keyword/context、events 时间线 payload 展开、未认证保护和登出状态清理；已清理自己启动的服务、进程、临时库和 datadir，证据目录 `agents/runtime/e2e-20260622/` 保留为本地 ignored 运行产物，不提交。
 - 已登记 `T-0041` 阶段 3 日志结构化字段过滤基础任务：后端为 `GET /api/v1/query/logs` 增加 `trace_id`、`span_id` 可选查询参数并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Trace ID / Span ID 输入并接入 API client。本小步不把 `request_id` 纳入契约，避免与业务 payload 搜索混淆。
+- T-0041 前后端开发 agents 已完成并关闭：后端 Archimedes 提交并推送 `48b7a24`，新增 logs `trace_id`/`span_id` 参数、规范化、顶层结构化字段精确过滤、cursor 签名和测试；前端 Hubble 提交并推送 `be8ab10`，新增 `/logs` Trace ID / Span ID 表单、参数构建/API 透传和测试。
+- T-0041 审计/局部测试 agents 已完成并关闭：Zeno/Poincare 审计均无 P0/P1/P2；Boyle 后端复验 trace/keyword/cursor 专项、query API 全量、ruff、format、mypy 和 diff check 通过；Kepler 前端复验 API/filter/page 专项、lint、全量测试、typecheck、build 和 diff check 通过。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`。
 
 ### 进行中
 
-- Popper 正在执行真实前后端联合测试；开发侧并行推进 T-0041，前后端 agents 分别在独立 worktree 工作，开发 agent 不做完整联测。
+- T-0041 已真实 merge 到 `dev`，正在补根记录；随后推送 `dev`、读取 CI、fast-forward 同步前后端 feature 分支，并启动新的真实前后端联合测试 agent 覆盖 `trace_id`/`span_id` 查询路径。
 
 ### 阻塞与风险
 
@@ -609,10 +613,12 @@
 - T-0039 先做关系库 `ingest_records` 的最小关键词匹配，不接 ClickHouse 全文检索；MySQL 当前通过 `JSON_SEARCH` 覆盖业务 payload 字符串值，非字符串 JSON 标量和大数据量性能需后续真实库专项补验。
 - T-0040 只做前端 Events 时间线基础展示，不改后端查询契约；真实后端/真实数据库/浏览器端的 events 时间线联合路径仍需由后续测试 agent 覆盖。
 - T-0041 只过滤 logs 顶层结构化字段 `trace_id` 与 `span_id`，不做任意 JSON 字段过滤、不做 `request_id` payload 查询、不接 ClickHouse；后续可单独设计字段过滤 DSL 或白名单 payload key 查询。
+- Popper 发现一个非阻断回归候选：登录后如果直接硬刷新 `/settings`，会话恢复期间 Settings 项目/环境/服务请求可能先以未认证状态发出并返回 `401`；SPA 侧边栏导航路径正常，后续可单独拆分会话恢复 gating 修复。
+- T-0041 新增过滤当前只经 SQLite 单元路径和静态 MySQL SQL 编译间接覆盖；真实 MySQL 上 `trace_id`/`span_id` 精确查询执行语义和浏览器翻页体验需由合并后真实联测补齐。
 
 ### 下一步
 
-- 前后端开发 agents 完成 T-0041 后，启动代码审计 agents 与测试 agents 做局部复验；若无 P0/P1/P2，再使用真实 `git merge` 将 feature 分支合入 `dev`，推送后读取 CI 并同步 feature 分支。
+- 推送 T-0041 merge 与记录提交，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检；随后启动真实前后端联合测试 agent，使用真实后端、真实前端和真实数据库覆盖 logs `trace_id`/`span_id` 查询、翻页和 UI 表单路径。
 
 ### 验证
 
@@ -641,3 +647,6 @@
 - T-0040 前端开发/审计/复测阶段通过：专项 `npm.cmd run test -- src/features/query/eventTimeline.test.ts src/pages/QueryPage.test.tsx` 2 个文件 7 tests passed，`npm.cmd run lint`、`npm.cmd run test`（13 个测试文件、57 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过；Newton 审计无 P0/P1/P2。
 - T-0040 merge 到 `dev` 后本地验证通过：前端 eventTimeline/page 专项 7 passed，`npm.cmd run lint`、`npm.cmd run test`（13 个测试文件、57 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 2 个提交失败。
 - T-0040 push 后 GitHub Actions run `27935754921` 通过：Backend checks 与 Frontend checks 均为 success；随后 `feature/frontend-dev`、`feature/backend-dev` 与 `dev` 均同步到 `0fe3550`，严格 worktree 体检通过。
+- Popper 真实前后端联合测试通过：在 `62e6b7f` 上启动自有临时 MySQL 8 `23317`、真实后端 `28117`、真实前端 `25173` 和浏览器；健康检查版本 `0.2.1`、登录、管理链路、API Key、metrics/logs/events 上报、metrics 趋势图、logs keyword/context、events timeline/payload 展开、未认证保护和登出状态清理均通过；测试 agent 已清理自己启动资源。
+- T-0041 后端开发/审计/复测阶段通过：Archimedes 开发侧 `uv run pytest tests/test_query_api.py -k "trace or keyword or cursor"` 13 passed、query API 26 passed、ruff、format、mypy、diff check 通过；Zeno 审计无 P0/P1/P2；Boyle 复验 trace/keyword/cursor 专项 14 passed/12 deselected、query API 26 passed、ruff、format、mypy、diff check 通过。
+- T-0041 前端开发/审计/复测阶段通过：Hubble 开发侧 API/filter/page 专项、typecheck、lint、全量测试、build、diff check 通过；Poincare 审计无 P0/P1/P2；Kepler 复验 API/filter/page 专项 3 files/14 tests、lint、全量测试 13 files/57 tests、typecheck、build、diff check 通过。

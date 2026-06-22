@@ -66,6 +66,7 @@ backups/
 logs/
 *.log
 agents/runtime/*.log.md
+agents/runtime/e2e-*/
 
 # IDE and OS
 .idea/

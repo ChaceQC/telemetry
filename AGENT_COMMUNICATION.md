@@ -68,7 +68,7 @@ closed      已关闭
 | T-0038 | 日志上下文增强 | 总 agent | done | done | done | done | done |
 | T-0039 | 日志关键词搜索基础 | 总 agent | done | done | done | done | done |
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
-| T-0041 | 日志结构化字段过滤基础 | 总 agent | doing | doing | todo | todo | doing |
+| T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -79,7 +79,7 @@ closed      已关闭
 | API-0003 | 环境管理 | GET/POST | `/api/v1/environments` | 创建时提交 `project_id`、`name`、`key`、可选 `description`、`status` | 返回环境列表或创建后的环境；`key` 在项目内唯一 | 后端开发 agent | done |
 | API-0004 | 服务管理 | GET/POST | `/api/v1/services` | 创建时提交 `project_id`、`environment_id`、`name`、`key`、可选 `description`、`status` | 返回服务列表或创建后的服务；服务必须绑定同项目环境 | 后端开发 agent | done |
 | API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为事件列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
-| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`keyword`、`trace_id`、`span_id`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | doing |
+| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`keyword`、`trace_id`、`span_id`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为指标样本列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 
 ## 5. 前后端对齐记录
@@ -331,8 +331,11 @@ closed      已关闭
 | 2026-06-22 | T-0040 | 开发/审计/测试 agents | Events 时间线页前端完成 | 前端 Harvey 提交并推送 `c0be58a`，在 `/events` 查询结果中新增时间线呈现、事件类型/source/时间扫描和 payload 展开；审计 Newton 结论无 P0/P1/P2；测试 Ampere 完成专项、lint、全量测试、typecheck、build 和 diff check；相关 agents 均已关闭 | done |
 | 2026-06-22 | T-0040 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0040 前端合入 `dev`，merge 提交 `e6d2d73`；本小步不改后端 API/DB schema，根、前端、后端 VERSION 继续保持 `0.2.1` | done |
 | 2026-06-22 | T-0040 | 总 agent | CI 与 worktree 同步完成 | 推送 `0fe3550` 后 GitHub Actions run `27935754921` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `0fe3550` 并推送，严格 worktree 体检通过 | done |
-| 2026-06-22 | 联合测试 | 测试 agent Popper | 启动真实前后端联合测试 | 已启动测试 agent Popper，要求使用真实后端、真实前端和真实数据库覆盖当前阶段查询页路径；测试 agent 需记录 PID/端口/临时库并只清理自己启动的资源 | doing |
+| 2026-06-22 | 联合测试 | 测试 agent Popper | 真实前后端联合测试通过 | Popper 在 `dev`/`origin/dev` `62e6b7f` 上启动自有临时 MySQL 8 `23317`、真实后端 `28117`、真实前端 `25173` 和浏览器；完成健康检查、登录、项目/环境/服务/API Key、metrics/logs/events 上报、metrics 趋势图、logs keyword、logs context、events 时间线 payload 展开、未认证保护和登出状态清理；已停止并清理自己启动的后端、前端、MySQL、临时库和 datadir，未触碰现有服务；证据目录 `agents/runtime/e2e-20260622/` 保留为本地 ignored 运行产物，不提交 | done |
 | 2026-06-22 | T-0041 | 总 agent | 启动日志结构化字段过滤基础 | 阶段 3 下一步拆分为 logs 结构化字段过滤：后端为 `GET /api/v1/query/logs` 增加 `trace_id`、`span_id` 可选查询参数并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Trace ID / Span ID 输入并接入 API client。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
+| 2026-06-22 | T-0041 | 开发 agents | 日志结构化字段过滤前后端完成 | 后端 Archimedes 提交并推送 `48b7a24`，新增 logs `trace_id`/`span_id` 参数、规范化、顶层结构化字段精确过滤、cursor 签名和测试；前端 Hubble 提交并推送 `be8ab10`，在 `/logs` 表单新增 Trace ID / Span ID 输入、参数构建/API 透传和测试；两名开发 agent 均已关闭 | done |
+| 2026-06-22 | T-0041 | 审计/测试 agents | 日志字段过滤局部复验通过 | 后端审计 Zeno 与前端审计 Poincare 均未发现 P0/P1/P2；后端测试 Boyle 通过 trace/keyword/cursor 专项、query API 全量、ruff、format、mypy 和 diff check；前端测试 Kepler 通过 query/API/page 专项、lint、全量测试、typecheck、build 和 diff check；相关 agents 均已关闭 | done |
+| 2026-06-22 | T-0041 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`；本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`，后续推送后读取 CI 并同步 feature 分支 | doing |
 
 ## 6. 测试记录
 
@@ -378,6 +381,9 @@ closed      已关闭
 | 2026-06-22 | T-0039 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py`、ruff、format、mypy、full pytest；前端 keyword 专项 test、lint、full test、typecheck、build；`git diff --check`、worktree 预检 | 通过 | 后端 22 query tests、全量 129 passed/2 skipped；前端专项 12 passed、全量 12 files/52 tests；worktree 体检仅因 `dev` 尚未推送领先远端 6 个提交失败 |
 | 2026-06-22 | T-0040 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/features/query/eventTimeline.test.ts src/pages/QueryPage.test.tsx`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` | 通过 | Ampere 复验专项 2 个文件 7 tests，全量 13 个测试文件 57 passed；未启动完整联测 |
 | 2026-06-22 | T-0040 | dev merge 后本地验证 | 前端 eventTimeline/page 专项 test、lint、full test、typecheck、build；`git diff --check`、worktree 预检 | 通过 | 专项 7 passed，全量 13 个测试文件 57 passed；worktree 体检仅因 `dev` 尚未推送领先远端 2 个提交失败 |
+| 2026-06-22 | 联合测试 | 真实前后端联测 | Popper；自有临时 MySQL 8 `23317`、真实后端 `28117`、真实前端 `25173`、浏览器 | 通过 | `dev`/`origin/dev` `62e6b7f`；健康检查版本 `0.2.1`、登录、管理链路、API Key、metrics/logs/events 上报、metrics 趋势、logs keyword/context、events timeline/payload 展开、未认证保护和登出状态清理均通过；已清理自己启动资源；发现登录后硬刷新 `/settings` 可能先发未认证请求返回 401，SPA 导航正常，记录为后续观察 |
+| 2026-06-22 | T-0041 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py -k "trace or keyword or cursor"`、`uv run pytest tests/test_query_api.py`、ruff、format、mypy、`git diff --check` | 通过 | 开发侧 13 passed 后由 Boyle 复验 14 passed/12 deselected、query API 26 passed；覆盖 trace_id/span_id 精确过滤、与 keyword/level/source/project 权限叠加和 cursor 不匹配 422；未启动完整联测 |
+| 2026-06-22 | T-0041 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、lint、full test、typecheck、build、`git diff --check` | 通过 | Hubble 开发侧与 Kepler 复验均通过；Kepler 结果为 3 files/14 tests 专项、13 files/57 tests 全量，工作区干净；未启动完整联测 |
 
 ## 7. 审计记录
 
@@ -403,6 +409,8 @@ closed      已关闭
 | 2026-06-20 | T-0031 | 指标查询 API、项目权限过滤和基础筛选 | 通过 | 总 agent 本地复审未发现 P0/P1/P2；当前只查询关系库 `ingest_records`，ClickHouse 指标查询、聚合窗口、group by、Top N、降采样和多序列对比后续补齐 | done |
 | 2026-06-20 | T-0032 | 查询页 API client、QueryPage、路由替换和响应式样式 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；当前多智能体工具规则不允许未获显式授权时新开子 agent，本轮未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后查询、图表、日志上下文、事件时间线细节和分页后续补齐 | done |
 | 2026-06-20 | T-0033 | 总览页摄入统计 API client、汇总逻辑、未登录态和响应式布局 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；本小步未修改后端契约，未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后统计、项目筛选、时间序列趋势、trace 统计和图表后续补齐 | done |
+| 2026-06-22 | T-0041 | 后端 logs trace/span 字段过滤 | 通过 | Zeno 只读审计未发现 P0/P1/P2；残余风险为真实 MySQL 执行语义仍需后续专项补验，FastAPI OpenAPI 参数 schema 未直接表达长度约束但 service 运行时返回 422，未达 P2 | done |
+| 2026-06-22 | T-0041 | 前端 logs Trace ID / Span ID 筛选 | 通过 | Poincare 只读审计未发现 P0/P1/P2；残余风险为未做浏览器视觉/交互验证，真实用户填写后翻页与后端精确匹配需后续集成覆盖 | done |
 
 ## 8. 阻塞问题
 
