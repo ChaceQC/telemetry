@@ -17,6 +17,8 @@ export type EventQueryParams = QueryCommonParams & {
 export type LogQueryParams = QueryCommonParams & {
   level?: string;
   keyword?: string;
+  trace_id?: string;
+  span_id?: string;
 };
 
 export type LogContextParams = {
@@ -98,6 +100,8 @@ export function listLogs(params: LogQueryParams = {}) {
     project_id: params.project_id,
     level: params.level,
     keyword: params.keyword,
+    trace_id: params.trace_id,
+    span_id: params.span_id,
     source: params.source,
     occurred_from: params.occurred_from,
     occurred_to: params.occurred_to,

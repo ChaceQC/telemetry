@@ -17,7 +17,9 @@ const defaultLogParams = {
   limit: 100,
   cursor: undefined,
   level: undefined,
-  keyword: undefined
+  keyword: undefined,
+  trace_id: undefined,
+  span_id: undefined
 };
 
 const staleLog: LogQueryItem = {
@@ -152,12 +154,21 @@ describe('QueryPage auth guards', () => {
     expect(html).not.toContain('日志上下文');
   });
 
-  it('仅 logs 查询表单渲染关键词筛选', () => {
+  it('仅 logs 查询表单渲染 logs 专属筛选字段', () => {
     const auth = createSignedOutAuth();
+    const logsHtml = renderQueryPage(new QueryClient(), auth, 'logs');
+    const metricsHtml = renderQueryPage(new QueryClient(), auth, 'metrics');
+    const eventsHtml = renderQueryPage(new QueryClient(), auth, 'events');
 
-    expect(renderQueryPage(new QueryClient(), auth, 'logs')).toContain('关键词');
-    expect(renderQueryPage(new QueryClient(), auth, 'metrics')).not.toContain('关键词');
-    expect(renderQueryPage(new QueryClient(), auth, 'events')).not.toContain('关键词');
+    expect(logsHtml).toContain('关键词');
+    expect(logsHtml).toContain('Trace ID');
+    expect(logsHtml).toContain('Span ID');
+    expect(metricsHtml).not.toContain('关键词');
+    expect(metricsHtml).not.toContain('Trace ID');
+    expect(metricsHtml).not.toContain('Span ID');
+    expect(eventsHtml).not.toContain('关键词');
+    expect(eventsHtml).not.toContain('Trace ID');
+    expect(eventsHtml).not.toContain('Span ID');
   });
 });
 

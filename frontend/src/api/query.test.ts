@@ -59,30 +59,32 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:28117/api/v1/query/logs', expect.any(Object));
   });
 
-  it('日志查询会携带关键词筛选参数', async () => {
+  it('日志查询会携带关键词和 trace/span 筛选参数', async () => {
     const { listLogs } = await loadQueryClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));
 
     await listLogs({
       level: 'error',
       keyword: 'timeout retry',
+      trace_id: ' trace-abc ',
+      span_id: ' span-def ',
       cursor: 'log-cursor-1'
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://localhost:28117/api/v1/query/logs?level=error&keyword=timeout+retry&cursor=log-cursor-1',
+      'http://localhost:28117/api/v1/query/logs?level=error&keyword=timeout+retry&trace_id=trace-abc&span_id=span-def&cursor=log-cursor-1',
       expect.any(Object)
     );
   });
 
-  it('metrics 和 events 查询不会透传误传的 keyword 参数', async () => {
+  it('metrics 和 events 查询不会透传误传的 logs 专属参数', async () => {
     const { listMetrics, listEvents } = await loadQueryClient();
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementation(() => Promise.resolve(jsonResponse({ items: [], next_cursor: null })));
 
-    await listMetrics({ name: 'http.requests', keyword: 'ignored' } as never);
-    await listEvents({ type: 'deploy.started', keyword: 'ignored' } as never);
+    await listMetrics({ name: 'http.requests', keyword: 'ignored', trace_id: 'ignored', span_id: 'ignored' } as never);
+    await listEvents({ type: 'deploy.started', keyword: 'ignored', trace_id: 'ignored', span_id: 'ignored' } as never);
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
