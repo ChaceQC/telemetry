@@ -613,10 +613,18 @@
 - Parfit 在 `dev/origin/dev` `388706f` 上完成 T-0042 真实前后端联合测试重跑并通过：使用真实 MySQL 8.0.42 本机隔离实例 `3942`、真实后端 `3943`、真实前端 `3944` 和 Playwright Chromium；覆盖 metrics aggregate avg/sum/min/max/count、`1m/5m/15m/1h`、project/name/source/time 过滤、empty/401/404/无权限/非法参数、MySQL 边界分桶、session `time_zone` 对照、浏览器 `/metrics` 聚合控件/结果字段/空态/错误态、metrics sample list 分页、logs/events/log context 回归。Parfit 已清理自己启动的后端、前端、MySQL 隔离实例、datadir 和浏览器；未杀无法确认归属且不监听本轮端口的 `mysqld` PID `6768`。
 - 推送 T-0042 最终记录 `e1a4a30` 后 GitHub Actions run `27946752819` 通过；`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e1a4a30` 并推送，严格 worktree 体检通过。T-0042 Metrics 聚合窗口基础完成。
 - 已登记 `T-0043` 阶段 3 日志 request/user 字段过滤基础任务：后端为 `GET /api/v1/query/logs` 增加 `request_id`、`user_id` 可选查询参数，限定精确匹配日志结构化 `attributes` 白名单字段并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Request ID / User ID 输入并接入 API client。本小步不做任意 JSON 字段 DSL，不接 ClickHouse，不实现脱敏策略。
+- 已按用户要求更新 `AGENT.md`、`PROJECT_PLAN.md` 和 `AGENT_COMMUNICATION.md`：总 agent 启动子 agent 后不得频繁干扰；除交付、阻塞、超时、用户要求或必须补充边界约束外不主动追问；后续新启动开发、测试和审计子 agent 默认使用 `xhigh` 思考强度。
+- 已按用户要求更新所有 agent 相关文档：本地开发/测试在 Windows 11 上执行，命令使用 PowerShell、Windows 可用命令或跨平台工具；前端真实浏览器验证默认 Playwright + Microsoft Edge；本地验证不启动 Docker，MySQL 直接使用本地服务、临时库或本地实例；开发和测试仍必须考虑 Debian 部署兼容性。
+- T-0043 前后端开发分支已完成并推送：后端 `feature/backend-dev` 最新 `ab95d34`，前端 `feature/frontend-dev` 最新 `faef5c0`。后端实现限定 `request_id`/`user_id` 只匹配日志 `attributes` 白名单字段并增加 JSON string/text 类型守卫，前端只在 `/logs` 查询表单与 API 参数中透传 Request ID / User ID。
+- T-0043 后端代码审计 agent Wegener 已完成并关闭：只读审计 `ab95d34` 未发现 P0/P1/P2，确认原 JSON 类型守卫 P2 已关闭；残余风险为完整测试和真实 MySQL/MariaDB 联测仍需测试 agent 覆盖。
+- T-0043 真实前后端联合测试 agent Plato 已完成并关闭：临时组合验证基于后端 `ab95d34`、前端 `faef5c0`，合并测试 HEAD `5f8bba1`；真实 MySQL、本地 FastAPI、真实前端和浏览器验证通过，API 43/43、UI 14/14 断言通过，证据目录 `C:\Users\q-lau\AppData\Local\Temp\telemetry-t0043-20260622-193913`。Plato 已清理自己启动的 Vite preview、FastAPI、MySQL 临时实例和端口 `25183`、`28143`、`33143`，未提交未推送。
+- T-0043 前端代码审计 agent Volta 已完成并关闭：只读审计 `origin/dev...faef5c0` 未发现 P0/P1/P2/P3 阻断；按要求未运行测试、未启动服务、浏览器、数据库或 Docker。前端真实交互由既有测试和 Plato 联测覆盖。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`。
+- T-0043 merge 后本地门禁通过：后端 `uv run pytest tests/test_query_api.py` 37 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 T-0043 专项 3 files/19 tests passed，`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 尚未推送领先远端 5 个提交失败，feature 分支均已被 `dev` 历史包含且本地/远端一致。
 
 ### 进行中
 
-- T-0043 已进入启动阶段；准备在前后端独立 worktree 并行启动开发 agent，开发 agent 只做实现和最小自检，完整复验和审计由独立 agent 负责。
+- T-0043 已通过真实前后端联合测试和前后端审计，且已通过真实 `git merge` 合入 `dev`；当前待提交、推送本轮文档/测试/规则记录，读取 GitHub Actions，并同步前后端 feature 分支。
 
 ### 阻塞与风险
 
@@ -636,7 +644,7 @@
 
 ### 下一步
 
-- 提交并推送 T-0043 启动记录，读取 GitHub Actions；通过后同步前后端 feature 分支，运行严格 worktree 体检，再以 `xhigh` 思考强度启动前端和后端开发 agent 并行推进 T-0043。
+- 提交并推送 T-0043 集成与规则记录，读取 GitHub Actions；通过后同步前后端 feature 分支，运行严格 worktree 体检，再继续阶段 3 后续任务。
 
 ### 验证
 

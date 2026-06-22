@@ -13,6 +13,10 @@
 7. 未到可上线稳定版本前，版本号必须采用 `0.y.z`；版本变化必须同步更新项目文档、后端版本声明、前端 `package.json`、`.env.example` 和发布说明。
 8. Nginx 必须运行在 Debian 宿主机，不进入 Docker Compose；最终公网入口由宿主机 Nginx 反向代理到 Docker 内部服务。
 9. 生产访问入口必须按 `https://域名/xxx` 形式设计和验证，前端路由、静态资源路径、API base URL、CORS、Trusted Host 和 Nginx 反代规则不得假设用户通过裸 IP、直连端口或仅根路径访问。
+10. 本地开发和测试都在 Windows 11 上执行，终端命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
+11. 前端开发和前端测试涉及真实浏览器时，默认使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须记录例外原因和替代浏览器。
+12. 本地验证不得启动本机 Docker；需要 MySQL 时直接使用本地 MySQL 服务、临时库或本地 MySQL 实例，并记录连接方式、临时库名和清理结果。
+13. 虽然开发在 Windows 11 上进行，代码、脚本、配置、依赖和路径处理仍必须考虑 Debian 部署兼容性，不得引入只在 Windows 可用的生产运行假设。
 
 ## 2. Agent 组成
 
@@ -67,6 +71,8 @@ agents/runtime/
 20. 每次推送到会触发 GitHub Actions 的分支后，总 agent 必须读取对应 Actions run 结果，将成功、失败 job、失败步骤和后续处理写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
 21. 每次开工、集成或提交后，总 agent 必须执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1` 进行严格只读体检；提交前如根工作树正有本次待提交改动，可执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 检查分支和保护项。若失败，先整理 worktree、分支、敏感文件、运行日志和未提交改动，再继续开发或集成。
 22. 总 agent、开发 agent、测试 agent 和审计 agent 只允许关闭或清理由自己本次明确启动并记录的进程、端口、浏览器会话、临时数据库和临时资源；不得按端口或进程名宽泛关闭可能属于用户或其他 agent 的服务。
+23. 总 agent 启动子 agent 后不得频繁打扰或轮询；除交付结果、明确阻塞、超时、用户要求或必须追加边界约束外，不主动插话、催促或要求中间汇报。
+24. 后续启动开发、测试或审计子 agent 时，思考强度默认选择 `xhigh`，并在启动记录中写明任务边界、是否可再启动测试 agent、不得代跑完整测试流程和只清理自有资源等约束。
 
 ## 4. 并行开发规则
 

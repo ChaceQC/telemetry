@@ -21,6 +21,10 @@
 4. 本地开发端口默认 `25173`，预览端口默认 `25174`。
 5. 前端 API 地址、CORS 来源、公开基础路径必须从环境变量读取。
 6. 不得硬编码后端地址、端口、域名或密钥。
+7. 本地开发环境为 Windows 11，命令必须优先使用 PowerShell、`npm.cmd`、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
+8. 前端真实浏览器开发、调试和测试默认使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须在运行时日志和 `frontend/PROJECT_PROGRESS.md` 记录例外原因和替代浏览器。
+9. 本地前端联调不得启动本机 Docker；需要后端或 MySQL 时，使用已有本地服务、测试 agent 自己启动并记录的本地进程，或由后端/测试 agent 提供的本地 MySQL 临时库信息。
+10. 虽然本地开发在 Windows 11 上进行，前端路由、资源路径、构建脚本、环境变量和静态产物仍必须考虑 Debian 部署兼容性。
 
 ## 3. 推荐模块结构
 
@@ -69,6 +73,7 @@ frontend/src/
 17. 前端开发 agent 完成一个可验证小步后，不得长期保持未提交状态；必须自行检查 `git status`、文档、锁文件和敏感文件，并提交和尽量推送到 `feature/frontend-dev`。
 18. 如果因审计未通过、worktree 未创建或阻塞问题暂不能提交，必须在 `agents/runtime/frontend-agent.log.md` 和 `frontend/PROJECT_PROGRESS.md` 记录原因、影响范围和下一次提交条件。
 19. 如需启动前端 dev/preview 服务、浏览器或辅助进程，必须记录自己启动的 PID、端口或会话标识；结束时只关闭这些自己启动的资源，不得关闭用户、总 agent 或其他子 agent 的进程。
+20. 编写命令、脚本或文档时，同时标明 Windows 11 本地执行方式和 Debian 部署兼容性要求；本地命令不得使用 Linux-only 写法替代 Windows 可执行命令。
 
 ## 5. 质量要求
 
@@ -94,6 +99,7 @@ frontend/src/
 测试子 agent 的验证结果必须写入 `agents/runtime/test-agent.log.md`，前端开发 agent 将结论摘要写入 `agents/runtime/frontend-agent.log.md` 和 `frontend/PROJECT_PROGRESS.md`，再由总 agent 合并摘要到根目录 `PROJECT_PROGRESS.md`。
 前端开发 agent 不代跑测试子 agent 的验证命令；如果测试子 agent 不可用，必须在运行时日志和前端进度中记录原因、影响范围和由前端开发 agent 自测的边界。
 前端开发 agent 启动测试子 agent 时，必须明确传达“只清理自己启动的进程、端口、浏览器会话和临时资源”的边界。
+前端开发 agent 启动测试子 agent 时，还必须明确传达：真实浏览器验证使用 Playwright + Microsoft Edge；本地测试不启动 Docker；需要数据库时使用本地 MySQL 或测试 agent 自己创建并记录的本地临时库；同时保留 Debian 部署兼容性检查。
 
 ## 7. 完成标准
 

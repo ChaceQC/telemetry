@@ -70,7 +70,7 @@ closed      已关闭
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
 | T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | done |
-| T-0043 | 日志 request/user 字段过滤基础 | 总 agent | doing | doing | todo | todo | doing |
+| T-0043 | 日志 request/user 字段过滤基础 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -81,7 +81,7 @@ closed      已关闭
 | API-0003 | 环境管理 | GET/POST | `/api/v1/environments` | 创建时提交 `project_id`、`name`、`key`、可选 `description`、`status` | 返回环境列表或创建后的环境；`key` 在项目内唯一 | 后端开发 agent | done |
 | API-0004 | 服务管理 | GET/POST | `/api/v1/services` | 创建时提交 `project_id`、`environment_id`、`name`、`key`、可选 `description`、`status` | 返回服务列表或创建后的服务；服务必须绑定同项目环境 | 后端开发 agent | done |
 | API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为事件列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
-| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`keyword`、`trace_id`、`span_id`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
+| API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`keyword`、`trace_id`、`span_id`、`request_id`、`user_id`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数；`request_id`/`user_id` 仅精确匹配日志 `attributes` JSON string/text 白名单字段 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为指标样本列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0019 | 指标聚合窗口查询 | GET | `/api/v1/query/metrics/aggregate` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation` | 返回 `{ items }`；`items` 为按窗口聚合的指标点，包含 `window_start`、`window_end`、`name`、`source`、`aggregation`、`value`、`sample_count`、`unit` | 总 agent | done |
 
@@ -354,6 +354,12 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 测试 agent Parfit | 真实前后端联测重跑通过 | Parfit 在 `dev/origin/dev` `388706f` 上使用真实 MySQL 8.0.42 本机隔离实例 `3942`、真实后端 `3943`、真实前端 `3944` 和 Playwright Chromium 完成重跑：metrics aggregate avg/sum/min/max/count、1m/5m/15m/1h、project/name/source/time 过滤、empty/401/404/无权限/非法参数、MySQL 边界分桶和 session time_zone 对照均通过；浏览器 `/metrics` 聚合控件、结果字段、空态、错误态通过；metrics sample list 分页、logs/events/log context 快速回归通过；Parfit 已清理自己启动的后端、前端、MySQL 隔离实例、datadir 和浏览器，未杀无法确认归属的 `mysqld` PID `6768` | done |
 | 2026-06-22 | T-0042 | 总 agent | 最终 CI 与 worktree 同步完成 | 推送 `e1a4a30` 后 GitHub Actions run `27946752819` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js 20 runtime 弃用注解；`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e1a4a30` 并推送，严格 worktree 体检通过 | done |
 | 2026-06-22 | T-0043 | 总 agent | 启动日志 request/user 字段过滤基础 | 阶段 3 下一步拆分为 logs 白名单字段过滤：后端为 `GET /api/v1/query/logs` 增加 `request_id`、`user_id` 可选查询参数，限定精确匹配日志结构化 `attributes` 白名单字段并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Request ID / User ID 输入并接入 API client。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
+| 2026-06-22 | T-0043 | 前后端开发 agents | request/user 字段过滤实现完成 | 后端 `feature/backend-dev` 已推送 `7772d5f` 与审计修复 `ab95d34`：`request_id`/`user_id` 仅精确匹配日志 `attributes` 白名单字段并纳入 cursor 签名，修复后增加 JSON string/text 类型守卫，避免 numeric/boolean/object/array 或业务 payload 同名字段误命中；前端 `feature/frontend-dev` 已推送 `faef5c0`：`/logs` 查询表单新增 Request ID / User ID，API client 与筛选构建仅对 logs 透传 `request_id`/`user_id`。前后端开发侧只做最小自检，未替代完整测试流程 | done |
+| 2026-06-22 | T-0043 | 代码审计 agent Wegener | 后端 request/user JSON 类型守卫复审通过 | Wegener 只读审计 `ab95d34` 未发现 P0/P1/P2，确认原 P2 已关闭：SQLite 使用 `json_type(...)= 'text'` + `json_extract(...) = value`，MySQL/MariaDB 使用 `JSON_TYPE(JSON_EXTRACT(...)) = 'STRING'` + `JSON_UNQUOTE(...) = value`，并确认组合过滤与 cursor 签名未见回归。残余风险：未跑完整测试或真实 MySQL/MariaDB；unsupported dialect fallback 若未来支持 PostgreSQL 需补等价 JSON type guard。Wegener 已关闭 | done |
+| 2026-06-22 | T-0043 | 测试 agent Plato | 启动真实前后端联合测试 | 已以 `xhigh` 思考强度启动测试 agent Plato，要求在独立临时 worktree 组合 `origin/feature/backend-dev` `ab95d34` 与 `origin/feature/frontend-dev` `faef5c0`，使用真实 MySQL/MariaDB、真实 FastAPI 后端、真实前端和真实浏览器覆盖 request/user 精确匹配、JSON 类型守卫、业务 payload 不误命中、组合筛选、cursor、权限和前端 `/logs` 表单；Plato 只允许清理自己启动并记录的资源，不提交文件 | testing |
+| 2026-06-22 | T-0043 | 代码审计 agent Volta | 启动前端 request/user 筛选只读审计 | 已以 `xhigh` 思考强度启动前端代码审计 agent Volta，只读审计 `origin/feature/frontend-dev` 最新 `faef5c0` 相对 `origin/dev` 的前端改动；要求不修改、不提交、不推送、不启动服务/浏览器/数据库/Docker，重点检查 logs 专属 Request ID/User ID 参数、metrics/events 不误传、cursor/key 行为、文档进度和 Windows/Edge/本地 MySQL/Debian 兼容规则 | audit |
+| 2026-06-22 | T-0043 | 代码审计 agent Volta | 前端 request/user 筛选审计通过 | Volta 只读审计 `origin/dev...faef5c0` 未发现 P0/P1/P2/P3 阻断；按要求未运行测试、未启动服务、浏览器、数据库或 Docker。残余风险为表单真实交互主要依赖既有 SSR/参数构建/API URL 测试与 Plato 真实联测覆盖，本轮未新增浏览器级布局或交互验证；Volta 已关闭 | done |
+| 2026-06-22 | T-0043 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0043 后端合入 `dev`，merge 提交 `a16b2a2`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0043 前端合入 `dev`，merge 提交 `4f7359f`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`；待提交并推送本轮文档/测试记录后读取 GitHub Actions | doing |
 
 ## 6. 测试记录
 
@@ -408,6 +414,8 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 真实前后端联测 | Dewey；真实 MySQL 8.4 Docker 容器、真实后端、真实前端、Playwright Chromium | 未通过 | API 聚合 73 项检查中 47 通过、26 失败；失败集中在 MySQL `1m/5m` 边界秒分桶向上偏移，导致 4 条样本被拆成 3+1；session `time_zone` `+00:00`/`+08:00` 对比一致，说明已关闭的时区问题未复发。认证、权限、空态、非法参数、sample list 分页、logs/events/log context 回归与前端 `/metrics` 12/12 浏览器验证通过；Dewey 已清理自有资源 |
 | 2026-06-22 | T-0042 | 后端 MySQL 分桶专项复验 | Lorentz；真实 MySQL 8.4 容器、FastAPI TestClient、PyMySQL | 通过 | commit `7120835` 上验证 `window=1m` 返回 `00:00` 两条、`00:01` 一条、`00:04` 一条，`window=5m` 返回 `00:00` 四条；5m avg/sum/min/max/count 分别为 25/100/10/40/4；`+00:00` 与 `+08:00` session time_zone 输出一致；非法 window/aggregation 422、未认证 401 通过；已清理自有 MySQL 容器和临时 worktree |
 | 2026-06-22 | T-0042 | 真实前后端联测重跑 | Parfit；真实 MySQL 8.0.42 隔离实例、真实后端、真实前端、Playwright Chromium | 通过 | `dev/origin/dev` `388706f`；API aggregate 覆盖 avg/sum/min/max/count、1m/5m/15m/1h、项目/名称/source/时间过滤、empty/401/404/无权限/非法参数；MySQL 边界分桶 `1m` 为 `00:00` 两条、`00:01` 一条、`00:04` 一条，`5m` 为 `00:00` 四条，`+00:00`/`+08:00` 一致；前端 `/metrics` 聚合控件、结果字段、空态、错误态通过；sample list 分页和 logs/events/log context 回归通过；证据目录 `tmp/t0042-real-e2e-20260622-175604/`，自有资源已清理 |
+| 2026-06-22 | T-0043 | 真实前后端联合测试 | Plato；真实 MySQL、本地 FastAPI、真实前端、Playwright + Microsoft Edge | 通过 | 临时组合后端 `ab95d34`、前端 `faef5c0`，合并测试 HEAD `5f8bba1`；API 43/43、UI 14/14 断言通过。覆盖 string attributes 精确命中，numeric/boolean/object/array attributes 不命中，业务 payload 同名字段不误命中，keyword/level/source/trace/span/project/cursor 组合 AND，未认证、无/错项目、坏 cursor、类型/筛选不匹配 cursor、空结果，以及 `/logs` Request ID/User ID 控件和 `/metrics` `/events` 不显示日志专属控件；证据目录 `C:\Users\q-lau\AppData\Local\Temp\telemetry-t0043-20260622-193913`；Plato 已清理自己启动的 Vite preview、FastAPI、MySQL 临时实例和端口 `25183`、`28143`、`33143`，未提交未推送 |
+| 2026-06-22 | T-0043 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`；前端 T-0043 专项 `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build`；`git diff --check`、worktree 体检 | 通过 | 后端 query API 37 passed、ruff/format/mypy 通过；前端专项 3 files/19 tests passed、lint/typecheck/build 通过；`git diff --check` 通过。`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 本地领先 `origin/dev` 5 个提交失败，feature 分支均已被 dev 历史包含且本地/远端一致；待提交推送后复查 |
 
 ## 7. 审计记录
 
@@ -438,6 +446,8 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 后端 metrics aggregate API | 通过 | Curie 初审发现 MySQL/MariaDB 聚合分桶 P2；Planck 修复 `75c249b` 后 Hypatia 复审未发现 P0/P1/P2；Dewey 真实联测后又发现 MySQL 边界秒上浮，Avicenna `7120835` 修复后 Hume 复审无 P0/P1/P2、Lorentz/Parfit 真实 MySQL 验证通过；残余风险为大数据量性能和 ClickHouse 聚合后续接入 | done |
 | 2026-06-22 | T-0042 | 前端 metrics aggregate 控件与视图 | 通过 | Tesla 只读审计未发现 P0/P1/P2；Parfit 已用真实前端覆盖 `/metrics` 聚合控件、结果字段、空态和错误态；残余风险为移动端细节和更复杂多序列/大数据量展示 | done |
 | 2026-06-22 | T-0042-fix | 后端 metrics aggregate MySQL 分桶修复 | 通过 | Hume 只读审计 `7120835` 未发现 P0/P1/P2；确认 MySQL/MariaDB 表达式使用 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` 且未重新引入 `UNIX_TIMESTAMP` 或 session time_zone 依赖；Parfit 完整真实前后端联测已通过，残余风险为大数据量性能 | done |
+| 2026-06-22 | T-0043 | 后端 logs request/user 字段过滤 | 通过 | Wegener 只读审计 `ab95d34` 未发现 P0/P1/P2，原 JSON 类型守卫 P2 已关闭；确认 `request_id/user_id` 只查 `$.attributes.*`，不查业务 payload 同名字段；SQLite 与 MySQL/MariaDB supported paths 均有 JSON string/text 类型守卫和 SQL 编译断言。残余风险为完整测试与真实 MySQL/MariaDB 联测仍待测试 agent 覆盖 | done |
+| 2026-06-22 | T-0043 | 前端 logs Request ID / User ID 筛选 | 通过 | Volta 只读审计 `faef5c0` 未发现 P0/P1/P2/P3 阻断；确认 logs 专属 Request ID/User ID 参数、metrics/events 不误传、文档进度和最新 Windows/Edge/本地 MySQL/Debian 兼容规则未见阻断问题；Plato 已完成真实浏览器联测 | done |
 
 ## 8. 阻塞问题
 
@@ -503,3 +513,5 @@ closed      已关闭
 | 2026-06-20 | agent 运行日志不入库 | 多 agent 运行日志属于对话过程，push 会造成无意义冲突和历史污染 | `agents/runtime/*.log.md` 已加入 `.gitignore` 并从 Git 跟踪移除；只提交 `agents/runtime/api-contracts/*.md` 等稳定契约草案 |
 | 2026-06-20 | 开工前执行 worktree/Git 只读体检 | 共享仓库和多 worktree 容易因错分支、未提交改动、误追踪日志或敏感文件而污染后续集成 | 新增 `scripts/Test-AgentWorktreeState.ps1`；总 agent 在开工、集成、提交前运行，失败时先整理再继续 |
 | 2026-06-22 | 先清理 feature 再真实 merge | 用户要求 GitHub 分支管理不再长期显示异常；path restore 只能作为历史过渡，不再作为默认集成方式 | 总 agent 已清理 `feature/frontend-dev` 和 `feature/backend-dev` 拓扑；后续 feature 合入 `dev` 默认使用真实 `git merge`，如历史污染则先备份并清理 feature 分支 |
+| 2026-06-22 | 不频繁干扰子 agent，后续默认 xhigh | 用户要求总 agent 不要频繁打扰子 agent，且后续启动 agent 时思考强度选择 `xhigh` | 总 agent 启动子 agent 后默认等待交付或明确阻塞；除交付、阻塞、超时、用户要求或必须补充边界约束外不主动追问。后续新启动开发、测试、审计子 agent 默认使用 `xhigh` 思考强度，若工具限制无法设置则记录例外原因 |
+| 2026-06-22 | 固化 Windows/Edge/本地 MySQL/Debian 兼容规则 | 用户要求所有 agent 文档明确本地开发在 Windows 11、前端浏览器操作用 Playwright + Edge、本地不启动 Docker 且 MySQL 直接使用本地服务，同时开发仍考虑 Debian 部署兼容性 | `AGENT.md`、`PROJECT_PLAN.md` 和所有专项 agent 文档均需遵守：本地命令使用 Windows/PowerShell 可执行方式；前端真实浏览器验证默认 Playwright + Microsoft Edge；本地测试不启动 Docker，MySQL 使用本地服务/临时库/本地实例；代码和配置继续保持 Debian 部署兼容 |

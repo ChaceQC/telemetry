@@ -17,6 +17,13 @@
 
 ## 2. 测试范围
 
+通用本地环境约束：
+
+1. 本地测试环境为 Windows 11，命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
+2. 前端和浏览器相关测试默认使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须记录例外原因、替代浏览器和影响范围。
+3. 本地测试不得启动本机 Docker；需要 MySQL 时直接使用本地 MySQL 服务、临时库或测试 agent 自己启动并记录的本地 MySQL 实例。
+4. 虽然本地测试在 Windows 11 上执行，测试设计仍必须关注 Debian 部署兼容性，包括路径大小写、环境变量、换行、端口、Nginx 反代和容器/服务边界。
+
 后端：
 
 1. `uv run ruff check .`
@@ -25,7 +32,7 @@
 4. `uv run pytest`
 5. Alembic 迁移检查。
 6. API 行为测试。
-7. MySQL、ClickHouse、MongoDB、Redis 集成测试。
+7. MySQL、ClickHouse、MongoDB、Redis 集成测试；本地 MySQL 验证必须使用本地 MySQL，不得为测试启动 Docker。
 
 前端：
 
@@ -34,11 +41,11 @@
 3. `npm test`
 4. `npm run build`
 5. `npm run preview -- --host 127.0.0.1 --port 25174`
-6. 组件测试和必要的 Playwright E2E。
+6. 组件测试和必要的 Playwright E2E；真实浏览器默认使用 Microsoft Edge。
 
 部署：
 
-1. Docker Compose 配置检查。
+1. Docker Compose 配置静态检查；本地不得启动 Docker 服务或容器。
 2. 生产镜像 `npm ci` 验证。
 3. Nginx 配置语法检查。
 4. 端口占用检查。
@@ -58,10 +65,12 @@
 2. 根据变更风险选择必要测试，不机械执行无关全量测试。
 3. 如果测试需要启动服务、浏览器或数据库临时库，必须记录自己启动的 PID、端口、会话或临时库标识；结束后只关闭本次由自己启动的服务和临时资源，并确认对应端口或资源已释放。
 4. 如果发现 `25173`、`25174`、`28117` 或其他目标端口已被占用，先判断是否为自己本次启动；若不是，必须换端口或报告阻塞，不得终止用户、总 agent 或其他子 agent 的进程。
-5. 测试失败时，记录失败命令、错误摘要、疑似原因和建议归属。
-6. 测试无法执行时，记录原因、影响范围和后续补验方式。
-7. 测试结论写入 `agents/runtime/test-agent.log.md`，不得直接修改 `AGENT_COMMUNICATION.md`。
-8. 测试结论按影响范围通知对应开发 agent 更新前端或后端进度文件；根目录进度由总 agent 合并。
+5. 如果需要数据库，优先创建本地 MySQL 临时库或启动并记录本地 MySQL 实例；不得启动 Docker 容器替代本地 MySQL。
+6. 如果需要前端真实浏览器验证，使用 Playwright + Microsoft Edge，并保存必要截图或结构化结果。
+7. 测试失败时，记录失败命令、错误摘要、疑似原因和建议归属。
+8. 测试无法执行时，记录原因、影响范围和后续补验方式。
+9. 测试结论写入 `agents/runtime/test-agent.log.md`，不得直接修改 `AGENT_COMMUNICATION.md`。
+10. 测试结论按影响范围通知对应开发 agent 更新前端或后端进度文件；根目录进度由总 agent 合并。
 
 ## 4. 测试记录格式
 
