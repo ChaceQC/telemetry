@@ -8,7 +8,8 @@ import type {
   LogQueryItem,
   MetricAggregateItem,
   MetricQueryItem,
-  QueryResultPage
+  QueryResultPage,
+  TraceQueryItem
 } from '../api/query';
 import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
@@ -86,6 +87,28 @@ const aggregateMetric: MetricAggregateItem = {
   unit: 'count'
 };
 
+const currentTrace: TraceQueryItem = {
+  id: 77,
+  project_id: 21,
+  trace_id: 'trace-a',
+  span_id: 'span-db',
+  parent_span_id: 'span-root',
+  name: 'SELECT orders',
+  start_time: '2026-06-22T03:10:00.020Z',
+  end_time: null,
+  duration_ms: 30.5,
+  status_code: 'error',
+  source: 'db',
+  attributes: {
+    'db.system': 'mysql'
+  },
+  payload: {
+    route: '/api/orders'
+  },
+  occurred_at: '2026-06-22T03:10:00.020Z',
+  received_at: '2026-06-22T03:10:01Z'
+};
+
 function createSignedOutAuth(): AuthContextValue {
   return {
     user: null,
@@ -118,7 +141,11 @@ function createSignedInAuth(): AuthContextValue {
   };
 }
 
-function renderQueryPage(queryClient: QueryClient, auth: AuthContextValue, signal: 'metrics' | 'logs' | 'events') {
+function renderQueryPage(
+  queryClient: QueryClient,
+  auth: AuthContextValue,
+  signal: 'metrics' | 'logs' | 'traces' | 'events'
+) {
   return renderToString(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={auth}>
@@ -136,7 +163,7 @@ function renderLogsPage(queryClient: QueryClient, auth: AuthContextValue) {
 
 function seedSignalData<TItem>(
   queryClient: QueryClient,
-  signal: 'metrics' | 'logs' | 'events',
+  signal: 'metrics' | 'logs' | 'traces' | 'events',
   items: TItem[],
   nextCursor: string | null = null
 ) {
@@ -186,6 +213,7 @@ describe('QueryPage auth guards', () => {
     const auth = createSignedOutAuth();
     const logsHtml = renderQueryPage(new QueryClient(), auth, 'logs');
     const metricsHtml = renderQueryPage(new QueryClient(), auth, 'metrics');
+    const tracesHtml = renderQueryPage(new QueryClient(), auth, 'traces');
     const eventsHtml = renderQueryPage(new QueryClient(), auth, 'events');
 
     expect(logsHtml).toContain('关键词');
@@ -198,6 +226,11 @@ describe('QueryPage auth guards', () => {
     expect(metricsHtml).not.toContain('Span ID');
     expect(metricsHtml).not.toContain('Request ID');
     expect(metricsHtml).not.toContain('User ID');
+    expect(tracesHtml).toContain('Trace ID');
+    expect(tracesHtml).toContain('Span ID');
+    expect(tracesHtml).not.toContain('关键词');
+    expect(tracesHtml).not.toContain('Request ID');
+    expect(tracesHtml).not.toContain('User ID');
     expect(eventsHtml).not.toContain('关键词');
     expect(eventsHtml).not.toContain('Trace ID');
     expect(eventsHtml).not.toContain('Span ID');
@@ -209,6 +242,7 @@ describe('QueryPage auth guards', () => {
     const auth = createSignedOutAuth();
     const metricsHtml = renderQueryPage(new QueryClient(), auth, 'metrics');
     const logsHtml = renderQueryPage(new QueryClient(), auth, 'logs');
+    const tracesHtml = renderQueryPage(new QueryClient(), auth, 'traces');
     const eventsHtml = renderQueryPage(new QueryClient(), auth, 'events');
 
     expect(metricsHtml).toContain('窗口');
@@ -217,8 +251,34 @@ describe('QueryPage auth guards', () => {
     expect(metricsHtml).toContain('平均值');
     expect(logsHtml).not.toContain('聚合方式');
     expect(logsHtml).not.toContain('5 分钟');
+    expect(tracesHtml).not.toContain('聚合方式');
+    expect(tracesHtml).not.toContain('5 分钟');
     expect(eventsHtml).not.toContain('聚合方式');
     expect(eventsHtml).not.toContain('5 分钟');
+  });
+});
+
+describe('QueryPage traces', () => {
+  it('traces 页面展示 span 列表、分页控制和基础展开入口', () => {
+    const queryClient = new QueryClient();
+    seedSignalData(queryClient, 'traces', [currentTrace], 'trace-cursor-2');
+
+    const html = renderQueryPage(queryClient, createSignedInAuth(), 'traces');
+
+    expect(html).toContain('链路查询');
+    expect(html).toContain('Span 名称');
+    expect(html).toContain('SELECT orders');
+    expect(html).toContain('error');
+    expect(html).toContain('30.500 ms');
+    expect(html).toContain('trace-a');
+    expect(html).toContain('span-db');
+    expect(html).toContain('展开详情');
+    expect(html).toContain('回第一页');
+    expect(html).toContain('下一页');
+    expect(html).toContain('第 1 页已加载，可继续查看下一页。');
+    expect(html).not.toContain('Request ID');
+    expect(html).not.toContain('聚合窗口');
+    expect(html).not.toContain('class="event-timeline"');
   });
 });
 

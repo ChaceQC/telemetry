@@ -30,7 +30,7 @@ export const routes = [
       },
       {
         path: 'traces',
-        element: <PlaceholderPage title="链路追踪" description="后续接入 trace 列表、waterfall 和 span 详情。" />
+        element: <QueryPage signal="traces" />
       },
       {
         path: 'events',

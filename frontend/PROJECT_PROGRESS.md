@@ -2,6 +2,35 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0046 Trace 查询页前端基础
+
+### 已完成
+
+- 将 `/traces` 从占位页切换为现有查询工作台，实现 `GET /api/v1/query/traces` 前端 API client、类型定义和路由接入。
+- 查询筛选支持 `project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、`cursor`；不透传 logs 专属 `keyword/request_id/user_id` 或 metrics 聚合参数。
+- Trace 页面提供登录门禁、加载态、错误态、空态、筛选表单、结果列表、刷新、回第一页、下一页，以及单条 span 详情展开；详情展示 trace_id、span_id、parent_span_id、name、source、status、duration、start/end/occurred/received 时间、attributes 和 payload。
+- 分页行为增强为“下一页 / 回第一页 / 刷新”稳定模式；提交筛选、刷新或回第一页均清空旧 cursor。
+- 更新 `frontend/README.md`、`agents/runtime/api-contracts/frontend-requests.md`、版本文件和前端测试，前端版本同步到 `0.2.4`。
+- 纠偏记录：本轮开始时误用无 workdir 的 `apply_patch`，在根工作树留下前端文件错误位置改动；已停止触碰根工作树，并把有效改动重新落到 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不改后端代码，不做 waterfall/tree、服务依赖拓扑、日志/指标互跳、ClickHouse 查询或完整真实前后端联测。
+- Trace 详情展开当前依赖用户点击；SSR 单测覆盖列表与展开入口，真实展开交互由浏览器冒烟和测试 agent 复验补充。
+- 根工作树仍遗留错误位置改动，需总 agent 在确认 `feature/frontend-dev` 已包含正确改动后清理。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx` 通过（3 个测试文件、22 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（13 个测试文件、65 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+- 已启动本地前端 dev server 做 Microsoft Edge 最小浏览器检查：Vite 监听 PID `19824`，Playwright CLI 使用 `--browser msedge` 打开 `http://127.0.0.1:25173/traces`，确认页面标题、版本 `v0.2.4`、链路查询标题、Trace ID/Span ID/Span 名称筛选、未登录提示和结果区正常渲染；未启动真实后端，未做登录或真实查询联测。检查后已关闭 Playwright Edge 会话并停止 PID `19824`，确认 `25173` 无监听。
+- 浏览器控制台仅见既有 React Router future flag warning 与 `/favicon.ico` 404，未发现本任务页面运行异常。
+- 测试 agent Kant the 2nd 已独立复验：`git status --short --branch`、`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过；确认 `/traces` 已切到查询页、未误传 logs/metrics 专属参数、版本 `0.2.4` 自洽、待提交列表未包含 dist/node_modules/真实 env/密钥/根日志。Kant the 2nd 找到 Microsoft Edge，但其自启动浏览器冒烟被外层超时截断，未形成有效浏览器通过结论；其自有端口、临时 profile 和进程已清理。
+
 ## 2026-06-22 T-0043 日志 Request ID / User ID 字段过滤基础
 
 ### 已完成

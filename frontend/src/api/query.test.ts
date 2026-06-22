@@ -123,6 +123,36 @@ describe('query api client', () => {
     );
   });
 
+  it('Trace 查询会携带 trace/span/name/source/time/limit/cursor 筛选参数', async () => {
+    const { listTraces, setApiAuthToken } = await loadQueryClient();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse({ items: [], next_cursor: 'trace-cursor-2' }));
+
+    setApiAuthToken('query-token');
+    const result = await listTraces({
+      project_id: 12,
+      trace_id: ' trace-abc ',
+      span_id: ' span-def ',
+      name: 'GET /api/orders',
+      source: 'api',
+      occurred_from: '2026-06-20T10:00',
+      occurred_to: '2026-06-20T11:00',
+      limit: 50,
+      cursor: 'trace-cursor-1'
+    });
+
+    expect(result).toEqual({ items: [], next_cursor: 'trace-cursor-2' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/traces?project_id=12&trace_id=trace-abc&span_id=span-def&name=GET+%2Fapi%2Forders&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&limit=50&cursor=trace-cursor-1',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer query-token'
+        })
+      })
+    );
+  });
+
   it('metrics 和 events 查询不会透传误传的 logs 专属参数', async () => {
     const { listMetrics, listEvents } = await loadQueryClient();
     const fetchMock = vi
