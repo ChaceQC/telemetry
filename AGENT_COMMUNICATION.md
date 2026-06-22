@@ -280,6 +280,17 @@ closed      已关闭
 | 2026-06-22 | T-0036-fix | 总 agent | 通过真实 merge 集成格式修复 | 总 agent 使用 `git merge --no-ff origin/feature/backend-dev` 将 `9e12615` 合入 `dev`，merge 提交 `fix: 合并查询分页测试格式修复`；等待推送后复查 Actions | done |
 | 2026-06-22 | CI | 总 agent | 查询分页格式修复 Actions 通过 | push `a3d70a8` 触发 run `27921781087`；Backend checks 与 Frontend checks 均通过；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
 | 2026-06-22 | 分支治理 | 总 agent | 固化真实 merge 集成规则 | 已更新 `AGENT.md`、`PROJECT_PLAN.md` 和 `scripts/Test-AgentWorktreeState.ps1`：后续集成默认先清理污染 feature 分支，再使用真实 `git merge`，体检脚本不再提示长期 path restore | doing |
+| 2026-06-22 | CI | 总 agent | 分支治理规则同步 Actions 通过 | push `9227336` 触发 run `27921973168`；Backend checks 与 Frontend checks 均通过；仅有已知 Node.js 20 runtime 弃用注解，不阻塞 | done |
+| 2026-06-22 | T-0037 | 总 agent | 启动查询页基础图表前端任务 | 已启动前端开发 agent Hilbert，在 `feature/frontend-dev` 为 `/metrics` 查询页增加当前页指标值轻量趋势图；要求不引入新图表库、开发自检收窄、由测试 agent 独立复验 | doing |
+| 2026-06-22 | T-0037 | 前端开发/测试 agent | 查询页基础趋势图完成 | Hilbert 提交并 push `a4ace13` 到 `feature/frontend-dev`：为 `/metrics` 当前页结果增加轻量 SVG 趋势图，新增 `metricTrend` 纯函数与测试；测试 agent Raman 复验 lint/test/typecheck/build、git diff check 和 Edge 冒烟通过，确认 `25173` 已释放 | audit |
+| 2026-06-22 | T-0037 | 总 agent | 启动查询页趋势图代码审计 | 已关闭 Hilbert；启动前端代码审计 agent Banach 只读审计 `a4ace13`，重点检查趋势图边界、移动布局、无新依赖和文档契约一致性 | audit |
+| 2026-06-22 | T-0037 | 代码审计 agent | 查询页趋势图审计未通过 | Banach 审计 `a4ace13` 发现 P2：趋势图未校验当前页是否属于同一指标序列，可能把不同 `name` 或 `unit` 的指标连成一条线误导用户；当前不得集成到 `dev` | blocked |
+| 2026-06-22 | T-0037-fix | 总 agent | 启动趋势图 P2 修复 | 已启动前端开发 agent Kant 修复审计 P2：仅同一 `name` 和 `unit` 时绘制趋势，否则显示趋势图不可用提示；要求补测试并由测试 agent 独立复验 | doing |
+| 2026-06-22 | T-0037-fix | 前端开发/测试 agent | 趋势图 P2 修复完成 | Kant 提交并 push `7120af1` 到 `feature/frontend-dev`：趋势模型要求当前页 metrics 全部同 `name` 和 `unit` 才绘制，否则显示趋势不可用提示；测试 agent Singer 复验 lint/test/typecheck 与 diff check 通过，9 个测试文件、39 个测试通过 | audit |
+| 2026-06-22 | T-0037-fix | 总 agent | 启动趋势图 P2 修复复审 | 已关闭 Kant；启动前端代码审计 agent Anscombe 只读复审 `7120af1` 是否关闭混合指标/单位误导问题 | audit |
+| 2026-06-22 | T-0037-fix | 代码审计 agent | 趋势图修复复审通过 | Anscombe 复审 `7120af1` 未发现 P0/P1/P2/P3；确认混合 `name` 或 `unit` 时不再绘制单条趋势线，同序列多点/单点/空数据行为合理，logs/events 无回归 | done |
+| 2026-06-22 | T-0037 | 总 agent | 通过真实 merge 集成指标趋势图 | 总 agent 使用 `git merge --no-ff origin/feature/frontend-dev` 将 `a4ace13` 与 `7120af1` 合入 `dev`，merge 提交 `feat: 合并指标查询趋势图`；等待本地门禁和 Actions | done |
+| 2026-06-22 | T-0037 | 总 agent | 指标趋势图本地门禁通过 | 根仓库前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check` 均通过；worktree 体检仅因 `dev` 尚未推送领先远端 3 个提交而失败，等待推送后复查 | done |
 
 ## 6. 测试记录
 

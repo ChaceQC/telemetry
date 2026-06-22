@@ -741,6 +741,123 @@ h2 {
   flex: 0 0 auto;
 }
 
+.metric-trend {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin-bottom: 14px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid #cfe2e2;
+  border-radius: 8px;
+  color: var(--accent-strong);
+  background: #f5fbfa;
+}
+
+.metric-trend--empty {
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: flex-start;
+  color: var(--text-muted);
+  background: #fbfcfc;
+}
+
+.metric-trend--empty strong,
+.metric-trend--empty span {
+  display: block;
+}
+
+.metric-trend--empty strong {
+  margin-bottom: 4px;
+  color: #172026;
+}
+
+.metric-trend--empty span {
+  line-height: 1.45;
+}
+
+.metric-trend-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  align-items: start;
+  gap: 14px;
+}
+
+.metric-trend-heading span,
+.metric-trend-heading dt {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric-trend-heading strong {
+  display: block;
+  min-width: 0;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  color: #0f1b20;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.metric-trend-heading dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.metric-trend-heading dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.metric-trend-chart {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 168px;
+}
+
+.metric-trend-axis {
+  stroke: #cfe2e2;
+  stroke-width: 1;
+}
+
+.metric-trend-area {
+  fill: url("#metric-trend-fill");
+}
+
+.metric-trend-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.metric-trend-point {
+  fill: #ffffff;
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+
+.metric-trend-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.metric-trend-footer span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .query-record-main {
   display: flex;
   align-items: flex-start;
@@ -1137,5 +1254,13 @@ h2 {
 
   .query-next-button {
     width: 100%;
+  }
+
+  .metric-trend-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-trend-footer {
+    flex-direction: column;
   }
 }

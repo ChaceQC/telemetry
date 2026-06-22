@@ -551,10 +551,21 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将格式修复合入 `dev`，merge 提交 `fix: 合并查询分页测试格式修复`；待推送后读取 GitHub Actions。
 - 推送 `a3d70a8` 后 GitHub Actions run `27921781087` 已通过：Backend checks 与 Frontend checks 均为 success，仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
 - 已更新 `AGENT.md`、`PROJECT_PLAN.md` 和 `scripts/Test-AgentWorktreeState.ps1`，固化用户要求的真实 merge 策略：后续总 agent 先清理污染 feature 分支，再使用 `git merge` 集成；体检脚本不再提示长期 path restore。
+- 推送 `9227336` 后 GitHub Actions run `27921973168` 已通过：Backend checks 与 Frontend checks 均为 success，仅有已知 Node.js 20 runtime 弃用注解，不阻塞。
+- 已启动前端开发 agent Hilbert 推进 `T-0037` 查询页基础图表展示小步：先为 `/metrics` 当前页结果增加轻量趋势图，不引入新图表库；开发 agent 只做最小自检，复验由测试 agent 独立完成。
+- Hilbert 已完成并 push `a4ace13` 到 `feature/frontend-dev`：为 `/metrics` 当前页指标结果增加轻量 SVG 趋势图，新增 `metricTrend` 纯函数与测试；测试 agent Raman 复验 lint/test/typecheck/build、git diff check 和 Edge 冒烟通过，确认 `25173` 已释放。
+- 已关闭 Hilbert 并启动前端代码审计 agent Banach 只读审计 T-0037。
+- Banach 审计 `a4ace13` 未通过，发现 P2：趋势图未校验当前页是否属于同一指标序列，可能把不同 `name` 或 `unit` 的指标连成一条线误导用户；当前不得集成到 `dev`。
+- 已启动前端开发 agent Kant 修复 T-0037 审计 P2：仅同一 `name` 和 `unit` 时绘制趋势，否则显示趋势图不可用提示，并补测试与测试 agent 复验。
+- Kant 已完成并 push `7120af1` 到 `feature/frontend-dev`：趋势模型要求当前页 metrics 全部同 `name` 和 `unit` 才绘制，否则显示“当前页包含多个指标或单位，趋势图暂不可用。”；测试 agent Singer 独立复验 lint/test/typecheck、diff check 均通过，9 个测试文件、39 个测试通过。
+- 已关闭 Kant，并启动前端代码审计 agent Anscombe 只读复审 T-0037-fix。
+- Anscombe 复审 `7120af1` 通过，未发现 P0/P1/P2/P3；确认混合 `name` 或 `unit` 时不再绘制单条趋势线，同序列多点/单点/空数据行为合理，logs/events 无回归。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0037 合入 `dev`，merge 提交 `feat: 合并指标查询趋势图`；待本地门禁和 GitHub Actions。
+- T-0037 根仓库本地门禁已通过：前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check` 均通过；worktree 体检仅因 `dev` 尚未推送领先远端 3 个提交而失败，等待推送后复查。
 
 ### 进行中
 
-- T-0034/T-0035/T-0036 已进入 `dev` 且 CI 已通过；正在收口分支治理规则同步，随后继续阶段 3 查询展示增强。
+- T-0037 已合入 `dev` 且本地门禁通过；等待推送后 GitHub Actions。
 
 ### 阻塞与风险
 
@@ -565,7 +576,7 @@
 
 ### 下一步
 
-- 完成分支治理规则同步并推送；随后继续阶段 3 查询展示增强，优先考虑查询页图表、日志上下文或真实部署子路径补验。
+- 推送 T-0037 到 `dev` 后读取 GitHub Actions；通过后同步清理前后端 feature 分支基线，再继续阶段 3 查询展示增强或补真实部署子路径验证。
 
 ### 验证
 
@@ -574,3 +585,4 @@
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
 - T-0036 merge 后验证通过：`uv run pytest tests/test_query_api.py` 14 passed，`uv run ruff check tests/test_query_api.py` 通过，`git diff --check HEAD~1 HEAD` 通过。
+- T-0037 merge 后根仓库前端验证通过：`npm.cmd run lint`、`npm.cmd run test`（9 个测试文件、39 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 未推送领先远端 3 个提交失败，推送后复查。

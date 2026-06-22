@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, Boxes, ChevronRight, LogIn, RefreshCw, Search, ShieldAlert } from 'lucide-react';
+import { Activity, BarChart3, Boxes, ChevronRight, LogIn, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -18,6 +18,7 @@ import {
 import { formatApiErrorMessage } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
+import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
 
 type QuerySignal = 'metrics' | 'logs' | 'events';
 
@@ -31,6 +32,8 @@ type QueryFilters = {
 };
 
 type QueryRecord = MetricQueryItem | LogQueryItem | EventQueryItem;
+
+const emptyRecords: QueryRecord[] = [];
 
 type QueryPageProps = {
   signal: QuerySignal;
@@ -113,9 +116,13 @@ export function QueryPage({ signal }: QueryPageProps) {
     retry: false
   });
   const Icon = config.icon;
-  const records = query.data?.items ?? [];
+  const records = query.data?.items ?? emptyRecords;
   const nextCursor = query.data?.next_cursor ?? null;
   const hasRecords = records.length > 0;
+  const metricTrend = useMemo(
+    () => (signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null),
+    [signal, records]
+  );
   const badgeTone = !canQuery ? 'warning' : query.isError ? 'danger' : query.isFetching ? 'warning' : 'success';
   const badgeLabel = !canQuery ? (auth.isRestoring ? '恢复中' : '需要登录') : query.isFetching ? '查询中' : query.isError ? '查询异常' : '已就绪';
 
@@ -306,6 +313,8 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
 
+        {!query.isError && hasRecords && signal === 'metrics' ? <MetricTrend trend={metricTrend} /> : null}
+
         {!query.isError && hasRecords ? (
           <ol className="query-list">
             {records.map((item) => (
@@ -329,6 +338,71 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
       </section>
+    </div>
+  );
+}
+
+function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
+  if (!trend || trend.status === 'unavailable') {
+    return (
+      <div className="metric-trend metric-trend--empty">
+        <Activity size={18} aria-hidden="true" />
+        <div>
+          <strong>当前页趋势不可用</strong>
+          <span>
+            {trend?.reason === 'mixed-series'
+              ? '当前页包含多个指标或单位，趋势图暂不可用。'
+              : '当前页没有可绘制的 received_at 与 value。'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const hasLine = trend.points.length > 1;
+
+  return (
+    <div className="metric-trend" aria-label={`${trend.seriesName} 当前页 value 趋势`}>
+      <div className="metric-trend-heading">
+        <div>
+          <span>当前页趋势</span>
+          <strong>{formatNumber(trend.lastPoint.value, trend.lastPoint.unit)}</strong>
+        </div>
+        <dl>
+          <div>
+            <dt>最小</dt>
+            <dd>{formatNumber(trend.minValue, trend.seriesUnit)}</dd>
+          </div>
+          <div>
+            <dt>最大</dt>
+            <dd>{formatNumber(trend.maxValue, trend.seriesUnit)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <svg className="metric-trend-chart" viewBox={metricTrendViewBox} role="img" aria-label="当前页指标数值随接收时间变化">
+        <defs>
+          <linearGradient id="metric-trend-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <line className="metric-trend-axis" x1="18" x2="622" y1="146" y2="146" />
+        {trend.areaPath ? <path className="metric-trend-area" d={trend.areaPath} /> : null}
+        {hasLine ? <path className="metric-trend-line" d={trend.linePath} /> : null}
+        {trend.points.map((point) => (
+          <circle key={point.id} className="metric-trend-point" cx={point.x} cy={point.y} r={hasLine ? 3.6 : 4.8}>
+            <title>
+              {point.name} / {formatNumber(point.value, point.unit)} / {formatTime(point.receivedAt)}
+            </title>
+          </circle>
+        ))}
+      </svg>
+
+      <div className="metric-trend-footer">
+        <span>{formatTime(trend.firstPoint.receivedAt)}</span>
+        <span>{formatTime(trend.lastPoint.receivedAt)}</span>
+      </div>
     </div>
   );
 }
