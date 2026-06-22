@@ -842,3 +842,21 @@
 - `Peirce` 已运行 `uv run pytest tests/test_query_api.py`，结果：14 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
 - `Peirce` 已运行 `git diff --check`，结果：通过。
 - `Peirce` 已运行 `uv run ruff check tests/test_query_api.py`，结果：通过。
+
+## 2026-06-22 T-0036 CI Ruff format 修复
+
+### 已完成
+
+- 修复 GitHub Actions run `27921581718` 暴露的 `backend/tests/test_query_api.py` ruff format 差异。
+- 仅调整测试断言换行格式，未修改业务实现、API 契约、根文档或其他后端代码。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮只处理 CI format failure；完整后端测试矩阵仍由测试 agent 或后续流程按需执行。
+
+### 开发侧验证
+
+- 已运行 `uv run ruff format --check tests/test_query_api.py`，结果：通过。
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：14 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `git diff --check`，结果：通过。
