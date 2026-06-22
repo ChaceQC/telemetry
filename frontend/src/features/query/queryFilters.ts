@@ -6,6 +6,8 @@ export type QueryFilters = {
   projectId: string;
   primary: string;
   keyword: string;
+  traceId: string;
+  spanId: string;
   source: string;
   occurredFrom: string;
   occurredTo: string;
@@ -16,6 +18,8 @@ export const defaultFilters: QueryFilters = {
   projectId: '',
   primary: '',
   keyword: '',
+  traceId: '',
+  spanId: '',
   source: '',
   occurredFrom: '',
   occurredTo: '',
@@ -42,7 +46,9 @@ export function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cur
     return {
       ...common,
       level: toOptional(filters.primary),
-      keyword: toOptional(filters.keyword)
+      keyword: toOptional(filters.keyword),
+      trace_id: toOptional(filters.traceId),
+      span_id: toOptional(filters.spanId)
     };
   }
 

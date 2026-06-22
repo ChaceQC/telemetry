@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildQueryParams, defaultFilters } from './queryFilters';
 
 describe('query filters', () => {
-  it('logs 查询参数包含 keyword 且保留分页 cursor', () => {
+  it('logs 查询参数包含 keyword 和 trace/span 且保留分页 cursor', () => {
     expect(
       buildQueryParams(
         'logs',
@@ -10,6 +10,8 @@ describe('query filters', () => {
           ...defaultFilters,
           primary: 'error',
           keyword: 'timeout retry',
+          traceId: ' trace-abc ',
+          spanId: ' span-def ',
           source: 'api'
         },
         'log-cursor-1'
@@ -22,15 +24,19 @@ describe('query filters', () => {
       limit: 100,
       cursor: 'log-cursor-1',
       level: 'error',
-      keyword: 'timeout retry'
+      keyword: 'timeout retry',
+      trace_id: 'trace-abc',
+      span_id: 'span-def'
     });
   });
 
-  it('metrics 和 events 查询参数不包含 logs keyword', () => {
+  it('metrics 和 events 查询参数不包含 logs 专属筛选', () => {
     const filters = {
       ...defaultFilters,
       primary: 'http.requests',
-      keyword: 'ignored'
+      keyword: 'ignored',
+      traceId: 'ignored-trace',
+      spanId: 'ignored-span'
     };
 
     expect(buildQueryParams('metrics', filters)).toEqual({

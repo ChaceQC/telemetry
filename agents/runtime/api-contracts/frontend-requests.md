@@ -7,7 +7,7 @@
 - task: T-0041
 - owner: frontend-agent / backend-agent
 - scope: `/logs` 查询表单新增 Trace ID 与 Span ID 精确筛选，并接入日志查询 API。
-- status: draft-aligned
+- status: frontend-ready
 
 ### 日志查询结构化字段契约
 

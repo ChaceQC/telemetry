@@ -245,14 +245,32 @@ export function QueryPage({ signal }: QueryPageProps) {
             />
           </label>
           {signal === 'logs' ? (
-            <label className="field">
-              <span>关键词</span>
-              <input
-                value={filters.keyword}
-                onChange={(event) => updateFilter('keyword', event.target.value)}
-                placeholder="message"
-              />
-            </label>
+            <>
+              <label className="field">
+                <span>关键词</span>
+                <input
+                  value={filters.keyword}
+                  onChange={(event) => updateFilter('keyword', event.target.value)}
+                  placeholder="message"
+                />
+              </label>
+              <label className="field">
+                <span>Trace ID</span>
+                <input
+                  value={filters.traceId}
+                  onChange={(event) => updateFilter('traceId', event.target.value)}
+                  placeholder="trace-123"
+                />
+              </label>
+              <label className="field">
+                <span>Span ID</span>
+                <input
+                  value={filters.spanId}
+                  onChange={(event) => updateFilter('spanId', event.target.value)}
+                  placeholder="span-456"
+                />
+              </label>
+            </>
           ) : null}
           <label className="field">
             <span>来源</span>
