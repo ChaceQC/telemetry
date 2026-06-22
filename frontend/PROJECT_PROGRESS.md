@@ -2,6 +2,31 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0040 Events 时间线页基础
+
+### 已完成
+
+- 更新 `/events` 查询结果展示：当前页 events 按 API 返回顺序渲染为事件时间线，展示事件类型、source、occurred/received 时间、项目 ID、事件 ID、payload 摘要和可展开 JSON 预览。
+- 新增 `frontend/src/features/query/eventTimeline.ts`，封装 payload 摘要生成逻辑；空 payload、复杂值压缩和长文本截断有单元测试覆盖。
+- 更新 `frontend/src/pages/QueryPage.tsx`，仅 events 使用时间线；`/metrics` 和 `/logs` 继续使用既有结果列表、metrics 当前页趋势图和 logs 上下文面板。
+- 更新 `frontend/src/styles/global.css`，补充紧凑时间线、元信息栅格、payload 预览和移动端单列布局，沿用当前工作台样式。
+- 更新 `frontend/README.md` 与 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0040 不新增 API、继续使用现有 events 字段和当前页展示范围。
+
+### 阻塞与风险
+
+- 本轮不做完整前后端联测，不启动真实后端、数据库、dev server 或浏览器。
+- 时间线只展示当前页 `items`，不跨页合并、不前端重排、不提供事件详情跳转或 payload 字段搜索。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd exec vitest -- run src/features/query/eventTimeline.test.ts src/pages/QueryPage.test.tsx --reporter=verbose` 通过（2 个测试文件、7 个测试通过）。SSR 测试沿用既有 React Router `useLayoutEffect` 警告。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（13 个测试文件、57 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 首次 `typecheck`/`build` 因 events 时间线的 `StatusBadge` children 混合字符串和 number 失败，已改为字符串模板后重跑通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-22 T-0039 日志关键词搜索基础前端
 
 ### 已完成
