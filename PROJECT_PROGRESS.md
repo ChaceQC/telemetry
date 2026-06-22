@@ -649,6 +649,7 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0047 合入 `dev`，merge 提交 `7e79c01`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0046/T-0046-fix 合入 `dev`，merge 提交 `15f46d5`。当前同步根、前端、后端版本到 `0.2.4`。
 - T-0046/T-0047 推送后 GitHub Actions 均通过：`dev` run `27983369377`、`feature/frontend-dev` run `27983401524`、`feature/backend-dev` run `27983400896` 均为 success；严格 worktree 体检通过，三棵 worktree 均干净且与远端一致。
 - T-0046/T-0047 真实前后端联合测试通过：Meitner the 2nd 使用本机 MySQL 8.0.42 临时库、真实后端 `7319`、真实前端和 Playwright + Microsoft Edge，覆盖 trace 上报、`trace_id`/`span_id`/`name`/`source`/`status_code`/duration/time 过滤、cursor 与错误边界、浏览器 `/traces` 查询/分页/详情展开/null 与长 JSON、metrics/logs/events 快速回归；测试 agent 已清理自有资源，证据目录 `tmp/T-0046-T0047-e2e-20260623-050157`。
+- T-0048 已登记为阶段 4 下一小步：前端基于现有 trace span 列表构建 `/traces` waterfall 与树形详情基础，先实现同一 trace 分组、父子缩进、相对时间/耗时条、错误/慢 span 视觉标识；不改后端契约，不接 ClickHouse，不做服务拓扑或互跳。
 
 ### 阻塞与风险
 
@@ -670,7 +671,7 @@
 
 ### 下一步
 
-- T-0046/T-0047 已完成 merge、CI、feature 分支同步和真实联测。下一步继续阶段 4 trace 核心能力，优先拆分 trace waterfall/树形详情或 trace 与日志互跳的小步；仍需保持前后端并行、开发 agent 启动测试 agent、总 agent 不代跑完整测试流程。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0048；开发 agent 可启动测试 agent 做专项验证，但不得代跑完整测试流程。完成后由总 agent 启动代码审计，并按风险决定是否立即真实前后端联测。
 
 ### 验证
 

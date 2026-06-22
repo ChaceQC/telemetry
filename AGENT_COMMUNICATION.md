@@ -75,6 +75,7 @@ closed      已关闭
 | T-0045 | Trace 查询最小后端基础 | 总 agent | todo | done | done | done | done |
 | T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
+| T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -409,6 +410,7 @@ closed      已关闭
 | 2026-06-23 | T-0046/T-0047 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0047 后端过滤合入 `dev`，merge 提交 `7e79c01`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0046 前端 trace 查询页和 P2 修复合入 `dev`，merge 提交 `15f46d5`。本次同步根、前端、后端版本到 `0.2.4`，不使用路径覆盖替代分支 merge | done |
 | 2026-06-23 | T-0046/T-0047 | 总 agent | CI 通过并同步 feature 分支 | 推送 `1fa3f21` 后 GitHub Actions run `27983369377` 通过，Frontend checks 与 Backend checks 均为 success；`feature/frontend-dev` run `27983401524`、`feature/backend-dev` run `27983400896` 同样通过。`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `1fa3f21` 并推送，严格 worktree 体检通过 | done |
 | 2026-06-23 | T-0046/T-0047 | 测试 agent Meitner the 2nd | 真实前后端联合测试通过 | Meitner the 2nd 在 `dev` `1fa3f21` 上使用本机 MySQL 8.0.42 临时库、真实 FastAPI 后端 `7319`、真实前端和 Playwright + Microsoft Edge 完成联测：Alembic head `20260622_0008`，`ingest_records` 微秒精度/default 正确，`/health=0.2.4`；登录、项目/环境/服务/API Key、trace 上报、`trace_id`/`span_id`/`name`/`source`/`status_code`/`duration_min_ms`/`duration_max_ms`/时间过滤、分页 cursor、坏 cursor、筛选不匹配 cursor、未认证 401、无权限/不存在项目 404 均通过；浏览器 `/traces` 筛选、列表、翻页、回第一页、刷新、展开详情和 null/长 JSON 样本不崩溃；`/metrics`、`/logs`、`/events` 页面与最小 API 回归通过。测试 agent 已清理自有后端 PID `52480`、前端 PID `36904`、Edge PID `45780`、临时 MySQL 库和临时目录；证据目录 `tmp/T-0046-T0047-e2e-20260623-050157` | done |
+| 2026-06-23 | T-0048 | 总 agent | 登记 Trace waterfall 与树形详情前端基础 | 阶段 4 下一小步限定为前端展示增强：基于现有 `GET /api/v1/query/traces` 返回的 `trace_id`、`span_id`、`parent_span_id`、`start_time`、`end_time`、`duration_ms`、`status_code` 和 `name`，在 `/traces` 查询结果中为同一 trace 构建树形/瀑布视图基础，支持展开 trace 组、按父子关系缩进、相对起始时间和耗时条展示、错误/慢 span 视觉标识，并保留现有列表、筛选、分页和详情。范围不改后端契约、不接 ClickHouse、不做服务拓扑、日志/指标互跳或完整真实联测；将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、保留 Debian 部署兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程 | doing |
 
 ## 6. 测试记录
 
