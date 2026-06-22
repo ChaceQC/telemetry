@@ -67,6 +67,7 @@ closed      已关闭
 | T-0037 | Metrics 查询页当前页趋势图 | 总 agent | done | todo | done | done | done |
 | T-0038 | 日志上下文增强 | 总 agent | done | done | done | done | done |
 | T-0039 | 日志关键词搜索基础 | 总 agent | doing | doing | todo | todo | doing |
+| T-0040 | Events 时间线页基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -368,6 +369,7 @@ closed      已关闭
 | 2026-06-22 | T-0038 | 真实前后端联合测试 | Nash；自有临时 MySQL `28129`、真实后端 `28229`、真实前端 `25189`、Edge 浏览器 | 通过 | MySQL `upgrade head` 成功且 `ix_ingest_records_project_kind_received_at_id` 存在；`/health` 返回 `0.2.1`；logs 上下文 target/before/after、跨项目隔离、未认证保护和登出后旧上下文隐藏均通过；资源已按记录 PID/临时目录清理 |
 | 2026-06-22 | T-0039 | 前后端开发/测试 agent 局部验证 | 后端 `uv run pytest tests/test_query_api.py`、ruff、format、mypy、full pytest；前端 keyword 专项 test、lint、full test、typecheck、build、diff check | 通过 | 后端最终复测 22 query tests、全量 129 passed/2 skipped；前端最终复测 12 files/52 tests；未启动完整联测 |
 | 2026-06-22 | T-0039 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py`、ruff、format、mypy、full pytest；前端 keyword 专项 test、lint、full test、typecheck、build；`git diff --check`、worktree 预检 | 通过 | 后端 22 query tests、全量 129 passed/2 skipped；前端专项 12 passed、全量 12 files/52 tests；worktree 体检仅因 `dev` 尚未推送领先远端 6 个提交失败 |
+| 2026-06-22 | T-0040 | 总 agent | 启动 Events 时间线页基础 | 阶段 3 计划包含 Events 时间线页；当前 `GET /api/v1/query/events` 契约已足够支撑前端按事件时间展示。T-0040 先由前端 agent 在 `/events` 查询结果中实现时间线呈现、事件类型/source/时间扫描和 payload 展开，不改后端 API，不做完整联测 | doing |
 
 ## 7. 审计记录
 
