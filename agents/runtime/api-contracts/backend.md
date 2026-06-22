@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0043`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events、metrics 和 logs 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0044`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events、metrics、logs 和 traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -497,17 +497,59 @@
   - `attributes`、`payload`：可选对象，任意层级不得包含非有限数值。
   - 顶层额外字段会返回 `422`；客户端不能通过顶层 `project_id` 指定或覆盖项目归属。
 - 响应：`202 Accepted`，格式同 batch receipt；receipt 中 `kind` 为 `log`，`type` 为日志 `level`。
+- 方法：`POST`
+- 路径：`/api/v1/ingest/traces`
+- 权限：同 `/api/v1/ingest/events`。
+- 请求体：
+
+```json
+{
+  "spans": [
+    {
+      "trace_id": "trace-1",
+      "span_id": "span-1",
+      "parent_span_id": "root-span",
+      "name": "GET /health",
+      "start_time": "2026-06-21T00:00:00Z",
+      "end_time": "2026-06-21T00:00:00.125Z",
+      "duration_ms": 125,
+      "status_code": "ok",
+      "source": "api",
+      "attributes": {
+        "service.name": "backend"
+      },
+      "payload": {
+        "http.method": "GET"
+      }
+    }
+  ]
+}
+```
+
+- 字段规则：
+  - `spans`：必填数组，至少 1 条、最多 100 条，整体 JSON 序列化后不超过 256 KiB。
+  - `trace_id`、`span_id`：必填，1 到 128 字符。
+  - `parent_span_id`：可选，最长 128 字符。
+  - `name`：必填，1 到 128 字符；receipt 中 `type` 为 span `name`。
+  - `start_time`：必填，ISO 8601 时间；入库为 `occurred_at`。
+  - `end_time`：可选，ISO 8601 时间；不能早于 `start_time`，且与 `start_time` 时区格式一致。
+  - `duration_ms`：可选，有限非负数值；未传且有 `end_time` 时后端按起止时间计算。
+  - `status_code`：可选，最长 64 字符。
+  - `source`：可选，最长 128 字符。
+  - `attributes`、`payload`：可选对象，任意层级不得包含非有限数值。
+  - 顶层额外字段会返回 `422`；客户端不能通过顶层 `project_id` 指定或覆盖项目归属。
+- 响应：`202 Accepted`，格式同 batch receipt；receipt 中 `kind` 为 `trace`，`type` 为 span `name`。
 - 错误：
   - `401 Unauthorized`：缺少 API Key、API Key 无效或已撤销。
   - `429 Too Many Requests`：启用摄入限流且当前 API Key 超过固定窗口阈值，响应包含 `Retry-After`。
   - `503 Service Unavailable`：启用 Redis 限流后端且 Redis 连接或命令不可用。
-  - `422 Unprocessable Entity`：请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长或批量条数/大小超限。
-- 持久化：当前写入 MySQL/SQLite `ingest_records` 表，字段包含 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at`、`received_at`。events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`。`ingest_records` 已补充 `(project_id, kind, received_at, id)` 组合索引，覆盖日志上下文 `project_id + kind + received_at/id` 窗口查询，并可被带项目过滤的 events/logs/metrics 分页查询复用。
+  - `422 Unprocessable Entity`：请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长、trace duration/time 无效或批量条数/大小超限。
+- 持久化：当前写入 MySQL/SQLite `ingest_records` 表，字段包含 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at`、`received_at`。events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`；traces 写入 `kind=trace` 且 `event_type=name`。trace payload 保存 `trace_id`、`span_id`、`parent_span_id`、`name`、`start_time`、`end_time`、`duration_ms`、`status_code`、`source`、`attributes`、业务 `payload` 和原始 span `raw`。`ingest_records.kind` 是字符串列，新增 `trace` kind 不需要新迁移；`ingest_records` 已补充 `(project_id, kind, received_at, id)` 组合索引，覆盖日志上下文 `project_id + kind + received_at/id` 窗口查询，并可被带项目过滤的 events/logs/metrics/traces 分页查询复用。
 - 安全边界：
   - 项目归属只来自 API Key 校验结果，不接受客户端顶层 `project_id`。
   - 若 `project_id` 出现在 `payload`、`tags` 或 `attributes` 内，仅作为业务载荷保存，不影响归属。
   - 应用当前不输出请求体日志；后续结构化日志必须脱敏 `Authorization`、`X-API-Key` 和 payload 中可能存在的敏感字段。
-  - 当前尚未实现审计日志、traces 专用 schema 或 ClickHouse/MongoDB 写入。
+  - 当前尚未实现审计日志、trace 查询 API 或 ClickHouse/MongoDB 写入。
 
 ## API-0013 摄入统计查询
 
@@ -515,7 +557,7 @@
 - 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404`。
-  - `kind`：可选，`event`、`metric` 或 `log`。
+  - `kind`：可选，`event`、`metric`、`log` 或 `trace`。
   - `limit`：可选，默认 `100`，范围 `1..500`。
 - 响应：数组，每项包含 `bucket_start`、`project_id`、`api_key_id`、`kind`、`source`、`accepted_count`、`rejected_count`、`bytes_count`。
 - 当前统计来源：关系库 `ingest_stats` 按分钟桶、项目、API Key、kind 和 source 聚合；成功摄入路径累加 `accepted_count` 和 `bytes_count`，已验证 API Key 后的请求体验证失败与限流拒绝会累加 `rejected_count`。缺失/无效/撤销 API Key 等缺少可信项目/API Key 维度的请求暂不统计，ClickHouse `ingest_stats` 写入和更完整后台聚合查询后续补齐。
@@ -771,5 +813,5 @@
   - `idx_events_expires_at_ttl`：`{ expires_at: 1 }`，`expireAfterSeconds=0` 且 `sparse=true`，用于可选临时事件过期清理。
 - Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。创建项目和创建者 `admin` 授权通过 service 层事务边界整体提交或整体回滚。
 - 真实 MySQL 回归入口：`TELEMETRY_MYSQL_TEST_DATABASE_URL` 仅用于本地或专用测试环境，未设置时相关测试会 `skip`，不影响普通 CI。该 URL 需要可创建/删除数据库；测试会创建随机 `telemetry_test_<uuid>` 临时库、执行 Alembic `upgrade head`，并在结束后删除临时库。不得在日志、agent 记录或提交中输出真实连接串、密码或临时库详情。
-- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为、events/metrics/logs 摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、启用后摄入 API Key 固定窗口限流返回 `429`、成功摄入后统计聚合、已验证 API Key 后的验证失败/限流拒绝统计、统计查询项目权限过滤、事件/日志/指标查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、name/source/time 组合筛选、空结果、非法 window/aggregation、limit 和未登录拒绝、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、非法/跨查询类型/不匹配筛选条件游标 `422`、payload/tags/attributes 校验错误返回 `422`、metrics 非有限 value 拒绝、logs message 长度限制、顶层 `project_id` 不能覆盖归属、嵌套业务载荷中的跨项目 `project_id` 不影响 API Key 项目上下文和 Alembic 升降级；真实 MySQL 联测已发现并修复指标窗口未显式下取整时 `00:00:59`、`00:04:59` 上浮到下一桶的问题；ClickHouse 已覆盖 compose 配置展开、init SQL 挂载路径和预期表名静态检查；MongoDB 已覆盖 compose 配置展开、init 脚本挂载路径、events 集合和预期索引静态检查。真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束和摄入记录写入/统计聚合/事件/日志/指标查询分页/日志上下文/日志关键词搜索/日志结构化字段过滤/指标窗口聚合的 MySQL 专项用例，尤其是 MySQL 业务 payload 非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划和指标窗口聚合执行计划；真实 ClickHouse/MongoDB/Redis 容器初始化与写入链路仍需后续补验。
+- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、缺失项目/无权限项目行为、events/metrics/logs/traces 摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、启用后摄入 API Key 固定窗口限流返回 `429`、成功摄入后统计聚合、已验证 API Key 后的验证失败/限流拒绝统计、trace spans 摄入绑定 API Key 项目、`kind=trace` 写入、trace payload/raw span 持久化、trace duration/time 校验、trace 非有限值拒绝、trace 验证失败/限流拒绝按 `kind=trace` 统计、统计查询项目权限过滤、事件/日志/指标查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、name/source/time 组合筛选、空结果、非法 window/aggregation、limit 和未登录拒绝、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、`ingest_records.kind` 字符串列兼容 `trace` kind、非法/跨查询类型/不匹配筛选条件游标 `422`、payload/tags/attributes 校验错误返回 `422`、metrics 非有限 value 拒绝、logs message 长度限制、顶层 `project_id` 不能覆盖归属、嵌套业务载荷中的跨项目 `project_id` 不影响 API Key 项目上下文和 Alembic 升降级；真实 MySQL 联测已发现并修复指标窗口未显式下取整时 `00:00:59`、`00:04:59` 上浮到下一桶的问题；ClickHouse 已覆盖 compose 配置展开、init SQL 挂载路径和预期表名静态检查；MongoDB 已覆盖 compose 配置展开、init 脚本挂载路径、events 集合和预期索引静态检查。真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束和摄入记录写入/统计聚合/事件/日志/指标/trace 摄入查询分页/日志上下文/日志关键词搜索/日志结构化字段过滤/指标窗口聚合的 MySQL 专项用例，尤其是 MySQL 业务 payload 非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划、trace 真实 MySQL 写入/统计执行计划和指标窗口聚合执行计划；真实 ClickHouse/MongoDB/Redis 容器初始化与写入链路仍需后续补验。
 - 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；API Key 创建接口会返回一次性明文，后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志、API Key 使用审计和危险动作 `admin` 校验。

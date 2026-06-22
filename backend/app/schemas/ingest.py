@@ -17,6 +17,8 @@ MAX_METRICS_PAYLOAD_BYTES = 256 * 1024
 MAX_LOG_RECORDS = 100
 MAX_LOGS_PAYLOAD_BYTES = 256 * 1024
 MAX_LOG_MESSAGE_LENGTH = 8 * 1024
+MAX_TRACE_SPANS = 100
+MAX_TRACES_PAYLOAD_BYTES = 256 * 1024
 
 
 def json_size_bytes(value: Any) -> int:
@@ -45,6 +47,7 @@ class IngestKind(StrEnum):
     event = "event"
     metric = "metric"
     log = "log"
+    trace = "trace"
 
 
 class IngestEventCreate(BaseModel):
@@ -172,6 +175,68 @@ class IngestLogsCreate(BaseModel):
         payload_size = json_size_bytes([log.model_dump(mode="json") for log in self.logs])
         if payload_size > MAX_LOGS_PAYLOAD_BYTES:
             raise ValueError(f"logs payload 不能超过 {MAX_LOGS_PAYLOAD_BYTES} 字节")
+        return self
+
+
+class IngestTraceSpanCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    trace_id: str = Field(min_length=1, max_length=128)
+    span_id: str = Field(min_length=1, max_length=128)
+    parent_span_id: str | None = Field(default=None, max_length=128)
+    name: str = Field(min_length=1, max_length=128)
+    start_time: datetime
+    end_time: datetime | None = None
+    duration_ms: float | None = None
+    status_code: str | None = Field(default=None, max_length=64)
+    source: str | None = Field(default=None, max_length=128)
+    attributes: dict[str, Any] | None = None
+    payload: dict[str, Any] | None = None
+
+    @field_validator("duration_ms", mode="before")
+    @classmethod
+    def validate_duration_type(cls, value: Any) -> Any:
+        if value is not None and (isinstance(value, bool) or not isinstance(value, Real)):
+            raise ValueError("duration_ms 必须是 JSON 数值")
+        return value
+
+    @field_validator("duration_ms")
+    @classmethod
+    def validate_duration(cls, value: float | None) -> float | None:
+        if value is not None:
+            if not isfinite(value):
+                raise ValueError("duration_ms 必须是有限数值")
+            if value < 0:
+                raise ValueError("duration_ms 不能小于 0")
+        return value
+
+    @field_validator("attributes", "payload")
+    @classmethod
+    def validate_json_object(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is not None:
+            reject_non_finite_numbers(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_time_range(self) -> IngestTraceSpanCreate:
+        try:
+            if self.end_time is not None and self.end_time < self.start_time:
+                raise ValueError("end_time 不能早于 start_time")
+        except TypeError as error:
+            raise ValueError("end_time 与 start_time 时区格式必须一致") from error
+        return self
+
+
+class IngestTracesCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    spans: list[IngestTraceSpanCreate] = Field(min_length=1, max_length=MAX_TRACE_SPANS)
+
+    @model_validator(mode="after")
+    def validate_traces_payload_size(self) -> IngestTracesCreate:
+        payload_size = json_size_bytes([span.model_dump(mode="json") for span in self.spans])
+        if payload_size > MAX_TRACES_PAYLOAD_BYTES:
+            raise ValueError(f"traces payload 不能超过 {MAX_TRACES_PAYLOAD_BYTES} 字节")
         return self
 
 

@@ -145,6 +145,27 @@ def log_payload() -> dict[str, Any]:
     }
 
 
+def trace_span_payload(**overrides: Any) -> dict[str, Any]:
+    span = {
+        "trace_id": "trace-1",
+        "span_id": "span-1",
+        "parent_span_id": "root-span",
+        "name": "GET /health",
+        "start_time": "2026-06-21T00:00:00Z",
+        "end_time": "2026-06-21T00:00:00.125Z",
+        "status_code": "ok",
+        "source": "api",
+        "attributes": {"service.name": "backend"},
+        "payload": {"http.method": "GET"},
+    }
+    span.update(overrides)
+    return span
+
+
+def trace_payload() -> dict[str, Any]:
+    return {"spans": [trace_span_payload()]}
+
+
 def test_ingest_event_accepts_bearer_api_key_and_binds_project() -> None:
     client = build_client()
     admin_headers = create_auth_headers(client, username="admin")
@@ -278,6 +299,41 @@ def test_ingest_stats_record_rejected_validation_after_api_key_verification() ->
     assert stats[0]["bytes_count"] == 0
 
 
+def test_ingest_stats_record_trace_rejected_validation_after_api_key_verification() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-rejected-trace-validation",
+        project_key="stats-rejected-trace-validation-project",
+    )
+
+    rejected_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"spans": [trace_span_payload(trace_id="")]},
+    )
+    trace_stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "trace"},
+    )
+    event_stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert rejected_response.status_code == 422
+    assert trace_stats_response.status_code == 200
+    trace_stats = trace_stats_response.json()
+    assert len(trace_stats) == 1
+    assert trace_stats[0]["accepted_count"] == 0
+    assert trace_stats[0]["rejected_count"] == 1
+    assert trace_stats[0]["bytes_count"] == 0
+    assert event_stats_response.status_code == 200
+    assert event_stats_response.json() == []
+
+
 def test_ingest_stats_record_rejected_rate_limit_after_api_key_verification() -> None:
     client = build_rate_limited_client(limit_per_minute=1)
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -310,6 +366,46 @@ def test_ingest_stats_record_rejected_rate_limit_after_api_key_verification() ->
     assert stats[0]["accepted_count"] == 1
     assert stats[0]["rejected_count"] == 1
     assert stats[0]["bytes_count"] > 0
+
+
+def test_ingest_stats_record_trace_rejected_rate_limit_after_api_key_verification() -> None:
+    client = build_rate_limited_client(limit_per_minute=1)
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-rejected-trace-rate",
+        project_key="stats-rejected-trace-rate-project",
+    )
+
+    accepted_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json=trace_payload(),
+    )
+    rejected_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json=trace_payload(),
+    )
+    trace_stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "trace"},
+    )
+    event_stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert accepted_response.status_code == 202
+    assert rejected_response.status_code == 429
+    assert trace_stats_response.status_code == 200
+    trace_stats = trace_stats_response.json()
+    assert sum(stat["accepted_count"] for stat in trace_stats) == 1
+    assert sum(stat["rejected_count"] for stat in trace_stats) == 1
+    assert sum(stat["bytes_count"] for stat in trace_stats) > 0
+    assert event_stats_response.status_code == 200
+    assert event_stats_response.json() == []
 
 
 def test_ingest_stats_do_not_record_rejected_without_valid_api_key() -> None:
@@ -487,6 +583,78 @@ def test_ingest_logs_accepts_records_and_binds_project() -> None:
     assert records[1].payload["payload"]["project_id"] == second_project["id"]
 
 
+def test_ingest_traces_accepts_spans_and_binds_project() -> None:
+    client = build_client()
+    first_project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="traces-admin",
+        project_key="traces-project",
+    )
+    second_headers = create_auth_headers(client, username="traces-other")
+    second_project = create_project(client, second_headers, "traces-other-project")
+
+    response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                trace_span_payload(payload={"project_id": second_project["id"]}),
+                trace_span_payload(
+                    span_id="span-2",
+                    parent_span_id="span-1",
+                    name="SELECT users",
+                    duration_ms=42.5,
+                    payload={"db.system": "mysql"},
+                ),
+            ]
+        },
+    )
+    stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": first_project["id"], "kind": "trace"},
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["accepted_count"] == 2
+    assert [receipt["project_id"] for receipt in body["receipts"]] == [
+        first_project["id"],
+        first_project["id"],
+    ]
+    assert [receipt["kind"] for receipt in body["receipts"]] == ["trace", "trace"]
+    assert [receipt["type"] for receipt in body["receipts"]] == [
+        "GET /health",
+        "SELECT users",
+    ]
+
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        records = list(session.scalars(select(IngestRecordModel).order_by(IngestRecordModel.id)))
+
+    assert len(records) == 2
+    assert {record.project_id for record in records} == {first_project["id"]}
+    assert [record.kind for record in records] == ["trace", "trace"]
+    assert records[0].event_type == "GET /health"
+    assert records[0].payload["trace_id"] == "trace-1"
+    assert records[0].payload["span_id"] == "span-1"
+    assert records[0].payload["duration_ms"] == pytest.approx(125)
+    assert records[0].payload["payload"]["project_id"] == second_project["id"]
+    assert records[0].payload["raw"]["payload"]["project_id"] == second_project["id"]
+    assert records[1].payload["parent_span_id"] == "span-1"
+    assert records[1].payload["duration_ms"] == 42.5
+
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert len(stats) == 1
+    assert stats[0]["project_id"] == first_project["id"]
+    assert stats[0]["kind"] == "trace"
+    assert stats[0]["source"] == "api"
+    assert stats[0]["accepted_count"] == 2
+    assert stats[0]["rejected_count"] == 0
+    assert stats[0]["bytes_count"] > 0
+
+
 def test_ingest_rejects_missing_invalid_and_revoked_api_key() -> None:
     client = build_client()
     admin_headers = create_auth_headers(client, username="admin")
@@ -578,6 +746,7 @@ def test_ingest_rate_limit_unavailable_returns_service_unavailable() -> None:
     [
         ("/api/v1/ingest/metrics", metric_payload()),
         ("/api/v1/ingest/logs", log_payload()),
+        ("/api/v1/ingest/traces", trace_payload()),
     ],
 )
 def test_ingest_metrics_and_logs_reject_missing_invalid_and_revoked_api_key(
@@ -771,6 +940,77 @@ def test_ingest_logs_rejects_invalid_payload_and_client_project_id() -> None:
     assert project_override_response.status_code == 422
 
 
+def test_ingest_traces_rejects_invalid_payload_and_client_project_id() -> None:
+    client = build_client()
+    _, raw_key, _ = create_ingest_api_key(
+        client,
+        username="traces-validation",
+        project_key="traces-validation-project",
+    )
+
+    missing_trace_id_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"spans": [trace_span_payload(trace_id="")]},
+    )
+    missing_start_time_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"spans": [trace_span_payload(start_time=None)]},
+    )
+    negative_duration_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"spans": [trace_span_payload(duration_ms=-1)]},
+    )
+    bool_duration_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"spans": [trace_span_payload(duration_ms=True)]},
+    )
+    inverted_time_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                trace_span_payload(
+                    start_time="2026-06-21T00:00:01Z",
+                    end_time="2026-06-21T00:00:00Z",
+                )
+            ]
+        },
+    )
+    too_many_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                trace_span_payload(trace_id=f"trace-{index}", span_id=f"span-{index}")
+                for index in range(101)
+            ]
+        },
+    )
+    oversized_payload_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"spans": [trace_span_payload(payload={"blob": "x" * (256 * 1024)})]},
+    )
+    project_override_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"project_id": 999, **trace_payload()},
+    )
+
+    assert missing_trace_id_response.status_code == 422
+    assert missing_start_time_response.status_code == 422
+    assert negative_duration_response.status_code == 422
+    assert bool_duration_response.status_code == 422
+    assert inverted_time_response.status_code == 422
+    assert too_many_response.status_code == 422
+    assert oversized_payload_response.status_code == 422
+    assert project_override_response.status_code == 422
+
+
 def test_ingest_rejects_non_finite_payload_values() -> None:
     client = build_client()
     admin_headers = create_auth_headers(client, username="nonfinite")
@@ -880,6 +1120,34 @@ def test_ingest_logs_rejects_non_finite_values(body: str) -> None:
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        '{"spans":[{"trace_id":"t","span_id":"s","name":"op","start_time":"2026-06-21T00:00:00Z","duration_ms":NaN}]}',
+        '{"spans":[{"trace_id":"t","span_id":"s","name":"op","start_time":"2026-06-21T00:00:00Z","attributes":{"bad":Infinity}}]}',
+        '{"spans":[{"trace_id":"t","span_id":"s","name":"op","start_time":"2026-06-21T00:00:00Z","payload":{"bad":-Infinity}}]}',
+    ],
+)
+def test_ingest_traces_rejects_non_finite_values(body: str) -> None:
+    client = build_client()
+    _, raw_key, _ = create_ingest_api_key(
+        client,
+        username=f"traces-nonfinite-{abs(hash(body))}",
+        project_key=f"traces-nonfinite-{abs(hash(body))}",
+    )
+
+    response = client.post(
+        "/api/v1/ingest/traces",
+        headers={
+            "Authorization": f"Bearer {raw_key}",
+            "Content-Type": "application/json",
+        },
+        content=body,
+    )
+
+    assert response.status_code == 422
+
+
 def test_ingest_cross_project_is_bound_to_api_key_project() -> None:
     client = build_client()
     first_headers = create_auth_headers(client, username="first")
@@ -941,9 +1209,11 @@ def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:
             index["name"]: index["column_names"]
             for index in inspector.get_indexes("ingest_records")
         }
+        columns = {column["name"]: column for column in inspector.get_columns("ingest_records")}
         assert "ingest_records" in table_names
         assert "ingest_stats" in table_names
         assert indexes[INGEST_RECORD_QUERY_INDEX_NAME] == INGEST_RECORD_QUERY_INDEX_COLUMNS
+        assert str(columns["kind"]["type"]).upper().startswith("VARCHAR")
     finally:
         app.state.db_engine.dispose()
 

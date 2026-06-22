@@ -38,6 +38,8 @@ def _ingest_kind_from_path(path: str) -> IngestKind | None:
         return IngestKind.metric
     if path.endswith("/api/v1/ingest/logs"):
         return IngestKind.log
+    if path.endswith("/api/v1/ingest/traces"):
+        return IngestKind.trace
     return None
 
 

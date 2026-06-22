@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from app.repositories.auth import UserRecord
 from app.repositories.ingest import IngestRecord, IngestRepository, IngestStatRecord
@@ -10,6 +11,8 @@ from app.schemas.ingest import (
     IngestKind,
     IngestLogsCreate,
     IngestMetricsCreate,
+    IngestTracesCreate,
+    IngestTraceSpanCreate,
 )
 from app.services.api_keys import ApiKeyVerification
 from app.services.errors import ResourceNotFoundError
@@ -122,6 +125,28 @@ class IngestService:
         )
         return IngestAccepted(records=records)
 
+    def ingest_traces(
+        self,
+        *,
+        context: ApiKeyVerification,
+        batch: IngestTracesCreate,
+    ) -> IngestAccepted:
+        records = self._repository.create_records(
+            [
+                (
+                    context.project_id,
+                    context.api_key_id,
+                    IngestKind.trace,
+                    span.name,
+                    span.source,
+                    _trace_span_payload(span),
+                    span.start_time,
+                )
+                for span in batch.spans
+            ]
+        )
+        return IngestAccepted(records=records)
+
     def list_stats(
         self,
         *,
@@ -161,3 +186,25 @@ class IngestService:
             kind=kind,
             source=source,
         )
+
+
+def _trace_span_payload(span: IngestTraceSpanCreate) -> dict[str, Any]:
+    raw_span = span.model_dump(mode="json")
+    duration_ms = raw_span["duration_ms"]
+    if duration_ms is None and span.end_time is not None:
+        duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
+
+    return {
+        "trace_id": raw_span["trace_id"],
+        "span_id": raw_span["span_id"],
+        "parent_span_id": raw_span["parent_span_id"],
+        "name": raw_span["name"],
+        "start_time": raw_span["start_time"],
+        "end_time": raw_span["end_time"],
+        "duration_ms": duration_ms,
+        "status_code": raw_span["status_code"],
+        "source": raw_span["source"],
+        "attributes": raw_span["attributes"] or {},
+        "payload": raw_span["payload"] or {},
+        "raw": raw_span,
+    }

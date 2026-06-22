@@ -2,6 +2,36 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0044 Trace ingestion 最小后端基础
+
+### 已完成
+
+- 新增 `POST /api/v1/ingest/traces`，沿用摄入 API Key 鉴权，支持 `Authorization: Bearer <api_key>` 与 `X-API-Key`，项目归属只来自 API Key 校验上下文，不接受客户端顶层 `project_id`。
+- 新增 trace schema：请求体为 `{"spans": [...]}`，每批 1 到 100 条、整体不超过 256 KiB；单条 span 支持 `trace_id`、`span_id`、`parent_span_id`、`name`、`start_time`、`end_time`、`duration_ms`、`status_code`、`source`、`attributes` 和业务 `payload`。
+- trace 校验覆盖必填字段、批量数量/大小、非有限数值、负数 `duration_ms`、`end_time` 早于 `start_time`、起止时间时区格式不一致，以及嵌套 `attributes`/`payload` 中的 `NaN`/`Infinity`。
+- 复用 `ingest_records` 最小持久化：traces 写入 `kind=trace`，`event_type` 映射为 span `name`，`source` 映射为 span `source`，`occurred_at` 映射为 `start_time`，`payload` 保存 trace/span 关键字段、业务 payload 和原始 span `raw`。
+- 复用 `ingest_stats`：成功 trace 摄入按分钟桶、项目、API Key、`kind=trace` 和 source 统计；已验证 API Key 后的 trace 请求体验证失败和限流拒绝也按 `kind=trace` 统计，不再误计到 event。
+- 本次未新增 Alembic 迁移：`ingest_records.kind` 既有类型为字符串列，可兼容新增 `trace` kind；已在 SQLite 迁移测试中断言 `kind` 列仍为 `VARCHAR`，作为 SQL 兼容边界。
+- 更新 `backend/README.md`、`agents/runtime/api-contracts/backend.md`、`backend/VERSION`、`backend/pyproject.toml`、`backend/uv.lock`、配置兜底版本和版本测试；后端版本提升到 `0.2.2`。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮不接 ClickHouse，不做 trace 查询 API，不做 waterfall/服务拓扑/前端页面；真实 MySQL/Redis/ClickHouse/MongoDB、真实后端服务和前后端联测未在开发侧执行，留给后续测试/审计专项。
+- 成功 trace 统计按 span `start_time` 入桶，限流拒绝按请求当前时间入桶，同一 API Key 的 accepted/rejected trace stats 可能分布在不同 bucket；测试已按统计合计断言。
+- 后端版本已提升到 `0.2.2`；建议总 agent 判断是否同步根 `VERSION`，本任务不要求前端版本同步。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py -q`，结果：36 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_ingest_api.py tests/test_config.py -q`，结果：47 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/schemas/ingest.py app/services/ingest.py app/api/routes/ingest.py app/api/dependencies.py app/core/application.py tests/test_ingest_api.py`，结果：通过。
+- 已运行 `uv run mypy app/schemas/ingest.py app/services/ingest.py app/repositories/ingest.py app/api/routes/ingest.py app/core/application.py app/api/dependencies.py`，结果：6 个源文件无类型错误。
+- 已运行 `uv run ruff format --check app/schemas/ingest.py app/services/ingest.py app/api/routes/ingest.py app/api/dependencies.py app/core/application.py app/core/config.py tests/test_ingest_api.py tests/test_config.py`，结果：8 个文件已格式化。
+- 已运行 `git diff --check`，结果：通过。
+- 测试 agent `Lagrange` 在实现前完成只读基线复验：确认当时 `/api/v1/ingest/traces` 为 404，并指出 validation path 映射和限流拒绝 kind 统计风险；本实现已补齐并加回归测试。
+- 测试 agent `Dirac` 在实现后完成只读专项复验：`uv run pytest tests/test_ingest_api.py -q`、`uv run ruff check app tests/test_ingest_api.py`、trace 相关 mypy 均通过；额外 TestClient 探测确认最小 trace span `202`，顶层 `project_id`、深层 `NaN`、时区混用、span 多余字段均 `422`，拒绝统计落在 `kind=trace`。
+
 ## 2026-06-22 T-0043 日志 request/user 字段过滤基础
 
 ### 已完成
