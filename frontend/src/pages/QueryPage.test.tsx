@@ -2,10 +2,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import type { EventQueryItem, LogContextResponse, LogQueryItem, MetricQueryItem, QueryResultPage } from '../api/query';
+import type {
+  EventQueryItem,
+  LogContextResponse,
+  LogQueryItem,
+  MetricAggregateItem,
+  MetricQueryItem,
+  QueryResultPage
+} from '../api/query';
 import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
-import { buildQueryParams, defaultFilters } from '../features/query/queryFilters';
+import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from '../features/query/queryFilters';
 import { buildLogContextQueryKey, buildSignalQueryKey } from '../features/query/querySession';
 import { QueryPage } from './QueryPage';
 
@@ -63,6 +70,18 @@ const currentMetric: MetricQueryItem = {
   payload: {},
   occurred_at: '2026-06-22T03:10:00Z',
   received_at: '2026-06-22T03:10:01Z'
+};
+
+const aggregateMetric: MetricAggregateItem = {
+  project_id: 21,
+  name: 'http.requests',
+  source: 'api',
+  window_start: '2026-06-22T03:00:00Z',
+  window_end: '2026-06-22T03:05:00Z',
+  aggregation: 'avg',
+  value: 42.5,
+  sample_count: 5,
+  unit: 'count'
 };
 
 function createSignedOutAuth(): AuthContextValue {
@@ -125,6 +144,13 @@ function seedSignalData<TItem>(
   });
 }
 
+function seedMetricAggregateData(queryClient: QueryClient, items: MetricAggregateItem[]) {
+  queryClient.setQueryData(
+    buildSignalQueryKey(1, 'metrics-aggregate', buildMetricAggregateParams(defaultFilters), 0),
+    { items }
+  );
+}
+
 describe('QueryPage auth guards', () => {
   it('未登录时不渲染旧 session 缓存的日志列表或上下文', () => {
     const queryClient = new QueryClient({
@@ -170,6 +196,22 @@ describe('QueryPage auth guards', () => {
     expect(eventsHtml).not.toContain('Trace ID');
     expect(eventsHtml).not.toContain('Span ID');
   });
+
+  it('仅 metrics 查询表单渲染聚合窗口控件', () => {
+    const auth = createSignedOutAuth();
+    const metricsHtml = renderQueryPage(new QueryClient(), auth, 'metrics');
+    const logsHtml = renderQueryPage(new QueryClient(), auth, 'logs');
+    const eventsHtml = renderQueryPage(new QueryClient(), auth, 'events');
+
+    expect(metricsHtml).toContain('窗口');
+    expect(metricsHtml).toContain('聚合方式');
+    expect(metricsHtml).toContain('5 分钟');
+    expect(metricsHtml).toContain('平均值');
+    expect(logsHtml).not.toContain('聚合方式');
+    expect(logsHtml).not.toContain('5 分钟');
+    expect(eventsHtml).not.toContain('聚合方式');
+    expect(eventsHtml).not.toContain('5 分钟');
+  });
 });
 
 describe('QueryPage events timeline', () => {
@@ -205,5 +247,36 @@ describe('QueryPage events timeline', () => {
     expect(metricsHtml).not.toContain('class="event-timeline"');
     expect(logsHtml).toContain('class="query-list"');
     expect(logsHtml).not.toContain('class="event-timeline"');
+  });
+});
+
+describe('QueryPage metric aggregates', () => {
+  it('metrics 页面在当前页趋势之外展示聚合窗口结果', () => {
+    const queryClient = new QueryClient();
+    seedSignalData(queryClient, 'metrics', [currentMetric]);
+    seedMetricAggregateData(queryClient, [aggregateMetric]);
+
+    const html = renderQueryPage(queryClient, createSignedInAuth(), 'metrics');
+
+    expect(html).toContain('当前页趋势');
+    expect(html).toContain('聚合窗口');
+    expect(html).toContain('5 分钟 / 平均值');
+    expect(html).toContain('http.requests / api / count');
+    expect(html).toContain('42.500 count');
+    expect(html).toContain('样本数');
+    expect(html).toContain('5');
+  });
+
+  it('logs 和 events 页面不渲染聚合结果视图', () => {
+    const logsClient = new QueryClient();
+    const eventsClient = new QueryClient();
+    seedSignalData(logsClient, 'logs', [staleLog]);
+    seedSignalData(eventsClient, 'events', [timelineEvent]);
+
+    const logsHtml = renderQueryPage(logsClient, createSignedInAuth(), 'logs');
+    const eventsHtml = renderQueryPage(eventsClient, createSignedInAuth(), 'events');
+
+    expect(logsHtml).not.toContain('聚合窗口');
+    expect(eventsHtml).not.toContain('聚合窗口');
   });
 });

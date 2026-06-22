@@ -430,3 +430,26 @@
 - 已由前端开发 agent 按测试 agent 规范启动/执行测试验证：`npm.cmd run typecheck` 通过，`npm.cmd run build` 通过。
 - 已启动测试子 agent Kant 独立复验：`npm.cmd run typecheck` 通过，`npm.cmd run test` 通过，`npm.cmd run build` 通过，`npm.cmd audit --audit-level=moderate` 通过。
 - 本轮在新增父子 agent 边界要求后，前端开发 agent 没有代跑测试子 agent 负责的 `typecheck`、`test`、`build` 验证命令。
+
+## 2026-06-22 T-0042 Metrics 聚合窗口基础
+
+### 已完成
+
+- 新增指标聚合 API client：`listMetricAggregates` 调用 `GET /api/v1/query/metrics/aggregate`，携带 `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation`、`limit`，不传 `cursor`；现有 `listMetrics` 样本查询和分页行为保持不变。
+- 更新查询筛选构建：`QueryFilters` 新增 metrics 专属 `metricWindow` 与 `metricAggregation` 默认值，并新增 `buildMetricAggregateParams`；logs/events 不显示也不透传聚合参数。
+- 更新 `/metrics` 查询页：筛选区新增窗口与聚合方式控件；结果区在当前页趋势之外新增聚合窗口结果视图，展示窗口、聚合值、样本数、source/unit，并覆盖 loading/error/empty 状态。
+- 聚合查询使用独立 query key；提交筛选或刷新会同时刷新样本和聚合查询，翻页只影响样本列表 cursor。
+- 扩展前端测试：覆盖 API URL/参数、聚合参数构建、metrics 专属控件和聚合结果、logs/events 不受影响。
+
+### 阻塞与风险
+
+- 本轮不做完整前后端联测，不启动真实后端、数据库、dev server 或浏览器。
+- 聚合 API 响应按当前前端契约 `{ items: [...] }` 对接；真实后端字段、时间窗口排序和限制策略由后续测试 agent 联合验证。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx` 通过（3 个测试文件、19 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（13 个测试文件、62 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。

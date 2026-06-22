@@ -50,6 +50,50 @@ describe('query api client', () => {
     );
   });
 
+  it('指标聚合查询会携带窗口和聚合参数但不使用 cursor', async () => {
+    const { listMetricAggregates, setApiAuthToken } = await loadQueryClient();
+    const response = {
+      items: [
+        {
+          project_id: 12,
+          name: 'http.requests',
+          source: 'api',
+          window_start: '2026-06-20T10:00:00Z',
+          window_end: '2026-06-20T10:05:00Z',
+          aggregation: 'avg',
+          value: 12.5,
+          sample_count: 4,
+          unit: 'count'
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
+
+    setApiAuthToken('query-token');
+    await expect(
+      listMetricAggregates({
+        project_id: 12,
+        name: 'http.requests',
+        source: 'api',
+        occurred_from: '2026-06-20T10:00',
+        occurred_to: '2026-06-20T11:00',
+        window: '5m',
+        aggregation: 'avg',
+        limit: 20,
+        cursor: 'ignored-cursor'
+      } as never)
+    ).resolves.toEqual(response);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/metrics/aggregate?project_id=12&name=http.requests&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&window=5m&aggregation=avg&limit=20',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer query-token'
+        })
+      })
+    );
+  });
+
   it('空筛选不会生成空查询参数', async () => {
     const { listLogs } = await loadQueryClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));

@@ -1,6 +1,17 @@
-import type { EventQueryParams, LogQueryParams, MetricQueryParams } from '../../api/query';
+import type {
+  EventQueryParams,
+  LogQueryParams,
+  MetricAggregateParams,
+  MetricAggregation,
+  MetricQueryParams
+} from '../../api/query';
 
 export type QuerySignal = 'metrics' | 'logs' | 'events';
+
+export const metricWindowOptions = ['1m', '5m', '15m', '1h'] as const;
+export const metricAggregationOptions = ['avg', 'sum', 'min', 'max', 'count'] as const;
+
+export type MetricWindow = (typeof metricWindowOptions)[number];
 
 export type QueryFilters = {
   projectId: string;
@@ -12,6 +23,8 @@ export type QueryFilters = {
   occurredFrom: string;
   occurredTo: string;
   limit: string;
+  metricWindow: MetricWindow;
+  metricAggregation: MetricAggregation;
 };
 
 export const defaultFilters: QueryFilters = {
@@ -23,7 +36,9 @@ export const defaultFilters: QueryFilters = {
   source: '',
   occurredFrom: '',
   occurredTo: '',
-  limit: '100'
+  limit: '100',
+  metricWindow: '5m',
+  metricAggregation: 'avg'
 };
 
 export type BuiltQueryParams = MetricQueryParams | LogQueryParams | EventQueryParams;
@@ -53,6 +68,29 @@ export function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cur
   }
 
   return { ...common, type: toOptional(filters.primary) };
+}
+
+export function buildMetricAggregateParams(filters: QueryFilters): MetricAggregateParams {
+  return {
+    project_id: toNumber(filters.projectId),
+    name: toOptional(filters.primary),
+    source: toOptional(filters.source),
+    occurred_from: toOptional(filters.occurredFrom),
+    occurred_to: toOptional(filters.occurredTo),
+    limit: toNumber(filters.limit),
+    window: normalizeMetricWindow(filters.metricWindow),
+    aggregation: normalizeMetricAggregation(filters.metricAggregation)
+  };
+}
+
+function normalizeMetricWindow(value: string): MetricWindow {
+  return metricWindowOptions.includes(value as MetricWindow) ? (value as MetricWindow) : defaultFilters.metricWindow;
+}
+
+function normalizeMetricAggregation(value: string): MetricAggregation {
+  return metricAggregationOptions.includes(value as MetricAggregation)
+    ? (value as MetricAggregation)
+    : defaultFilters.metricAggregation;
 }
 
 function toOptional(value: string) {
