@@ -68,7 +68,7 @@ closed      已关闭
 | T-0038 | 日志上下文增强 | 总 agent | done | done | done | done | done |
 | T-0039 | 日志关键词搜索基础 | 总 agent | done | done | done | done | done |
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
-| T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | doing |
+| T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -335,7 +335,9 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 总 agent | 启动日志结构化字段过滤基础 | 阶段 3 下一步拆分为 logs 结构化字段过滤：后端为 `GET /api/v1/query/logs` 增加 `trace_id`、`span_id` 可选查询参数并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Trace ID / Span ID 输入并接入 API client。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
 | 2026-06-22 | T-0041 | 开发 agents | 日志结构化字段过滤前后端完成 | 后端 Archimedes 提交并推送 `48b7a24`，新增 logs `trace_id`/`span_id` 参数、规范化、顶层结构化字段精确过滤、cursor 签名和测试；前端 Hubble 提交并推送 `be8ab10`，在 `/logs` 表单新增 Trace ID / Span ID 输入、参数构建/API 透传和测试；两名开发 agent 均已关闭 | done |
 | 2026-06-22 | T-0041 | 审计/测试 agents | 日志字段过滤局部复验通过 | 后端审计 Zeno 与前端审计 Poincare 均未发现 P0/P1/P2；后端测试 Boyle 通过 trace/keyword/cursor 专项、query API 全量、ruff、format、mypy 和 diff check；前端测试 Kepler 通过 query/API/page 专项、lint、全量测试、typecheck、build 和 diff check；相关 agents 均已关闭 | done |
-| 2026-06-22 | T-0041 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`；本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`，后续推送后读取 CI 并同步 feature 分支 | doing |
+| 2026-06-22 | T-0041 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`；本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1` | done |
+| 2026-06-22 | T-0041 | 总 agent | CI 与 worktree 同步完成 | 推送 `e59662e` 后 GitHub Actions run `27937513862` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `e59662e` 并推送，严格 worktree 体检通过 | done |
+| 2026-06-22 | T-0041 | 测试 agent Bohr | 日志字段过滤真实联测通过 | Bohr 在 `dev` `e59662e` 上启动独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器；完成健康检查、登录、项目/环境/服务/API Key、6 条 logs 上报、`trace_id`/`span_id`/组合筛选、keyword/level/source 叠加、空结果、未认证 401、无权限显式项目 404、分页保持 trace/span 筛选、浏览器 `/logs` 表单筛选/空态/翻页以及 metrics/events 快速回归；已 drop 临时库、停止记录 PID 的前端/后端/MySQL、删除 MySQL 临时 datadir 并确认端口无残留；证据目录 `agents/runtime/e2e-t0041-trace-span-20260622-155110/` 保留为本地 ignored 运行产物 | done |
 
 ## 6. 测试记录
 
@@ -384,6 +386,7 @@ closed      已关闭
 | 2026-06-22 | 联合测试 | 真实前后端联测 | Popper；自有临时 MySQL 8 `23317`、真实后端 `28117`、真实前端 `25173`、浏览器 | 通过 | `dev`/`origin/dev` `62e6b7f`；健康检查版本 `0.2.1`、登录、管理链路、API Key、metrics/logs/events 上报、metrics 趋势、logs keyword/context、events timeline/payload 展开、未认证保护和登出状态清理均通过；已清理自己启动资源；发现登录后硬刷新 `/settings` 可能先发未认证请求返回 401，SPA 导航正常，记录为后续观察 |
 | 2026-06-22 | T-0041 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py -k "trace or keyword or cursor"`、`uv run pytest tests/test_query_api.py`、ruff、format、mypy、`git diff --check` | 通过 | 开发侧 13 passed 后由 Boyle 复验 14 passed/12 deselected、query API 26 passed；覆盖 trace_id/span_id 精确过滤、与 keyword/level/source/project 权限叠加和 cursor 不匹配 422；未启动完整联测 |
 | 2026-06-22 | T-0041 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、lint、full test、typecheck、build、`git diff --check` | 通过 | Hubble 开发侧与 Kepler 复验均通过；Kepler 结果为 3 files/14 tests 专项、13 files/57 tests 全量，工作区干净；未启动完整联测 |
+| 2026-06-22 | T-0041 | 真实前后端联测 | Bohr；独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173`、浏览器 | 通过 | `dev` `e59662e`；HTTP 覆盖 trace_id、span_id、trace+span、keyword/level/source 叠加、空结果、未认证/无权限和分页；浏览器覆盖 `/logs` Trace ID / Span ID 表单筛选、空态和翻页；metrics/events 快速回归通过；已清理自己启动资源 |
 
 ## 7. 审计记录
 

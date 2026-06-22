@@ -597,10 +597,12 @@
 - T-0041 前后端开发 agents 已完成并关闭：后端 Archimedes 提交并推送 `48b7a24`，新增 logs `trace_id`/`span_id` 参数、规范化、顶层结构化字段精确过滤、cursor 签名和测试；前端 Hubble 提交并推送 `be8ab10`，新增 `/logs` Trace ID / Span ID 表单、参数构建/API 透传和测试。
 - T-0041 审计/局部测试 agents 已完成并关闭：Zeno/Poincare 审计均无 P0/P1/P2；Boyle 后端复验 trace/keyword/cursor 专项、query API 全量、ruff、format、mypy 和 diff check 通过；Kepler 前端复验 API/filter/page 专项、lint、全量测试、typecheck、build 和 diff check 通过。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0041 后端合入 `dev`，merge 提交 `6dc3140`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0041 前端合入 `dev`，merge 提交 `e64dd25`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`。
+- 推送 `e59662e` 后 GitHub Actions run `27937513862` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；随后 `feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e59662e` 并推送，严格 worktree 体检通过。
+- Bohr 在 `dev` `e59662e` 上完成 T-0041 真实前后端联合测试：独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器均通过，覆盖 logs `trace_id`/`span_id`/组合筛选、keyword/level/source 叠加、空结果、未认证/无权限、分页保持筛选语义、浏览器 `/logs` 表单筛选/空态/翻页，以及 metrics/events 快速回归；已清理自己启动的 MySQL、后端、前端、浏览器和临时目录，证据目录保留为本地 ignored 运行产物。
 
 ### 进行中
 
-- T-0041 已真实 merge 到 `dev`，正在补根记录；随后推送 `dev`、读取 CI、fast-forward 同步前后端 feature 分支，并启动新的真实前后端联合测试 agent 覆盖 `trace_id`/`span_id` 查询路径。
+- T-0041 已完成 dev 集成、CI、分支同步和真实联测；下一步准备进入阶段 3 的 metrics 聚合窗口或日志字段过滤后续小步。
 
 ### 阻塞与风险
 
@@ -614,11 +616,11 @@
 - T-0040 只做前端 Events 时间线基础展示，不改后端查询契约；真实后端/真实数据库/浏览器端的 events 时间线联合路径仍需由后续测试 agent 覆盖。
 - T-0041 只过滤 logs 顶层结构化字段 `trace_id` 与 `span_id`，不做任意 JSON 字段过滤、不做 `request_id` payload 查询、不接 ClickHouse；后续可单独设计字段过滤 DSL 或白名单 payload key 查询。
 - Popper 发现一个非阻断回归候选：登录后如果直接硬刷新 `/settings`，会话恢复期间 Settings 项目/环境/服务请求可能先以未认证状态发出并返回 `401`；SPA 侧边栏导航路径正常，后续可单独拆分会话恢复 gating 修复。
-- T-0041 新增过滤当前只经 SQLite 单元路径和静态 MySQL SQL 编译间接覆盖；真实 MySQL 上 `trace_id`/`span_id` 精确查询执行语义和浏览器翻页体验需由合并后真实联测补齐。
+- T-0041 已用真实 MySQL/真实前后端补齐 `trace_id`/`span_id` 精确查询和浏览器翻页体验；仍未实现任意 JSON 字段过滤、`request_id` payload 查询、ClickHouse 日志查询或脱敏策略。
 
 ### 下一步
 
-- 推送 T-0041 merge 与记录提交，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检；随后启动真实前后端联合测试 agent，使用真实后端、真实前端和真实数据库覆盖 logs `trace_id`/`span_id` 查询、翻页和 UI 表单路径。
+- 优先选择下一个阶段 3 小步：metrics 聚合窗口基础，或 logs 字段过滤继续扩展为白名单 payload key；开工前登记任务并继续前后端并行、开发/审计/测试职责分离。
 
 ### 验证
 
@@ -650,3 +652,5 @@
 - Popper 真实前后端联合测试通过：在 `62e6b7f` 上启动自有临时 MySQL 8 `23317`、真实后端 `28117`、真实前端 `25173` 和浏览器；健康检查版本 `0.2.1`、登录、管理链路、API Key、metrics/logs/events 上报、metrics 趋势图、logs keyword/context、events timeline/payload 展开、未认证保护和登出状态清理均通过；测试 agent 已清理自己启动资源。
 - T-0041 后端开发/审计/复测阶段通过：Archimedes 开发侧 `uv run pytest tests/test_query_api.py -k "trace or keyword or cursor"` 13 passed、query API 26 passed、ruff、format、mypy、diff check 通过；Zeno 审计无 P0/P1/P2；Boyle 复验 trace/keyword/cursor 专项 14 passed/12 deselected、query API 26 passed、ruff、format、mypy、diff check 通过。
 - T-0041 前端开发/审计/复测阶段通过：Hubble 开发侧 API/filter/page 专项、typecheck、lint、全量测试、build、diff check 通过；Poincare 审计无 P0/P1/P2；Kepler 复验 API/filter/page 专项 3 files/14 tests、lint、全量测试 13 files/57 tests、typecheck、build、diff check 通过。
+- T-0041 push 后 GitHub Actions run `27937513862` 通过：Backend checks 与 Frontend checks 均为 success；随后 `feature/frontend-dev`、`feature/backend-dev` 与 `dev` 均同步到 `e59662e`，严格 worktree 体检通过。
+- T-0041 真实前后端联合测试通过：Bohr 使用独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器；HTTP 覆盖 trace_id、span_id、trace+span、keyword/level/source 叠加、空结果、未认证/无权限和分页；浏览器覆盖 `/logs` Trace ID / Span ID 表单筛选、空态和翻页；metrics/events 快速回归通过；测试 agent 已清理自己启动资源。
