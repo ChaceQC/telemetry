@@ -31,6 +31,13 @@ class QueryPage[QueryRecordT: (EventQueryRecord, LogQueryRecord, MetricQueryReco
     next_cursor: str | None
 
 
+@dataclass(frozen=True)
+class LogContext:
+    target: LogQueryRecord
+    before: list[LogQueryRecord]
+    after: list[LogQueryRecord]
+
+
 class QueryService:
     def __init__(
         self,
@@ -107,6 +114,28 @@ class QueryService:
             cursor=query_cursor,
         )
         return _page_records(records, limit=limit, kind="log", query=query)
+
+    def get_log_context(
+        self,
+        *,
+        user: UserRecord,
+        log_id: int,
+        before: int,
+        after: int,
+    ) -> LogContext:
+        target = self._repository.get_log_by_id(log_id=log_id)
+        if target is None:
+            raise ResourceNotFoundError("日志不存在")
+
+        accessible_project_ids = self._permission_service.list_accessible_project_ids(user)
+        if accessible_project_ids is not None and target.project_id not in accessible_project_ids:
+            raise ResourceNotFoundError("日志不存在")
+
+        return LogContext(
+            target=target,
+            before=self._repository.list_log_context_before(target=target, limit=before),
+            after=self._repository.list_log_context_after(target=target, limit=after),
+        )
 
     def list_metrics(
         self,

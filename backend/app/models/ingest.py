@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -12,10 +12,19 @@ from app.models.management import ID_COLUMN, utc_now
 
 class IngestRecordModel(Base):
     __tablename__ = "ingest_records"
-    __table_args__ = {
-        "mysql_charset": "utf8mb4",
-        "mysql_collate": "utf8mb4_unicode_ci",
-    }
+    __table_args__ = (
+        Index(
+            "ix_ingest_records_project_kind_received_at_id",
+            "project_id",
+            "kind",
+            "received_at",
+            "id",
+        ),
+        {
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
+    )
 
     id: Mapped[int] = mapped_column(ID_COLUMN, primary_key=True, autoincrement=True)
     project_id: Mapped[int] = mapped_column(

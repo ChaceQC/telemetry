@@ -109,6 +109,20 @@ def set_ingest_records_received_at(
         session.commit()
 
 
+def set_ingest_record_received_at(
+    client: TestClient,
+    *,
+    record_id: object,
+    received_at: datetime,
+) -> None:
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        record = session.get(IngestRecordModel, record_id)
+        assert record is not None
+        record.received_at = received_at
+        session.commit()
+
+
 def test_query_events_lists_ingested_events_with_filters() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -554,6 +568,187 @@ def test_query_logs_cursor_paginates_with_received_at_and_id() -> None:
     second_body = second_response.json()
     assert [log["message"] for log in second_body["items"]] == ["log-a"]
     assert second_body["next_cursor"] is None
+
+
+def test_query_log_context_returns_target_and_neighbors_in_time_order() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-context-owner",
+        project_key="query-log-context-project",
+    )
+    other_project, other_key, _other_headers = create_ingest_api_key(
+        client,
+        username="query-log-context-other",
+        project_key="query-log-context-other-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "older same-project log",
+                    "source": "app",
+                },
+                {
+                    "level": "error",
+                    "message": "same-time lower-id log",
+                    "source": "worker",
+                },
+                {
+                    "level": "warn",
+                    "message": "target log",
+                    "source": "app",
+                },
+                {
+                    "level": "debug",
+                    "message": "same-time higher-id log",
+                    "source": "worker",
+                },
+                {
+                    "level": "info",
+                    "message": "newer same-project log",
+                    "source": "app",
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    log_receipts = ingest_response.json()["receipts"]
+
+    event_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"type": "ignored.event", "payload": {"message": "not a log"}},
+    )
+    metric_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "ignored.metric", "value": 1}]},
+    )
+    other_log_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {other_key}"},
+        json={"logs": [{"level": "info", "message": "other project log"}]},
+    )
+    assert event_response.status_code == 202
+    assert metric_response.status_code == 202
+    assert other_log_response.status_code == 202
+
+    older_time = datetime(2026, 6, 21, 7, 59, tzinfo=UTC)
+    target_time = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+    newer_time = datetime(2026, 6, 21, 8, 1, tzinfo=UTC)
+    for index, receipt in enumerate(log_receipts):
+        set_ingest_record_received_at(
+            client,
+            record_id=receipt["id"],
+            received_at=[older_time, target_time, target_time, target_time, newer_time][index],
+        )
+    for receipt in [
+        event_response.json(),
+        metric_response.json()["receipts"][0],
+        other_log_response.json()["receipts"][0],
+    ]:
+        set_ingest_record_received_at(
+            client,
+            record_id=receipt["id"],
+            received_at=target_time,
+        )
+
+    context_response = client.get(
+        f"/api/v1/query/logs/{log_receipts[2]['id']}/context",
+        headers=admin_headers,
+        params={"before": 2, "after": 2},
+    )
+
+    assert project["id"] != other_project["id"]
+    assert context_response.status_code == 200
+    body = context_response.json()
+    assert body["target"]["message"] == "target log"
+    assert body["target"]["project_id"] == project["id"]
+    assert [log["message"] for log in body["before"]] == [
+        "older same-project log",
+        "same-time lower-id log",
+    ]
+    assert [log["message"] for log in body["after"]] == [
+        "same-time higher-id log",
+        "newer same-project log",
+    ]
+    assert [log["level"] for log in body["before"]] == ["info", "error"]
+    assert [log["source"] for log in body["after"]] == ["worker", "app"]
+
+
+def test_query_log_context_hides_missing_and_unauthorized_logs() -> None:
+    client = build_client()
+    _project, raw_key, _owner_headers = create_ingest_api_key(
+        client,
+        username="query-log-context-hidden-owner",
+        project_key="query-log-context-hidden-project",
+    )
+    other_headers = create_auth_headers(client, username="query-log-context-hidden-viewer")
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "info", "message": "hidden context log"}]},
+    )
+    assert ingest_response.status_code == 202
+    log_id = ingest_response.json()["receipts"][0]["id"]
+
+    unauthorized_response = client.get(
+        f"/api/v1/query/logs/{log_id}/context",
+        headers=other_headers,
+    )
+    missing_response = client.get(
+        "/api/v1/query/logs/999999/context",
+        headers=other_headers,
+    )
+
+    assert unauthorized_response.status_code == 404
+    assert unauthorized_response.json()["detail"] == "日志不存在"
+    assert missing_response.status_code == 404
+    assert missing_response.json()["detail"] == "日志不存在"
+
+
+def test_query_log_context_validates_before_and_after_bounds() -> None:
+    client = build_client()
+    _project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-context-bounds-owner",
+        project_key="query-log-context-bounds-project",
+    )
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"logs": [{"level": "info", "message": "bounded context log"}]},
+    )
+    assert ingest_response.status_code == 202
+    log_id = ingest_response.json()["receipts"][0]["id"]
+
+    empty_context_response = client.get(
+        f"/api/v1/query/logs/{log_id}/context",
+        headers=admin_headers,
+        params={"before": 0, "after": 0},
+    )
+    too_many_before_response = client.get(
+        f"/api/v1/query/logs/{log_id}/context",
+        headers=admin_headers,
+        params={"before": 21},
+    )
+    negative_after_response = client.get(
+        f"/api/v1/query/logs/{log_id}/context",
+        headers=admin_headers,
+        params={"after": -1},
+    )
+
+    assert empty_context_response.status_code == 200
+    assert empty_context_response.json()["before"] == []
+    assert empty_context_response.json()["after"] == []
+    assert too_many_before_response.status_code == 422
+    assert negative_after_response.status_code == 422
 
 
 def test_query_metrics_cursor_paginates_with_received_at_and_id() -> None:

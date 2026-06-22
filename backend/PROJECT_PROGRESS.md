@@ -2,6 +2,32 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0038 审计 P2 日志上下文索引修复
+
+### 已完成
+
+- 修复后端审计 P2：为 `ingest_records` 补充组合索引 `ix_ingest_records_project_kind_received_at_id(project_id, kind, received_at, id)`，支撑日志上下文 before/after 的 `project_id + kind + received_at/id` 窗口查询，降低真实数据量下宽扫描和 filesort 风险。
+- 同步更新 `IngestRecordModel.__table_args__` 和 Alembic 迁移 `20260622_0007_add_ingest_records_query_index.py`，保持 ORM metadata 与迁移一致；迁移兼容 SQLite 测试和 MySQL 运行。
+- 补充 `backend/tests/test_ingest_api.py` 索引元数据与 SQLite Alembic `upgrade head` 后实际索引列断言，防止模型和迁移脱节。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录该组合索引可被日志上下文和带项目过滤的 events/logs/metrics 分页查询复用，审计 P2 已修。
+
+### 阻塞与风险
+
+- 当前 worktree 未启动真实 MySQL，本轮验证覆盖 SQLite 迁移和静态检查；真实 MySQL 大数据量执行计划、基数选择和线上慢查询仍需后续在专用环境用真实数据或压测数据复验。
+- 未修改查询语义、API 契约或前端联动；不做完整前后端联测。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py -k "query_window_index or migration"`，结果：2 个测试通过、26 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_query_api.py`，结果：17 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已使用 `sqlite:///./tmp-t0038-index-alembic.db` 运行 `uv run alembic upgrade head` 和 `uv run alembic downgrade base`，结果：SQLite 迁移升降级通过，临时数据库文件已删除。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：78 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：78 个源文件无类型错误。
+- 已运行 `uv run pytest`，结果：124 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `git diff --check`，结果：通过。
+- 已运行 MySQL dialect 离线 SQL 生成：`uv run alembic -x database_url='mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4' upgrade 20260621_0006:head --sql` 和 `uv run alembic -x database_url='mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4' downgrade 20260622_0007:20260621_0006 --sql`；输出包含 `CREATE INDEX ix_ingest_records_project_kind_received_at_id ON ingest_records (project_id, kind, received_at, id)` 和对应 `DROP INDEX`。真实 MySQL 执行仍需后续专用环境补验。
+
 ## 2026-06-22 版本同步
 
 ### 已完成
@@ -876,3 +902,40 @@
 - 已运行 `uv run ruff format --check tests/test_query_api.py`，结果：通过。
 - 已运行 `uv run pytest tests/test_query_api.py`，结果：14 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
 - 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-22 T-0038 日志上下文后端基础
+
+### 已完成
+
+- 新增 `GET /api/v1/query/logs/{log_id}/context`，使用 Bearer 用户 token 鉴权。
+- 在 API/service/repository/schema 分层内实现最小日志上下文查询：目标日志按 `id` 读取并校验 `kind=log`，当前用户必须拥有目标日志所属项目角色。
+- 上下文限定同一 `project_id` 且 `kind=log`，不要求同 `source` 或 `level`，不跨项目，不包含 events/metrics。
+- `before` 与 `after` 查询参数默认均为 `5`，范围 `0..20`；响应为 `target`、`before`、`after`，两侧上下文均按 `received_at` + `id` 时间正序返回，便于前端按 `before + target + after` 展示。
+- 目标不存在、不是日志或当前用户无项目权限时统一返回 `404 日志不存在`，避免通过日志 ID 探测跨项目数据。
+- 扩展 `backend/tests/test_query_api.py`，覆盖成功返回目标前后文、同时间戳下按 `id` 稳定排序、同项目但不同 source/level 纳入上下文、其他项目/events/metrics 不纳入、无权限/不存在隐藏，以及 `before`/`after` 边界校验。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，登记日志上下文 API 路径、权限、响应、排序和错误边界。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮仍基于关系库 `ingest_records`；真实 MySQL 大数据量窗口性能、组合索引策略、ClickHouse 日志上下文、全文搜索窗口和生产反代路径未覆盖。
+- 开发侧仅做收窄自检；未启动后端服务，未做完整前后端联测。
+
+### 下一步
+
+- 等待总 agent 后续启动代码审计 agent。
+- 前端可按 API 契约接入日志详情上下文展示；若后续接入 ClickHouse 日志存储，再补专用上下文查询与性能验证。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "log_context"`，结果：3 个测试通过、14 个测试 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+
+### 测试 agent 独立复验
+
+- 已启动测试 agent `Goodall` 做独立复验，结论：有条件通过。
+- `Goodall` 已运行 `uv run pytest tests/test_query_api.py -k "log_context"`，结果：3 个测试通过。
+- `Goodall` 已运行 `uv run pytest tests/test_query_api.py`，结果：17 个测试通过。
+- `Goodall` 已运行 `uv run ruff check app/api/routes/query.py app/services/query.py app/repositories/query.py app/schemas/query.py tests/test_query_api.py`，结果：通过。
+- `Goodall` 已运行 `uv run ruff format --check app/api/routes/query.py app/services/query.py app/repositories/query.py app/schemas/query.py tests/test_query_api.py`，结果：通过。
+- `Goodall` 已运行 `uv run mypy .`，结果：77 个源文件无类型错误。
+- `Goodall` 首轮指出文档和契约尚未更新；开发侧随后已补齐 `backend/README.md`、`backend/PROJECT_PROGRESS.md` 和 `agents/runtime/api-contracts/backend.md`。
