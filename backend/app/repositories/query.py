@@ -87,6 +87,22 @@ class QueryRepository(Protocol):
         cursor: QueryCursor | None,
     ) -> list[LogQueryRecord]: ...
 
+    def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None: ...
+
+    def list_log_context_before(
+        self,
+        *,
+        target: LogQueryRecord,
+        limit: int,
+    ) -> list[LogQueryRecord]: ...
+
+    def list_log_context_after(
+        self,
+        *,
+        target: LogQueryRecord,
+        limit: int,
+    ) -> list[LogQueryRecord]: ...
+
     def list_metrics(
         self,
         *,
@@ -271,6 +287,73 @@ class SqlAlchemyQueryRepository:
             IngestRecordModel.received_at.desc(),
             IngestRecordModel.id.desc(),
         ).limit(limit)
+        return [_log_query_record(model) for model in self._session.scalars(statement)]
+
+    def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None:
+        statement = select(IngestRecordModel).where(
+            IngestRecordModel.id == log_id,
+            IngestRecordModel.kind == IngestKind.log.value,
+        )
+        model = self._session.scalars(statement).first()
+        return _log_query_record(model) if model is not None else None
+
+    def list_log_context_before(
+        self,
+        *,
+        target: LogQueryRecord,
+        limit: int,
+    ) -> list[LogQueryRecord]:
+        if limit == 0:
+            return []
+        statement = (
+            select(IngestRecordModel)
+            .where(
+                IngestRecordModel.project_id == target.project_id,
+                IngestRecordModel.kind == IngestKind.log.value,
+                or_(
+                    IngestRecordModel.received_at < target.received_at,
+                    and_(
+                        IngestRecordModel.received_at == target.received_at,
+                        IngestRecordModel.id < target.id,
+                    ),
+                ),
+            )
+            .order_by(
+                IngestRecordModel.received_at.desc(),
+                IngestRecordModel.id.desc(),
+            )
+            .limit(limit)
+        )
+        records = [_log_query_record(model) for model in self._session.scalars(statement)]
+        return list(reversed(records))
+
+    def list_log_context_after(
+        self,
+        *,
+        target: LogQueryRecord,
+        limit: int,
+    ) -> list[LogQueryRecord]:
+        if limit == 0:
+            return []
+        statement = (
+            select(IngestRecordModel)
+            .where(
+                IngestRecordModel.project_id == target.project_id,
+                IngestRecordModel.kind == IngestKind.log.value,
+                or_(
+                    IngestRecordModel.received_at > target.received_at,
+                    and_(
+                        IngestRecordModel.received_at == target.received_at,
+                        IngestRecordModel.id > target.id,
+                    ),
+                ),
+            )
+            .order_by(
+                IngestRecordModel.received_at.asc(),
+                IngestRecordModel.id.asc(),
+            )
+            .limit(limit)
+        )
         return [_log_query_record(model) for model in self._session.scalars(statement)]
 
     def list_metrics(

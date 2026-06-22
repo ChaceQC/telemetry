@@ -1,13 +1,14 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from app.api.dependencies import get_current_user, get_query_service
 from app.repositories.auth import UserRecord
 from app.schemas.query import (
     EventQueryPageResponse,
     EventQueryResponse,
+    LogContextQueryResponse,
     LogQueryPageResponse,
     LogQueryResponse,
     MetricQueryPageResponse,
@@ -99,6 +100,34 @@ def list_logs(
     return LogQueryPageResponse(
         items=[LogQueryResponse.model_validate(log) for log in page.items],
         next_cursor=page.next_cursor,
+    )
+
+
+@router.get(
+    "/logs/{log_id}/context",
+    response_model=LogContextQueryResponse,
+    summary="查询日志上下文",
+)
+def get_log_context(
+    query_service: Annotated[QueryService, Depends(get_query_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    log_id: Annotated[int, Path(gt=0)],
+    before: Annotated[int, Query(ge=0, le=20)] = 5,
+    after: Annotated[int, Query(ge=0, le=20)] = 5,
+) -> LogContextQueryResponse:
+    try:
+        context = query_service.get_log_context(
+            user=current_user,
+            log_id=log_id,
+            before=before,
+            after=after,
+        )
+    except ResourceNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return LogContextQueryResponse(
+        target=LogQueryResponse.model_validate(context.target),
+        before=[LogQueryResponse.model_validate(log) for log in context.before],
+        after=[LogQueryResponse.model_validate(log) for log in context.after],
     )
 
 

@@ -45,6 +45,12 @@ class LogQueryPageResponse(BaseModel):
     next_cursor: str | None
 
 
+class LogContextQueryResponse(BaseModel):
+    target: LogQueryResponse
+    before: list[LogQueryResponse]
+    after: list[LogQueryResponse]
+
+
 class MetricQueryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
