@@ -16,6 +16,7 @@ from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.query import (
     _log_attribute_string_equals,
     _metric_window_epoch,
+    _payload_duration_ms,
     _payload_string_field_equals,
 )
 from app.schemas.ingest import IngestKind
@@ -1287,6 +1288,9 @@ def test_query_traces_lists_ingested_spans_with_filters() -> None:
             "span_id": "  span-db  ",
             "name": "SELECT orders",
             "source": "db",
+            "status_code": "  error  ",
+            "duration_min_ms": 30,
+            "duration_max_ms": 31,
             "occurred_from": "2026-06-20T10:00:00Z",
             "occurred_to": "2026-06-20T10:00:01Z",
         },
@@ -1326,6 +1330,89 @@ def test_query_traces_lists_ingested_spans_with_filters() -> None:
     assert filtered_spans[0]["occurred_at"].startswith("2026-06-20T10:00:00.020")
     assert business_payload_response.status_code == 200
     assert business_payload_response.json() == {"items": [], "next_cursor": None}
+
+
+def test_query_traces_filters_status_code_and_duration_bounds() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-duration-owner",
+        project_key="query-trace-duration-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "duration-trace",
+                    "span_id": "span-fast",
+                    "name": "fast",
+                    "start_time": "2026-06-20T10:00:00Z",
+                    "duration_ms": 9.5,
+                    "status_code": "error",
+                },
+                {
+                    "trace_id": "duration-trace",
+                    "span_id": "span-match",
+                    "name": "match",
+                    "start_time": "2026-06-20T10:01:00Z",
+                    "duration_ms": 30.5,
+                    "status_code": "error",
+                },
+                {
+                    "trace_id": "duration-trace",
+                    "span_id": "span-slow",
+                    "name": "slow",
+                    "start_time": "2026-06-20T10:02:00Z",
+                    "duration_ms": 60,
+                    "status_code": "error",
+                },
+                {
+                    "trace_id": "duration-trace",
+                    "span_id": "span-ok",
+                    "name": "ok",
+                    "start_time": "2026-06-20T10:03:00Z",
+                    "duration_ms": 30.5,
+                    "status_code": "ok",
+                },
+            ]
+        },
+    )
+    filtered_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "duration-trace",
+            "status_code": "  error  ",
+            "duration_min_ms": 10,
+            "duration_max_ms": 40,
+        },
+    )
+    blank_status_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "duration-trace",
+            "status_code": "   ",
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    assert filtered_response.status_code == 200
+    body = filtered_response.json()
+    assert body["next_cursor"] is None
+    assert [span["span_id"] for span in body["items"]] == ["span-match"]
+    assert blank_status_response.status_code == 200
+    assert sorted(span["span_id"] for span in blank_status_response.json()["items"]) == [
+        "span-fast",
+        "span-match",
+        "span-ok",
+        "span-slow",
+    ]
 
 
 def test_query_traces_filters_occurred_to_with_millisecond_precision() -> None:
@@ -1403,6 +1490,55 @@ def test_query_traces_trace_and_span_validate_trimmed_length() -> None:
     assert long_trace_response.json()["detail"] == "trace_id 长度不能超过 128"
     assert long_span_response.status_code == 422
     assert long_span_response.json()["detail"] == "span_id 长度不能超过 128"
+
+
+def test_query_traces_status_and_duration_validate_bounds() -> None:
+    client = build_client()
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-status-length-owner",
+        project_key="query-trace-status-length-project",
+    )
+
+    valid_status_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "status_code": f"  {'s' * 64}  "},
+    )
+    long_status_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "status_code": "s" * 65},
+    )
+    negative_duration_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "duration_min_ms": -1},
+    )
+    reversed_duration_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "duration_min_ms": 50,
+            "duration_max_ms": 10,
+        },
+    )
+    infinite_duration_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={"project_id": project["id"], "duration_min_ms": "inf"},
+    )
+
+    assert valid_status_response.status_code == 200
+    assert long_status_response.status_code == 422
+    assert long_status_response.json()["detail"] == "status_code 长度不能超过 64"
+    assert negative_duration_response.status_code == 422
+    assert reversed_duration_response.status_code == 422
+    assert reversed_duration_response.json()["detail"] == (
+        "duration_min_ms 不能大于 duration_max_ms"
+    )
+    assert infinite_duration_response.status_code == 422
 
 
 def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
@@ -1650,6 +1786,30 @@ def test_query_trace_payload_field_filter_sql_compiles_for_supported_dialects() 
             assert "json_unquote" not in compiled
         else:
             assert "json_unquote(json_extract" in compiled
+
+
+def test_query_trace_duration_filter_sql_compiles_for_supported_dialects() -> None:
+    dialects = {
+        "sqlite": sqlite.dialect(),
+        "mysql": mysql.dialect(),
+        "mariadb": mariadb.MariaDBDialect(),
+    }
+
+    for dialect_name, dialect in dialects.items():
+        compiled = str(
+            (_payload_duration_ms() >= 10.5).compile(
+                dialect=dialect,
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+        assert "duration_ms" in compiled
+        assert "json_extract" in compiled
+        assert ">= 10.5" in compiled
+        if dialect_name == "sqlite":
+            assert "+0.0000000000000000000000" not in compiled
+        else:
+            assert "+0.0000000000000000000000" in compiled
 
 
 def test_query_metrics_aggregate_filters_permissions_empty_and_limit() -> None:
@@ -2428,6 +2588,8 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
                     "name": "cursor span-a",
                     "source": "api",
                     "start_time": "2026-06-20T10:00:00Z",
+                    "duration_ms": 10,
+                    "status_code": "error",
                 },
                 {
                     "trace_id": "cursor-trace",
@@ -2435,6 +2597,8 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
                     "name": "cursor span-b",
                     "source": "api",
                     "start_time": "2026-06-20T10:01:00Z",
+                    "duration_ms": 20,
+                    "status_code": "error",
                 },
                 {
                     "trace_id": "cursor-trace",
@@ -2442,6 +2606,8 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
                     "name": "cursor span-c",
                     "source": "api",
                     "start_time": "2026-06-20T10:02:00Z",
+                    "duration_ms": 30,
+                    "status_code": "error",
                 },
                 {
                     "trace_id": "cursor-trace",
@@ -2449,6 +2615,8 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
                     "name": "ignored source",
                     "source": "worker",
                     "start_time": "2026-06-20T10:03:00Z",
+                    "duration_ms": 40,
+                    "status_code": "error",
                 },
                 {
                     "trace_id": "other-trace",
@@ -2456,6 +2624,26 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
                     "name": "ignored trace",
                     "source": "api",
                     "start_time": "2026-06-20T10:04:00Z",
+                    "duration_ms": 50,
+                    "status_code": "error",
+                },
+                {
+                    "trace_id": "cursor-trace",
+                    "span_id": "ignored-status",
+                    "name": "ignored status",
+                    "source": "api",
+                    "start_time": "2026-06-20T10:05:00Z",
+                    "duration_ms": 20,
+                    "status_code": "ok",
+                },
+                {
+                    "trace_id": "cursor-trace",
+                    "span_id": "ignored-duration",
+                    "name": "ignored duration",
+                    "source": "api",
+                    "start_time": "2026-06-20T10:06:00Z",
+                    "duration_ms": 60,
+                    "status_code": "error",
                 },
             ]
         },
@@ -2475,6 +2663,9 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
             "project_id": project["id"],
             "trace_id": "cursor-trace",
             "source": "api",
+            "status_code": "error",
+            "duration_min_ms": 10,
+            "duration_max_ms": 30,
             "limit": 2,
         },
     )
@@ -2486,6 +2677,9 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
             "project_id": project["id"],
             "trace_id": "cursor-trace",
             "source": "api",
+            "status_code": "error",
+            "duration_min_ms": 10,
+            "duration_max_ms": 30,
             "limit": 2,
             "cursor": first_body["next_cursor"],
         },
@@ -2497,6 +2691,9 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
             "project_id": project["id"],
             "trace_id": "other-trace",
             "source": "api",
+            "status_code": "error",
+            "duration_min_ms": 10,
+            "duration_max_ms": 30,
             "limit": 2,
             "cursor": first_body["next_cursor"],
         },
@@ -2509,6 +2706,51 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
             "trace_id": "cursor-trace",
             "span_id": "cursor-span-b",
             "source": "api",
+            "status_code": "error",
+            "duration_min_ms": 10,
+            "duration_max_ms": 30,
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_status_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "source": "api",
+            "status_code": "ok",
+            "duration_min_ms": 10,
+            "duration_max_ms": 30,
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_duration_min_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "source": "api",
+            "status_code": "error",
+            "duration_min_ms": 20,
+            "duration_max_ms": 30,
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_duration_max_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "cursor-trace",
+            "source": "api",
+            "status_code": "error",
+            "duration_min_ms": 10,
+            "duration_max_ms": 20,
             "limit": 2,
             "cursor": first_body["next_cursor"],
         },
@@ -2528,6 +2770,12 @@ def test_query_traces_cursor_paginates_with_received_at_and_id() -> None:
     assert mismatched_trace_response.json()["detail"] == "cursor 无效或不匹配当前查询"
     assert mismatched_span_response.status_code == 422
     assert mismatched_span_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+    assert mismatched_status_response.status_code == 422
+    assert mismatched_status_response.json()["detail"] == "cursor 无效或不匹配当前查询"
+    assert mismatched_duration_min_response.status_code == 422
+    assert mismatched_duration_min_response.json()["detail"] == ("cursor 无效或不匹配当前查询")
+    assert mismatched_duration_max_response.status_code == 422
+    assert mismatched_duration_max_response.json()["detail"] == ("cursor 无效或不匹配当前查询")
 
 
 def test_query_log_context_returns_target_and_neighbors_in_time_order() -> None:

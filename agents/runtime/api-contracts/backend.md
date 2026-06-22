@@ -685,6 +685,9 @@
   - `span_id`：可选，长度 `1..128`；按 trace payload 顶层 `span_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
   - `name`：可选，span 名称，长度 `1..128`；当前映射到 `ingest_records.event_type`。
   - `source`：可选，来源，长度 `1..128`。
+  - `status_code`：可选，长度 `1..64`；按 trace payload 顶层 `status_code` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
+  - `duration_min_ms`：可选，非负有限数值；按 trace payload 顶层 `duration_ms` 做下界过滤。
+  - `duration_max_ms`：可选，非负有限数值；按 trace payload 顶层 `duration_ms` 做上界过滤；与 `duration_min_ms` 同时传入时下界不能大于上界，否则返回 `422 duration_min_ms 不能大于 duration_max_ms`。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按 span `occurred_at` 过滤；trace 摄入时该字段来自 span `start_time`；MySQL/MariaDB 下用 `DATETIME(6)` 保留微秒，`2026-06-22T01:00:00.075Z` 不应命中 `2026-06-22T01:00:00.100000Z`。
   - `limit`：可选，默认 `100`，范围 `1..500`。
   - `cursor`：可选，字符串；使用上一页响应的 `next_cursor` 继续向后翻页。
@@ -715,8 +718,8 @@
 }
 ```
 
-- 分页规则：按 `received_at`、`id` 倒序返回；游标编码包含查询类型、当前筛选条件（含规范化后的 `trace_id`、`span_id`）、`received_at` 和 `id`，避免同一接收时间记录翻页重复或漏项。Trace 游标只能用于 trace 查询，并且必须匹配当前筛选条件；非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`，不暴露内部解码细节。前端修改筛选条件时应丢弃旧游标并重新查询第一页。
-- 当前查询来源：关系库 `ingest_records` 的 `kind=trace` 记录；响应字段从 T-0044 trace payload 顶层关键字段展开，业务 `payload` 和 `attributes` 保留为对象，不默认展开 `raw`。带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；`occurred_from` / `occurred_to` 用 span `start_time` 入库后的 `occurred_at` 做范围过滤，但列表排序和 cursor 沿用既有查询 API 的 `received_at` + `id` 稳定排序。ClickHouse trace 查询、trace tree/waterfall、服务拓扑、跨信号关联和日志互跳后续补齐。
+- 分页规则：按 `received_at`、`id` 倒序返回；游标编码包含查询类型、当前筛选条件（含规范化后的 `trace_id`、`span_id`、`status_code` 和 `duration_min_ms` / `duration_max_ms`）、`received_at` 和 `id`，避免同一接收时间记录翻页重复或漏项。Trace 游标只能用于 trace 查询，并且必须匹配当前筛选条件；非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`，不暴露内部解码细节。前端修改筛选条件时应丢弃旧游标并重新查询第一页。
+- 当前查询来源：关系库 `ingest_records` 的 `kind=trace` 记录；响应字段从 T-0044 trace payload 顶层关键字段展开，业务 `payload` 和 `attributes` 保留为对象，不默认展开 `raw`。带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；`status_code` 按 trace payload 顶层字符串精确匹配，`duration_min_ms` / `duration_max_ms` 按 trace payload 顶层 `duration_ms` 数值比较；`occurred_from` / `occurred_to` 用 span `start_time` 入库后的 `occurred_at` 做范围过滤，但列表排序和 cursor 沿用既有查询 API 的 `received_at` + `id` 稳定排序。ClickHouse trace 查询、trace tree/waterfall、服务拓扑、跨信号关联和日志互跳后续补齐。
 
 ## API-0018 日志上下文查询
 

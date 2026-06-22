@@ -5,6 +5,7 @@ import binascii
 import json
 from dataclasses import dataclass
 from datetime import datetime
+from math import isfinite
 from typing import Any, Literal
 
 from app.repositories.auth import UserRecord
@@ -22,6 +23,7 @@ from app.services.errors import ResourceNotFoundError
 from app.services.permissions import PermissionService
 
 QueryKind = Literal["event", "log", "metric", "trace"]
+QuerySignatureValue = int | float | str | None
 MetricAggregateWindow = Literal["1m", "5m", "15m", "1h"]
 MetricAggregation = Literal["avg", "sum", "min", "max", "count"]
 METRIC_WINDOW_SECONDS: dict[MetricAggregateWindow, int] = {
@@ -184,6 +186,9 @@ class QueryService:
         span_id: str | None,
         name: str | None,
         source: str | None,
+        status_code: str | None,
+        duration_min_ms: float | None,
+        duration_max_ms: float | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -200,12 +205,34 @@ class QueryService:
             field_name="span_id",
             max_length=128,
         )
+        normalized_status_code = _normalize_optional_text(
+            status_code,
+            field_name="status_code",
+            max_length=64,
+        )
+        normalized_duration_min_ms = _normalize_optional_duration_ms(
+            duration_min_ms,
+            field_name="duration_min_ms",
+        )
+        normalized_duration_max_ms = _normalize_optional_duration_ms(
+            duration_max_ms,
+            field_name="duration_max_ms",
+        )
+        if (
+            normalized_duration_min_ms is not None
+            and normalized_duration_max_ms is not None
+            and normalized_duration_min_ms > normalized_duration_max_ms
+        ):
+            raise QueryFilterError("duration_min_ms 不能大于 duration_max_ms")
         query = _query_signature(
             project_id=project_id,
             trace_id=normalized_trace_id,
             span_id=normalized_span_id,
             name=name,
             source=source,
+            status_code=normalized_status_code,
+            duration_min_ms=normalized_duration_min_ms,
+            duration_max_ms=normalized_duration_max_ms,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
         )
@@ -218,6 +245,9 @@ class QueryService:
             span_id=normalized_span_id,
             name=name,
             source=source,
+            status_code=normalized_status_code,
+            duration_min_ms=normalized_duration_min_ms,
+            duration_max_ms=normalized_duration_max_ms,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
             limit=limit + 1,
@@ -323,7 +353,9 @@ class QueryService:
         return accessible_project_ids
 
 
-def _query_signature(**values: int | str | datetime | None) -> dict[str, int | str | None]:
+def _query_signature(
+    **values: int | float | str | datetime | None,
+) -> dict[str, QuerySignatureValue]:
     return {
         key: value.isoformat() if isinstance(value, datetime) else value
         for key, value in values.items()
@@ -349,11 +381,25 @@ def _normalize_keyword(value: str | None) -> str | None:
     return _normalize_optional_text(value)
 
 
+def _normalize_optional_duration_ms(
+    value: float | None,
+    *,
+    field_name: str,
+) -> float | None:
+    if value is None:
+        return None
+    if not isfinite(value):
+        raise QueryFilterError(f"{field_name} 必须是有限数值")
+    if value < 0:
+        raise QueryFilterError(f"{field_name} 不能小于 0")
+    return value
+
+
 def _decode_cursor(
     cursor: str | None,
     *,
     expected_kind: QueryKind,
-    expected_query: dict[str, int | str | None],
+    expected_query: dict[str, QuerySignatureValue],
 ) -> QueryCursor | None:
     if cursor is None:
         return None
@@ -393,7 +439,7 @@ def _decode_cursor(
 def _encode_cursor(
     record: EventQueryRecord | LogQueryRecord | MetricQueryRecord | TraceQueryRecord,
     kind: QueryKind,
-    query: dict[str, int | str | None],
+    query: dict[str, QuerySignatureValue],
 ) -> str:
     payload: dict[str, Any] = {
         "v": 1,
@@ -420,7 +466,7 @@ def _page_records[
     *,
     limit: int,
     kind: QueryKind,
-    query: dict[str, int | str | None],
+    query: dict[str, QuerySignatureValue],
 ) -> QueryPage[QueryRecordT]:
     items = records[:limit]
     next_cursor = _encode_cursor(items[-1], kind, query) if len(records) > limit and items else None

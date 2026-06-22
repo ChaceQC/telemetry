@@ -147,6 +147,9 @@ class QueryRepository(Protocol):
         span_id: str | None,
         name: str | None,
         source: str | None,
+        status_code: str | None,
+        duration_min_ms: float | None,
+        duration_max_ms: float | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -427,6 +430,10 @@ def _payload_string_field_equals(field_name: str, value: str) -> ColumnElement[b
     return IngestRecordModel.payload[field_name].as_string() == value
 
 
+def _payload_duration_ms() -> ColumnElement[float]:
+    return IngestRecordModel.payload["duration_ms"].as_float()
+
+
 def _log_attribute_string_equals(
     attribute_name: str,
     value: str,
@@ -588,6 +595,9 @@ class SqlAlchemyQueryRepository:
         span_id: str | None,
         name: str | None,
         source: str | None,
+        status_code: str | None,
+        duration_min_ms: float | None,
+        duration_max_ms: float | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -614,6 +624,13 @@ class SqlAlchemyQueryRepository:
             statement = statement.where(_payload_string_field_equals("span_id", span_id))
         if name is not None:
             statement = statement.where(IngestRecordModel.event_type == name)
+        if status_code is not None:
+            statement = statement.where(_payload_string_field_equals("status_code", status_code))
+        duration_ms = _payload_duration_ms()
+        if duration_min_ms is not None:
+            statement = statement.where(duration_ms >= duration_min_ms)
+        if duration_max_ms is not None:
+            statement = statement.where(duration_ms <= duration_max_ms)
 
         statement = statement.order_by(
             IngestRecordModel.received_at.desc(),
