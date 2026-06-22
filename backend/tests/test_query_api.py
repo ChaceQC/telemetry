@@ -40,7 +40,12 @@ def _tested_app(client: TestClient) -> FastAPI:
     return cast(FastAPI, client.app)
 
 
-def create_test_user(client: TestClient, *, username: str) -> UserRecord:
+def create_test_user(
+    client: TestClient,
+    *,
+    username: str,
+    is_superuser: bool = False,
+) -> UserRecord:
     app = _tested_app(client)
     with app.state.db_session_factory() as session:
         return SqlAlchemyAuthRepository(session).create_user(
@@ -48,11 +53,17 @@ def create_test_user(client: TestClient, *, username: str) -> UserRecord:
             email=f"{username}@example.test",
             password_hash=hash_password("correct-password"),
             display_name=username,
+            is_superuser=is_superuser,
         )
 
 
-def create_auth_headers(client: TestClient, *, username: str) -> dict[str, str]:
-    user = create_test_user(client, username=username)
+def create_auth_headers(
+    client: TestClient,
+    *,
+    username: str,
+    is_superuser: bool = False,
+) -> dict[str, str]:
+    user = create_test_user(client, username=username, is_superuser=is_superuser)
     app = _tested_app(client)
     with app.state.db_session_factory() as session:
         token, _ = AuthService(
@@ -1317,6 +1328,52 @@ def test_query_traces_lists_ingested_spans_with_filters() -> None:
     assert business_payload_response.json() == {"items": [], "next_cursor": None}
 
 
+def test_query_traces_filters_occurred_to_with_millisecond_precision() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-millisecond-owner",
+        project_key="query-trace-millisecond-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "millisecond-trace",
+                    "span_id": "span-before-cutoff",
+                    "name": "before cutoff",
+                    "start_time": "2026-06-22T01:00:00.050Z",
+                },
+                {
+                    "trace_id": "millisecond-trace",
+                    "span_id": "span-after-cutoff",
+                    "name": "after cutoff",
+                    "start_time": "2026-06-22T01:00:00.100Z",
+                },
+            ]
+        },
+    )
+    filtered_response = client.get(
+        "/api/v1/query/traces",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "trace_id": "millisecond-trace",
+            "occurred_to": "2026-06-22T01:00:00.075Z",
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    assert filtered_response.status_code == 200
+    body = filtered_response.json()
+    assert body["next_cursor"] is None
+    assert [span["span_id"] for span in body["items"]] == ["span-before-cutoff"]
+    assert body["items"][0]["occurred_at"].startswith("2026-06-22T01:00:00.050")
+
+
 def test_query_traces_trace_and_span_validate_trimmed_length() -> None:
     client = build_client()
     project, _raw_key, admin_headers = create_ingest_api_key(
@@ -1897,6 +1954,31 @@ def test_query_traces_hide_projects_without_membership() -> None:
     assert all_response.json() == {"items": [], "next_cursor": None}
     assert project_response.status_code == 404
     assert project_response.json()["detail"] == "项目不存在"
+
+
+def test_query_endpoints_hide_missing_project_from_superuser() -> None:
+    client = build_client()
+    superuser_headers = create_auth_headers(
+        client,
+        username="query-superuser-missing-project",
+        is_superuser=True,
+    )
+
+    for path in (
+        "/api/v1/query/events",
+        "/api/v1/query/logs",
+        "/api/v1/query/metrics",
+        "/api/v1/query/traces",
+        "/api/v1/query/metrics/aggregate",
+    ):
+        response = client.get(
+            path,
+            headers=superuser_headers,
+            params={"project_id": 999999999},
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "项目不存在"
 
 
 def test_query_events_cursor_paginates_with_received_at_and_id() -> None:

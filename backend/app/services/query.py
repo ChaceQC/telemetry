@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from app.repositories.auth import UserRecord
+from app.repositories.management import ManagementRepository
 from app.repositories.query import (
     EventQueryRecord,
     LogQueryRecord,
@@ -64,9 +65,11 @@ class QueryService:
         self,
         repository: QueryRepository,
         permission_service: PermissionService,
+        management_repository: ManagementRepository,
     ) -> None:
         self._repository = repository
         self._permission_service = permission_service
+        self._management_repository = management_repository
 
     def list_events(
         self,
@@ -310,11 +313,12 @@ class QueryService:
         project_id: int | None,
     ) -> list[int] | None:
         accessible_project_ids = self._permission_service.list_accessible_project_ids(user)
-        if (
-            project_id is not None
-            and accessible_project_ids is not None
-            and project_id not in accessible_project_ids
-        ):
+        if project_id is None:
+            return accessible_project_ids
+
+        if self._management_repository.get_project(project_id) is None:
+            raise ResourceNotFoundError("项目不存在")
+        if accessible_project_ids is not None and project_id not in accessible_project_ids:
             raise ResourceNotFoundError("项目不存在")
         return accessible_project_ids
 
