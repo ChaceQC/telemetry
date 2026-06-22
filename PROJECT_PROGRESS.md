@@ -655,6 +655,7 @@
 - T-0048-fix 前端修复已完成：`a7e3de2` 已推送到 `feature/frontend-dev`，修复 720px 以下 waterfall 单列响应式、trace 组 scope key 和异常 parent 测试；等待复审确认 P2 关闭。
 - T-0048-fix 前端复审通过：Boyle the 2nd 确认原 P2 与两个 P3 均已关闭，未发现新的 P0/P1/P2/P3；可以进入 merge。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0048/T-0048-fix 合入 `dev`；当前同步根、前端、后端版本到 `0.2.5`。
+- T-0048 真实前后端联合测试通过：Linnaeus the 2nd 使用自启动临时 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，覆盖 trace 多根/父子/孤儿/error/slow/0/缺失/长 duration 数据、Trace Query API status/duration/cursor、浏览器 `/traces` waterfall 展开/树形缩进/详情/响应式 640px/720px、metrics/logs/events 页面回归；测试 agent 已清理自有资源，证据目录 `agents/runtime/e2e-T-0048-20260623-071459`。
 
 ### 阻塞与风险
 
@@ -676,7 +677,7 @@
 
 ### 下一步
 
-- 完成 T-0048 merge 后的收窄本地门禁、推送并读取 GitHub Actions；随后同步 `feature/frontend-dev` 和 `feature/backend-dev` 到最新 `dev`，并按风险启动真实前后端联合测试 agent 验证 `/traces` waterfall 真实数据态。
+- T-0048 已完成 merge、CI、feature 分支同步和真实联测。下一步继续阶段 4，优先拆分 trace 与日志互跳或服务依赖拓扑的最小可验证小步。
 
 ### 验证
 

@@ -416,6 +416,7 @@ closed      已关闭
 | 2026-06-23 | T-0048-fix | 前端修复 agent Rawls the 2nd | Trace waterfall 响应式与状态修复完成 | Rawls the 2nd 提交并推送 `a7e3de2` 到 `feature/frontend-dev`：将 `/traces` waterfall 单列断点提前到 `max-width: 720px`，新增 trace waterfall scope key 将 session、页码、刷新版本和查询参数纳入组组件 key，补 self parent、parent 环、重复 `span_id` 异常 parent 测试，并新增 CSS 静态测试锁定 720px trace 断点；更新 `frontend/PROJECT_PROGRESS.md`，版本保持 `0.2.5`。专项、typecheck、lint、build、diff check 通过，Playwright + Microsoft Edge mock trace 数据态在 640px/720px 无横向溢出；测试 agent Mill the 2nd 窄范围复验通过并清理自有资源。Rawls the 2nd 已关闭，已启动复审 | audit |
 | 2026-06-23 | T-0048-fix | 代码审计 agent Boyle the 2nd | Trace waterfall 修复复审通过 | Boyle the 2nd 只读复审 `a7e3de2`，确认原 P2 与两个 P3 均已关闭，未发现新的 P0/P1/P2/P3；`max-width: 720px` 单列分支覆盖窄宽度溢出风险，scope key 已纳入 session、页码、刷新版本和查询参数，异常 parent 测试覆盖 self parent、双节点环与重复 `span_id`。Boyle the 2nd 已关闭，建议 merge | done |
 | 2026-06-23 | T-0048 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0048 trace waterfall 与修复合入 `dev`，merge 提交当前 HEAD；同步根、前端、后端版本到 `0.2.5`。后续执行收窄门禁、推送、读取 CI、同步 feature 分支并按风险启动真实联测 | done |
+| 2026-06-23 | T-0048 | 测试 agent Linnaeus the 2nd | Trace waterfall 真实联测通过 | Linnaeus the 2nd 在 `dev` `f2970d5` 上使用自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端和 Playwright + Microsoft Edge 完成联测：MySQL 迁移到 head `20260622_0008`，`/health=0.2.5`；创建项目/环境/服务/API Key 后上报 12 条 trace spans，覆盖多根、父子、孤儿 parent、错误、慢、0 duration、缺失 duration、长 duration、长 name/source 和 attributes/payload；Trace Query API 覆盖返回目标 spans、`status_code=ERROR`、`duration_min_ms=1000`、`duration_max_ms=0`、分页 cursor；浏览器 `/traces` 验证 trace 组、展开/收起、树形缩进、waterfall 条、错误/慢/孤儿标识、span 详情、刷新/分页状态、640px/720px 无横向溢出；`/metrics`、`/logs`、`/events` 侧栏回归通过。测试 agent 已清理自有 MySQL/后端/前端/Edge/临时目录，证据目录 `agents/runtime/e2e-T-0048-20260623-071459` | done |
 
 ## 6. 测试记录
 
@@ -484,6 +485,7 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | CI | GitHub Actions run `27969246519` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
 | 2026-06-22 | T-0045-fix | 真实前后端联合测试重跑 | Boole the 2nd；自有本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `c96ca3b`；确认 0008 迁移生效、MySQL 微秒类型/default、trace 不存在项目 404、毫秒边界过滤正确、trace cursor/错误边界、metrics/logs/events 快速回归和 Edge 前端回归通过；`/traces` 仍为占位页，按当前范围预期；证据目录 `tmp/t0045_test_agent/evidence-20260622T170940Z`，自有资源已清理 |
 | 2026-06-23 | T-0046/T-0047 | 真实前后端联合测试 | Meitner the 2nd；本机 MySQL 8.0.42 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev` `1fa3f21`；覆盖 `/traces` 页面、trace `status_code`/duration 过滤、cursor/错误边界、null/长 JSON 详情展示、metrics/logs/events 页面与 API 快速回归；临时库和自有 PID 已清理，证据目录 `tmp/T-0046-T0047-e2e-20260623-050157` |
+| 2026-06-23 | T-0048 | Trace waterfall 真实前后端联合测试 | Linnaeus the 2nd；自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev` `f2970d5`；覆盖 trace 多根/父子/孤儿/error/slow/0/缺失/长 duration 数据、Query API status/duration/cursor、浏览器 `/traces` waterfall 展开/树形缩进/详情/响应式 640px/720px、metrics/logs/events 页面回归；自有资源已清理，证据目录 `agents/runtime/e2e-T-0048-20260623-071459` |
 
 ## 7. 审计记录
 
