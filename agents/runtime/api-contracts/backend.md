@@ -564,8 +564,8 @@
   - `keyword`：可选，关键词，长度 `1..128`；后端会去除前后空白，空白字符串按未传处理。当前匹配日志 `message` 和关系库日志业务 `payload` 的值文本；不匹配业务 `payload` key 名、wrapper key 名、`logger`/`trace_id`/`span_id` 等元字段或空值脚手架。SQLite 兼容层覆盖业务 `payload` 嵌套对象/数组中的字符串、数字和布尔值；MySQL 兼容层通过 `JSON_SEARCH` 覆盖业务 `payload` 字符串值。
   - `trace_id`：可选，长度 `1..128`；按日志顶层结构化字段 `payload.trace_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
   - `span_id`：可选，长度 `1..128`；按日志顶层结构化字段 `payload.span_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
-  - `request_id`：可选，长度 `1..128`；按日志结构化 `attributes` 白名单字段 `payload.attributes.request_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理；不匹配业务 `payload.request_id`。
-  - `user_id`：可选，长度 `1..128`；按日志结构化 `attributes` 白名单字段 `payload.attributes.user_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理；不匹配业务 `payload.user_id`。
+  - `request_id`：可选，长度 `1..128`；按日志结构化 `attributes` 白名单字段 `payload.attributes.request_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理；仅 JSON string/text 值参与匹配，numeric/boolean/object/array 同名值不命中，不匹配业务 `payload.request_id`。
+  - `user_id`：可选，长度 `1..128`；按日志结构化 `attributes` 白名单字段 `payload.attributes.user_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理；仅 JSON string/text 值参与匹配，numeric/boolean/object/array 同名值不命中，不匹配业务 `payload.user_id`。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按日志 `occurred_at` 过滤。
   - `limit`：可选，默认 `100`，范围 `1..500`。
   - `cursor`：可选，字符串；使用上一页响应的 `next_cursor` 继续向后翻页。
@@ -594,7 +594,7 @@
 ```
 
 - 分页规则：按 `received_at`、`id` 倒序返回；游标编码包含查询类型、当前筛选条件（含规范化后的 `keyword`、`trace_id`、`span_id`、`request_id`、`user_id`）、`received_at` 和 `id`，避免同一接收时间记录翻页重复或漏项。日志游标只能用于日志查询，并且必须匹配当前筛选条件；非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`，不暴露内部解码细节。前端修改筛选条件时应丢弃旧游标并重新查询第一页。
-- 当前查询来源：关系库 `ingest_records` 的 `kind=log` 记录；基础关键词搜索只使用日志 `message` 与业务 `payload` 值文本包含匹配，不匹配业务 `payload` key-only；`trace_id`/`span_id` 只做顶层结构化字段精确匹配，`request_id`/`user_id` 只做结构化 `attributes` 白名单字段精确匹配，均不作为 keyword 文本匹配，不搜索业务 `payload` 同名字段，不引入任意 JSON 字段过滤、ClickHouse、全文索引或外部服务；带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；ClickHouse 日志查询、字段过滤 DSL 和脱敏后续补齐。
+- 当前查询来源：关系库 `ingest_records` 的 `kind=log` 记录；基础关键词搜索只使用日志 `message` 与业务 `payload` 值文本包含匹配，不匹配业务 `payload` key-only；`trace_id`/`span_id` 只做顶层结构化字段精确匹配，`request_id`/`user_id` 只做结构化 `attributes` 白名单字段 JSON string/text 值精确匹配，均不作为 keyword 文本匹配，不搜索业务 `payload` 同名字段，不引入任意 JSON 字段过滤、ClickHouse、全文索引或外部服务；带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；ClickHouse 日志查询、字段过滤 DSL 和脱敏后续补齐。
 
 ## API-0016 指标查询
 

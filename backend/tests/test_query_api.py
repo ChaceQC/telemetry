@@ -5,7 +5,7 @@ from typing import cast
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects import mysql, sqlite
 from sqlalchemy.dialects.mysql import mariadb
 
 from app.core.application import create_app
@@ -13,7 +13,7 @@ from app.core.config import Settings
 from app.db.base import Base
 from app.models.ingest import IngestRecordModel
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
-from app.repositories.query import _metric_window_epoch
+from app.repositories.query import _log_attribute_string_equals, _metric_window_epoch
 from app.schemas.ingest import IngestKind
 from app.services.auth import AuthService, hash_password
 
@@ -780,6 +780,123 @@ def test_query_logs_request_and_user_filter_exact_attribute_fields() -> None:
     assert len(blank_response.json()["items"]) == 4
 
 
+def test_query_logs_request_and_user_filter_only_matches_json_string_attributes() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-request-user-json-type-owner",
+        project_key="query-log-request-user-json-type-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "string request user target",
+                    "source": "api",
+                    "attributes": {"request_id": "123", "user_id": "123"},
+                },
+                {
+                    "level": "info",
+                    "message": "numeric request user ignored",
+                    "source": "api",
+                    "attributes": {"request_id": 123, "user_id": 123},
+                },
+                {
+                    "level": "info",
+                    "message": "boolean request user ignored",
+                    "source": "api",
+                    "attributes": {"request_id": True, "user_id": True},
+                },
+                {
+                    "level": "info",
+                    "message": "object request user ignored",
+                    "source": "api",
+                    "attributes": {
+                        "request_id": {"value": "123"},
+                        "user_id": {"value": "123"},
+                    },
+                },
+                {
+                    "level": "info",
+                    "message": "array request user ignored",
+                    "source": "api",
+                    "attributes": {"request_id": ["123"], "user_id": ["123"]},
+                },
+                {
+                    "level": "info",
+                    "message": "business payload request user ignored",
+                    "source": "api",
+                    "payload": {"request_id": "123", "user_id": "123"},
+                },
+            ]
+        },
+    )
+    request_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "request_id": "123"},
+    )
+    user_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "user_id": "123"},
+    )
+    boolean_request_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "request_id": "true"},
+    )
+    boolean_user_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "user_id": "true"},
+    )
+    object_request_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "request_id": '{"value":"123"}'},
+    )
+    object_user_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "user_id": '{"value":"123"}'},
+    )
+    array_request_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "request_id": '["123"]'},
+    )
+    array_user_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "user_id": '["123"]'},
+    )
+
+    assert ingest_response.status_code == 202
+    assert request_response.status_code == 200
+    assert [log["message"] for log in request_response.json()["items"]] == [
+        "string request user target"
+    ]
+    assert user_response.status_code == 200
+    assert [log["message"] for log in user_response.json()["items"]] == [
+        "string request user target"
+    ]
+    for response in (
+        boolean_request_response,
+        boolean_user_response,
+        object_request_response,
+        object_user_response,
+        array_request_response,
+        array_user_response,
+    ):
+        assert response.status_code == 200
+        assert response.json() == {"items": [], "next_cursor": None}
+
+
 def test_query_logs_request_and_user_validate_trimmed_length() -> None:
     client = build_client()
     project, _raw_key, admin_headers = create_ingest_api_key(
@@ -1284,6 +1401,36 @@ def test_query_metrics_aggregate_mysql_epoch_bucket_ignores_session_timezone() -
         assert "occurred_at" in compiled
         assert "unix_timestamp" not in compiled
         assert "/ 300" in compiled or "/ %s" in compiled
+
+
+def test_query_logs_request_user_attribute_filter_sql_has_json_string_type_guards() -> None:
+    dialects = {
+        "sqlite": sqlite.dialect(),
+        "mysql": mysql.dialect(),
+        "mariadb": mariadb.MariaDBDialect(),
+    }
+
+    for dialect_name, dialect in dialects.items():
+        compiled = str(
+            _log_attribute_string_equals(
+                "request_id",
+                "request-1",
+                dialect_name=dialect_name,
+            ).compile(
+                dialect=dialect,
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+
+        assert "attributes.request_id" in compiled
+        if dialect_name == "sqlite":
+            assert "json_type" in compiled
+            assert "= 'text'" in compiled
+            assert "json_extract" in compiled
+        else:
+            assert "json_type(json_extract" in compiled
+            assert "= 'string'" in compiled
+            assert "json_unquote(json_extract" in compiled
 
 
 def test_query_metrics_aggregate_filters_permissions_empty_and_limit() -> None:

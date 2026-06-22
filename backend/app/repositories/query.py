@@ -322,6 +322,7 @@ def _apply_log_structured_field_filters(
     span_id: str | None,
     request_id: str | None,
     user_id: str | None,
+    dialect_name: str,
 ) -> Select[tuple[IngestRecordModel]]:
     if trace_id is not None:
         statement = statement.where(IngestRecordModel.payload["trace_id"].as_string() == trace_id)
@@ -329,13 +330,42 @@ def _apply_log_structured_field_filters(
         statement = statement.where(IngestRecordModel.payload["span_id"].as_string() == span_id)
     if request_id is not None:
         statement = statement.where(
-            IngestRecordModel.payload["attributes"]["request_id"].as_string() == request_id
+            _log_attribute_string_equals(
+                "request_id",
+                request_id,
+                dialect_name=dialect_name,
+            )
         )
     if user_id is not None:
         statement = statement.where(
-            IngestRecordModel.payload["attributes"]["user_id"].as_string() == user_id
+            _log_attribute_string_equals(
+                "user_id",
+                user_id,
+                dialect_name=dialect_name,
+            )
         )
     return statement
+
+
+def _log_attribute_string_equals(
+    attribute_name: str,
+    value: str,
+    *,
+    dialect_name: str,
+) -> ColumnElement[bool]:
+    path = f"$.attributes.{attribute_name}"
+    if dialect_name == "sqlite":
+        return and_(
+            func.json_type(IngestRecordModel.payload, path) == "text",
+            func.json_extract(IngestRecordModel.payload, path) == value,
+        )
+    if dialect_name in {"mysql", "mariadb"}:
+        extracted = func.JSON_EXTRACT(IngestRecordModel.payload, path)
+        return and_(
+            func.JSON_TYPE(extracted) == "STRING",
+            func.JSON_UNQUOTE(extracted) == value,
+        )
+    return IngestRecordModel.payload["attributes"][attribute_name].as_string() == value
 
 
 def _metric_window_epoch(
@@ -431,6 +461,7 @@ class SqlAlchemyQueryRepository:
         limit: int,
         cursor: QueryCursor | None,
     ) -> list[LogQueryRecord]:
+        dialect_name = self._session.get_bind().dialect.name
         statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
             IngestRecordModel.kind == IngestKind.log.value
         )
@@ -451,7 +482,7 @@ class SqlAlchemyQueryRepository:
         statement = _apply_log_keyword_filter(
             statement,
             keyword,
-            dialect_name=self._session.get_bind().dialect.name,
+            dialect_name=dialect_name,
         )
         statement = _apply_log_structured_field_filters(
             statement,
@@ -459,6 +490,7 @@ class SqlAlchemyQueryRepository:
             span_id=span_id,
             request_id=request_id,
             user_id=user_id,
+            dialect_name=dialect_name,
         )
 
         statement = statement.order_by(
