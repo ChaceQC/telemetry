@@ -407,6 +407,8 @@ closed      已关闭
 | 2026-06-23 | T-0047 | 后端开发 agent Archimedes the 2nd | Trace 状态与耗时过滤完成 | Archimedes the 2nd 提交并推送 `844bfdc` 到 `feature/backend-dev`：`GET /api/v1/query/traces` 新增 `status_code`、`duration_min_ms`、`duration_max_ms` 过滤，纳入 cursor 签名；`status_code` trim 后空白按未传处理，duration 要求非负有限且下界不大于上界；同步后端契约、README、进度和版本 `0.2.4`。开发侧最小验证通过，并由测试 agent Lagrange the 2nd 完成后端专项复验；两名 agent 已关闭 | done |
 | 2026-06-23 | T-0047 | 代码审计 agent Leibniz the 2nd | 后端过滤审计有条件通过 | Leibniz the 2nd 只读审计 `844bfdc`，未发现 P0/P1/P2；仅 P3 提醒 duration JSON 数值过滤对历史导入或手工脏数据的字符串值在 SQLite/MySQL/MariaDB 可能存在 coercion 差异，建议后续补 JSON 数值类型守卫或脏数据回归测试。Leibniz the 2nd 已关闭 | done |
 | 2026-06-23 | T-0046/T-0047 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0047 后端过滤合入 `dev`，merge 提交 `7e79c01`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0046 前端 trace 查询页和 P2 修复合入 `dev`，merge 提交 `15f46d5`。本次同步根、前端、后端版本到 `0.2.4`，不使用路径覆盖替代分支 merge | done |
+| 2026-06-23 | T-0046/T-0047 | 总 agent | CI 通过并同步 feature 分支 | 推送 `1fa3f21` 后 GitHub Actions run `27983369377` 通过，Frontend checks 与 Backend checks 均为 success；`feature/frontend-dev` run `27983401524`、`feature/backend-dev` run `27983400896` 同样通过。`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `1fa3f21` 并推送，严格 worktree 体检通过 | done |
+| 2026-06-23 | T-0046/T-0047 | 测试 agent Meitner the 2nd | 真实前后端联合测试通过 | Meitner the 2nd 在 `dev` `1fa3f21` 上使用本机 MySQL 8.0.42 临时库、真实 FastAPI 后端 `7319`、真实前端和 Playwright + Microsoft Edge 完成联测：Alembic head `20260622_0008`，`ingest_records` 微秒精度/default 正确，`/health=0.2.4`；登录、项目/环境/服务/API Key、trace 上报、`trace_id`/`span_id`/`name`/`source`/`status_code`/`duration_min_ms`/`duration_max_ms`/时间过滤、分页 cursor、坏 cursor、筛选不匹配 cursor、未认证 401、无权限/不存在项目 404 均通过；浏览器 `/traces` 筛选、列表、翻页、回第一页、刷新、展开详情和 null/长 JSON 样本不崩溃；`/metrics`、`/logs`、`/events` 页面与最小 API 回归通过。测试 agent 已清理自有后端 PID `52480`、前端 PID `36904`、Edge PID `45780`、临时 MySQL 库和临时目录；证据目录 `tmp/T-0046-T0047-e2e-20260623-050157` | done |
 
 ## 6. 测试记录
 
@@ -474,6 +476,7 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q`；前端 `npm.cmd run typecheck`；`git diff --check` | 通过 | 后端 83 passed，1 条既有 Starlette/TestClient 上游弃用警告；前端 typecheck 通过；diff check 通过。完整真实前后端联测待测试 agent 重跑 |
 | 2026-06-22 | T-0045-fix | CI | GitHub Actions run `27969246519` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
 | 2026-06-22 | T-0045-fix | 真实前后端联合测试重跑 | Boole the 2nd；自有本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `c96ca3b`；确认 0008 迁移生效、MySQL 微秒类型/default、trace 不存在项目 404、毫秒边界过滤正确、trace cursor/错误边界、metrics/logs/events 快速回归和 Edge 前端回归通过；`/traces` 仍为占位页，按当前范围预期；证据目录 `tmp/t0045_test_agent/evidence-20260622T170940Z`，自有资源已清理 |
+| 2026-06-23 | T-0046/T-0047 | 真实前后端联合测试 | Meitner the 2nd；本机 MySQL 8.0.42 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev` `1fa3f21`；覆盖 `/traces` 页面、trace `status_code`/duration 过滤、cursor/错误边界、null/长 JSON 详情展示、metrics/logs/events 页面与 API 快速回归；临时库和自有 PID 已清理，证据目录 `tmp/T-0046-T0047-e2e-20260623-050157` |
 
 ## 7. 审计记录
 

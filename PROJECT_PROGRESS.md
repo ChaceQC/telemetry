@@ -647,6 +647,8 @@
 - T-0047 已登记为阶段 4 后端并行小步：为 `GET /api/v1/query/traces` 增加可选 `status_code`、`duration_min_ms`、`duration_max_ms` 过滤，支撑后续错误 trace 和慢 trace 查询；不改变响应 envelope，不做前端接入。
 - T-0047 后端开发和审计已完成：`844bfdc` 已推送到 `feature/backend-dev`，后端版本提升到 `0.2.4`；代码审计未发现 P0/P1/P2，仅保留 duration JSON 脏数据类型 coercion 的 P3 后续风险。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0047 合入 `dev`，merge 提交 `7e79c01`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0046/T-0046-fix 合入 `dev`，merge 提交 `15f46d5`。当前同步根、前端、后端版本到 `0.2.4`。
+- T-0046/T-0047 推送后 GitHub Actions 均通过：`dev` run `27983369377`、`feature/frontend-dev` run `27983401524`、`feature/backend-dev` run `27983400896` 均为 success；严格 worktree 体检通过，三棵 worktree 均干净且与远端一致。
+- T-0046/T-0047 真实前后端联合测试通过：Meitner the 2nd 使用本机 MySQL 8.0.42 临时库、真实后端 `7319`、真实前端和 Playwright + Microsoft Edge，覆盖 trace 上报、`trace_id`/`span_id`/`name`/`source`/`status_code`/duration/time 过滤、cursor 与错误边界、浏览器 `/traces` 查询/分页/详情展开/null 与长 JSON、metrics/logs/events 快速回归；测试 agent 已清理自有资源，证据目录 `tmp/T-0046-T0047-e2e-20260623-050157`。
 
 ### 阻塞与风险
 
@@ -668,7 +670,7 @@
 
 ### 下一步
 
-- 完成 T-0046/T-0047 merge 后的收窄本地门禁、推送并读取 GitHub Actions；随后同步 `feature/backend-dev` 和 `feature/frontend-dev` 到最新 `dev`，再启动真实前后端联合测试 agent，使用真实本地 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 trace 查询页、状态/耗时过滤和主要回归。
+- T-0046/T-0047 已完成 merge、CI、feature 分支同步和真实联测。下一步继续阶段 4 trace 核心能力，优先拆分 trace waterfall/树形详情或 trace 与日志互跳的小步；仍需保持前后端并行、开发 agent 启动测试 agent、总 agent 不代跑完整测试流程。
 
 ### 验证
 
@@ -721,3 +723,4 @@
 - Agent 本地开发约束提交 `7ffc625` 推送后 GitHub Actions 均通过：`dev` run `27979229909`、`feature/frontend-dev` run `27979246288`、`feature/backend-dev` run `27979248451` 均为 success，Frontend checks 与 Backend checks 均通过。
 - T-0047 后端开发侧验证通过：`pytest tests/test_query_api.py tests/test_config.py -q`、ruff、format check、mypy、`git diff --check` 通过；测试 agent Lagrange the 2nd 完成 trace 专项、config、排除 Docker compose 静态测试的 pytest、ruff、format、mypy 复验，未启动 Docker/MySQL/服务/浏览器。
 - T-0046 前端开发侧验证通过：targeted Vitest 3 files/22 tests、typecheck、lint、全量 Vitest 13 files/65 tests、build、diff check 通过；开发 agent 用 Playwright CLI + Microsoft Edge 冒烟 `/traces` 未登录态并清理自有 Vite PID/浏览器；测试 agent Kant the 2nd 完成前端专项复验，浏览器冒烟因外层超时未形成有效结论。
+- T-0046/T-0047 merge 后收窄门禁通过：后端 `uv run pytest tests/test_query_api.py tests/test_config.py -q` 59 passed；前端 trace 专项 `npm.cmd run test -- --run src/api/query.test.ts src/features/query/queryFilters.test.ts src/features/query/jsonPreview.test.ts src/pages/QueryPage.test.tsx` 4 files/26 tests passed；`npm.cmd run typecheck` 和 `git diff --check` 通过。
