@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { getCurrentUser, login } from '../../api/auth';
 import type { AuthUser, LoginRequest } from '../../api/auth';
 import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
+import { clearTelemetryQueryCache } from '../query/querySession';
 import { AuthContext } from './authContext';
 import type { AuthContextValue, AuthSession } from './authContext';
 import { formatSessionErrorMessage, shouldClearSessionForAuthError } from './authErrors';
@@ -10,7 +12,9 @@ import { formatSessionErrorMessage, shouldClearSessionForAuthError } from './aut
 const AUTH_SESSION_STORAGE_KEY = 'telemetry.auth.session.v1';
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<AuthSession | null>(() => readStoredSession());
+  const [sessionRevision, setSessionRevision] = useState(0);
   const [sessionErrorMessage, setSessionErrorMessage] = useState<string | null>(null);
   const isRestoring = Boolean(session && !session.user && !sessionErrorMessage);
 
@@ -26,9 +30,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [session]);
 
   const logout = useCallback(() => {
+    clearTelemetryQueryCache(queryClient);
+    clearApiAuthToken();
+    setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
     setSession(null);
-  }, []);
+  }, [queryClient]);
 
   const refreshCurrentUser = useCallback(async () => {
     if (!session) {
@@ -90,22 +97,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: response.user ?? null
     };
 
+    clearTelemetryQueryCache(queryClient);
+    setApiAuthToken(nextSession.accessToken, nextSession.tokenType);
+    setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
     setSession(nextSession);
     return nextSession.user ?? null;
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user: session?.user ?? null,
       isAuthenticated: Boolean(session?.accessToken),
       isRestoring,
+      sessionRevision,
       sessionErrorMessage,
       login: loginWithPassword,
       logout,
       refreshCurrentUser
     }),
-    [isRestoring, loginWithPassword, logout, refreshCurrentUser, session, sessionErrorMessage]
+    [isRestoring, loginWithPassword, logout, refreshCurrentUser, session, sessionErrorMessage, sessionRevision]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -36,6 +36,12 @@ import { formatApiErrorMessage } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
+import {
+  buildLogContextQueryKey,
+  buildSignalQueryKey,
+  resolveVisibleQueryData,
+  shouldRenderLogContextPanel
+} from '../features/query/querySession';
 
 type QuerySignal = 'metrics' | 'logs' | 'events';
 
@@ -127,19 +133,18 @@ export function QueryPage({ signal }: QueryPageProps) {
     [signal, activeSubmittedFilters, pageCursor]
   );
   const query = useQuery({
-    queryKey: ['query', signal, params, pagination.version],
+    queryKey: buildSignalQueryKey(auth.sessionRevision, signal, params, pagination.version),
     queryFn: () => config.fetch(params as never) as Promise<QueryResultPage<QueryRecord>>,
     enabled: canQuery,
     retry: false
   });
   const Icon = config.icon;
-  const records = query.data?.items ?? emptyRecords;
-  const nextCursor = query.data?.next_cursor ?? null;
+  const visibleData = resolveVisibleQueryData(canQuery, query.data);
+  const records = visibleData?.items ?? emptyRecords;
+  const nextCursor = visibleData?.next_cursor ?? null;
   const hasRecords = records.length > 0;
-  const metricTrend = useMemo(
-    () => (signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null),
-    [signal, records]
-  );
+  const hasQueryError = canQuery && query.isError;
+  const metricTrend = signal === 'metrics' ? buildMetricTrendModel(records as MetricQueryItem[]) : null;
   const badgeTone = !canQuery ? 'warning' : query.isError ? 'danger' : query.isFetching ? 'warning' : 'success';
   const badgeLabel = !canQuery ? (auth.isRestoring ? '恢复中' : '需要登录') : query.isFetching ? '查询中' : query.isError ? '查询异常' : '已就绪';
 
@@ -303,14 +308,14 @@ export function QueryPage({ signal }: QueryPageProps) {
         <div className="section-heading">
           <div>
             <h2>结果列表</h2>
-            <p>{query.data ? formatResultSummary(pageNumber, records.length) : '等待查询结果'}</p>
+            <p>{visibleData ? formatResultSummary(pageNumber, records.length) : '等待查询结果'}</p>
           </div>
           <StatusBadge tone={hasRecords ? 'success' : 'neutral'}>
             {hasRecords ? '有数据' : '暂无数据'}
           </StatusBadge>
         </div>
 
-        {query.isError ? (
+        {hasQueryError ? (
           <div className="resource-state resource-state--error" role="status">
             <ShieldAlert size={18} aria-hidden="true" />
             <div>
@@ -320,7 +325,7 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
 
-        {!query.isError && query.data && records.length === 0 ? (
+        {!hasQueryError && visibleData && records.length === 0 ? (
           <div className="resource-state">
             <Icon size={18} aria-hidden="true" />
             <div>
@@ -330,17 +335,17 @@ export function QueryPage({ signal }: QueryPageProps) {
           </div>
         ) : null}
 
-        {!query.isError && hasRecords && signal === 'metrics' ? <MetricTrend trend={metricTrend} /> : null}
+        {!hasQueryError && hasRecords && signal === 'metrics' ? <MetricTrend trend={metricTrend} /> : null}
 
-        {!query.isError && hasRecords ? (
+        {!hasQueryError && hasRecords ? (
           <ol className="query-list">
             {records.map((item) => (
-              <li key={`${signal}-${item.id}`}>{renderRecord(signal, item, canQuery)}</li>
+              <li key={`${signal}-${item.id}`}>{renderRecord(signal, item, canQuery, auth.sessionRevision)}</li>
             ))}
           </ol>
         ) : null}
 
-        {!query.isError && query.data ? (
+        {!hasQueryError && visibleData ? (
           <div className="query-pagination" aria-label="分页">
             <span>{formatPaginationHint(pageNumber, records.length, nextCursor)}</span>
             <button
@@ -359,17 +364,26 @@ export function QueryPage({ signal }: QueryPageProps) {
   );
 }
 
-function LogRecord({ log, canQuery }: { log: LogQueryItem; canQuery: boolean }) {
+function LogRecord({
+  log,
+  canQuery,
+  sessionRevision
+}: {
+  log: LogQueryItem;
+  canQuery: boolean;
+  sessionRevision: number;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [before, setBefore] = useState(DEFAULT_LOG_CONTEXT_WINDOW);
   const [after, setAfter] = useState(DEFAULT_LOG_CONTEXT_WINDOW);
+  const showContextPanel = shouldRenderLogContextPanel(canQuery, isExpanded);
   const contextQuery = useQuery({
-    queryKey: ['query', 'logs', 'context', log.id, before, after],
+    queryKey: buildLogContextQueryKey(sessionRevision, log.id, before, after),
     queryFn: () => getLogContext(log.id, { before, after }),
-    enabled: canQuery && isExpanded,
+    enabled: showContextPanel,
     retry: false
   });
-  const context = contextQuery.data;
+  const context = resolveVisibleQueryData(canQuery, contextQuery.data);
   const hasContext =
     Boolean(context?.target) || (context?.before.length ?? 0) > 0 || (context?.after.length ?? 0) > 0;
 
@@ -395,7 +409,7 @@ function LogRecord({ log, canQuery }: { log: LogQueryItem; canQuery: boolean }) 
             type="button"
             onClick={() => setIsExpanded((current) => !current)}
             disabled={!canQuery}
-            aria-expanded={isExpanded}
+            aria-expanded={showContextPanel}
             title={canQuery ? '查看日志上下文' : '登录后查看日志上下文'}
           >
             <Eye size={15} aria-hidden="true" />
@@ -408,7 +422,7 @@ function LogRecord({ log, canQuery }: { log: LogQueryItem; canQuery: boolean }) 
       <JsonPreview label="attributes" value={log.attributes} />
       <JsonPreview label="payload" value={log.payload} />
 
-      {isExpanded ? (
+      {showContextPanel ? (
         <div className="log-context-panel" aria-label={`日志 #${log.id} 上下文`}>
           <div className="log-context-toolbar">
             <div>
@@ -620,7 +634,7 @@ function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cursor?: s
   return { ...common, type: toOptional(filters.primary) };
 }
 
-function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean) {
+function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean, sessionRevision: number) {
   if (signal === 'metrics') {
     const metric = item as MetricQueryItem;
     return (
@@ -638,7 +652,7 @@ function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean)
 
   if (signal === 'logs') {
     const log = item as LogQueryItem;
-    return <LogRecord log={log} canQuery={canQuery} />;
+    return <LogRecord log={log} canQuery={canQuery} sessionRevision={sessionRevision} />;
   }
 
   const event = item as EventQueryItem;

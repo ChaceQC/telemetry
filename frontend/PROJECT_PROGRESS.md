@@ -2,6 +2,31 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0038 审计 P2 日志上下文会话隔离修复
+
+### 已完成
+
+- 修复查询页登出、session 恢复中或无查询权限时仍可能渲染旧 React Query 缓存的问题：`/metrics`、`/logs`、`/events` 结果列表、分页和错误态现在都先经过 `canQuery` 可见性门禁。
+- 修复 `/logs` 已展开上下文面板在登出后继续显示旧 context 的问题：上下文面板必须同时满足已展开且当前可查询才会挂载，context 数据也经过相同可见性门禁。
+- 新增非敏感 `sessionRevision`，登录和登出时递增，并将其纳入查询页与日志上下文 query key；同时在登录/登出边界取消并移除 `['query']` 根缓存，降低 30 秒 staleTime 下快速切换账号复用旧数据的风险。
+- 登录成功时立即注入新的 API token，登出时立即清理内存 token，减少认证状态切换时序窗口。
+- 新增 `frontend/src/features/query/querySession.ts` 统一查询根 key、会话维度 key、可见性门禁和缓存清理；新增页面级 SSR 测试覆盖旧 logs/context 缓存在未登录状态不会继续渲染。
+- 更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0038 审计 P2 已修和查询缓存会话隔离行为。
+
+### 阻塞与风险
+
+- 本轮不启动真实后端、数据库、dev server 或浏览器，不做完整前后端联测。
+- 当前修复聚焦查询页与日志上下文的旧缓存可见性；Settings、Overview 等其他页面仍按各自既有认证门禁处理。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts` 通过（3 个测试文件、10 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（11 个测试文件、46 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-22 T-0038 日志上下文增强前端
 
 ### 已完成
