@@ -69,7 +69,7 @@ closed      已关闭
 | T-0039 | 日志关键词搜索基础 | 总 agent | done | done | done | done | done |
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
-| T-0042 | Metrics 聚合窗口基础 | 总 agent | doing | doing | todo | todo | doing |
+| T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -82,7 +82,7 @@ closed      已关闭
 | API-0014 | 事件查询 | GET | `/api/v1/query/events` | `project_id`、`type`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为事件列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0015 | 日志查询 | GET | `/api/v1/query/logs` | `project_id`、`level`、`source`、`keyword`、`trace_id`、`span_id`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为日志列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
 | API-0016 | 指标查询 | GET | `/api/v1/query/metrics` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数 | 返回 `{ items, next_cursor }`；`items` 为指标样本列表，`next_cursor` 无更多数据时为 `null`；按用户项目权限过滤 | 总 agent | done |
-| API-0019 | 指标聚合窗口查询 | GET | `/api/v1/query/metrics/aggregate` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation` | 返回 `{ items }`；`items` 为按窗口聚合的指标点，包含 `window_start`、`window_end`、`name`、`source`、`aggregation`、`value`、`sample_count`、`unit` | 总 agent | doing |
+| API-0019 | 指标聚合窗口查询 | GET | `/api/v1/query/metrics/aggregate` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation` | 返回 `{ items }`；`items` 为按窗口聚合的指标点，包含 `window_start`、`window_end`、`name`、`source`、`aggregation`、`value`、`sample_count`、`unit` | 总 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -341,6 +341,9 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 总 agent | CI 与 worktree 同步完成 | 推送 `e59662e` 后 GitHub Actions run `27937513862` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；已将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到 `e59662e` 并推送，严格 worktree 体检通过 | done |
 | 2026-06-22 | T-0041 | 测试 agent Bohr | 日志字段过滤真实联测通过 | Bohr 在 `dev` `e59662e` 上启动独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器；完成健康检查、登录、项目/环境/服务/API Key、6 条 logs 上报、`trace_id`/`span_id`/组合筛选、keyword/level/source 叠加、空结果、未认证 401、无权限显式项目 404、分页保持 trace/span 筛选、浏览器 `/logs` 表单筛选/空态/翻页以及 metrics/events 快速回归；已 drop 临时库、停止记录 PID 的前端/后端/MySQL、删除 MySQL 临时 datadir 并确认端口无残留；证据目录 `agents/runtime/e2e-t0041-trace-span-20260622-155110/` 保留为本地 ignored 运行产物 | done |
 | 2026-06-22 | T-0042 | 总 agent | 启动 Metrics 聚合窗口基础 | 阶段 3 下一步拆分为 metrics 聚合窗口：后端新增独立 `GET /api/v1/query/metrics/aggregate`，先基于关系库 `ingest_records` 支持固定窗口 `1m/5m/15m/1h` 与 `avg/sum/min/max/count` 聚合；前端在 `/metrics` 查询页新增聚合窗口控件和聚合结果视图。现有 `/api/v1/query/metrics` 样本列表与分页 envelope 不变。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
+| 2026-06-22 | T-0042 | 开发 agents | Metrics 聚合窗口前后端完成 | 后端 Gauss 提交并推送 `cee2f10`，新增 `GET /api/v1/query/metrics/aggregate`、关系库窗口聚合、schema 和测试；前端 Carver 提交并推送 `0df1522`，新增 aggregate API client、metrics 聚合控件、聚合结果视图和测试；两名开发 agent 均已关闭 | done |
+| 2026-06-22 | T-0042 | 审计/测试 agents | 后端聚合分桶 P2 已修复 | 后端审计 Curie 发现 MySQL/MariaDB 使用 `UNIX_TIMESTAMP(occurred_at)` 会受 session timezone 影响导致窗口偏移 P2；后端修复 Planck 提交并推送 `75c249b`，改为 `TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', occurred_at)` 并补 SQL 编译断言；Hypatia 复审确认原 P2 关闭，Gibbs 后端复测通过；前端审计 Tesla 无 P0/P1/P2，Ptolemy 前端复测通过；相关 agents 均已关闭 | done |
+| 2026-06-22 | T-0042 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0042 后端含 P2 修复合入 `dev`，merge 提交 `b1b87db`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0042 前端合入 `dev`，merge 提交 `7f505bb`；本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`，后续推送后读取 CI 并同步 feature 分支 | doing |
 
 ## 6. 测试记录
 
@@ -390,6 +393,8 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py -k "trace or keyword or cursor"`、`uv run pytest tests/test_query_api.py`、ruff、format、mypy、`git diff --check` | 通过 | 开发侧 13 passed 后由 Boyle 复验 14 passed/12 deselected、query API 26 passed；覆盖 trace_id/span_id 精确过滤、与 keyword/level/source/project 权限叠加和 cursor 不匹配 422；未启动完整联测 |
 | 2026-06-22 | T-0041 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、lint、full test、typecheck、build、`git diff --check` | 通过 | Hubble 开发侧与 Kepler 复验均通过；Kepler 结果为 3 files/14 tests 专项、13 files/57 tests 全量，工作区干净；未启动完整联测 |
 | 2026-06-22 | T-0041 | 真实前后端联测 | Bohr；独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173`、浏览器 | 通过 | `dev` `e59662e`；HTTP 覆盖 trace_id、span_id、trace+span、keyword/level/source 叠加、空结果、未认证/无权限和分页；浏览器覆盖 `/logs` Trace ID / Span ID 表单筛选、空态和翻页；metrics/events 快速回归通过；已清理自己启动资源 |
+| 2026-06-22 | T-0042 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py -k "aggregate"`、`uv run pytest tests/test_query_api.py`、ruff、format、mypy、`git diff --check` | 通过 | Gauss 开发侧 4 aggregate tests、query API 30 passed；Planck 修复侧 5 aggregate tests、query API 31 passed；Sagan/Gibbs 复验均通过；未启动完整联测 |
+| 2026-06-22 | T-0042 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、lint、full test、typecheck、build、`git diff --check` | 通过 | Carver 开发侧与 Ptolemy 复验均通过；Ptolemy 结果为 3 files/19 tests 专项、13 files/62 tests 全量；未启动完整联测 |
 
 ## 7. 审计记录
 
@@ -417,6 +422,8 @@ closed      已关闭
 | 2026-06-20 | T-0033 | 总览页摄入统计 API client、汇总逻辑、未登录态和响应式布局 | 通过 | 总 agent 本地只读复审未发现 P0/P1/P2；本小步未修改后端契约，未启动额外子 agent，故无遗留 agent 需要清理；真实后端登录后统计、项目筛选、时间序列趋势、trace 统计和图表后续补齐 | done |
 | 2026-06-22 | T-0041 | 后端 logs trace/span 字段过滤 | 通过 | Zeno 只读审计未发现 P0/P1/P2；残余风险为真实 MySQL 执行语义仍需后续专项补验，FastAPI OpenAPI 参数 schema 未直接表达长度约束但 service 运行时返回 422，未达 P2 | done |
 | 2026-06-22 | T-0041 | 前端 logs Trace ID / Span ID 筛选 | 通过 | Poincare 只读审计未发现 P0/P1/P2；残余风险为未做浏览器视觉/交互验证，真实用户填写后翻页与后端精确匹配需后续集成覆盖 | done |
+| 2026-06-22 | T-0042 | 后端 metrics aggregate API | 通过 | Curie 初审发现 MySQL/MariaDB 聚合分桶 P2；Planck 修复 `75c249b` 后 Hypatia 复审未发现 P0/P1/P2，原 P2 已关闭；残余风险为尚未连接真实 MySQL/MariaDB 执行不同 `time_zone` session 下聚合对照 | done |
+| 2026-06-22 | T-0042 | 前端 metrics aggregate 控件与视图 | 通过 | Tesla 只读审计未发现 P0/P1/P2；残余风险为未做真实接口/浏览器层 401/422 展示、移动端布局和端到端窗口切换验证 | done |
 
 ## 8. 阻塞问题
 

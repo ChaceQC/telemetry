@@ -600,10 +600,13 @@
 - 推送 `e59662e` 后 GitHub Actions run `27937513862` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；随后 `feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e59662e` 并推送，严格 worktree 体检通过。
 - Bohr 在 `dev` `e59662e` 上完成 T-0041 真实前后端联合测试：独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器均通过，覆盖 logs `trace_id`/`span_id`/组合筛选、keyword/level/source 叠加、空结果、未认证/无权限、分页保持筛选语义、浏览器 `/logs` 表单筛选/空态/翻页，以及 metrics/events 快速回归；已清理自己启动的 MySQL、后端、前端、浏览器和临时目录，证据目录保留为本地 ignored 运行产物。
 - 已登记 `T-0042` 阶段 3 Metrics 聚合窗口基础任务：后端新增独立 `GET /api/v1/query/metrics/aggregate`，先基于关系库 `ingest_records` 支持固定窗口 `1m/5m/15m/1h` 和 `avg/sum/min/max/count`；前端在 `/metrics` 查询页新增聚合窗口控件和聚合结果视图。现有 `/api/v1/query/metrics` 样本列表与分页 envelope 不变。
+- T-0042 前后端开发 agents 已完成并关闭：后端 Gauss 提交并推送 `cee2f10`，新增 metrics aggregate API、关系库窗口聚合、schema 和测试；前端 Carver 提交并推送 `0df1522`，新增 aggregate API client、metrics 聚合控件、聚合结果视图和测试。
+- T-0042 审计/局部测试 agents 已完成并关闭：后端审计 Curie 发现 MySQL/MariaDB 使用 `UNIX_TIMESTAMP(occurred_at)` 会受 session timezone 影响导致窗口偏移 P2；Planck 提交并推送 `75c249b`，改为 `TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', occurred_at)` 并补 SQL 编译断言；Hypatia 复审确认原 P2 关闭，Sagan/Gibbs 后端复测通过；前端 Tesla 审计无 P0/P1/P2，Ptolemy 前端复测通过。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0042 后端含 P2 修复合入 `dev`，merge 提交 `b1b87db`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0042 前端合入 `dev`，merge 提交 `7f505bb`。本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`。
 
 ### 进行中
 
-- T-0042 已进入启动阶段；前后端 agents 将分别在独立 worktree 并行推进，开发 agent 不做完整联测。
+- T-0042 已真实 merge 到 `dev`，正在补根记录；随后推送 `dev`、读取 CI、fast-forward 同步前后端 feature 分支，并启动真实前后端联合测试 agent 覆盖 metrics 聚合窗口。
 
 ### 阻塞与风险
 
@@ -618,11 +621,11 @@
 - T-0041 只过滤 logs 顶层结构化字段 `trace_id` 与 `span_id`，不做任意 JSON 字段过滤、不做 `request_id` payload 查询、不接 ClickHouse；后续可单独设计字段过滤 DSL 或白名单 payload key 查询。
 - Popper 发现一个非阻断回归候选：登录后如果直接硬刷新 `/settings`，会话恢复期间 Settings 项目/环境/服务请求可能先以未认证状态发出并返回 `401`；SPA 侧边栏导航路径正常，后续可单独拆分会话恢复 gating 修复。
 - T-0041 已用真实 MySQL/真实前后端补齐 `trace_id`/`span_id` 精确查询和浏览器翻页体验；仍未实现任意 JSON 字段过滤、`request_id` payload 查询、ClickHouse 日志查询或脱敏策略。
-- T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。
+- T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。MySQL/MariaDB timezone 分桶 P2 已通过 SQL 表达式修复和复审关闭，但真实 MySQL 不同 `time_zone` session 下的执行对照仍需真实联测或后续专项补验。
 
 ### 下一步
 
-- 启动 T-0042 前后端开发 agents；完成后启动代码审计 agents 与测试 agents 做局部复验，随后用真实 `git merge` 合入 `dev`、读取 CI、同步 feature 分支，并安排真实前后端联合测试覆盖 metrics 聚合窗口。
+- 推送 T-0042 merge 与记录提交，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检；随后启动真实前后端联合测试 agent，使用真实后端、真实前端和真实数据库覆盖 metrics 聚合窗口 API、UI 控件和错误/空态。
 
 ### 验证
 
@@ -656,3 +659,5 @@
 - T-0041 前端开发/审计/复测阶段通过：Hubble 开发侧 API/filter/page 专项、typecheck、lint、全量测试、build、diff check 通过；Poincare 审计无 P0/P1/P2；Kepler 复验 API/filter/page 专项 3 files/14 tests、lint、全量测试 13 files/57 tests、typecheck、build、diff check 通过。
 - T-0041 push 后 GitHub Actions run `27937513862` 通过：Backend checks 与 Frontend checks 均为 success；随后 `feature/frontend-dev`、`feature/backend-dev` 与 `dev` 均同步到 `e59662e`，严格 worktree 体检通过。
 - T-0041 真实前后端联合测试通过：Bohr 使用独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173` 和浏览器；HTTP 覆盖 trace_id、span_id、trace+span、keyword/level/source 叠加、空结果、未认证/无权限和分页；浏览器覆盖 `/logs` Trace ID / Span ID 表单筛选、空态和翻页；metrics/events 快速回归通过；测试 agent 已清理自己启动资源。
+- T-0042 后端开发/审计/复测阶段通过：Gauss 开发侧 aggregate 专项 4 passed、query API 30 passed、ruff、format、mypy、diff check 通过；Curie 初审发现 MySQL/MariaDB timezone 分桶 P2；Planck 修复后 aggregate 专项 5 passed、query API 31 passed、ruff、format、mypy、diff check 通过；Hypatia 复审无 P0/P1/P2，Gibbs 复测通过。
+- T-0042 前端开发/审计/复测阶段通过：Carver 开发侧 API/filter/page 专项、typecheck、lint、全量测试、build、diff check 通过；Tesla 审计无 P0/P1/P2；Ptolemy 复验 API/filter/page 专项 3 files/19 tests、lint、全量测试 13 files/62 tests、typecheck、build、diff check 通过。
