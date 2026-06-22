@@ -703,3 +703,4 @@
 - T-0044 推送后 GitHub Actions run `27957299640` 通过：Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解。
 - T-0045 开发/审计/复测阶段通过：Halley 开发侧完成 trace 查询最小实现并提交 `a249fe7`；Heisenberg 审计无 P0/P1/P2，P3 契约状态文字滞后已由 Aristotle `c87a60f` 修复；James 使用本地 MySQL 8.0.42、真实 FastAPI 后端和 HTTP/DB 断言验证 trace ingest + query、筛选、cursor、`401/404/422` 和 metric 快速回归通过，并清理临时库和自有资源。
 - T-0045 merge 后本地门禁通过：后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q` 54 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；worktree 预检仅因 `dev` 尚未推送领先远端 3 个提交失败，根/前端/后端 worktree 均干净且无保护项问题。
+- T-0045 推送后 GitHub Actions run `27962733862` 通过：Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解。

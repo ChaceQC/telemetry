@@ -381,6 +381,7 @@ closed      已关闭
 | 2026-06-22 | T-0045 | 文档修复 agent Aristotle | Trace 查询契约 P3 修复完成 | Aristotle 提交并推送 `c87a60f`，将 trace 查询契约状态和后端记录更新为已完成；Aristotle 已关闭 | done |
 | 2026-06-22 | T-0045 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 后端合入 `dev`，merge 提交 `2916df9`；本次同步根、前端、后端版本到 `0.2.3`，并补根 README、计划书、正式 API 契约和进度记录。前端无功能改动，前端版本文件仅做项目总版本同步 | done |
 | 2026-06-22 | T-0045 | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q` 54 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 3 个提交失败，根/前端/后端 worktree 均干净且无保护项问题 | done |
+| 2026-06-22 | T-0045 | 总 agent | CI 通过 | 推送 `d906627` 触发 GitHub Actions run `27962733862`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -442,6 +443,7 @@ closed      已关闭
 | 2026-06-22 | T-0044 | CI | GitHub Actions run `27957299640` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
 | 2026-06-22 | T-0045 | Trace 查询真实 MySQL/真实后端验证 | James；本地 MySQL 8.0.42、真实 FastAPI 后端、HTTP 与 DB 断言 | 通过 | 使用本地 MySQL `127.0.0.1:33317` 和临时库 `telemetry_t0045_trace_20260622`，后端 `127.0.0.1:28145`；覆盖 trace ingest + query、`trace_id`/`span_id`/`name`/`source`/时间过滤、cursor、`401/404/422` 和 metric 快速回归；未启动 Docker，临时库和自有进程已清理 |
 | 2026-06-22 | T-0045 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py -q`、`uv lock --check`；前端 `npm.cmd run typecheck`；`git diff --check`、worktree 体检 | 通过 | 后端 54 passed，1 条既有 Starlette/TestClient 上游弃用警告；`uv lock --check` resolved 49 packages；前端 typecheck 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 本地领先 `origin/dev` 3 个提交失败，待提交推送后复查 |
+| 2026-06-22 | T-0045 | CI | GitHub Actions run `27962733862` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
 
 ## 7. 审计记录
 
