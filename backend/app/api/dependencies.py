@@ -78,7 +78,12 @@ def get_query_service(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> QueryService:
     permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
-    return QueryService(SqlAlchemyQueryRepository(session), permission_service)
+    management_repository = SqlAlchemyManagementRepository(session)
+    return QueryService(
+        SqlAlchemyQueryRepository(session),
+        permission_service,
+        management_repository,
+    )
 
 
 def get_ingest_rate_limiter(request: Request) -> RateLimiter:

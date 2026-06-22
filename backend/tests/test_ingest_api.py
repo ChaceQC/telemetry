@@ -8,6 +8,8 @@ from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Table, inspect, select
+from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects.mysql import mariadb
 
 from app.core.application import create_app
 from app.core.config import Settings
@@ -1183,6 +1185,16 @@ def test_ingest_record_model_defines_query_window_index() -> None:
     }
 
     assert indexes[INGEST_RECORD_QUERY_INDEX_NAME] == INGEST_RECORD_QUERY_INDEX_COLUMNS
+
+
+def test_ingest_record_model_uses_mysql_microsecond_datetime() -> None:
+    table = cast(Table, IngestRecordModel.__table__)
+    mysql_dialect = mysql.dialect()
+    mariadb_dialect = mariadb.MariaDBDialect()
+
+    for dialect in (mysql_dialect, mariadb_dialect):
+        assert table.c.occurred_at.type.compile(dialect=dialect) == "DATETIME(6)"
+        assert table.c.received_at.type.compile(dialect=dialect) == "DATETIME(6)"
 
 
 def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:

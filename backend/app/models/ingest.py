@@ -4,10 +4,17 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.management import ID_COLUMN, utc_now
+
+MYSQL_DATETIME_US = DateTime(timezone=True).with_variant(
+    mysql.DATETIME(fsp=6),
+    "mysql",
+    "mariadb",
+)
 
 
 class IngestRecordModel(Base):
@@ -43,9 +50,9 @@ class IngestRecordModel(Base):
     event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     source: Mapped[str | None] = mapped_column(String(128))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    occurred_at: Mapped[datetime | None] = mapped_column(MYSQL_DATETIME_US)
     received_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        MYSQL_DATETIME_US,
         nullable=False,
         default=utc_now,
         server_default=func.current_timestamp(),

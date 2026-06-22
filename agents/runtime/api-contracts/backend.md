@@ -544,7 +544,7 @@
   - `429 Too Many Requests`：启用摄入限流且当前 API Key 超过固定窗口阈值，响应包含 `Retry-After`。
   - `503 Service Unavailable`：启用 Redis 限流后端且 Redis 连接或命令不可用。
   - `422 Unprocessable Entity`：请求体字段格式错误、出现额外字段、缺失必填字段、payload/tags/attributes 超限或含非有限数值、metrics value 非有限数值、logs message 超长、trace duration/time 无效或批量条数/大小超限。
-- 持久化：当前写入 MySQL/SQLite `ingest_records` 表，字段包含 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at`、`received_at`。events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`；traces 写入 `kind=trace` 且 `event_type=name`。trace payload 保存 `trace_id`、`span_id`、`parent_span_id`、`name`、`start_time`、`end_time`、`duration_ms`、`status_code`、`source`、`attributes`、业务 `payload` 和原始 span `raw`。`ingest_records.kind` 是字符串列，新增 `trace` kind 不需要新迁移；`ingest_records` 已补充 `(project_id, kind, received_at, id)` 组合索引，覆盖日志上下文 `project_id + kind + received_at/id` 窗口查询，并可被带项目过滤的 events/logs/metrics/traces 分页查询复用。
+- 持久化：当前写入 MySQL/SQLite `ingest_records` 表，字段包含 `project_id`、`api_key_id`、`kind`、`event_type`、`source`、`payload` JSON、`occurred_at`、`received_at`。events 写入 `kind=event` 且 `event_type=type`；metrics 写入 `kind=metric` 且 `event_type=name`；logs 写入 `kind=log` 且 `event_type=level`；traces 写入 `kind=trace` 且 `event_type=name`。trace payload 保存 `trace_id`、`span_id`、`parent_span_id`、`name`、`start_time`、`end_time`、`duration_ms`、`status_code`、`source`、`attributes`、业务 `payload` 和原始 span `raw`。`ingest_records.kind` 是字符串列，新增 `trace` kind 不需要新迁移；MySQL/MariaDB 下 `ingest_records.occurred_at` 与 `received_at` 使用 `DATETIME(6)` 保留微秒精度；`ingest_records` 已补充 `(project_id, kind, received_at, id)` 组合索引，覆盖日志上下文 `project_id + kind + received_at/id` 窗口查询，并可被带项目过滤的 events/logs/metrics/traces 分页查询复用。
 - 安全边界：
   - 项目归属只来自 API Key 校验结果，不接受客户端顶层 `project_id`。
   - 若 `project_id` 出现在 `payload`、`tags` 或 `attributes` 内，仅作为业务载荷保存，不影响归属。
@@ -567,7 +567,7 @@
 - `GET /api/v1/query/events`
 - 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
 - 查询参数：
-  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404 项目不存在`。
+  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `type`：可选，事件类型，长度 `1..128`。
   - `source`：可选，来源，长度 `1..128`。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按事件 `occurred_at` 过滤。
@@ -600,7 +600,7 @@
 - `GET /api/v1/query/logs`
 - 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
 - 查询参数：
-  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404 项目不存在`。
+  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `level`：可选，日志级别，长度 `1..32`。
   - `source`：可选，来源，长度 `1..128`。
   - `keyword`：可选，关键词，长度 `1..128`；后端会去除前后空白，空白字符串按未传处理。当前匹配日志 `message` 和关系库日志业务 `payload` 的值文本；不匹配业务 `payload` key 名、wrapper key 名、`logger`/`trace_id`/`span_id` 等元字段或空值脚手架。SQLite 兼容层覆盖业务 `payload` 嵌套对象/数组中的字符串、数字和布尔值；MySQL 兼容层通过 `JSON_SEARCH` 覆盖业务 `payload` 字符串值。
@@ -643,7 +643,7 @@
 - `GET /api/v1/query/metrics`
 - 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
 - 查询参数：
-  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404 项目不存在`。
+  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `name`：可选，指标名，长度 `1..128`。
   - `source`：可选，来源，长度 `1..128`。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按指标 `occurred_at` 过滤。
@@ -680,12 +680,12 @@
 - `GET /api/v1/query/traces`
 - 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
 - 查询参数：
-  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404 项目不存在`。
+  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `trace_id`：可选，长度 `1..128`；按 trace payload 顶层 `trace_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
   - `span_id`：可选，长度 `1..128`；按 trace payload 顶层 `span_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
   - `name`：可选，span 名称，长度 `1..128`；当前映射到 `ingest_records.event_type`。
   - `source`：可选，来源，长度 `1..128`。
-  - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按 span `occurred_at` 过滤；trace 摄入时该字段来自 span `start_time`。
+  - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按 span `occurred_at` 过滤；trace 摄入时该字段来自 span `start_time`；MySQL/MariaDB 下用 `DATETIME(6)` 保留微秒，`2026-06-22T01:00:00.075Z` 不应命中 `2026-06-22T01:00:00.100000Z`。
   - `limit`：可选，默认 `100`，范围 `1..500`。
   - `cursor`：可选，字符串；使用上一页响应的 `next_cursor` 继续向后翻页。
 - 响应：统一 envelope，`items` 为 trace span 数组，`next_cursor` 为下一页游标；无更多数据时 `next_cursor=null`。
@@ -779,7 +779,7 @@
 - `GET /api/v1/query/metrics/aggregate`
 - 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
 - 查询参数：
-  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404 项目不存在`。
+  - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `name`：可选，指标名，长度 `1..128`。
   - `source`：可选，来源，长度 `1..128`。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按指标 `occurred_at` 过滤。
@@ -831,6 +831,7 @@
   - `backend/migrations/versions/20260621_0005_create_ingest_records.py`
   - `backend/migrations/versions/20260621_0006_create_ingest_stats.py`
   - `backend/migrations/versions/20260622_0007_add_ingest_records_query_index.py`
+  - `backend/migrations/versions/20260622_0008_ingest_records_mysql_microseconds.py`
 - MySQL 目标表：
   - `management_projects`：项目，`key` 全局唯一。
   - `management_environments`：环境，外键 `project_id`，同项目下 `key` 唯一，并提供 `(id, project_id)` 唯一约束供服务复合外键引用。
@@ -840,7 +841,7 @@
   - `rbac_team_members`：团队成员，外键 `team_id`、`user_id`，同团队同用户唯一。
   - `rbac_project_members`：项目成员角色，外键 `project_id`、`user_id`，同项目同用户唯一，`role` 取 `viewer`、`editor`、`admin`。
   - `api_keys`：项目 API Key，外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一，保存 `status`、`revoked_at`、`last_used_at` 和展示前缀。
-  - `ingest_records`：最小摄入记录，外键 `project_id`、`api_key_id`，保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；组合索引 `ix_ingest_records_project_kind_received_at_id(project_id, kind, received_at, id)` 支撑日志上下文 before/after 和带项目过滤的查询分页。
+  - `ingest_records`：最小摄入记录，外键 `project_id`、`api_key_id`，保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；MySQL/MariaDB 下 `occurred_at` 和 `received_at` 使用 `DATETIME(6)`，`received_at` 默认值为 `CURRENT_TIMESTAMP(6)`；组合索引 `ix_ingest_records_project_kind_received_at_id(project_id, kind, received_at, id)` 支撑日志上下文 before/after 和带项目过滤的查询分页。
   - `ingest_stats`：摄入统计聚合，外键 `project_id`、`api_key_id`，按 `bucket_start`、`project_id`、`api_key_id`、`kind`、`source` 唯一聚合，保存 accepted/rejected 计数和 payload 字节数。
 - 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
 - ClickHouse 初始化表：

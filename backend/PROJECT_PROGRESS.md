@@ -2,6 +2,27 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0045 真实联测 trace 查询修复
+
+### 已完成
+
+- 修复显式 `project_id` 存在性校验：`GET /api/v1/query/events|logs|metrics|traces` 和 `GET /api/v1/query/metrics/aggregate` 现在在传入 `project_id` 时都会先确认项目存在；普通用户无权项目和不存在项目仍统一返回 `404 项目不存在`，超级用户查询不存在项目也返回 `404 项目不存在`，不再空数组成功。
+- 修复 MySQL/MariaDB 下 `ingest_records.occurred_at` 秒级截断导致的 trace 毫秒过滤问题：ORM 与建表迁移对 `occurred_at` / `received_at` 使用 `DATETIME(6)`，并新增 `20260622_0008_ingest_records_mysql_microseconds.py` 将已有 MySQL/MariaDB 列升级为 `DATETIME(6)`，`received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`。
+- 补充 SQLite API 回归测试，覆盖 `occurred_to=2026-06-22T01:00:00.075Z` 不返回 `start_time=2026-06-22T01:00:00.100Z` 的 trace span。
+- 补充 MySQL/MariaDB DDL 编译回归测试，锁定 `ingest_records.occurred_at` 和 `received_at` 在 MySQL/MariaDB 方言下为 `DATETIME(6)`。
+- 更新 `backend/README.md`、`backend/migrations/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录显式项目缺失语义、毫秒过滤语义和 Debian/MySQL 兼容性说明。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 开发侧未启动 Docker，未启动真实后端/前端服务；本地未配置真实 MySQL 服务，因此真实 MySQL 写入和 HTTP 联测留给测试 agent 复验。
+- MySQL/MariaDB 0008 回滚会把时间列收窄回秒级 `DATETIME`，历史微秒部分会由数据库截断；生产接入毫秒过滤语义后不建议回滚。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "traces or superuser" -q`，结果：7 个测试通过、38 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_ingest_api.py -k "ingest_record_model or migration_sqlite" -q`，结果：3 个测试通过、34 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+
 ## 2026-06-22 T-0045 Trace 查询最小后端基础
 
 ### 已完成
