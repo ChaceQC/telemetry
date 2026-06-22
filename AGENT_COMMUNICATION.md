@@ -70,6 +70,7 @@ closed      已关闭
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
 | T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | done |
+| T-0043 | 日志 request/user 字段过滤基础 | 总 agent | doing | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -351,6 +352,8 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 审计/测试 agents | MySQL 分桶修复复验通过 | 代码审计 agent Hume 只读复审 `7120835`，未发现 P0/P1/P2；后端测试 agent Lorentz 使用真实 MySQL 8.4、FastAPI TestClient 和 PyMySQL 专项验证 1m/5m 边界桶、avg/sum/min/max/count、`+00:00`/`+08:00` session time_zone、非法参数 422 和未认证 401，全部通过；两名 agent 已关闭并清理自有资源 | done |
 | 2026-06-22 | T-0042 | 总 agent | 合并 MySQL 分桶修复到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将后端修复合入 `dev`，merge 提交 `5e96f7d`；未使用路径拷贝，根、前端、后端 VERSION 继续保持 `0.2.1`；后续提交本记录、推送、读取 Actions、同步 feature 分支并重跑真实前后端联合测试 | doing |
 | 2026-06-22 | T-0042 | 测试 agent Parfit | 真实前后端联测重跑通过 | Parfit 在 `dev/origin/dev` `388706f` 上使用真实 MySQL 8.0.42 本机隔离实例 `3942`、真实后端 `3943`、真实前端 `3944` 和 Playwright Chromium 完成重跑：metrics aggregate avg/sum/min/max/count、1m/5m/15m/1h、project/name/source/time 过滤、empty/401/404/无权限/非法参数、MySQL 边界分桶和 session time_zone 对照均通过；浏览器 `/metrics` 聚合控件、结果字段、空态、错误态通过；metrics sample list 分页、logs/events/log context 快速回归通过；Parfit 已清理自己启动的后端、前端、MySQL 隔离实例、datadir 和浏览器，未杀无法确认归属的 `mysqld` PID `6768` | done |
+| 2026-06-22 | T-0042 | 总 agent | 最终 CI 与 worktree 同步完成 | 推送 `e1a4a30` 后 GitHub Actions run `27946752819` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js 20 runtime 弃用注解；`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e1a4a30` 并推送，严格 worktree 体检通过 | done |
+| 2026-06-22 | T-0043 | 总 agent | 启动日志 request/user 字段过滤基础 | 阶段 3 下一步拆分为 logs 白名单字段过滤：后端为 `GET /api/v1/query/logs` 增加 `request_id`、`user_id` 可选查询参数，限定精确匹配日志结构化 `attributes` 白名单字段并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Request ID / User ID 输入并接入 API client。前后端 agents 并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
 
 ## 6. 测试记录
 

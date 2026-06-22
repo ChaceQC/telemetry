@@ -611,10 +611,12 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0042 MySQL 分桶修复合入 `dev`，merge 提交 `5e96f7d`；未使用路径拷贝，根、前端、后端 VERSION 继续保持 `0.2.1`。
 - 推送 `388706f` 后 GitHub Actions run `27944010799` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js 20 runtime 弃用注解；随后 `feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `388706f` 并推送，严格 worktree 体检通过。
 - Parfit 在 `dev/origin/dev` `388706f` 上完成 T-0042 真实前后端联合测试重跑并通过：使用真实 MySQL 8.0.42 本机隔离实例 `3942`、真实后端 `3943`、真实前端 `3944` 和 Playwright Chromium；覆盖 metrics aggregate avg/sum/min/max/count、`1m/5m/15m/1h`、project/name/source/time 过滤、empty/401/404/无权限/非法参数、MySQL 边界分桶、session `time_zone` 对照、浏览器 `/metrics` 聚合控件/结果字段/空态/错误态、metrics sample list 分页、logs/events/log context 回归。Parfit 已清理自己启动的后端、前端、MySQL 隔离实例、datadir 和浏览器；未杀无法确认归属且不监听本轮端口的 `mysqld` PID `6768`。
+- 推送 T-0042 最终记录 `e1a4a30` 后 GitHub Actions run `27946752819` 通过；`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `e1a4a30` 并推送，严格 worktree 体检通过。T-0042 Metrics 聚合窗口基础完成。
+- 已登记 `T-0043` 阶段 3 日志 request/user 字段过滤基础任务：后端为 `GET /api/v1/query/logs` 增加 `request_id`、`user_id` 可选查询参数，限定精确匹配日志结构化 `attributes` 白名单字段并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Request ID / User ID 输入并接入 API client。本小步不做任意 JSON 字段 DSL，不接 ClickHouse，不实现脱敏策略。
 
 ### 进行中
 
-- T-0042 已完成真实前后端联测重跑并通过；当前正在补最终根记录，随后提交、推送、读取 GitHub Actions、同步前后端 feature 分支，并进入阶段 3 下一项任务。
+- T-0043 已进入启动阶段；准备在前后端独立 worktree 并行启动开发 agent，开发 agent 只做实现和最小自检，完整复验和审计由独立 agent 负责。
 
 ### 阻塞与风险
 
@@ -630,10 +632,11 @@
 - Popper 发现一个非阻断回归候选：登录后如果直接硬刷新 `/settings`，会话恢复期间 Settings 项目/环境/服务请求可能先以未认证状态发出并返回 `401`；SPA 侧边栏导航路径正常，后续可单独拆分会话恢复 gating 修复。
 - T-0041 已用真实 MySQL/真实前后端补齐 `trace_id`/`span_id` 精确查询和浏览器翻页体验；仍未实现任意 JSON 字段过滤、`request_id` payload 查询、ClickHouse 日志查询或脱敏策略。
 - T-0042 只做关系库最小聚合窗口，不接 ClickHouse、不做 tags group by、percentile、Top N、单位换算或多序列对比；混合单位窗口先记录残余风险，后续单独处理。真实 MySQL `1m/5m` 边界秒分桶上偏已修复，并通过后端专项与完整真实前后端联测重跑确认。
+- T-0043 只扩展 logs 白名单结构化字段 `request_id`、`user_id`，优先匹配当前日志 `attributes` 对象；不实现任意 payload key 查询、复杂字段 DSL、ClickHouse 日志查询或脱敏策略，避免一次性扩大查询语义。
 
 ### 下一步
 
-- 提交并推送 T-0042 最终联测记录，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检。下一项阶段 3 可优先拆分 logs 任意/白名单字段过滤、`request_id` 查询、Settings session restore gating、ClickHouse 查询接入或 metrics 多序列/Top N 能力。
+- 提交并推送 T-0043 启动记录，读取 GitHub Actions；通过后同步前后端 feature 分支，运行严格 worktree 体检，再以 `xhigh` 思考强度启动前端和后端开发 agent 并行推进 T-0043。
 
 ### 验证
 
