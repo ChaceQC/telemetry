@@ -69,7 +69,7 @@ closed      已关闭
 | T-0039 | 日志关键词搜索基础 | 总 agent | done | done | done | done | done |
 | T-0040 | Events 时间线页基础 | 总 agent | done | todo | done | done | done |
 | T-0041 | 日志结构化字段过滤基础 | 总 agent | done | done | done | done | done |
-| T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | done | done | doing |
+| T-0042 | Metrics 聚合窗口基础 | 总 agent | done | done | testing | done | doing |
 
 ## 4. API 契约登记
 
@@ -344,6 +344,12 @@ closed      已关闭
 | 2026-06-22 | T-0042 | 开发 agents | Metrics 聚合窗口前后端完成 | 后端 Gauss 提交并推送 `cee2f10`，新增 `GET /api/v1/query/metrics/aggregate`、关系库窗口聚合、schema 和测试；前端 Carver 提交并推送 `0df1522`，新增 aggregate API client、metrics 聚合控件、聚合结果视图和测试；两名开发 agent 均已关闭 | done |
 | 2026-06-22 | T-0042 | 审计/测试 agents | 后端聚合分桶 P2 已修复 | 后端审计 Curie 发现 MySQL/MariaDB 使用 `UNIX_TIMESTAMP(occurred_at)` 会受 session timezone 影响导致窗口偏移 P2；后端修复 Planck 提交并推送 `75c249b`，改为 `TIMESTAMPDIFF(SECOND, '1970-01-01 00:00:00', occurred_at)` 并补 SQL 编译断言；Hypatia 复审确认原 P2 关闭，Gibbs 后端复测通过；前端审计 Tesla 无 P0/P1/P2，Ptolemy 前端复测通过；相关 agents 均已关闭 | done |
 | 2026-06-22 | T-0042 | 总 agent | 真实 merge 集成到 dev | 已使用 `git merge --no-ff origin/feature/backend-dev` 将 T-0042 后端含 P2 修复合入 `dev`，merge 提交 `b1b87db`；随后使用 `git merge --no-ff origin/feature/frontend-dev` 将 T-0042 前端合入 `dev`，merge 提交 `7f505bb`；本次为同阶段兼容查询增强，根、前端、后端 VERSION 继续保持 `0.2.1`，后续推送后读取 CI 并同步 feature 分支 | doing |
+| 2026-06-22 | T-0042 | 总 agent | CI 与 worktree 同步完成 | `4818af2` 已推送，GitHub Actions run `27940939722` 通过；`feature/frontend-dev` 与 `feature/backend-dev` 已通过 `git merge --ff-only origin/dev` 快进到 `4818af2` 并推送，严格 worktree 体检通过 | done |
+| 2026-06-22 | T-0042 | 测试 agent Dewey | 真实联测发现 MySQL 分桶失败 | Dewey 使用真实 MySQL 8.4 Docker 容器、真实后端、真实前端和浏览器完成联测；API 聚合在 MySQL 下 `window=1m/5m` 边界秒分桶错误，`00:00:59` 被归到 `00:01:00`、`00:04:59` 被归到 `00:05:00`，导致 avg/sum/min/max/count 结果不符；认证、权限、空态、非法参数、sample list 分页、logs/events/log context 回归和前端 `/metrics` 浏览器验证通过；测试 agent 已清理自己启动的 MySQL、后端、前端、浏览器和临时 secret，证据目录 `tmp/t0042-evidence-20260622-165844/` 保留为本地 ignored 产物 | blocked |
+| 2026-06-22 | T-0042 | 总 agent | 启动 MySQL 聚合分桶修复 | 已启动后端开发 agent Avicenna，在 `feature/backend-dev` 修复 MySQL/MariaDB 聚合窗口下取整分桶问题；要求不使用 `UNIX_TIMESTAMP(occurred_at)`，补 SQL 编译测试和后端文档，完成后提交并 push，再进入后端测试和代码审计 | doing |
+| 2026-06-22 | T-0042 | 后端开发 agent Avicenna | MySQL 聚合分桶修复完成 | Avicenna 提交并推送 `7120835` 到 `feature/backend-dev`：MySQL/MariaDB 聚合窗口改为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds) * window_seconds`，避免边界秒上浮；补 SQL 编译断言、README、后端进度和契约草案；开发侧聚合专项、ruff、format、mypy、diff check 通过，并由其测试 agent Pasteur 做后端专项复验通过；Avicenna 已关闭 | done |
+| 2026-06-22 | T-0042 | 审计/测试 agents | MySQL 分桶修复复验通过 | 代码审计 agent Hume 只读复审 `7120835`，未发现 P0/P1/P2；后端测试 agent Lorentz 使用真实 MySQL 8.4、FastAPI TestClient 和 PyMySQL 专项验证 1m/5m 边界桶、avg/sum/min/max/count、`+00:00`/`+08:00` session time_zone、非法参数 422 和未认证 401，全部通过；两名 agent 已关闭并清理自有资源 | done |
+| 2026-06-22 | T-0042 | 总 agent | 合并 MySQL 分桶修复到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将后端修复合入 `dev`，merge 提交 `5e96f7d`；未使用路径拷贝，根、前端、后端 VERSION 继续保持 `0.2.1`；后续提交本记录、推送、读取 Actions、同步 feature 分支并重跑真实前后端联合测试 | doing |
 
 ## 6. 测试记录
 
@@ -395,6 +401,8 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 真实前后端联测 | Bohr；独立临时 MySQL 8.0.42 `33316`、真实后端 `28117`、真实前端 `25173`、浏览器 | 通过 | `dev` `e59662e`；HTTP 覆盖 trace_id、span_id、trace+span、keyword/level/source 叠加、空结果、未认证/无权限和分页；浏览器覆盖 `/logs` Trace ID / Span ID 表单筛选、空态和翻页；metrics/events 快速回归通过；已清理自己启动资源 |
 | 2026-06-22 | T-0042 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py -k "aggregate"`、`uv run pytest tests/test_query_api.py`、ruff、format、mypy、`git diff --check` | 通过 | Gauss 开发侧 4 aggregate tests、query API 30 passed；Planck 修复侧 5 aggregate tests、query API 31 passed；Sagan/Gibbs 复验均通过；未启动完整联测 |
 | 2026-06-22 | T-0042 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx`、lint、full test、typecheck、build、`git diff --check` | 通过 | Carver 开发侧与 Ptolemy 复验均通过；Ptolemy 结果为 3 files/19 tests 专项、13 files/62 tests 全量；未启动完整联测 |
+| 2026-06-22 | T-0042 | 真实前后端联测 | Dewey；真实 MySQL 8.4 Docker 容器、真实后端、真实前端、Playwright Chromium | 未通过 | API 聚合 73 项检查中 47 通过、26 失败；失败集中在 MySQL `1m/5m` 边界秒分桶向上偏移，导致 4 条样本被拆成 3+1；session `time_zone` `+00:00`/`+08:00` 对比一致，说明已关闭的时区问题未复发。认证、权限、空态、非法参数、sample list 分页、logs/events/log context 回归与前端 `/metrics` 12/12 浏览器验证通过；Dewey 已清理自有资源 |
+| 2026-06-22 | T-0042 | 后端 MySQL 分桶专项复验 | Lorentz；真实 MySQL 8.4 容器、FastAPI TestClient、PyMySQL | 通过 | commit `7120835` 上验证 `window=1m` 返回 `00:00` 两条、`00:01` 一条、`00:04` 一条，`window=5m` 返回 `00:00` 四条；5m avg/sum/min/max/count 分别为 25/100/10/40/4；`+00:00` 与 `+08:00` session time_zone 输出一致；非法 window/aggregation 422、未认证 401 通过；已清理自有 MySQL 容器和临时 worktree |
 
 ## 7. 审计记录
 
@@ -424,12 +432,14 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 前端 logs Trace ID / Span ID 筛选 | 通过 | Poincare 只读审计未发现 P0/P1/P2；残余风险为未做浏览器视觉/交互验证，真实用户填写后翻页与后端精确匹配需后续集成覆盖 | done |
 | 2026-06-22 | T-0042 | 后端 metrics aggregate API | 通过 | Curie 初审发现 MySQL/MariaDB 聚合分桶 P2；Planck 修复 `75c249b` 后 Hypatia 复审未发现 P0/P1/P2，原 P2 已关闭；残余风险为尚未连接真实 MySQL/MariaDB 执行不同 `time_zone` session 下聚合对照 | done |
 | 2026-06-22 | T-0042 | 前端 metrics aggregate 控件与视图 | 通过 | Tesla 只读审计未发现 P0/P1/P2；残余风险为未做真实接口/浏览器层 401/422 展示、移动端布局和端到端窗口切换验证 | done |
+| 2026-06-22 | T-0042-fix | 后端 metrics aggregate MySQL 分桶修复 | 通过 | Hume 只读审计 `7120835` 未发现 P0/P1/P2；确认 MySQL/MariaDB 表达式使用 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` 且未重新引入 `UNIX_TIMESTAMP` 或 session time_zone 依赖；残余风险为大数据量性能和完整前后端联测仍需后续覆盖 | done |
 
 ## 8. 阻塞问题
 
 | 日期 | 任务 ID | 问题 | 影响 | 负责人 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
+| 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过；仍需推送 `dev` 后重跑完整前后端真实联测 | 后端开发 agent Avicenna / 总 agent | closed |
 | 2026-06-20 | T-0002 | 当前工具面板未暴露 `create_thread`、`handoff_thread` 或测试子 agent 启动工具；本机 `codex.exe` 与 `codex-command-runner.exe` 执行 `--help` 均返回 Access is denied | 后续已通过可用的多 agent 工具启动测试子 agent Boole 复验 `T-0003`，本阻塞对当前后端骨架任务已解除 | 后端开发 agent / 总 agent | closed |
 
 ## 9. 分支与合并请求
