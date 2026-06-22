@@ -76,6 +76,7 @@ closed      已关闭
 | T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
+| T-0049 | Trace 到日志跳转前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -417,6 +418,7 @@ closed      已关闭
 | 2026-06-23 | T-0048-fix | 代码审计 agent Boyle the 2nd | Trace waterfall 修复复审通过 | Boyle the 2nd 只读复审 `a7e3de2`，确认原 P2 与两个 P3 均已关闭，未发现新的 P0/P1/P2/P3；`max-width: 720px` 单列分支覆盖窄宽度溢出风险，scope key 已纳入 session、页码、刷新版本和查询参数，异常 parent 测试覆盖 self parent、双节点环与重复 `span_id`。Boyle the 2nd 已关闭，建议 merge | done |
 | 2026-06-23 | T-0048 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0048 trace waterfall 与修复合入 `dev`，merge 提交当前 HEAD；同步根、前端、后端版本到 `0.2.5`。后续执行收窄门禁、推送、读取 CI、同步 feature 分支并按风险启动真实联测 | done |
 | 2026-06-23 | T-0048 | 测试 agent Linnaeus the 2nd | Trace waterfall 真实联测通过 | Linnaeus the 2nd 在 `dev` `f2970d5` 上使用自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端和 Playwright + Microsoft Edge 完成联测：MySQL 迁移到 head `20260622_0008`，`/health=0.2.5`；创建项目/环境/服务/API Key 后上报 12 条 trace spans，覆盖多根、父子、孤儿 parent、错误、慢、0 duration、缺失 duration、长 duration、长 name/source 和 attributes/payload；Trace Query API 覆盖返回目标 spans、`status_code=ERROR`、`duration_min_ms=1000`、`duration_max_ms=0`、分页 cursor；浏览器 `/traces` 验证 trace 组、展开/收起、树形缩进、waterfall 条、错误/慢/孤儿标识、span 详情、刷新/分页状态、640px/720px 无横向溢出；`/metrics`、`/logs`、`/events` 侧栏回归通过。测试 agent 已清理自有 MySQL/后端/前端/Edge/临时目录，证据目录 `agents/runtime/e2e-T-0048-20260623-071459` | done |
+| 2026-06-23 | T-0049 | 总 agent | 登记 Trace 到日志跳转前端基础 | 阶段 4 下一小步限定为前端 trace/log 关联入口：在 `/traces` span 详情或 trace 组中提供“查看相关日志”入口，携带 `trace_id` 和可选 `span_id` 跳转到 `/logs`；让 `/logs` 页面能从 URL 查询参数初始化 Trace ID / Span ID 筛选并执行查询/显示筛选。范围不改后端契约，不新增后端 API，不做 log context 深链、指标互跳、ClickHouse 或服务拓扑；将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程 | doing |
 
 ## 6. 测试记录
 
