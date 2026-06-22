@@ -2,6 +2,27 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0045 审计 P3 小修
+
+### 已完成
+
+- 修复 Russell 对 `2d357a7` 的 P3 意见：`ingest_records.received_at` 的 ORM `server_default` 改为方言感知默认表达式，MySQL/MariaDB 建表 DDL 编译为 `CURRENT_TIMESTAMP(6)`，SQLite 仍保持 `CURRENT_TIMESTAMP`，与 0008 迁移最终态对齐且不破坏本地 SQLite 测试。
+- 补充 `test_ingest_record_model_received_at_default_matches_dialect`，锁定 MySQL、MariaDB 和 SQLite 三种方言下的 `received_at` 默认值 DDL。
+- 更新 `backend/README.md` 与 `backend/migrations/README.md`，明确生产建库/升级使用 Alembic，`create_all()` 仅用于测试或一次性临时库；补充 0008 修改 `occurred_at` / `received_at` 且 `received_at` 参与索引时，在真实 MySQL/MariaDB 大表上的在线 DDL 风险、备份/回滚、锁等待、复制延迟和维护窗口评估要求。
+
+### 阻塞与风险
+
+- 暂无阻塞。
+- 本轮未启动 Docker、真实 MySQL、后端服务或浏览器；真实 MySQL/MariaDB 大表 ALTER 的锁行为和执行时长仍需在生产同版本影子库或维护窗口前演练确认。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_ingest_api.py -k "ingest_record_model or migration_sqlite" -q`，结果：4 个测试通过、34 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/models/ingest.py tests/test_ingest_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/models/ingest.py tests/test_ingest_api.py`，结果：通过。
+- 已运行 `uv run mypy app/models/ingest.py tests/test_ingest_api.py`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-22 T-0045 真实联测 trace 查询修复
 
 ### 已完成

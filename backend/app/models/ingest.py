@@ -5,7 +5,9 @@ from typing import Any
 
 from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects import mysql
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.expression import FunctionElement
 
 from app.db.base import Base
 from app.models.management import ID_COLUMN, utc_now
@@ -15,6 +17,30 @@ MYSQL_DATETIME_US = DateTime(timezone=True).with_variant(
     "mysql",
     "mariadb",
 )
+
+
+class CurrentTimestampMicros(FunctionElement[datetime]):
+    type = DateTime(timezone=True)
+    inherit_cache = True
+
+
+@compiles(CurrentTimestampMicros)
+def _compile_current_timestamp(
+    _element: CurrentTimestampMicros,
+    _compiler: Any,
+    **_kwargs: Any,
+) -> str:
+    return "CURRENT_TIMESTAMP"
+
+
+@compiles(CurrentTimestampMicros, "mysql")
+@compiles(CurrentTimestampMicros, "mariadb")
+def _compile_current_timestamp_mysql(
+    _element: CurrentTimestampMicros,
+    _compiler: Any,
+    **_kwargs: Any,
+) -> str:
+    return "CURRENT_TIMESTAMP(6)"
 
 
 class IngestRecordModel(Base):
@@ -55,7 +81,7 @@ class IngestRecordModel(Base):
         MYSQL_DATETIME_US,
         nullable=False,
         default=utc_now,
-        server_default=func.current_timestamp(),
+        server_default=CurrentTimestampMicros(),
         index=True,
     )
 

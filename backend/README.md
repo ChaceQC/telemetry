@@ -122,7 +122,7 @@ uv run python main.py
 | `api_keys` | 项目 API Key | 外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一；只保存哈希和展示前缀，不保存明文 key |
 | `ingest_records` | 最小摄入记录 | 外键 `project_id`、`api_key_id`；保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；MySQL/MariaDB 下 `occurred_at` 和 `received_at` 使用 `DATETIME(6)` 保留微秒精度；`(project_id, kind, received_at, id)` 组合索引支撑日志上下文窗口和带项目过滤的查询分页 |
 
-MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。`20260622_0008` 迁移会把已有 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 调整为 `DATETIME(6)`，并将 `received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`；Alembic 生成的 MySQL/MariaDB 离线 SQL 为标准 `ALTER TABLE ... CHANGE ... DATETIME(6)` 语法，兼容 Debian 常见 MySQL 8 和 MariaDB 包。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
+MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。`20260622_0008` 迁移会把已有 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 调整为 `DATETIME(6)`，并将 `received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`；SQLAlchemy 模型在 MySQL/MariaDB 方言下的建表 DDL 也会编译为 `DATETIME(6)` 与 `CURRENT_TIMESTAMP(6)`，SQLite 仍保持 `CURRENT_TIMESTAMP` 以兼容本地测试。生产建库和升级必须使用 Alembic 迁移，`Base.metadata.create_all()` 仅用于测试或一次性临时库初始化，不作为生产 schema 管理入口。Alembic 生成的 MySQL/MariaDB 离线 SQL 为标准 `ALTER TABLE ... CHANGE ... DATETIME(6)` 语法，兼容 Debian 常见 MySQL 8 和 MariaDB 包。由于 0008 会修改 `received_at` 这个已参与索引的列，真实 MySQL/MariaDB 大表执行前必须评估表规模、锁等待、备份/回滚、复制延迟和维护窗口，必要时先在同版本影子库演练或采用在线 schema 变更工具。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
 
 ### 真实 MySQL 回归测试
 

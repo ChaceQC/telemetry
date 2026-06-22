@@ -8,8 +8,9 @@ from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Table, inspect, select
-from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects import mysql, sqlite
 from sqlalchemy.dialects.mysql import mariadb
+from sqlalchemy.schema import CreateTable
 
 from app.core.application import create_app
 from app.core.config import Settings
@@ -1195,6 +1196,17 @@ def test_ingest_record_model_uses_mysql_microsecond_datetime() -> None:
     for dialect in (mysql_dialect, mariadb_dialect):
         assert table.c.occurred_at.type.compile(dialect=dialect) == "DATETIME(6)"
         assert table.c.received_at.type.compile(dialect=dialect) == "DATETIME(6)"
+
+
+def test_ingest_record_model_received_at_default_matches_dialect() -> None:
+    table = cast(Table, IngestRecordModel.__table__)
+    mysql_sql = str(CreateTable(table).compile(dialect=mysql.dialect()))
+    mariadb_sql = str(CreateTable(table).compile(dialect=mariadb.MariaDBDialect()))
+    sqlite_sql = str(CreateTable(table).compile(dialect=sqlite.dialect()))
+
+    assert "received_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)" in mysql_sql
+    assert "received_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)" in mariadb_sql
+    assert "received_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL" in sqlite_sql
 
 
 def test_ingest_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> None:
