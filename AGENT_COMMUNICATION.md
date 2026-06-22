@@ -390,6 +390,7 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | 代码审计 agent Hume the 2nd | P3 修复复审通过 | Hume the 2nd 只读复审 `0928e6f`，未发现新的 P0/P1/P2/P3；确认 Russell 两个 P3 已关闭，残余风险为真实 MySQL/MariaDB 大表 ALTER 锁行为和执行耗时仍需影子库或维护窗口前演练；Hume the 2nd 已关闭 | done |
 | 2026-06-22 | T-0045-fix | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 修复合入 `dev`，merge 提交 `89506c5`；未使用路径覆盖。后续执行收窄本地门禁、推送、读取 CI，并重新启动真实前后端联合测试 agent 复验 | done |
 | 2026-06-22 | T-0045-fix | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q` 83 passed；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过。未启动 Docker、数据库、后端服务、前端服务或浏览器，完整真实联测交由测试 agent 重跑 | done |
+| 2026-06-22 | T-0045-fix | 总 agent | CI 通过 | 推送 `59fc629` 触发 GitHub Actions run `27969246519`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -455,6 +456,7 @@ closed      已关闭
 | 2026-06-22 | T-0045 | 真实前后端联合测试 | Epicurus；自有本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未通过 | 通过项：`/health=0.2.3`、登录、项目/API Key、trace 摄入、trace items 字段、trace/span/name/source/occurred_from 过滤、cursor 翻页、坏 cursor/筛选不匹配 cursor/超长 trace_id 422、未认证 401、无权限项目 404、metrics/logs/events 快速回归、`/metrics` `/logs` `/events` Edge 回归；失败项：超级用户查询不存在项目返回空 200；`occurred_to` 毫秒边界未排除晚于上界的 span。证据目录 `tmp/t0045_e2e/runs/t0045-20260622-153304/evidence` |
 | 2026-06-22 | T-0045-fix | 后端专项复验 | Pauli；后端单元/离线 SQL/静态检查 | 通过 | 覆盖超级用户缺失项目 `404`、trace 毫秒过滤测试、MySQL/MariaDB 离线 SQL、ruff/mypy；未启动 Docker、真实服务或浏览器 |
 | 2026-06-22 | T-0045-fix | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q`；前端 `npm.cmd run typecheck`；`git diff --check` | 通过 | 后端 83 passed，1 条既有 Starlette/TestClient 上游弃用警告；前端 typecheck 通过；diff check 通过。完整真实前后端联测待测试 agent 重跑 |
+| 2026-06-22 | T-0045-fix | CI | GitHub Actions run `27969246519` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
 
 ## 7. 审计记录
 
