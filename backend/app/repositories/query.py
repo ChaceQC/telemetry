@@ -344,7 +344,7 @@ def _metric_window_epoch(
         )
     else:
         epoch = cast(func.extract("epoch", IngestRecordModel.occurred_at), Integer)
-    return cast(epoch / window_seconds, Integer) * window_seconds
+    return cast(func.floor(epoch / window_seconds), Integer) * window_seconds
 
 
 def _metric_aggregate_value(

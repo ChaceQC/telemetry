@@ -970,10 +970,12 @@ def test_query_metrics_aggregate_mysql_epoch_bucket_ignores_session_timezone() -
             )
         ).lower()
 
+        assert "floor" in compiled
         assert "timestampdiff" in compiled
         assert "'1970-01-01 00:00:00'" in compiled
         assert "occurred_at" in compiled
         assert "unix_timestamp" not in compiled
+        assert "/ 300" in compiled or "/ %s" in compiled
 
 
 def test_query_metrics_aggregate_filters_permissions_empty_and_limit() -> None:
