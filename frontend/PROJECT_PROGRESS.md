@@ -2,6 +2,42 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0037 查询页指标趋势图基础
+
+### 已完成
+
+- 新增 `frontend/src/features/metrics/metricTrend.ts`，按当前页 metrics item 的 `received_at` 升序生成轻量 SVG 趋势点、折线路径、面积路径和最小/最大值。
+- 新增 `frontend/src/features/metrics/metricTrend.test.ts`，覆盖 received_at 排序、相同 value/received_at 稳定坐标，以及无效 value/received_at 兜底。
+- 更新 `frontend/src/pages/QueryPage.tsx`，仅在 `/metrics` 当前页有结果时展示 value 随 received_at 变化的趋势图；`/logs` 和 `/events` 保持列表展示。
+- 更新 `frontend/src/styles/global.css`，补充趋势图容器、SVG 折线、点位、统计和移动端布局，固定图表高度并避免窄屏溢出。
+- 更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0037 不新增后端接口，仅使用现有 metrics 查询字段 `value`、`received_at`、`name` 和 `unit`。
+
+### 进行中
+
+- 实现、开发侧自检和测试 agent 独立复验已完成；准备提交并推送 `feature/frontend-dev`。
+
+### 阻塞与风险
+
+- 当前趋势图只覆盖当前页 `items`，翻页后按下一页重绘；不提供跨页连续趋势、指标聚合窗口、多序列对比、降采样或异常点标记。
+- 本小步不启动真实后端/数据库，不做真实登录联调。
+- 测试 agent 浏览器冒烟已打开 `/metrics`，但 mock 数据注入因 Playwright CLI 在 PowerShell 下 JSON 引号处理异常而未完成有数据 SVG 可视确认；保留“有数据时趋势图真实渲染”的轻量视觉风险。
+
+### 下一步
+
+- 提交并推送后等待总 agent 安排审计和集成；后续查询展示增强可拆分指标聚合窗口、多序列对比或日志/事件详情体验。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/metrics/metricTrend.test.ts` 通过（1 个测试文件、3 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts` 通过（1 个测试文件、3 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/metrics/metricTrend.test.ts src/api/query.test.ts` 通过（2 个测试文件、6 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+- 测试 agent Raman 已独立复验：`npm.cmd --prefix frontend run lint`、`npm.cmd --prefix frontend run test`、`npm.cmd --prefix frontend run typecheck`、`npm.cmd --prefix frontend run build`、`git diff --check` 均通过；全量 Vitest 为 9 个测试文件、36 个测试通过。
+- Raman 启动过前端 dev server `127.0.0.1:25173` 并用 Playwright + Edge 打开 `/metrics`，未启动真实后端/数据库；复验后已关闭 Playwright session、停止 Vite PID `52604`、清理 `.playwright-cli/` 临时目录，最终确认 `25173` 无监听。
+
 ## 2026-06-22 T-0035 查询页分页基础
 
 ### 已完成

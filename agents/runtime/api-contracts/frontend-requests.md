@@ -2,6 +2,25 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0037 Metrics 查询页当前页趋势图
+
+- task: T-0037
+- owner: frontend-agent
+- scope: `/metrics` 查询页在当前页指标结果上展示 value 随 received_at 变化的轻量趋势图；`/logs`、`/events` 保持列表展示。
+- status: frontend-ready
+
+### API 契约影响
+
+- 不新增后端接口、请求参数或响应 envelope。
+- 继续使用既有 `GET /api/v1/query/metrics` 响应 item 字段：
+  - `value`: number，用于趋势图纵轴。
+  - `received_at`: string，用于当前页内按接收时间升序排序和横轴位置。
+  - `name`、`unit`：用于趋势点标题和数值展示。
+- frontend behavior:
+  - 仅对当前页 `items` 绘制趋势；翻到下一页后用下一页 `items` 重绘。
+  - 无有效 `value` 或 `received_at` 时显示当前页趋势不可用提示，不影响列表展示。
+  - 当前小步不要求后端提供聚合窗口、多序列、跨页连续趋势或降采样数据。
+
 ## 2026-06-22 T-0035 查询页游标分页前端对齐
 
 - task: T-0035
