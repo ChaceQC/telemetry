@@ -59,6 +59,43 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:28117/api/v1/query/logs', expect.any(Object));
   });
 
+  it('日志查询会携带关键词筛选参数', async () => {
+    const { listLogs } = await loadQueryClient();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));
+
+    await listLogs({
+      level: 'error',
+      keyword: 'timeout retry',
+      cursor: 'log-cursor-1'
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/logs?level=error&keyword=timeout+retry&cursor=log-cursor-1',
+      expect.any(Object)
+    );
+  });
+
+  it('metrics 和 events 查询不会透传误传的 keyword 参数', async () => {
+    const { listMetrics, listEvents } = await loadQueryClient();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() => Promise.resolve(jsonResponse({ items: [], next_cursor: null })));
+
+    await listMetrics({ name: 'http.requests', keyword: 'ignored' } as never);
+    await listEvents({ type: 'deploy.started', keyword: 'ignored' } as never);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:28117/api/v1/query/metrics?name=http.requests',
+      expect.any(Object)
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:28117/api/v1/query/events?type=deploy.started',
+      expect.any(Object)
+    );
+  });
+
   it('查询 client 兼容后端旧数组响应并转换为第一页 envelope', async () => {
     const { listEvents } = await loadQueryClient();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([{ id: 1, type: 'deployment' }]));

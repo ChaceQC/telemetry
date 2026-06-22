@@ -2,6 +2,35 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0039 日志关键词搜索基础前端
+
+- task: T-0039
+- owner: frontend-agent
+- scope: `/logs` 查询表单新增关键词筛选，并接入既有日志查询 API。
+- status: frontend-ready
+
+### 日志查询 keyword 契约
+
+- endpoint: `GET /api/v1/query/logs`
+- auth: 沿用现有查询 API client，前端随请求携带 `Authorization: Bearer <access_token>`。
+- request query:
+  - 保留现有 `project_id`、`level`、`source`、`occurred_from`、`occurred_to`、`limit` 和 `cursor`。
+  - 新增可选 `keyword`: string；前端会 trim 空白，空值不传。
+- response body: 不变，继续使用查询 envelope。
+
+```json
+{
+  "items": [],
+  "next_cursor": null
+}
+```
+
+- frontend behavior:
+  - `/logs` 筛选表单显示“关键词”输入，提交后请求 `GET /api/v1/query/logs?...&keyword=...`。
+  - `keyword` 只影响 logs；`/metrics` 和 `/events` 表单不显示该字段，API client 也不会向对应接口透传误传的 `keyword`。
+  - 提交筛选、点击刷新和翻页时沿用现有分页状态模式；提交或刷新会清空旧 `cursor` 回到第一页，下一页请求会携带当前 keyword 和上一页 `next_cursor`。
+  - 不改变响应 envelope，不新增依赖，不做完整前后端联测。
+
 ## 2026-06-22 T-0038 日志上下文增强
 
 - task: T-0038

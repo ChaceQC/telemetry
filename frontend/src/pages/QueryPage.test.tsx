@@ -15,7 +15,8 @@ const defaultLogParams = {
   occurred_to: undefined,
   limit: 100,
   cursor: undefined,
-  level: undefined
+  level: undefined,
+  keyword: undefined
 };
 
 const staleLog: LogQueryItem = {
@@ -46,16 +47,20 @@ function createSignedOutAuth(): AuthContextValue {
   };
 }
 
-function renderLogsPage(queryClient: QueryClient, auth: AuthContextValue) {
+function renderQueryPage(queryClient: QueryClient, auth: AuthContextValue, signal: 'metrics' | 'logs' | 'events') {
   return renderToString(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={auth}>
-        <MemoryRouter initialEntries={['/logs']}>
-          <QueryPage signal="logs" />
+        <MemoryRouter initialEntries={[`/${signal}`]}>
+          <QueryPage signal={signal} />
         </MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>
   );
+}
+
+function renderLogsPage(queryClient: QueryClient, auth: AuthContextValue) {
+  return renderQueryPage(queryClient, auth, 'logs');
 }
 
 describe('QueryPage auth guards', () => {
@@ -85,5 +90,13 @@ describe('QueryPage auth guards', () => {
     expect(html).not.toContain('stale cached context target');
     expect(html).not.toContain('stale cached context before');
     expect(html).not.toContain('日志上下文');
+  });
+
+  it('仅 logs 查询表单渲染关键词筛选', () => {
+    const auth = createSignedOutAuth();
+
+    expect(renderQueryPage(new QueryClient(), auth, 'logs')).toContain('关键词');
+    expect(renderQueryPage(new QueryClient(), auth, 'metrics')).not.toContain('关键词');
+    expect(renderQueryPage(new QueryClient(), auth, 'events')).not.toContain('关键词');
   });
 });

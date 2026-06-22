@@ -16,6 +16,7 @@ export type EventQueryParams = QueryCommonParams & {
 
 export type LogQueryParams = QueryCommonParams & {
   level?: string;
+  keyword?: string;
 };
 
 export type LogContextParams = {
@@ -81,11 +82,28 @@ export const DEFAULT_LOG_CONTEXT_WINDOW = 5;
 export const MAX_LOG_CONTEXT_WINDOW = 20;
 
 export function listEvents(params: EventQueryParams = {}) {
-  return requestQueryPage<EventQueryItem>('/api/v1/query/events', params);
+  return requestQueryPage<EventQueryItem>('/api/v1/query/events', {
+    project_id: params.project_id,
+    type: params.type,
+    source: params.source,
+    occurred_from: params.occurred_from,
+    occurred_to: params.occurred_to,
+    limit: params.limit,
+    cursor: params.cursor
+  });
 }
 
 export function listLogs(params: LogQueryParams = {}) {
-  return requestQueryPage<LogQueryItem>('/api/v1/query/logs', params);
+  return requestQueryPage<LogQueryItem>('/api/v1/query/logs', {
+    project_id: params.project_id,
+    level: params.level,
+    keyword: params.keyword,
+    source: params.source,
+    occurred_from: params.occurred_from,
+    occurred_to: params.occurred_to,
+    limit: params.limit,
+    cursor: params.cursor
+  });
 }
 
 export function getLogContext(logId: number | string, params: LogContextParams = {}) {
@@ -98,10 +116,21 @@ export function getLogContext(logId: number | string, params: LogContextParams =
 }
 
 export function listMetrics(params: MetricQueryParams = {}) {
-  return requestQueryPage<MetricQueryItem>('/api/v1/query/metrics', params);
+  return requestQueryPage<MetricQueryItem>('/api/v1/query/metrics', {
+    project_id: params.project_id,
+    name: params.name,
+    source: params.source,
+    occurred_from: params.occurred_from,
+    occurred_to: params.occurred_to,
+    limit: params.limit,
+    cursor: params.cursor
+  });
 }
 
-async function requestQueryPage<TItem>(path: string, params: QueryCommonParams): Promise<QueryResultPage<TItem>> {
+async function requestQueryPage<TItem>(
+  path: string,
+  params: Record<string, string | number | undefined | null>
+): Promise<QueryResultPage<TItem>> {
   const response = await apiRequest<QueryResultPage<TItem> | TItem[]>(buildQueryPath(path, params));
 
   if (Array.isArray(response)) {

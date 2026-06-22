@@ -36,23 +36,13 @@ import { formatApiErrorMessage } from '../api/http';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from '../features/metrics/metricTrend';
+import { buildQueryParams, defaultFilters, type QueryFilters, type QuerySignal } from '../features/query/queryFilters';
 import {
   buildLogContextQueryKey,
   buildSignalQueryKey,
   resolveVisibleQueryData,
   shouldRenderLogContextPanel
 } from '../features/query/querySession';
-
-type QuerySignal = 'metrics' | 'logs' | 'events';
-
-type QueryFilters = {
-  projectId: string;
-  primary: string;
-  source: string;
-  occurredFrom: string;
-  occurredTo: string;
-  limit: string;
-};
 
 type QueryRecord = MetricQueryItem | LogQueryItem | EventQueryItem;
 
@@ -106,15 +96,6 @@ const signalConfig = {
     fetch: (params: EventQueryParams) => listEvents(params)
   }
 } satisfies Record<QuerySignal, unknown>;
-
-const defaultFilters: QueryFilters = {
-  projectId: '',
-  primary: '',
-  source: '',
-  occurredFrom: '',
-  occurredTo: '',
-  limit: '100'
-};
 
 export function QueryPage({ signal }: QueryPageProps) {
   const auth = useAuth();
@@ -262,6 +243,16 @@ export function QueryPage({ signal }: QueryPageProps) {
               placeholder={config.primaryPlaceholder}
             />
           </label>
+          {signal === 'logs' ? (
+            <label className="field">
+              <span>关键词</span>
+              <input
+                value={filters.keyword}
+                onChange={(event) => updateFilter('keyword', event.target.value)}
+                placeholder="message"
+              />
+            </label>
+          ) : null}
           <label className="field">
             <span>来源</span>
             <input
@@ -613,27 +604,6 @@ function MetricTrend({ trend }: { trend: MetricTrendModel | null }) {
   );
 }
 
-function buildQueryParams(signal: QuerySignal, filters: QueryFilters, cursor?: string) {
-  const common = {
-    project_id: toNumber(filters.projectId),
-    source: toOptional(filters.source),
-    occurred_from: toOptional(filters.occurredFrom),
-    occurred_to: toOptional(filters.occurredTo),
-    limit: toNumber(filters.limit),
-    cursor
-  };
-
-  if (signal === 'metrics') {
-    return { ...common, name: toOptional(filters.primary) };
-  }
-
-  if (signal === 'logs') {
-    return { ...common, level: toOptional(filters.primary) };
-  }
-
-  return { ...common, type: toOptional(filters.primary) };
-}
-
 function renderRecord(signal: QuerySignal, item: QueryRecord, canQuery: boolean, sessionRevision: number) {
   if (signal === 'metrics') {
     const metric = item as MetricQueryItem;
@@ -683,21 +653,6 @@ function JsonPreview({ label, value }: { label: string; value: Record<string, un
       {JSON.stringify(value, null, 2)}
     </pre>
   );
-}
-
-function toOptional(value: string) {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function toNumber(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const numeric = Number(trimmed);
-  return Number.isFinite(numeric) ? numeric : undefined;
 }
 
 function formatTime(value: string) {
