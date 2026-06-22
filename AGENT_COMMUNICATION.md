@@ -75,7 +75,7 @@ closed      已关闭
 | T-0045 | Trace 查询最小后端基础 | 总 agent | todo | done | done | done | done |
 | T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
-| T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
 
 ## 4. API 契约登记
 
@@ -415,6 +415,7 @@ closed      已关闭
 | 2026-06-23 | T-0048 | 代码审计 agent Hegel the 2nd | Trace waterfall 前端审计未通过 | Hegel the 2nd 只读审计 `6c4cd92`，未发现 P0/P1，但发现 1 个 P2：`/traces` waterfall 行在 `561px` 到约 `670px` 宽度区间可能横向溢出，`.trace-span-content` 双列最小宽度 `260px + 260px + 14px`，而移动单列断点只在 `max-width: 560px`。另有 P3：trace 组展开状态只用 `traceId` key，分页/刷新/筛选后相同 traceId 可能沿用旧折叠状态；traceWaterfall 纯函数未覆盖 parent 环、自 parent、重复 span_id。Hegel the 2nd 已关闭，当前不得 merge T-0048 | blocked |
 | 2026-06-23 | T-0048-fix | 前端修复 agent Rawls the 2nd | Trace waterfall 响应式与状态修复完成 | Rawls the 2nd 提交并推送 `a7e3de2` 到 `feature/frontend-dev`：将 `/traces` waterfall 单列断点提前到 `max-width: 720px`，新增 trace waterfall scope key 将 session、页码、刷新版本和查询参数纳入组组件 key，补 self parent、parent 环、重复 `span_id` 异常 parent 测试，并新增 CSS 静态测试锁定 720px trace 断点；更新 `frontend/PROJECT_PROGRESS.md`，版本保持 `0.2.5`。专项、typecheck、lint、build、diff check 通过，Playwright + Microsoft Edge mock trace 数据态在 640px/720px 无横向溢出；测试 agent Mill the 2nd 窄范围复验通过并清理自有资源。Rawls the 2nd 已关闭，已启动复审 | audit |
 | 2026-06-23 | T-0048-fix | 代码审计 agent Boyle the 2nd | Trace waterfall 修复复审通过 | Boyle the 2nd 只读复审 `a7e3de2`，确认原 P2 与两个 P3 均已关闭，未发现新的 P0/P1/P2/P3；`max-width: 720px` 单列分支覆盖窄宽度溢出风险，scope key 已纳入 session、页码、刷新版本和查询参数，异常 parent 测试覆盖 self parent、双节点环与重复 `span_id`。Boyle the 2nd 已关闭，建议 merge | done |
+| 2026-06-23 | T-0048 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0048 trace waterfall 与修复合入 `dev`，merge 提交当前 HEAD；同步根、前端、后端版本到 `0.2.5`。后续执行收窄门禁、推送、读取 CI、同步 feature 分支并按风险启动真实联测 | done |
 
 ## 6. 测试记录
 
