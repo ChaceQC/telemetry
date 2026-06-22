@@ -5,7 +5,7 @@ from datetime import datetime
 from numbers import Real
 from typing import Any, Protocol
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import ColumnElement, Select, String, and_, case, cast, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.ingest import IngestRecordModel
@@ -81,6 +81,7 @@ class QueryRepository(Protocol):
         project_id: int | None,
         level: str | None,
         source: str | None,
+        keyword: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -213,6 +214,62 @@ def _apply_common_filters(
     return statement
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _apply_log_keyword_filter(
+    statement: Select[tuple[IngestRecordModel]],
+    keyword: str | None,
+    *,
+    dialect_name: str,
+) -> Select[tuple[IngestRecordModel]]:
+    if keyword is None:
+        return statement
+
+    pattern = f"%{_escape_like(keyword)}%"
+    message_text = cast(IngestRecordModel.payload["message"].as_string(), String)
+    return statement.where(
+        or_(
+            message_text.ilike(pattern, escape="\\"),
+            _payload_value_text_matches(pattern, dialect_name=dialect_name),
+        )
+    )
+
+
+def _payload_value_text_matches(pattern: str, *, dialect_name: str) -> ColumnElement[bool]:
+    if dialect_name == "sqlite":
+        payload_values = func.json_tree(
+            IngestRecordModel.payload,
+            "$.payload",
+        ).table_valued("value", "type")
+        value_text = case(
+            (payload_values.c.type == "true", literal("true")),
+            (payload_values.c.type == "false", literal("false")),
+            else_=cast(payload_values.c.value, String),
+        )
+        return (
+            select(1)
+            .select_from(payload_values)
+            .where(
+                payload_values.c.type.in_(("text", "integer", "real", "true", "false")),
+                value_text.ilike(pattern, escape="\\"),
+            )
+            .exists()
+        )
+    if dialect_name in {"mysql", "mariadb"}:
+        return func.JSON_SEARCH(
+            func.JSON_EXTRACT(IngestRecordModel.payload, "$.payload"),
+            "one",
+            pattern,
+            "\\",
+        ).is_not(None)
+    return cast(IngestRecordModel.payload["payload"].as_string(), String).ilike(
+        pattern,
+        escape="\\",
+    )
+
+
 class SqlAlchemyQueryRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -260,6 +317,7 @@ class SqlAlchemyQueryRepository:
         project_id: int | None,
         level: str | None,
         source: str | None,
+        keyword: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
@@ -282,6 +340,11 @@ class SqlAlchemyQueryRepository:
         )
         if level is not None:
             statement = statement.where(IngestRecordModel.event_type == level)
+        statement = _apply_log_keyword_filter(
+            statement,
+            keyword,
+            dialect_name=self._session.get_bind().dialect.name,
+        )
 
         statement = statement.order_by(
             IngestRecordModel.received_at.desc(),

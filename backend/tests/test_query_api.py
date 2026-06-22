@@ -262,6 +262,281 @@ def test_query_logs_lists_ingested_logs_with_filters() -> None:
     assert filtered_logs[0]["occurred_at"].startswith("2026-06-20T10:00:00")
 
 
+def test_query_logs_keyword_matches_message_and_payload_text() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-owner",
+        project_key="query-log-keyword-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "deployment keyword finished",
+                    "source": "app",
+                    "payload": {"release_id": "rel-001"},
+                },
+                {
+                    "level": "info",
+                    "message": "cache warmed",
+                    "source": "app",
+                    "payload": {"request_id": "payload-keyword-001"},
+                },
+                {
+                    "level": "info",
+                    "message": "nested payload",
+                    "source": "app",
+                    "payload": {
+                        "details": {"release": "nested-keyword-001"},
+                        "steps": ["array-keyword-001"],
+                    },
+                },
+                {
+                    "level": "info",
+                    "message": "unrelated log",
+                    "source": "app",
+                    "payload": {"request_id": "boring"},
+                },
+            ]
+        },
+    )
+    message_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "  deployment keyword  "},
+    )
+    payload_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "payload-keyword-001"},
+    )
+    nested_payload_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "nested-keyword-001"},
+    )
+    array_payload_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "array-keyword-001"},
+    )
+    payload_key_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "request_id"},
+    )
+    miss_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "missing-keyword"},
+    )
+
+    assert ingest_response.status_code == 202
+    assert message_response.status_code == 200
+    assert [log["message"] for log in message_response.json()["items"]] == [
+        "deployment keyword finished"
+    ]
+    assert payload_response.status_code == 200
+    assert [log["message"] for log in payload_response.json()["items"]] == ["cache warmed"]
+    assert nested_payload_response.status_code == 200
+    assert [log["message"] for log in nested_payload_response.json()["items"]] == ["nested payload"]
+    assert array_payload_response.status_code == 200
+    assert [log["message"] for log in array_payload_response.json()["items"]] == ["nested payload"]
+    assert payload_key_response.status_code == 200
+    assert payload_key_response.json() == {"items": [], "next_cursor": None}
+    assert miss_response.status_code == 200
+    assert miss_response.json() == {"items": [], "next_cursor": None}
+
+
+def test_query_logs_keyword_ignores_wrapper_keys_and_null_scaffold() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-wrapper-owner",
+        project_key="query-log-keyword-wrapper-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "ordinary health check",
+                    "source": "app",
+                }
+            ]
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    for keyword in ("payload", "trace_id", "logger", "null"):
+        response = client.get(
+            "/api/v1/query/logs",
+            headers=admin_headers,
+            params={"project_id": project["id"], "keyword": keyword},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"items": [], "next_cursor": None}
+
+
+def test_query_logs_keyword_escapes_like_wildcards_as_literals() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-literal-owner",
+        project_key="query-log-keyword-literal-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "info",
+                    "message": "literal percent 100% done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal percent 100X done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal underscore job_alpha done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal underscore jobXalpha done",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": r"literal backslash C:\logs\app",
+                    "source": "app",
+                },
+                {
+                    "level": "info",
+                    "message": "literal backslash C:/logs/app",
+                    "source": "app",
+                },
+            ]
+        },
+    )
+
+    assert ingest_response.status_code == 202
+    expected_messages_by_keyword = {
+        "100%": ["literal percent 100% done"],
+        "job_alpha": ["literal underscore job_alpha done"],
+        "\\": [r"literal backslash C:\logs\app"],
+    }
+    for keyword, expected_messages in expected_messages_by_keyword.items():
+        response = client.get(
+            "/api/v1/query/logs",
+            headers=admin_headers,
+            params={"project_id": project["id"], "keyword": keyword},
+        )
+        assert response.status_code == 200
+        assert [log["message"] for log in response.json()["items"]] == expected_messages
+
+
+def test_query_logs_keyword_combines_with_filters_and_project_permissions() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-filter-owner",
+        project_key="query-log-keyword-filter-project",
+    )
+    other_project, other_key, _other_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-filter-other",
+        project_key="query-log-keyword-filter-other-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "needle matched log",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "needle wrong level",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:05:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "needle wrong source",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:10:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "needle outside time",
+                    "source": "api",
+                    "timestamp": "2026-06-20T11:00:00Z",
+                },
+            ]
+        },
+    )
+    other_ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {other_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "needle other project",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                }
+            ]
+        },
+    )
+    filtered_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "keyword": "needle",
+            "level": "error",
+            "source": "api",
+            "occurred_from": "2026-06-20T09:59:00Z",
+            "occurred_to": "2026-06-20T10:30:00Z",
+        },
+    )
+    unauthorized_project_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": other_project["id"], "keyword": "needle"},
+    )
+
+    assert project["id"] != other_project["id"]
+    assert ingest_response.status_code == 202
+    assert other_ingest_response.status_code == 202
+    assert filtered_response.status_code == 200
+    filtered_logs = filtered_response.json()["items"]
+    assert [log["message"] for log in filtered_logs] == ["needle matched log"]
+    assert filtered_logs[0]["project_id"] == project["id"]
+    assert unauthorized_project_response.status_code == 404
+    assert unauthorized_project_response.json()["detail"] == "项目不存在"
+
+
 def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -568,6 +843,73 @@ def test_query_logs_cursor_paginates_with_received_at_and_id() -> None:
     second_body = second_response.json()
     assert [log["message"] for log in second_body["items"]] == ["log-a"]
     assert second_body["next_cursor"] is None
+
+
+def test_query_logs_cursor_rejects_keyword_mismatch() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-log-keyword-page-owner",
+        project_key="query-log-keyword-page-project",
+    )
+    received_at = datetime(2026, 6, 21, 8, 0, tzinfo=UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {"level": "info", "message": "cursor-keyword log-a"},
+                {"level": "info", "message": "cursor-keyword log-b"},
+                {"level": "info", "message": "cursor-keyword log-c"},
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_ingest_records_received_at(
+        client,
+        project_id=project["id"],
+        kind=IngestKind.log,
+        received_at=received_at,
+    )
+
+    first_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={"project_id": project["id"], "keyword": "cursor-keyword", "limit": 2},
+    )
+    first_body = first_response.json()
+    second_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "keyword": "cursor-keyword",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+    mismatched_keyword_response = client.get(
+        "/api/v1/query/logs",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "keyword": "other-keyword",
+            "limit": 2,
+            "cursor": first_body["next_cursor"],
+        },
+    )
+
+    assert first_response.status_code == 200
+    assert [log["message"] for log in first_body["items"]] == [
+        "cursor-keyword log-c",
+        "cursor-keyword log-b",
+    ]
+    assert isinstance(first_body["next_cursor"], str)
+    assert second_response.status_code == 200
+    assert [log["message"] for log in second_response.json()["items"]] == ["cursor-keyword log-a"]
+    assert mismatched_keyword_response.status_code == 422
+    assert mismatched_keyword_response.json()["detail"] == "cursor 无效或不匹配当前查询"
 
 
 def test_query_log_context_returns_target_and_neighbors_in_time_order() -> None:

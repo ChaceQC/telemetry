@@ -88,16 +88,19 @@ class QueryService:
         project_id: int | None,
         level: str | None,
         source: str | None,
+        keyword: str | None,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
         limit: int,
         cursor: str | None,
     ) -> QueryPage[LogQueryRecord]:
         accessible_project_ids = self._accessible_project_ids(user, project_id)
+        normalized_keyword = _normalize_keyword(keyword)
         query = _query_signature(
             project_id=project_id,
             level=level,
             source=source,
+            keyword=normalized_keyword,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
         )
@@ -108,6 +111,7 @@ class QueryService:
             project_id=project_id,
             level=level,
             source=source,
+            keyword=normalized_keyword,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
             limit=limit + 1,
@@ -191,6 +195,13 @@ def _query_signature(**values: int | str | datetime | None) -> dict[str, int | s
         key: value.isoformat() if isinstance(value, datetime) else value
         for key, value in values.items()
     }
+
+
+def _normalize_keyword(value: str | None) -> str | None:
+    if value is None:
+        return None
+    keyword = value.strip()
+    return keyword or None
 
 
 def _decode_cursor(
