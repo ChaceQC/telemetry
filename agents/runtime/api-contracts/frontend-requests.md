@@ -2,6 +2,37 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0041 日志结构化字段过滤基础
+
+- task: T-0041
+- owner: frontend-agent / backend-agent
+- scope: `/logs` 查询表单新增 Trace ID 与 Span ID 精确筛选，并接入日志查询 API。
+- status: draft-aligned
+
+### 日志查询结构化字段契约
+
+- endpoint: `GET /api/v1/query/logs`
+- auth: 沿用现有查询 API client，前端随请求携带 `Authorization: Bearer <access_token>`。
+- request query:
+  - 保留现有 `project_id`、`level`、`keyword`、`source`、`occurred_from`、`occurred_to`、`limit` 和 `cursor`。
+  - 新增可选 `trace_id`: string，前端 trim 空白，空值不传；后端按日志顶层结构化字段 `trace_id` 精确匹配。
+  - 新增可选 `span_id`: string，前端 trim 空白，空值不传；后端按日志顶层结构化字段 `span_id` 精确匹配。
+  - 本小步不新增 `request_id`，不做任意 payload 字段过滤。
+- response body: 不变，继续使用查询 envelope。
+
+```json
+{
+  "items": [],
+  "next_cursor": null
+}
+```
+
+- frontend behavior:
+  - `/logs` 筛选表单显示 Trace ID 与 Span ID 输入，提交后请求 `GET /api/v1/query/logs?...&trace_id=...&span_id=...`。
+  - `trace_id` 和 `span_id` 只影响 logs；`/metrics` 和 `/events` 表单不显示这些字段，API client 也不会向对应接口透传误传字段。
+  - 提交筛选、点击刷新和翻页时沿用现有分页状态模式；提交或刷新会清空旧 `cursor` 回到第一页，下一页请求会携带当前 `trace_id`、`span_id` 和上一页 `next_cursor`。
+  - 不改变响应 envelope，不新增依赖，不做完整前后端联测。
+
 ## 2026-06-22 T-0040 Events 时间线展示基础
 
 - task: T-0040

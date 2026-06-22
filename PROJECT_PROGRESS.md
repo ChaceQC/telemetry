@@ -590,10 +590,13 @@
 - 已登记 `T-0040` 阶段 3 Events 时间线页基础任务：当前后端 `GET /api/v1/query/events` 已提供 type/source/time/payload 和分页 envelope，先由前端在 `/events` 查询结果中实现时间线呈现、事件类型/source/时间扫描和 payload 展开，不改后端 API。
 - T-0040 前端开发、审计和测试 agents 已完成并关闭：Harvey 提交并推送 `c0be58a`，新增事件时间线渲染、事件类型/source/时间扫描、payload 展开和文档/测试；Newton 审计无 P0/P1/P2；Ampere 复测专项、lint、全量测试、typecheck、build 和 diff check 均通过。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0040 前端合入 `dev`，merge 提交 `e6d2d73`；本小步不改后端 API/DB schema，根、前端、后端 VERSION 继续保持 `0.2.1`。merge 后前端专项、lint、全量测试、typecheck、build 和 `git diff --check` 已通过，worktree 预检仅因 `dev` 尚未推送领先远端 2 个提交失败。
+- T-0040 记录提交 `0fe3550` 已推送，GitHub Actions run `27935754921` 通过：Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js 20 actions 弃用注解；`feature/frontend-dev` 与 `feature/backend-dev` 已 fast-forward 到 `0fe3550` 并推送，严格 worktree 体检通过。
+- 已启动真实前后端联合测试 agent Popper，要求使用真实后端、真实前端和真实数据库覆盖当前阶段查询页路径，并只清理自己启动和记录的资源。
+- 已登记 `T-0041` 阶段 3 日志结构化字段过滤基础任务：后端为 `GET /api/v1/query/logs` 增加 `trace_id`、`span_id` 可选查询参数并纳入 cursor 签名；前端在 `/logs` 查询表单增加 Trace ID / Span ID 输入并接入 API client。本小步不把 `request_id` 纳入契约，避免与业务 payload 搜索混淆。
 
 ### 进行中
 
-- T-0040 已真实 merge 到 `dev`，正在补根记录；随后推送 `dev`、读取 CI、fast-forward 同步前后端 feature 分支，并运行严格 worktree 体检。
+- Popper 正在执行真实前后端联合测试；开发侧并行推进 T-0041，前后端 agents 分别在独立 worktree 工作，开发 agent 不做完整联测。
 
 ### 阻塞与风险
 
@@ -605,10 +608,11 @@
 - T-0038 仍保持当前关系库查询边界，不接 ClickHouse 日志查询；真实 MySQL 上的组合索引执行计划、大数据量窗口性能和降级实跑需在后续真实环境验证中继续覆盖。
 - T-0039 先做关系库 `ingest_records` 的最小关键词匹配，不接 ClickHouse 全文检索；MySQL 当前通过 `JSON_SEARCH` 覆盖业务 payload 字符串值，非字符串 JSON 标量和大数据量性能需后续真实库专项补验。
 - T-0040 只做前端 Events 时间线基础展示，不改后端查询契约；真实后端/真实数据库/浏览器端的 events 时间线联合路径仍需由后续测试 agent 覆盖。
+- T-0041 只过滤 logs 顶层结构化字段 `trace_id` 与 `span_id`，不做任意 JSON 字段过滤、不做 `request_id` payload 查询、不接 ClickHouse；后续可单独设计字段过滤 DSL 或白名单 payload key 查询。
 
 ### 下一步
 
-- 推送 T-0040 记录与 merge 结果，读取 GitHub Actions；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到 `dev`，运行严格 worktree 体检；随后启动真实前后端联合测试 agent，使用真实后端、真实前端和真实数据库覆盖当前阶段查询页路径。
+- 前后端开发 agents 完成 T-0041 后，启动代码审计 agents 与测试 agents 做局部复验；若无 P0/P1/P2，再使用真实 `git merge` 将 feature 分支合入 `dev`，推送后读取 CI 并同步 feature 分支。
 
 ### 验证
 
@@ -636,3 +640,4 @@
 - 已登记 `T-0040` 阶段 3 Events 时间线页基础任务：当前后端 `GET /api/v1/query/events` 已提供 type/source/time/payload 和分页 envelope，先由前端在 `/events` 查询结果中实现时间线呈现、事件类型/source/时间扫描和 payload 展开，不改后端 API。
 - T-0040 前端开发/审计/复测阶段通过：专项 `npm.cmd run test -- src/features/query/eventTimeline.test.ts src/pages/QueryPage.test.tsx` 2 个文件 7 tests passed，`npm.cmd run lint`、`npm.cmd run test`（13 个测试文件、57 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过；Newton 审计无 P0/P1/P2。
 - T-0040 merge 到 `dev` 后本地验证通过：前端 eventTimeline/page 专项 7 passed，`npm.cmd run lint`、`npm.cmd run test`（13 个测试文件、57 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 通过；`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 2 个提交失败。
+- T-0040 push 后 GitHub Actions run `27935754921` 通过：Backend checks 与 Frontend checks 均为 success；随后 `feature/frontend-dev`、`feature/backend-dev` 与 `dev` 均同步到 `0fe3550`，严格 worktree 体检通过。
