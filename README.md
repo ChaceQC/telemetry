@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前版本为 `0.2.0`，处于阶段 3 查询与展示 MVP。当前已具备认证与基础管理、API Key、metrics/logs/events 摄入、摄入统计、查询 API、查询页分页和 metrics 当前页趋势图基础。
+当前版本为 `0.2.1`，处于阶段 3 查询与展示 MVP。当前已具备认证与基础管理、API Key、metrics/logs/events 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图和日志上下文查看基础。
 
 ## 目录结构
 

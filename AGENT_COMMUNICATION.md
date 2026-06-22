@@ -304,6 +304,15 @@ closed      已关闭
 | 2026-06-22 | 联合测试 | 测试 agent | 真实联测卡在前端探活 | Ohm 使用 Godel 的 Python `subprocess.Popen` 模式：真实 MySQL 8.0.42 临时库 `telemetry_it_20260622_codex1` 创建、迁移、seed 成功，后端 `28119` `/health` 返回 `version=0.2.0`，前端 `25179` Vite 已监听；但 Ohm 用 JSON HTTP 探活前端根页面导致 `404 body=None`，未进入浏览器业务流；已按记录 PID 清理后端、前端派生链和临时库，Ohm 已关闭 | blocked |
 | 2026-06-22 | 联合测试 | 测试 agent | 真实联测编排脚本传输失败 | Einstein 未启动业务资源；确认 MySQL 8.0.42 可连接、依赖存在、前端根页面应按 HTML/browser 探活，但将一次性编排脚本塞进 PowerShell 命令时触发 Windows `文件名或扩展名太长`，因此未创建临时库、未启动后端/前端/浏览器，无需清理业务资源；Einstein 已关闭 | blocked |
 | 2026-06-22 | 联合测试 | 测试 agent | 真实联测环境准备阻塞 | Locke 未启动业务资源；确认后端/前端依赖可用、`npm.cmd`/`npx.cmd` 可用且 `npx.ps1` 受策略限制；探测到 Docker 不可用、`mysql` CLI 不在 PATH、本机 `MySQL80` 在 `3306` 运行但当前可见凭据登录失败；未启动临时 MySQL/后端/前端/浏览器，仅删除自己创建的临时探测脚本；Locke 已关闭。完整联测暂停，需先明确可用 MySQL 凭据或允许测试 agent 启动自有临时 MySQL 实例 | blocked |
+| 2026-06-22 | 联合测试 | 总 agent | MySQL 凭据路径探针完成 | 总 agent 使用临时脚本只输出非敏感元数据，确认当前可见 `telemetry/auth.txt` 与 `blog/auth.txt` 均不能直接登录本机 `3306`，`23316` 无监听；仓库未发现未入库 `.env` 连接串；现有 MySQL80 不应被停止/修改。完整联测需改走测试 agent 自有临时 MySQL 实例，或由用户提供新的可用凭据 | blocked |
+| 2026-06-22 | 联合测试 | 测试 agent | 自有临时 MySQL 联测未启动 | Bacon 确认 `mysqld.exe`、后端 venv、PyMySQL/SQLAlchemy/Alembic、前端 Vite/node_modules 可用，但在用户中断后未进入临时 MySQL 初始化、后端/前端启动或业务联测；仅创建并删除空临时目录，未改仓库文件；Bacon 已关闭。完整联测暂不继续盲目重启 agent | blocked |
+| 2026-06-22 | T-0038 | 总 agent | 启动日志上下文增强任务 | 阶段 3 下一步拆分为日志上下文：后端新增最小日志上下文 API，前端在 `/logs` 查询结果中提供查看前后文；前后端 agents 可并行，开发 agent 不做完整联测，完成后由测试与代码审计 agent 复验 | doing |
+| 2026-06-22 | T-0038 | 总 agent | 前后端开发 agent 并行推进 | 后端开发 agent Carson 在 `feature/backend-dev` 实现日志上下文 API；前端开发 agent Galileo 在 `feature/frontend-dev` 实现 `/logs` 查看上下文交互。两者均要求 UTF-8、只清理自己启动的进程、开发侧不做完整联测，完成后再由测试与代码审计 agent 接手 | doing |
+| 2026-06-22 | T-0038 | 开发 agents | 日志上下文前后端完成 | Carson 提交并推送后端 `31fe9de`，新增 `GET /api/v1/query/logs/{log_id}/context`、权限隐藏、窗口参数和测试；Galileo 提交并推送前端 `ef3c89f`，新增日志上下文 API client、`/logs` 展开查看和状态样式；两名 agent 均已关闭 | done |
+| 2026-06-22 | T-0038 | 审计/测试 agents | 初审发现两个 P2 | 后端审计 Turing 指出上下文窗口缺 `(project_id, kind, received_at, id)` 组合索引；前端审计 Ramanujan 指出登出/切换会话后可能展示旧上下文缓存；后端测试 Fermat、前端测试 Euclid 的局部验证通过；相关 agents 已关闭 | blocked |
+| 2026-06-22 | T-0038 | 修复 agents | 审计 P2 已修复并复验 | Kierkegaard 提交并推送后端 `112a60b`，新增组合索引、Alembic migration、索引/迁移测试和文档；Sartre 提交并推送前端 `a837c59`，按 auth session 隔离查询缓存、登出清理缓存并补页面测试；Beauvoir/Schrodinger 复审无 P0/P1/P2，Erdos/Copernicus 复测通过，全部已关闭 | done |
+| 2026-06-22 | T-0038 | 总 agent | 真实 merge 集成到 dev | 已按项目管理要求使用 `git merge --no-ff` 将 `origin/feature/backend-dev` 合入 `dev`，merge 提交 `5d7bd14`；随后使用 `git merge --no-ff` 将 `origin/feature/frontend-dev` 合入 `dev`，merge 提交 `172b423`；当前同步版本到 `0.2.1` 并准备根验证与真实联测 | doing |
+| 2026-06-22 | VERSION | 总 agent | 同步 T-0038 版本到 0.2.1 | 日志上下文 API/UI 和查询窗口索引迁移已进入 `dev`，版本影响为向后兼容功能增强和数据库索引迁移；已同步根、前端、后端 VERSION、env 示例、前端 package/lock/config、后端 pyproject/uv.lock/config/test、README、计划书和进度记录；本地版本/静态/单元验证通过，正式 changelog 待发布/tag 前生成 | done |
 
 ## 6. 测试记录
 
@@ -340,6 +349,10 @@ closed      已关闭
 | 2026-06-22 | 联合测试 | 真实前后端联测重跑 | Ohm；真实 MySQL 8.0.42 临时库、真实后端 `28119`、真实前端 `25179` | 无法验证 | MySQL 迁移、后端 health 和前端监听成功；前端根页面探活脚本误按 JSON 响应判断导致未进入浏览器业务流；资源已按记录 PID/临时库清理 |
 | 2026-06-22 | 联合测试 | 真实前后端联测重跑 | Einstein；计划使用真实 MySQL、真实后端/前端 | 无法验证 | 未启动业务资源；PowerShell 命令过长导致编排脚本未执行；无临时库/PID/浏览器会话需要清理 |
 | 2026-06-22 | 联合测试 | 真实前后端联测重跑 | Locke；计划使用真实 MySQL、真实后端/前端 | 无法验证 | 未启动业务资源；Docker 不可用、`mysql` CLI 缺失、本机 MySQL 可见凭据登录失败；未关闭或修改现有 MySQL 服务 |
+| 2026-06-22 | 联合测试 | MySQL 凭据非敏感探针 | 临时 Python 脚本，仅输出候选路径、用户、端口和错误码 | 无法验证 | 当前可见 `auth.txt` 候选均无法登录 `3306`，`23316` 无监听；脚本已删除，未输出密码/连接串 |
+| 2026-06-22 | T-0038 | 后端开发/测试 agent 局部验证 | `uv run pytest tests/test_query_api.py`、`uv run pytest tests/test_ingest_api.py -k "query_window_index or migration"`、`uv run pytest`、ruff、format、mypy、diff check、SQLite migration、MySQL dialect SQL | 通过 | 后端最终复测 `124 passed, 2 skipped`，组合索引 P2 复审关闭；未连接真实 MySQL 执行迁移或 EXPLAIN |
+| 2026-06-22 | T-0038 | 前端开发/测试 agent 局部验证 | `npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` | 通过 | 前端最终复测 11 个测试文件、46 个测试通过；缓存旧数据 P2 复审关闭；未做真实后端或浏览器联测 |
+| 2026-06-22 | T-0038/VERSION | dev merge 后本地验证 | 后端 `uv run pytest tests/test_config.py tests/test_query_api.py tests/test_ingest_api.py -k "query_window_index or migration or log_context or test_version_file_declares_current_backend_version"`、后端 ruff/format/mypy/full pytest；前端上下文专项 test、lint/full test/typecheck/build；`git diff --check`、版本一致性检查 | 通过 | 后端专项 6 passed、全量 124 passed/2 skipped；前端专项 10 passed、全量 11 files/46 tests；三个 VERSION 均为 `0.2.1`。worktree 体检仅因 `dev` 尚未推送领先远端 6 个提交失败 |
 
 ## 7. 审计记录
 

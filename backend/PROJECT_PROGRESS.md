@@ -35,6 +35,13 @@
 - 随阶段 3 查询与展示 MVP 当前进度，将 `backend/VERSION`、`backend/pyproject.toml`、`backend/uv.lock` 和后端配置兜底版本同步到 `0.2.0`。
 - 更新 `backend/tests/test_config.py` 的版本文件断言，以及 `backend/README.md` 的健康检查示例版本。
 
+## 2026-06-22 T-0038 后版本同步
+
+### 已完成
+
+- 随日志上下文 API 和查询窗口组合索引迁移合入 `dev`，将 `backend/VERSION`、`backend/pyproject.toml`、`backend/uv.lock`、后端配置兜底版本、`backend/tests/test_config.py` 和 `backend/README.md` 的后端版本同步到 `0.2.1`。
+- 本次版本提升原因：新增 `GET /api/v1/query/logs/{log_id}/context` API，并新增 `ix_ingest_records_project_kind_received_at_id` 组合索引迁移支撑日志上下文和分页查询。
+
 ### 阻塞与风险
 
 - 本轮仅做版本声明同步，不修改后端 API、数据库迁移或业务行为。

@@ -64,6 +64,13 @@
 - 随阶段 3 查询与展示 MVP 当前进度，将 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example` 和 `frontend/src/api/config.ts` 的前端版本同步到 `0.2.0`。
 - 更新 `frontend/README.md` 中的环境变量示例版本。
 
+## 2026-06-22 T-0038 后版本同步
+
+### 已完成
+
+- 随日志上下文查看前端能力合入 `dev`，将 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md` 的前端版本同步到 `0.2.1`。
+- 本次版本提升原因：新增 `/logs` 上下文查看交互，并修复登出/切换会话后旧查询缓存可见风险。
+
 ### 阻塞与风险
 
 - 本轮仅做版本声明同步，不修改前端业务交互。

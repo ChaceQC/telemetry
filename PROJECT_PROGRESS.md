@@ -575,10 +575,16 @@
 - 测试 agent Ohm 按 Godel 启动方式重跑真实联测但仍未完成：真实 MySQL 8.0.42 临时库 `telemetry_it_20260622_codex1` 创建、Alembic 迁移和 seed 成功；后端 `28119` `/health` 返回 `version=0.2.0`；前端 `25179` Vite 已启动并监听，但 Ohm 使用通用 JSON HTTP 请求探活前端根页面导致 `404 body=None`，未进入浏览器业务流。Ohm 已按记录 PID 清理后端、前端父/派生进程和临时库，未修改文件，已关闭。
 - 测试 agent Einstein 未真正启动业务资源：确认当前提交、MySQL 8.0.42 可连接、依赖存在、前端根页面应按 HTML/browser 探活，但将一次性编排脚本塞进 PowerShell 命令时触发 Windows `文件名或扩展名太长`，脚本未进入执行阶段；未创建临时库、未启动后端/前端/浏览器，无需清理业务资源。Einstein 已关闭。
 - 测试 agent Locke 未真正启动业务资源：确认后端/前端依赖可用、`npm.cmd`/`npx.cmd` 可用且 `npx.ps1` 受 PowerShell 策略限制；探测到 Docker 不可用、`mysql` CLI 不在 PATH、本机 `MySQL80` 在 `3306` 运行但当前可见凭据登录失败。Locke 未启动临时 MySQL、后端、前端或浏览器，仅删除自己创建的临时探测脚本，未关闭或修改现有 MySQL 服务，已关闭。
+- 总 agent 使用临时脚本做非敏感 MySQL 凭据探针：当前可见 `C:\Users\q-lau\Documents\telemetry\auth.txt` 与 `C:\Users\q-lau\Documents\blog\auth.txt` 均不能直接登录本机 `3306`，`23316` 无监听；仓库根/后端目录未发现未入库 `.env` 连接串。探针脚本已删除，未输出密码或连接串。
+- 测试 agent Bacon 被分派使用自有临时 MySQL 实例重跑联测，但在用户中断后未进入临时 MySQL 初始化、后端/前端启动或业务联测；它确认 `mysqld.exe`、后端 venv、PyMySQL/SQLAlchemy/Alembic、前端 Vite/node_modules 可用，仅创建并删除空临时目录，未改仓库文件，已关闭。
+- 已登记 `T-0038` 阶段 3 日志上下文增强任务：后端新增最小日志上下文 API，前端在 `/logs` 查询结果中提供查看前后文；后端开发 agent Carson 与前端开发 agent Galileo 已分别在 `feature/backend-dev`、`feature/frontend-dev` 并行推进，开发 agent 不做完整联测。
+- 后端开发 agent Carson 已提交并推送 `31fe9de`，新增 `GET /api/v1/query/logs/{log_id}/context`、项目权限隐藏、`before/after` 窗口参数和上下文排序测试；前端开发 agent Galileo 已提交并推送 `ef3c89f`，新增日志上下文 API client、`/logs` 展开查看交互、loading/error/empty 状态和样式；两名 agent 已关闭。
+- 代码审计 agents 初审发现两个 P2：后端缺匹配日志上下文窗口的组合索引，前端登出/切换会话后可能继续显示旧上下文缓存。后端修复 agent Kierkegaard 提交 `112a60b`，新增 `(project_id, kind, received_at, id)` 组合索引、Alembic migration 和索引/迁移测试；前端修复 agent Sartre 提交 `a837c59`，按 auth session 隔离查询缓存并在登录/登出边界清理 `['query']` 缓存。复审 agents Beauvoir/Schrodinger 确认无 P0/P1/P2；复测 agents Erdos/Copernicus 验证通过；相关 agents 均已关闭。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0038 后端合入 `dev`，merge 提交 `5d7bd14`；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0038 前端合入 `dev`，merge 提交 `172b423`。本次新增 API 契约、前端交互和数据库索引迁移，版本影响同步提升为 `0.2.1`。
 
 ### 进行中
 
-- T-0037 与 `0.2.0` 版本同步均已进入 `dev` 且 CI 通过；完整联测暂停在环境准备阶段：需要明确可用 MySQL 凭据，或允许测试 agent 启动自有临时 MySQL 实例后再重跑。
+- T-0038 已真实 merge 到 `dev`，`0.2.1` 版本声明和根进度记录已同步，本地静态/单元验证已通过；随后提交当前状态并启动测试 agent 使用真实后端、真实前端和测试 agent 自有真实数据库资源做联合测试。
 
 ### 阻塞与风险
 
@@ -586,11 +592,12 @@
 - 游标需要同时考虑 `received_at` 与 `id` 等稳定排序字段，避免同一时间记录翻页重复或漏项。
 - 前后端并行推进时需保持契约一致：查询响应统一为 `{ items, next_cursor }`，前端不得继续假设裸数组响应，后端不得改成其他 envelope 字段。
 - T-0036 已补齐 logs/metrics 同时间戳稳定翻页测试；剩余未覆盖为真实 MySQL 大数据量、并发分页、Docker Compose MySQL 路径和生产反代/子路径部署。
-- T-0037 后真实联测尚未完成；启动诊断已确认服务可在备用端口启动，后续完整联测需先解决 MySQL 可用凭据/临时实例问题，再使用临时脚本文件避免 Windows 命令长度限制、Python `subprocess.Popen` 记录 PID、前端使用 `npm.cmd`、前端根页面按 HTML 或浏览器页面判断，并继续遵守只清理自己启动资源的边界。
+- T-0037 后真实联测尚未完成；启动诊断已确认服务可在备用端口启动，当前可见 MySQL 凭据不可用。后续完整联测需由测试 agent 使用自有临时 MySQL 实例或新的可用凭据，再使用临时脚本文件避免 Windows 命令长度限制、Python `subprocess.Popen` 记录 PID、前端使用 `npm.cmd`、前端根页面按 HTML 或浏览器页面判断，并继续遵守只清理自己启动资源的边界。
+- T-0038 仍保持当前关系库查询边界，不接 ClickHouse 日志查询；真实 MySQL 上的组合索引执行计划、大数据量窗口性能和降级实跑需在后续真实环境验证中继续覆盖。
 
 ### 下一步
 
-- 暂停继续启动联测 agent，先明确可用 MySQL 凭据或允许测试 agent 启动自有临时 MySQL 实例；随后重跑真实 MySQL + 真实后端 + 真实前端联合测试。联测通过后继续阶段 3 查询展示增强，优先拆分日志上下文或事件时间线细节。
+- 完成 `0.2.1` 版本同步和根仓库本地验证；启动专门测试 agent，使用真实前后端和测试 agent 自有真实数据库资源重跑联合测试，覆盖登录、API Key、摄入、logs 上下文查看、分页和趋势图回归。
 
 ### 验证
 
@@ -608,3 +615,7 @@
 - Ohm 真实联测重跑未完成：真实 MySQL 迁移、后端 `/health`、前端 Vite 监听均成功；因前端根页面探活脚本误按 JSON 响应判断，未进入登录、上报、分页、趋势图和 logs/events 浏览器业务流。
 - Einstein 真实联测重跑未启动业务资源：PowerShell 命令长度限制导致一次性编排脚本未执行；未创建临时库或进程。
 - Locke 真实联测重跑未启动业务资源：Docker 不可用、`mysql` CLI 缺失、本机 `MySQL80` 当前可见凭据登录失败；未启动临时 MySQL/后端/前端/浏览器。
+- MySQL 凭据非敏感探针确认当前可见 `auth.txt` 候选不可用于本机 `3306`，`23316` 无监听；Bacon 自有临时 MySQL 联测未启动业务资源，未产生验证结论。
+- T-0038 后端最终局部验证通过：`uv run pytest tests/test_query_api.py` 17 passed，`uv run pytest tests/test_ingest_api.py -k "query_window_index or migration"` 2 passed，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`git diff --check` 通过，后端全量 `uv run pytest` 124 passed/2 skipped；SQLite Alembic 升降级和 MySQL dialect 离线 SQL 生成通过。
+- T-0038 前端最终局部验证通过：`npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts`、`npm.cmd run lint`、`npm.cmd run test`（11 个测试文件、46 passed）、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过。
+- T-0038 合并到 `dev` 并同步 `0.2.1` 后根仓库验证通过：后端版本/日志上下文/索引专项 `6 passed`，后端 `uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 和全量 `uv run pytest` 124 passed/2 skipped；前端上下文专项 10 passed，`npm.cmd run lint`、`npm.cmd run test`（11 个测试文件、46 passed）、`npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 和版本一致性检查通过。`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 仅因 `dev` 尚未推送领先远端 6 个提交失败。
