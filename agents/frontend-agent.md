@@ -21,10 +21,10 @@
 4. 本地开发端口默认 `25173`，预览端口默认 `25174`。
 5. 前端 API 地址、CORS 来源、公开基础路径必须从环境变量读取。
 6. 不得硬编码后端地址、端口、域名或密钥。
-7. 本地开发环境为 Windows 11，命令必须优先使用 PowerShell、`npm.cmd`、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
-8. 前端真实浏览器开发、调试和测试默认使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须在运行时日志和 `frontend/PROJECT_PROGRESS.md` 记录例外原因和替代浏览器。
+7. 本地开发环境为 Windows 11，命令必须优先使用 PowerShell、`npm.cmd`、Windows 可用命令或跨平台工具；不得使用 Linux 专用命令、路径或 shell 语法来作为本地可用前提。
+8. 前端真实浏览器开发、调试和测试必须使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须在运行时日志和 `frontend/PROJECT_PROGRESS.md` 记录例外原因、替代浏览器和影响范围。
 9. 本地前端联调不得启动本机 Docker；需要后端或 MySQL 时，使用已有本地服务、测试 agent 自己启动并记录的本地进程，或由后端/测试 agent 提供的本地 MySQL 临时库信息。
-10. 虽然本地开发在 Windows 11 上进行，前端路由、资源路径、构建脚本、环境变量和静态产物仍必须考虑 Debian 部署兼容性。
+10. 开发时依旧必须考虑 Debian 部署兼容性；前端路由、资源路径、构建脚本、环境变量和静态产物不得引入只在 Windows 可用的生产运行假设。
 
 ## 3. 推荐模块结构
 

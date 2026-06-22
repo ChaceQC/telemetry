@@ -637,7 +637,8 @@
 
 ### 进行中
 
-- T-0045 已完成实现、审计、真实 MySQL/真实后端验证和真实 merge；当前进行 `0.2.3` 版本同步、本地门禁、推送、CI 读取和 feature 分支同步。
+- T-0045 与 T-0045-fix 已完成实现、审计、真实 merge、CI 和真实前后端联合测试重跑；`dev`、`feature/backend-dev`、`feature/frontend-dev` 已同步到 `01813d3` 并通过严格 worktree 体检。
+- T-0046 已登记为阶段 4 下一小步：前端 `/traces` 查询页基础，消费现有 `GET /api/v1/query/traces`，先实现筛选、列表、分页和基础 span 详情展开。
 
 ### 阻塞与风险
 
@@ -659,7 +660,7 @@
 
 ### 下一步
 
-- 完成 T-0045 merge 后本地门禁、推送并读取 GitHub Actions；随后 fast-forward 同步 `feature/backend-dev` 和 `feature/frontend-dev` 到最新 `dev`，再启动真实前后端联合测试 agent，使用真实本地 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 T-0045 后的端到端回归。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0046；开发 agent 可启动测试 agent 做前端专项验证，但不得代跑完整测试流程。前端完成后由总 agent 启动代码审计 agent，并在当前进度完成后启动真实前后端联合测试 agent，使用真实本地 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 做联测。
 
 ### 验证
 

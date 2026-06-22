@@ -21,10 +21,10 @@
 
 通用本地环境约束：
 
-1. 本地测试环境为 Windows 11，命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
-2. 前端和浏览器相关测试默认使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须记录例外原因、替代浏览器和影响范围。
+1. 本地测试环境为 Windows 11，命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得使用 Linux 专用命令、路径或 shell 语法来作为本地可用前提。
+2. 前端和浏览器相关测试必须使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须记录例外原因、替代浏览器和影响范围。
 3. 本地测试不得启动本机 Docker；需要 MySQL 时直接使用本地 MySQL 服务、临时库或测试 agent 自己启动并记录的本地 MySQL 实例。
-4. 虽然本地测试在 Windows 11 上执行，测试设计仍必须关注 Debian 部署兼容性，包括路径大小写、环境变量、换行、端口、Nginx 反代和容器/服务边界。
+4. 开发和测试时依旧必须考虑 Debian 部署兼容性，包括路径大小写、环境变量、换行、端口、Nginx 反代和容器/服务边界。
 
 后端：
 

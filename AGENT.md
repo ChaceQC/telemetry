@@ -13,10 +13,10 @@
 7. 未到可上线稳定版本前，版本号必须采用 `0.y.z`；版本变化必须同步更新项目文档、后端版本声明、前端 `package.json`、`.env.example` 和发布说明。
 8. Nginx 必须运行在 Debian 宿主机，不进入 Docker Compose；最终公网入口由宿主机 Nginx 反向代理到 Docker 内部服务。
 9. 生产访问入口必须按 `https://域名/xxx` 形式设计和验证，前端路由、静态资源路径、API base URL、CORS、Trusted Host 和 Nginx 反代规则不得假设用户通过裸 IP、直连端口或仅根路径访问。
-10. 本地开发和测试都在 Windows 11 上执行，终端命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
-11. 前端开发和前端测试涉及真实浏览器时，默认使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须记录例外原因和替代浏览器。
+10. 本地开发和测试都在 Windows 11 上执行；所有 agent 编写或执行终端命令时必须优先使用 PowerShell、Windows 可用命令或跨平台工具，不得使用 Linux 专用命令、路径或 shell 语法来作为本地可用前提。
+11. 前端开发、前端调试和前端测试涉及真实浏览器时，必须使用 Playwright 操作 Microsoft Edge；如 Edge 不可用，必须记录例外原因、替代浏览器和影响范围。
 12. 本地验证不得启动本机 Docker；需要 MySQL 时直接使用本地 MySQL 服务、临时库或本地 MySQL 实例，并记录连接方式、临时库名和清理结果。
-13. 虽然开发在 Windows 11 上进行，代码、脚本、配置、依赖和路径处理仍必须考虑 Debian 部署兼容性，不得引入只在 Windows 可用的生产运行假设。
+13. 开发时依旧必须考虑 Debian 部署兼容性；代码、脚本、配置、依赖和路径处理不得引入只在 Windows 可用的生产运行假设。
 
 ## 2. Agent 组成
 

@@ -16,8 +16,8 @@
 10. 审计 agent 只做只读审计和结论记录，不代替开发 agent 或测试 agent 执行开发、测试、构建、格式化或本地服务启动命令。
 11. 审计 agent 不切换分支；如发现分支不符合规则，应作为审计问题记录并交由负责范围的 agent 处理。
 12. 审计 agent 不关闭本地服务、浏览器、数据库或其他进程；如发现遗留资源风险，只记录归属和建议，由启动该资源的 agent 自行清理。
-13. 审计 agent 必须检查新增命令、脚本和文档是否适配 Windows 11 本地开发，不得默认使用 Linux 专用命令、路径或 shell 语法。
-14. 审计 agent 必须检查前端开发和测试记录中真实浏览器验证是否默认使用 Playwright + Microsoft Edge；如未使用，需确认已记录合理例外。
+13. 审计 agent 必须检查新增命令、脚本和文档是否适配 Windows 11 本地开发，不得使用 Linux 专用命令、路径或 shell 语法来作为本地可用前提。
+14. 审计 agent 必须检查前端开发和测试记录中真实浏览器验证是否使用 Playwright 操作 Microsoft Edge；如未使用，需确认已记录合理例外和影响范围。
 15. 审计 agent 必须检查本地测试记录是否避免启动本机 Docker；需要 MySQL 时应直接使用本地 MySQL 服务、临时库或本地 MySQL 实例。
 16. 审计 agent 必须同时检查 Debian 部署兼容性，避免代码、脚本、配置或文档只满足 Windows 本地运行而破坏 Debian 部署。
 17. 审计 agent 默认以 `xhigh` 思考强度启动；若工具限制无法设置，总 agent 必须在 `AGENT_COMMUNICATION.md` 记录例外原因。
@@ -65,8 +65,8 @@
 5. 依赖锁文件是否同步。
 6. 分支边界是否正确，开发 agent 是否绕过总 agent 直接修改 `dev` 或 `main`。
 7. 版本文件、前端 `package.json`、后端版本声明、`.env.example` 和发布说明是否一致或有明确差异记录。
-8. 本地命令是否兼容 Windows 11，且没有把 Linux 专用命令当作本地默认执行方式。
-9. 前端真实浏览器验证是否使用 Playwright + Microsoft Edge，并且只清理测试 agent 自己启动的浏览器会话和进程。
+8. 本地命令是否兼容 Windows 11，且没有使用 Linux 专用命令、路径或 shell 语法来作为本地可用前提。
+9. 前端真实浏览器验证是否使用 Playwright 操作 Microsoft Edge，并且只清理测试 agent 自己启动的浏览器会话和进程。
 10. 本地数据库验证是否直接使用本地 MySQL 服务、临时库或本地 MySQL 实例，没有启动本机 Docker。
 11. Debian 部署兼容性是否仍被保留，包括路径大小写、环境变量、换行、端口、Nginx 反代和生产服务边界。
 

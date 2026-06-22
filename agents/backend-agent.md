@@ -22,9 +22,10 @@
 5. 使用 FastAPI、Pydantic、SQLAlchemy、Alembic、MySQL、ClickHouse、MongoDB、Redis。
 6. 不得使用系统 Python 或全局 Python 启动项目。
 7. 不得硬编码端口、数据库连接、密钥、CORS、Trusted Host 或外部服务地址。
-8. 本地开发环境为 Windows 11，命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得把 Linux 专用命令、路径或 shell 语法当作本地可用前提。
-9. 本地开发和验证不得启动本机 Docker；需要 MySQL 时直接使用本地 MySQL 服务、临时库或本地 MySQL 实例，并记录连接方式、临时库名、迁移范围和清理结果。
-10. 虽然本地开发在 Windows 11 上进行，后端代码、迁移、依赖、路径处理、环境变量和部署配置仍必须考虑 Debian 部署兼容性。
+8. 本地开发环境为 Windows 11，命令必须优先使用 PowerShell、Windows 可用命令或跨平台工具；不得使用 Linux 专用命令、路径或 shell 语法来作为本地可用前提。
+9. 本地开发、联调和验证不得启动本机 Docker；需要 MySQL 时直接使用本地 MySQL 服务、临时库或本地 MySQL 实例，并记录连接方式、临时库名、迁移范围和清理结果。
+10. 如后端任务涉及前端联调、真实浏览器或端到端验证，必须由测试 agent 使用 Playwright 操作 Microsoft Edge；后端开发 agent 不代跑完整测试流程。
+11. 开发时依旧必须考虑 Debian 部署兼容性；后端代码、迁移、依赖、路径处理、环境变量和部署配置不得引入只在 Windows 可用的生产运行假设。
 
 ## 3. 推荐模块结构
 

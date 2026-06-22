@@ -73,6 +73,7 @@ closed      已关闭
 | T-0043 | 日志 request/user 字段过滤基础 | 总 agent | done | done | done | done | done |
 | T-0044 | Trace ingestion 最小后端基础 | 总 agent | todo | done | done | done | done |
 | T-0045 | Trace 查询最小后端基础 | 总 agent | todo | done | done | done | done |
+| T-0046 | Trace 查询页前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -392,6 +393,8 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q` 83 passed；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过。未启动 Docker、数据库、后端服务、前端服务或浏览器，完整真实联测交由测试 agent 重跑 | done |
 | 2026-06-22 | T-0045-fix | 总 agent | CI 通过 | 推送 `59fc629` 触发 GitHub Actions run `27969246519`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
 | 2026-06-22 | T-0045-fix | 测试 agent Boole the 2nd | 真实前后端联合测试重跑通过 | Boole the 2nd 在 `dev/origin/dev` `c96ca3b` 上使用自有临时 MySQL 8.0.42 `127.0.0.1:14429`、临时库 `telemetry_t0045_20260622t170940_i1stio`、真实后端 `14430`、真实前端 `14431` 和 Playwright + Microsoft Edge 完成重跑；确认 Alembic head `20260622_0008`，`ingest_records.occurred_at/received_at=datetime(6)` 且 `received_at` 默认 `CURRENT_TIMESTAMP(6)`，不存在项目返回 `404 项目不存在`，`occurred_to=...00.075Z` 不再返回 `.100000Z` span，精确边界命中正常；metrics/logs/events 真实摄入查询和前端 `/` `/metrics` `/logs` `/events` `/traces` 回归通过。Boole the 2nd 已清理自有资源并关闭 | done |
+| 2026-06-23 | T-0045-fix | 总 agent | T-0045 收尾完成 | `01813d3` 已记录真实前后端联合测试重跑通过；`dev`、`feature/backend-dev`、`feature/frontend-dev` 均同步到 `01813d3` 且严格 worktree 体检通过。T-0045 及其修复、审计、测试 agents 均已关闭 | done |
+| 2026-06-23 | T-0046 | 总 agent | 登记 Trace 查询页前端基础 | 阶段 4 下一小步限定为前端 `/traces` 查询页基础：消费现有 `GET /api/v1/query/traces`，实现项目/trace_id/span_id/name/source/时间范围筛选、列表、稳定分页和基础 span 详情展开；不修改后端契约，不做 waterfall、trace 树布局、服务依赖拓扑、日志/指标互跳或 ClickHouse 查询。将以 `xhigh` 思考强度启动前端开发 agent，在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 工作；要求 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、需要数据库时使用本地 MySQL 或测试 agent 自有临时库、保留 Debian 部署兼容、只清理自有资源、可启动测试 agent 但不得代跑完整测试流程 | doing |
 
 ## 6. 测试记录
 
