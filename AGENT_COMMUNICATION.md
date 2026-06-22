@@ -391,6 +391,7 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0045 修复合入 `dev`，merge 提交 `89506c5`；未使用路径覆盖。后续执行收窄本地门禁、推送、读取 CI，并重新启动真实前后端联合测试 agent 复验 | done |
 | 2026-06-22 | T-0045-fix | 总 agent | merge 后本地门禁通过 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q` 83 passed；前端 `npm.cmd run typecheck` 通过；`git diff --check` 通过。未启动 Docker、数据库、后端服务、前端服务或浏览器，完整真实联测交由测试 agent 重跑 | done |
 | 2026-06-22 | T-0045-fix | 总 agent | CI 通过 | 推送 `59fc629` 触发 GitHub Actions run `27969246519`；Backend checks 与 Frontend checks 均为 success。Backend 完成依赖安装、ruff lint、ruff format check、typecheck、pytest；Frontend 完成 install、lint、typecheck、test。仅有既有 Node.js 20 actions 弃用注解，被 runner 强制运行在 Node 24，不阻塞 | done |
+| 2026-06-22 | T-0045-fix | 测试 agent Boole the 2nd | 真实前后端联合测试重跑通过 | Boole the 2nd 在 `dev/origin/dev` `c96ca3b` 上使用自有临时 MySQL 8.0.42 `127.0.0.1:14429`、临时库 `telemetry_t0045_20260622t170940_i1stio`、真实后端 `14430`、真实前端 `14431` 和 Playwright + Microsoft Edge 完成重跑；确认 Alembic head `20260622_0008`，`ingest_records.occurred_at/received_at=datetime(6)` 且 `received_at` 默认 `CURRENT_TIMESTAMP(6)`，不存在项目返回 `404 项目不存在`，`occurred_to=...00.075Z` 不再返回 `.100000Z` span，精确边界命中正常；metrics/logs/events 真实摄入查询和前端 `/` `/metrics` `/logs` `/events` `/traces` 回归通过。Boole the 2nd 已清理自有资源并关闭 | done |
 
 ## 6. 测试记录
 
@@ -457,6 +458,7 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | 后端专项复验 | Pauli；后端单元/离线 SQL/静态检查 | 通过 | 覆盖超级用户缺失项目 `404`、trace 毫秒过滤测试、MySQL/MariaDB 离线 SQL、ruff/mypy；未启动 Docker、真实服务或浏览器 |
 | 2026-06-22 | T-0045-fix | dev merge 后本地验证 | 后端 `uv run pytest tests/test_query_api.py tests/test_ingest_api.py -q`；前端 `npm.cmd run typecheck`；`git diff --check` | 通过 | 后端 83 passed，1 条既有 Starlette/TestClient 上游弃用警告；前端 typecheck 通过；diff check 通过。完整真实前后端联测待测试 agent 重跑 |
 | 2026-06-22 | T-0045-fix | CI | GitHub Actions run `27969246519` | 通过 | Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js 20 actions 弃用注解 |
+| 2026-06-22 | T-0045-fix | 真实前后端联合测试重跑 | Boole the 2nd；自有本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `c96ca3b`；确认 0008 迁移生效、MySQL 微秒类型/default、trace 不存在项目 404、毫秒边界过滤正确、trace cursor/错误边界、metrics/logs/events 快速回归和 Edge 前端回归通过；`/traces` 仍为占位页，按当前范围预期；证据目录 `tmp/t0045_test_agent/evidence-20260622T170940Z`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -499,7 +501,7 @@ closed      已关闭
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
 | 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过，Parfit 完整真实前后端联测重跑通过 | 后端开发 agent Avicenna / 总 agent | closed |
-| 2026-06-22 | T-0045 | 真实 MySQL trace 查询存在项目和毫秒时间过滤偏差 | 已由 Darwin `2d357a7` 修复显式项目存在性校验和 MySQL/MariaDB `DATETIME(6)` 精度；Carver the 2nd `0928e6f` 关闭 ORM 默认值与在线 DDL 文档 P3，Hume the 2nd 复审通过；等待 merge 后真实前后端联测重跑最终确认 | 后端开发 agent / 总 agent | testing |
+| 2026-06-22 | T-0045 | 真实 MySQL trace 查询存在项目和毫秒时间过滤偏差 | 已由 Darwin `2d357a7` 修复显式项目存在性校验和 MySQL/MariaDB `DATETIME(6)` 精度；Carver the 2nd `0928e6f` 关闭 ORM 默认值与在线 DDL 文档 P3，Hume the 2nd 复审通过；Boole the 2nd 真实前后端联测重跑通过，确认不存在项目 404 和毫秒边界过滤均已关闭 | 后端开发 agent / 总 agent | closed |
 | 2026-06-20 | T-0002 | 当前工具面板未暴露 `create_thread`、`handoff_thread` 或测试子 agent 启动工具；本机 `codex.exe` 与 `codex-command-runner.exe` 执行 `--help` 均返回 Access is denied | 后续已通过可用的多 agent 工具启动测试子 agent Boole 复验 `T-0003`，本阻塞对当前后端骨架任务已解除 | 后端开发 agent / 总 agent | closed |
 
 ## 9. 分支与合并请求
