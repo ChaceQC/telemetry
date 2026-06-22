@@ -2,6 +2,42 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-22 T-0038 日志上下文增强
+
+- task: T-0038
+- owner: frontend-agent
+- scope: `/logs` 查询页在每条日志记录上提供“查看上下文”展开面板，展示目标日志前后的紧凑日志切片。
+- status: frontend-ready
+
+### 日志上下文 API 契约
+
+- endpoint: `GET /api/v1/query/logs/{log_id}/context`
+- auth: 沿用现有查询 API client，前端随请求携带 `Authorization: Bearer <access_token>`。
+- request query:
+  - `before`: number，可选，默认 5；前端会裁剪到 0 到 20。
+  - `after`: number，可选，默认 5；前端会裁剪到 0 到 20。
+- expected response body:
+
+```json
+{
+  "target": {},
+  "before": [],
+  "after": []
+}
+```
+
+- response fields:
+  - `target`: 单条日志对象，字段沿用 `GET /api/v1/query/logs` 的日志 item 结构；若后端找不到或不返回目标日志，前端兼容 `null` 并显示目标缺失提示。
+  - `before`: 日志对象数组，字段沿用 `GET /api/v1/query/logs` 的日志 item 结构。
+  - `after`: 日志对象数组，字段沿用 `GET /api/v1/query/logs` 的日志 item 结构。
+- frontend behavior:
+  - `/logs` 列表每条日志提供“查看上下文”按钮，展开时才发起上下文请求。
+  - 面板展示 Before、Target、After 三段；每段显示条数、日志级别、message 和基础元信息。
+  - 支持加载中、错误、完全空响应，以及单段为空状态。
+  - 用户可调整 `before`/`after`，范围 0 到 20；输入越界时前端裁剪后再请求。
+  - 审计 P2 已修复：未登录、session 恢复中、登出或切换账号时，查询页不会继续渲染旧 session 缓存的结果列表、分页或日志上下文；查询缓存按认证会话版本隔离，并在登录/登出边界清理 `query` 根缓存。
+  - 不新增图表库，不改变 `/metrics` 或 `/events` 查询行为。
+
 ## 2026-06-22 T-0037 Metrics 查询页当前页趋势图
 
 - task: T-0037

@@ -18,6 +18,11 @@ export type LogQueryParams = QueryCommonParams & {
   level?: string;
 };
 
+export type LogContextParams = {
+  before?: number;
+  after?: number;
+};
+
 export type MetricQueryParams = QueryCommonParams & {
   name?: string;
 };
@@ -66,12 +71,30 @@ export type QueryResultPage<TItem> = {
   next_cursor: string | null;
 };
 
+export type LogContextResponse = {
+  target: LogQueryItem | null;
+  before: LogQueryItem[];
+  after: LogQueryItem[];
+};
+
+export const DEFAULT_LOG_CONTEXT_WINDOW = 5;
+export const MAX_LOG_CONTEXT_WINDOW = 20;
+
 export function listEvents(params: EventQueryParams = {}) {
   return requestQueryPage<EventQueryItem>('/api/v1/query/events', params);
 }
 
 export function listLogs(params: LogQueryParams = {}) {
   return requestQueryPage<LogQueryItem>('/api/v1/query/logs', params);
+}
+
+export function getLogContext(logId: number | string, params: LogContextParams = {}) {
+  return apiRequest<LogContextResponse>(
+    buildQueryPath(`/api/v1/query/logs/${encodeURIComponent(`${logId}`)}/context`, {
+      before: normalizeLogContextWindow(params.before),
+      after: normalizeLogContextWindow(params.after)
+    })
+  );
 }
 
 export function listMetrics(params: MetricQueryParams = {}) {
@@ -92,4 +115,17 @@ async function requestQueryPage<TItem>(path: string, params: QueryCommonParams):
     items: response.items,
     next_cursor: response.next_cursor ?? null
   };
+}
+
+export function normalizeLogContextWindow(value: number | undefined) {
+  if (value === undefined) {
+    return DEFAULT_LOG_CONTEXT_WINDOW;
+  }
+
+  const numeric = Math.trunc(Number(value));
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_LOG_CONTEXT_WINDOW;
+  }
+
+  return Math.min(MAX_LOG_CONTEXT_WINDOW, Math.max(0, numeric));
 }

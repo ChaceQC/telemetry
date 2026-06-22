@@ -68,4 +68,44 @@ describe('query api client', () => {
       next_cursor: null
     });
   });
+
+  it('日志上下文查询会携带默认窗口和当前 session token', async () => {
+    const { getLogContext, setApiAuthToken } = await loadQueryClient();
+    const response = {
+      target: { id: 42, level: 'error', message: 'failed' },
+      before: [],
+      after: []
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
+
+    setApiAuthToken('query-token');
+
+    await expect(getLogContext(42)).resolves.toEqual(response);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/logs/42/context?before=5&after=5',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer query-token'
+        })
+      })
+    );
+  });
+
+  it('日志上下文窗口会裁剪到 0 到 20', async () => {
+    const { getLogContext, normalizeLogContextWindow } = await loadQueryClient();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse({ target: null, before: [], after: [] }));
+
+    expect(normalizeLogContextWindow(-3)).toBe(0);
+    expect(normalizeLogContextWindow(27)).toBe(20);
+    expect(normalizeLogContextWindow(Number.NaN)).toBe(5);
+
+    await getLogContext(42, { before: -3, after: 27 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/logs/42/context?before=0&after=20',
+      expect.any(Object)
+    );
+  });
 });

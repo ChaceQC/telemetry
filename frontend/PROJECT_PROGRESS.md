@@ -2,6 +2,61 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-22 T-0038 审计 P2 日志上下文会话隔离修复
+
+### 已完成
+
+- 修复查询页登出、session 恢复中或无查询权限时仍可能渲染旧 React Query 缓存的问题：`/metrics`、`/logs`、`/events` 结果列表、分页和错误态现在都先经过 `canQuery` 可见性门禁。
+- 修复 `/logs` 已展开上下文面板在登出后继续显示旧 context 的问题：上下文面板必须同时满足已展开且当前可查询才会挂载，context 数据也经过相同可见性门禁。
+- 新增非敏感 `sessionRevision`，登录和登出时递增，并将其纳入查询页与日志上下文 query key；同时在登录/登出边界取消并移除 `['query']` 根缓存，降低 30 秒 staleTime 下快速切换账号复用旧数据的风险。
+- 登录成功时立即注入新的 API token，登出时立即清理内存 token，减少认证状态切换时序窗口。
+- 新增 `frontend/src/features/query/querySession.ts` 统一查询根 key、会话维度 key、可见性门禁和缓存清理；新增页面级 SSR 测试覆盖旧 logs/context 缓存在未登录状态不会继续渲染。
+- 更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0038 审计 P2 已修和查询缓存会话隔离行为。
+
+### 阻塞与风险
+
+- 本轮不启动真实后端、数据库、dev server 或浏览器，不做完整前后端联测。
+- 当前修复聚焦查询页与日志上下文的旧缓存可见性；Settings、Overview 等其他页面仍按各自既有认证门禁处理。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/QueryPage.test.tsx src/features/query/querySession.test.ts src/api/query.test.ts` 通过（3 个测试文件、10 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（11 个测试文件、46 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
+## 2026-06-22 T-0038 日志上下文增强前端
+
+### 已完成
+
+- 新增 `frontend/src/api/query.ts` 日志上下文 API client：`GET /api/v1/query/logs/{log_id}/context`，沿用现有 Bearer 鉴权；`before`、`after` 默认 5，并在前端裁剪到 0 到 20。
+- 更新 `/logs` 查询列表：每条日志提供“查看上下文”展开面板，按 Before、Target、After 三段紧凑展示日志 message、级别和基础元信息。
+- 上下文面板提供 loading、error、完全空响应、单段为空、刷新，以及 before/after 数量调整状态；不影响 `/metrics` 和 `/events` 当前查询工作流。
+- 更新 `frontend/src/styles/global.css`，补充日志上下文面板、输入控件、三段列表、target 轻量强调和窄屏布局。
+- 更新 `frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 T-0038 请求契约和前端行为边界。
+
+### 进行中
+
+- 实现、文档和开发侧自检已完成；准备一次聚合提交并推送 `feature/frontend-dev`。
+
+### 阻塞与风险
+
+- 本轮不启动真实后端、数据库或完整前后端联合测试；日志上下文的真实排序、项目权限和缺失目标日志场景由后续测试 agent 结合真实后端补验。
+- 当前上下文展示只覆盖目标日志附近切片，不提供跨页合并、上下文内全文筛选、导出或 trace/span 关联跳转。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts` 通过（1 个测试文件、5 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（9 个测试文件、41 个测试通过）。
+- 已执行 `git diff --check` 通过。
+- 已启动本地前端 dev server 做最小 HTTP 自测：命令 `npm.cmd run dev -- --host 127.0.0.1 --port 25173`，监听进程 PID `37224`，`Invoke-WebRequest http://127.0.0.1:25173/logs` 返回 200；自测后已停止 PID `37224`，确认 `25173` 端口释放。
+- 曾尝试用本地 Node 脚本加载 Playwright 做浏览器检查，但项目未安装 `playwright` 包，脚本因 `Cannot find module 'playwright'` 失败；未进行完整浏览器 E2E 或真实后端联调。
+
 ## 2026-06-22 版本同步
 
 ### 已完成
