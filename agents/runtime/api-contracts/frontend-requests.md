@@ -2,6 +2,38 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-23 T-0048 Trace waterfall / 树形详情基础
+
+- task: T-0048
+- owner: frontend-agent
+- scope: `/traces` 当前页查询结果增强为 trace 分组、树形缩进和 waterfall 耗时条。
+- status: frontend-ready
+
+### API 契约影响
+
+- 不新增后端接口、请求参数或响应字段。
+- 继续使用既有 `GET /api/v1/query/traces` 和查询 envelope：`{"items": [...], "next_cursor": string | null}`。
+- 前端仅依赖现有 `TraceQueryItem` 字段：
+  - `trace_id`
+  - `span_id`
+  - `parent_span_id`
+  - `start_time`
+  - `end_time`
+  - `duration_ms`
+  - `status_code`
+  - `name`
+  - `source`
+  - `attributes`
+  - `payload`
+
+### 前端展示行为
+
+- 当前页 `items` 按 `trace_id` 分组；trace 组默认展开，并支持展开/收起。
+- 组内按 `span_id` / `parent_span_id` 构建父子树并显示缩进；缺失 parent、循环风险或无法挂载的 span 会作为根节点稳定展示，不阻断整组渲染。
+- Waterfall 仅基于当前页数据计算相对起点、duration 和横向耗时条；缺失 start/end/duration、0 duration、乱序、同起点、长 duration 和多根 span 均由前端兜底。
+- 错误 span 基于 `status_code` 包含 `error` / `fail` 标记；慢 span 使用本地阈值 `duration_ms >= 1000` 标记。
+- 保留现有筛选、刷新、回第一页、下一页、分页提示和单条 span 详情展开；不做跨页合并、服务依赖拓扑、trace/log 或 trace/metric 互跳。
+
 ## 2026-06-23 T-0046 Trace 查询页前端基础
 
 - task: T-0046
