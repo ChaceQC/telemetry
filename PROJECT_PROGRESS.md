@@ -659,6 +659,7 @@
 - T-0049 已登记为阶段 4 下一小步：前端实现 trace 到 logs 的跳转基础，在 `/traces` 详情中携带 `trace_id`/`span_id` 跳转 `/logs`，并让 `/logs` 可从 URL 参数初始化筛选；不改后端契约。
 - T-0049 前端开发已完成：`57f2b36` 已推送到 `feature/frontend-dev`，实现 `/traces` 到 `/logs?trace_id&span_id` 跳转和 logs URL 参数初始化，前端版本提升到 `0.2.6`；等待代码审计。
 - T-0049 前端审计通过：Galileo the 2nd 只读审计 `57f2b36` vs `origin/dev`，未发现 P0/P1/P2；残余 P3 为手写超长 `trace_id`/`span_id` 由后端 422 处理、缺少 `/traces?trace_id=...` 不受污染和 URL 初始化后分页 cursor 的显式交互测试。当前可进入真实 merge，并在 merge 后启动真实前后端联合测试 agent。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049 合入 `dev`，merge 提交 `b54697b`；当前同步根、前端、后端版本到 `0.2.6`，等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试 agent 验证。
 
 ### 阻塞与风险
 
@@ -681,7 +682,7 @@
 
 ### 下一步
 
-- 使用真实 `git merge` 将 `feature/frontend-dev` 的 T-0049 合入 `dev`，同步根/前端/后端版本到 `0.2.6`，完成收窄门禁、推送、CI 读取和 feature 分支同步后，启动测试 agent 用真实 MySQL、真实前后端、Playwright + Microsoft Edge 做联合测试。
+- 完成 T-0049 merge 后的收窄本地门禁、推送并读取 GitHub Actions；随后同步 `feature/frontend-dev` 和 `feature/backend-dev` 到最新 `dev`，并启动真实前后端联合测试 agent 验证 trace 到 logs 跳转路径。
 
 ### 验证
 

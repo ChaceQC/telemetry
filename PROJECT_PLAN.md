@@ -1,6 +1,6 @@
 # 遥测应用项目计划书
 
-版本：0.2.5
+版本：0.2.6
 日期：2026-06-20  
 状态：草案  
 目标环境：Windows 11 开发，Debian 部署  
@@ -1042,7 +1042,7 @@ npm run preview -- --host 127.0.0.1 --port 25174
 
 ```text
 APP_ENV=development
-APP_VERSION=0.2.5
+APP_VERSION=0.2.6
 APP_SECRET_KEY=change-me
 
 API_HOST=127.0.0.1
@@ -1245,7 +1245,8 @@ chore: 更新依赖版本
 5. `0.2.3`：增加 traces 最小后端查询能力，先查询关系库 `ingest_records` 中的 trace span 列表。
 6. `0.2.4`：增加 `/traces` 前端查询页，并为 trace 查询补充状态码和耗时范围过滤。
 7. `0.2.5`：增加 `/traces` waterfall 和树形详情前端基础。
-6. `1.0.0`：达到生产可用基线。
+8. `0.2.6`：增加 `/traces` 到 `/logs` 的跳转入口和 logs URL 筛选初始化基础。
+9. `1.0.0`：达到生产可用基线。
 
 发布规则：
 
