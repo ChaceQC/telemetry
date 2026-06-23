@@ -769,6 +769,7 @@
 - T-0056 最终同步 CI 通过：GitHub Actions runs `28054879272`、`28054966016`、`28054966365` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `6e9b4a1`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。随后严格 worktree 体检通过。
 - T-0056 收口文档同步 CI 通过：GitHub Actions runs `28055118582`、`28055190963`、`28055192531` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `48d2fdb`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检再次通过。
 - T-0056 最终 CI 记录提交同步通过：GitHub Actions runs `28055325838`、`28055342519`、`28055342017` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `1d23e8b`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。本结果随 T-0057 启动记录合并登记，避免纯 CI 文档回声。
+- T-0057 启动记录 CI 通过：GitHub Actions runs `28055654204`、`28055733768`、`28055733185` 在 `77aca8e` 上完成，分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

@@ -599,6 +599,7 @@ closed      已关闭
 | 2026-06-24 | T-0056 | dev merge 后本地验证 | 前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q`、`uv lock --check`；`git diff --check` | 通过 | merge 提交 `f6c9e32` 后，前端专项 4 files/38 tests passed，typecheck、lint、build 通过；后端 config 13 passed，`uv lock --check` 通过；diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-24 | T-0056-sync | CI | GitHub Actions runs `28054879272`、`28054966016`、`28054966365` | 通过 | `6e9b4a1` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0056-final-sync | CI | GitHub Actions runs `28055118582`、`28055190963`、`28055192531` | 通过 | `48d2fdb` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过 |
+| 2026-06-24 | T-0057-start | CI | GitHub Actions runs `28055654204`、`28055733768`、`28055733185` | 通过 | T-0057 启动记录提交 `77aca8e` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 
 ## 7. 审计记录
 
