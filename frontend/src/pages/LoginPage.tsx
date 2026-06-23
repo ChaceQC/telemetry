@@ -2,13 +2,9 @@ import { FormEvent, useState } from 'react';
 import { LockKeyhole, LogIn, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { formatApiErrorMessage } from '../api/http';
+import { resolveLoginReturnPath } from '../features/auth/loginReturnPath';
+import type { LoginLocationState } from '../features/auth/loginReturnPath';
 import { useAuth } from '../features/auth/useAuth';
-
-type LoginLocationState = {
-  from?: {
-    pathname?: string;
-  };
-};
 
 export function LoginPage() {
   const auth = useAuth();
@@ -20,7 +16,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const locationState = location.state as LoginLocationState | null;
-  const returnPath = locationState?.from?.pathname || '/';
+  const returnPath = resolveLoginReturnPath(locationState);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

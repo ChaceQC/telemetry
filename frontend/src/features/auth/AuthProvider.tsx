@@ -2,35 +2,38 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { getCurrentUser, login } from '../../api/auth';
-import type { AuthUser, LoginRequest } from '../../api/auth';
+import type { LoginRequest } from '../../api/auth';
 import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
+import { clearIngestStatsQueryCache } from '../overview/queryKeys';
 import { clearTelemetryQueryCache } from '../query/querySession';
+import { clearSettingsQueryCache } from '../settings/queryKeys';
 import { AuthContext } from './authContext';
-import type { AuthContextValue, AuthSession } from './authContext';
+import { resolveCanRequestAuthenticatedApi, type AuthContextValue, type AuthSession } from './authContext';
 import { formatSessionErrorMessage, shouldClearSessionForAuthError } from './authErrors';
-
-const AUTH_SESSION_STORAGE_KEY = 'telemetry.auth.session.v1';
+import { clearStoredAuthSession, restoreStoredAuthSession, writeStoredAuthSession } from './authSession';
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
-  const [session, setSession] = useState<AuthSession | null>(() => readStoredSession());
+  const [session, setSession] = useState<AuthSession | null>(() => restoreStoredAuthSession());
   const [sessionRevision, setSessionRevision] = useState(0);
   const [sessionErrorMessage, setSessionErrorMessage] = useState<string | null>(null);
   const isRestoring = Boolean(session && !session.user && !sessionErrorMessage);
+  const isAuthenticated = Boolean(session?.accessToken);
+  const canRequestAuthenticatedApi = resolveCanRequestAuthenticatedApi({ isAuthenticated, isRestoring });
 
   useEffect(() => {
     if (session) {
       setApiAuthToken(session.accessToken, session.tokenType);
-      writeStoredSession(session);
+      writeStoredAuthSession(session);
       return;
     }
 
     clearApiAuthToken();
-    clearStoredSession();
+    clearStoredAuthSession();
   }, [session]);
 
   const logout = useCallback(() => {
-    clearTelemetryQueryCache(queryClient);
+    clearAuthenticatedQueryCaches(queryClient);
     clearApiAuthToken();
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
@@ -44,6 +47,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const currentUser = await getCurrentUser();
+      if (!session.user) {
+        clearAuthenticatedQueryCaches(queryClient);
+        setSessionRevision((current) => current + 1);
+      }
       setSessionErrorMessage(null);
       setSession((currentSession) => (currentSession ? { ...currentSession, user: currentUser } : currentSession));
       return currentUser;
@@ -55,7 +62,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       throw error;
     }
-  }, [logout, session]);
+  }, [logout, queryClient, session]);
 
   useEffect(() => {
     if (!session || session.user) {
@@ -67,6 +74,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     getCurrentUser()
       .then((currentUser) => {
         if (!ignore) {
+          clearAuthenticatedQueryCaches(queryClient);
+          setSessionRevision((current) => current + 1);
           setSessionErrorMessage(null);
           setSession((currentSession) => (currentSession ? { ...currentSession, user: currentUser } : currentSession));
         }
@@ -87,7 +96,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       ignore = true;
     };
-  }, [logout, session]);
+  }, [logout, queryClient, session]);
 
   const loginWithPassword = useCallback(async (payload: LoginRequest) => {
     const response = await login(payload);
@@ -97,7 +106,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: response.user ?? null
     };
 
-    clearTelemetryQueryCache(queryClient);
+    clearAuthenticatedQueryCaches(queryClient);
     setApiAuthToken(nextSession.accessToken, nextSession.tokenType);
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
@@ -108,78 +117,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user: session?.user ?? null,
-      isAuthenticated: Boolean(session?.accessToken),
+      isAuthenticated,
       isRestoring,
+      canRequestAuthenticatedApi,
       sessionRevision,
       sessionErrorMessage,
       login: loginWithPassword,
       logout,
       refreshCurrentUser
     }),
-    [isRestoring, loginWithPassword, logout, refreshCurrentUser, session, sessionErrorMessage, sessionRevision]
+    [
+      canRequestAuthenticatedApi,
+      isAuthenticated,
+      isRestoring,
+      loginWithPassword,
+      logout,
+      refreshCurrentUser,
+      session,
+      sessionErrorMessage,
+      sessionRevision
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function readStoredSession(): AuthSession | null {
-  const storage = readSessionStorage();
-
-  if (!storage) {
-    return null;
-  }
-
-  try {
-    const value = JSON.parse(storage.getItem(AUTH_SESSION_STORAGE_KEY) || 'null') as Partial<AuthSession> | null;
-
-    if (!value?.accessToken || typeof value.accessToken !== 'string') {
-      return null;
-    }
-
-    return {
-      accessToken: value.accessToken,
-      tokenType: typeof value.tokenType === 'string' && value.tokenType.trim() ? value.tokenType : 'Bearer',
-      user: isAuthUser(value.user) ? value.user : null
-    };
-  } catch {
-    clearStoredSession();
-    return null;
-  }
-}
-
-function writeStoredSession(session: AuthSession) {
-  const storage = readSessionStorage();
-
-  if (!storage) {
-    return;
-  }
-
-  storage.setItem(
-    AUTH_SESSION_STORAGE_KEY,
-    JSON.stringify({
-      accessToken: session.accessToken,
-      tokenType: session.tokenType,
-      user: session.user ?? null
-    })
-  );
-}
-
-function clearStoredSession() {
-  readSessionStorage()?.removeItem(AUTH_SESSION_STORAGE_KEY);
-}
-
-function readSessionStorage() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
-function isAuthUser(value: unknown): value is AuthUser {
-  return Boolean(value && typeof value === 'object' && 'username' in value);
+function clearAuthenticatedQueryCaches(queryClient: Parameters<typeof clearTelemetryQueryCache>[0]) {
+  clearTelemetryQueryCache(queryClient);
+  clearSettingsQueryCache(queryClient);
+  clearIngestStatsQueryCache(queryClient);
 }

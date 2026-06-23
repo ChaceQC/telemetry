@@ -160,7 +160,7 @@ function QueryPageWorkspace({ signal, locationPathname, locationSearch }: QueryP
   const [draftFilters, setDraftFilters] = useState<SignalScopedFilters>(() => ({ signal, filters: initialFilters }));
   const [submittedFilters, setSubmittedFilters] = useState<SignalScopedFilters>(() => ({ signal, filters: initialFilters }));
   const [pagination, setPagination] = useState<PaginationState>({ signal, page: 1, version: 0 });
-  const canQuery = auth.isAuthenticated && !auth.isRestoring;
+  const canQuery = auth.canRequestAuthenticatedApi;
   const filters = draftFilters.signal === signal ? draftFilters.filters : defaultFilters;
   const activeSubmittedFilters = submittedFilters.signal === signal ? submittedFilters.filters : defaultFilters;
   const pageCursor = pagination.signal === signal ? pagination.cursor : undefined;

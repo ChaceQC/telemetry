@@ -6,9 +6,11 @@ import { appConfig } from '../api/config';
 import { getHealth } from '../api/health';
 import { ApiClientError, formatApiErrorMessage } from '../api/http';
 import { listIngestStats } from '../api/ingestStats';
+import type { IngestStatItem } from '../api/ingestStats';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 import { formatBytes, summarizeIngestStats, type IngestSignalSummary } from '../features/overview/ingestStatsSummary';
+import { ingestStatsQueryKeys } from '../features/overview/queryKeys';
 
 const signalRoutes = {
   metric: '/metrics',
@@ -30,29 +32,34 @@ const recentEvents = [
   { time: '22:12', title: '指标查询 API 完成', detail: '阶段 3 查询 API 已覆盖事件、日志和指标。' }
 ];
 
+const emptyIngestStats: IngestStatItem[] = [];
+
 export function OverviewPage() {
   const auth = useAuth();
-  const canLoadStats = auth.isAuthenticated && !auth.isRestoring;
+  const canLoadStats = auth.canRequestAuthenticatedApi;
   const healthQuery = useQuery({
     queryKey: ['health'],
     queryFn: getHealth,
     retry: false
   });
   const ingestStatsQuery = useQuery({
-    queryKey: ['ingest-stats', 'overview'],
+    queryKey: ingestStatsQueryKeys.overview(auth.sessionRevision),
     queryFn: () => listIngestStats({ limit: 100 }),
     enabled: canLoadStats,
     retry: false
   });
-  const signalSummaries = useMemo(() => summarizeIngestStats(ingestStatsQuery.data ?? []), [ingestStatsQuery.data]);
+  const visibleIngestStats = canLoadStats ? ingestStatsQuery.data ?? emptyIngestStats : emptyIngestStats;
+  const signalSummaries = useMemo(() => summarizeIngestStats(visibleIngestStats), [visibleIngestStats]);
   const hasIngestStats = signalSummaries.some((summary) => summary.acceptedCount > 0 || summary.rejectedCount > 0);
   const totalAccepted = signalSummaries.reduce((total, summary) => total + summary.acceptedCount, 0);
   const totalRejected = signalSummaries.reduce((total, summary) => total + summary.rejectedCount, 0);
+  const hasStatsError = canLoadStats && ingestStatsQuery.isError;
+  const isStatsFetching = canLoadStats && ingestStatsQuery.isFetching;
 
   const healthTone = healthQuery.data?.status === 'ok' ? 'success' : healthQuery.isError ? 'danger' : 'warning';
   const healthText = healthQuery.data?.status === 'ok' ? '后端在线' : healthQuery.isError ? '待连接' : '检查中';
-  const statsTone = !canLoadStats ? 'warning' : ingestStatsQuery.isError ? 'danger' : hasIngestStats ? 'success' : 'neutral';
-  const statsText = !canLoadStats ? (auth.isRestoring ? '恢复中' : '需要登录') : ingestStatsQuery.isError ? '统计异常' : hasIngestStats ? '有摄入' : '暂无摄入';
+  const statsTone = !canLoadStats ? 'warning' : hasStatsError ? 'danger' : hasIngestStats ? 'success' : 'neutral';
+  const statsText = !canLoadStats ? (auth.isRestoring ? '恢复中' : '需要登录') : hasStatsError ? '统计异常' : hasIngestStats ? '有摄入' : '暂无摄入';
   const healthErrorMessage =
     healthQuery.error instanceof ApiClientError ? healthQuery.error.message : '后端健康检查暂不可用。';
 
@@ -105,9 +112,9 @@ export function OverviewPage() {
           <Link className="metric-tile metric-tile--link" key={summary.kind} to={signalRoutes[summary.kind]}>
             <span>{summary.label}</span>
             <strong>{canLoadStats ? formatCompactNumber(summary.acceptedCount) : '-'}</strong>
-            <small>{buildSignalMeta(summary, canLoadStats, ingestStatsQuery.isFetching)}</small>
-            <StatusBadge tone={getSignalTone(summary, canLoadStats, ingestStatsQuery.isFetching)}>
-              {buildSignalBadge(summary, canLoadStats, ingestStatsQuery.isFetching)}
+            <small>{buildSignalMeta(summary, canLoadStats, isStatsFetching)}</small>
+            <StatusBadge tone={getSignalTone(summary, canLoadStats, isStatsFetching)}>
+              {buildSignalBadge(summary, canLoadStats, isStatsFetching)}
             </StatusBadge>
           </Link>
         ))}
@@ -145,24 +152,24 @@ export function OverviewPage() {
             </div>
           ) : null}
 
-          {canLoadStats && ingestStatsQuery.isError ? (
+          {hasStatsError ? (
             <div className="inline-alert" role="status">
               <TriangleAlert size={18} aria-hidden="true" />
               <span>{formatApiErrorMessage(ingestStatsQuery.error)}</span>
             </div>
           ) : null}
 
-          {canLoadStats && !ingestStatsQuery.isError && !hasIngestStats ? (
+          {canLoadStats && !hasStatsError && !hasIngestStats ? (
             <div className="resource-state">
               <Gauge size={18} aria-hidden="true" />
               <div>
-                <strong>{ingestStatsQuery.isFetching ? '正在读取统计' : '暂无摄入统计'}</strong>
+                <strong>{isStatsFetching ? '正在读取统计' : '暂无摄入统计'}</strong>
                 <span>完成数据上报后，这里会显示 metrics、logs 和 events 的最近统计。</span>
               </div>
             </div>
           ) : null}
 
-          {canLoadStats && !ingestStatsQuery.isError && hasIngestStats ? (
+          {canLoadStats && !hasStatsError && hasIngestStats ? (
             <ol className="ingest-stats-list">
               {signalSummaries.map((summary) => (
                 <li key={summary.kind}>
