@@ -10,6 +10,8 @@
 - `/dashboards` 现有编辑区新增最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；panel 操作只更新 `config JSON` 文本，最终仍通过既有 Dashboard update API 保存。
 - 保留原始 `config JSON` textarea 和 legacy config 兼容；未包含 panels 的 config 会显示 legacy 状态并可新增 panels。
 - 补充纯函数与页面最小交互测试，覆盖 legacy 保留、重复 trim 后 id、query 非 object、layout 边界和保存 `config.panels`。
+- 审计 P2 修复：panel 编辑草稿新增原始 panel id，更新时校验当前 `editIndex` 仍指向同一规范化 id；若用户手动重排或删除 `config.panels` 后旧草稿失效，则提示重新选择，避免覆盖错误 panel。
+- 补充回归测试覆盖手动重排/删除 `config.panels` 后旧编辑草稿无法写入错误 index，页面交互保持 textarea 内容不被误改且不触发保存 API。
 
 ### 验证
 

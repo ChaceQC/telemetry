@@ -110,6 +110,7 @@ describe('dashboard panel config helpers', () => {
     const edited = upsertDashboardPanelInConfigText(configText, {
       mode: 'edit',
       editIndex: 1,
+      originalPanelId: 'logs',
       id: 'logs',
       title: '错误日志',
       type: 'logs',
@@ -135,6 +136,37 @@ describe('dashboard panel config helpers', () => {
         refresh_seconds: 30,
         panels: [{ id: 'logs', title: '错误日志' }]
       }
+    });
+  });
+
+  it('编辑 panel 时拒绝旧 index 已不再指向原 panel id 的草稿', () => {
+    const draft = {
+      mode: 'edit' as const,
+      editIndex: 1,
+      originalPanelId: 'logs',
+      id: 'logs',
+      title: '错误日志',
+      type: 'logs' as const,
+      queryText: '{"level":"error"}',
+      layout: { x: '6', y: '0', w: '6', h: '4' }
+    };
+    const reordered = JSON.stringify({
+      panels: [
+        { id: 'logs', title: '日志', type: 'logs', query: {}, layout: { x: 0, y: 3, w: 6, h: 3 } },
+        { id: 'cpu', title: 'CPU', type: 'metrics', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }
+      ]
+    });
+    const deleted = JSON.stringify({
+      panels: [{ id: 'cpu', title: 'CPU', type: 'metrics', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+    });
+
+    expect(upsertDashboardPanelInConfigText(reordered, draft)).toEqual({
+      ok: false,
+      message: '当前 config.panels 已变化，请重新选择要更新的 panel。'
+    });
+    expect(upsertDashboardPanelInConfigText(deleted, draft)).toEqual({
+      ok: false,
+      message: '当前 config.panels 已变化，请重新选择要更新的 panel。'
     });
   });
 });

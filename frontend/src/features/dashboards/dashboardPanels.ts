@@ -24,6 +24,7 @@ export type DashboardPanel = Record<string, unknown> & {
 export type DashboardPanelDraft = {
   mode: 'create' | 'edit';
   editIndex: number | null;
+  originalPanelId: string | null;
   id: string;
   title: string;
   type: DashboardPanelType;
@@ -124,6 +125,7 @@ export function createDefaultDashboardPanelDraft(panels: Array<Pick<DashboardPan
   return {
     mode: 'create',
     editIndex: null,
+    originalPanelId: null,
     id: resolveNextPanelId(panels),
     title: 'New panel',
     type: 'metrics',
@@ -141,6 +143,7 @@ export function dashboardPanelToDraft(panel: DashboardPanel, index: number): Das
   return {
     mode: 'edit',
     editIndex: index,
+    originalPanelId: panel.id,
     id: panel.id,
     title: panel.title,
     type: panel.type,
@@ -167,10 +170,20 @@ export function upsertDashboardPanelInConfigText(configText: string, draft: Dash
 
   const nextPanels = [...parsed.rawPanels];
   if (draft.mode === 'edit') {
-    if (draft.editIndex === null || draft.editIndex < 0 || draft.editIndex >= nextPanels.length) {
+    if (draft.editIndex === null || draft.editIndex < 0) {
       return {
         ok: false as const,
         message: '请选择要更新的 panel。'
+      };
+    }
+    if (
+      draft.originalPanelId === null ||
+      draft.editIndex >= nextPanels.length ||
+      parsed.panels[draft.editIndex]?.id !== draft.originalPanelId.trim()
+    ) {
+      return {
+        ok: false as const,
+        message: '当前 config.panels 已变化，请重新选择要更新的 panel。'
       };
     }
     nextPanels[draft.editIndex] = draftPanel.value;
