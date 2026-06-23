@@ -156,6 +156,31 @@ def _too_complex_dashboard_json() -> dict[str, Any]:
     return {"items": [0] * MAX_DASHBOARD_JSON_NODES}
 
 
+def _dashboard_panel_config() -> dict[str, Any]:
+    return {
+        "refresh_seconds": 30,
+        "panels": [
+            {
+                "id": "latency-p95",
+                "title": "P95 latency",
+                "type": "metrics",
+                "query": {
+                    "name": "http.server.duration",
+                    "aggregation": "max",
+                    "window": "5m",
+                },
+                "layout": {"x": 0, "y": 0, "w": 6, "h": 4},
+            },
+            {
+                "id": "error-logs",
+                "title": "Error logs",
+                "type": "logs",
+                "query": {"level": "error"},
+            },
+        ],
+    }
+
+
 @pytest.mark.parametrize(
     ("method", "path", "json_body"),
     [
@@ -354,6 +379,80 @@ def test_superuser_can_manage_dashboards_without_project_membership() -> None:
     assert response.json()["config"] == {}
 
 
+def test_dashboard_create_and_update_accept_panel_config() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="panel-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    config = _dashboard_panel_config()
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Panel dashboard",
+            "config": config,
+        },
+    )
+
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+    assert dashboard["config"] == config
+
+    updated_config = {
+        "refresh_seconds": 60,
+        "panels": [
+            {
+                "id": "trace-map",
+                "title": "Trace map",
+                "type": "topology",
+                "query": {"source": "checkout"},
+                "layout": {"x": 6.5, "y": 0, "w": 5.5, "h": 4},
+            }
+        ],
+    }
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": updated_config},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["config"] == updated_config
+
+
+def test_dashboard_panel_config_keeps_legacy_config_compatible() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="legacy-config-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+
+    legacy_config_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Legacy config",
+            "config": {"refresh_seconds": 30},
+        },
+    )
+    arbitrary_config_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Arbitrary config",
+            "config": [{"query": "legacy raw query"}],
+        },
+    )
+
+    assert legacy_config_response.status_code == 201
+    assert legacy_config_response.json()["config"] == {"refresh_seconds": 30}
+    assert arbitrary_config_response.status_code == 201
+    assert arbitrary_config_response.json()["config"] == [{"query": "legacy raw query"}]
+
+
 def test_dashboard_validation_errors_are_reported_as_422() -> None:
     client = build_client()
     _, auth_headers = create_auth_headers(client, username="owner")
@@ -386,6 +485,88 @@ def test_dashboard_validation_errors_are_reported_as_422() -> None:
     assert empty_patch_response.status_code == 422
     assert null_layout_response.status_code == 422
     assert invalid_limit_response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "invalid_config",
+    [
+        {"panels": "not-array"},
+        {"panels": ["not-object"]},
+        {"panels": [{"id": "cpu", "title": "CPU", "type": "chart", "query": {}}]},
+        {"panels": [{"title": "CPU", "type": "metrics", "query": {}}]},
+        {"panels": [{"id": "cpu", "type": "metrics", "query": {}}]},
+        {"panels": [{"id": "cpu", "title": "CPU", "query": {}}]},
+        {"panels": [{"id": "cpu", "title": "CPU", "type": "metrics"}]},
+        {"panels": [{"id": "cpu", "title": "CPU", "type": "metrics", "query": "name=cpu"}]},
+        {
+            "panels": [
+                {"id": "cpu", "title": "CPU", "type": "metrics", "query": {}},
+                {"id": "cpu", "title": "CPU duplicate", "type": "logs", "query": {}},
+            ]
+        },
+        {
+            "panels": [
+                {
+                    "id": "cpu",
+                    "title": "CPU",
+                    "type": "metrics",
+                    "query": {},
+                    "layout": {"x": -1, "y": 0, "w": 6, "h": 4},
+                }
+            ]
+        },
+        {
+            "panels": [
+                {
+                    "id": "cpu",
+                    "title": "CPU",
+                    "type": "metrics",
+                    "query": {},
+                    "layout": {"x": 0, "y": 0, "w": 0, "h": 4},
+                }
+            ]
+        },
+        {
+            "panels": [
+                {
+                    "id": "cpu",
+                    "title": "CPU",
+                    "type": "metrics",
+                    "query": {},
+                    "layout": {"x": 0, "y": 0, "w": 6},
+                }
+            ]
+        },
+    ],
+)
+def test_dashboard_invalid_panel_config_is_reported_as_422(
+    invalid_config: dict[str, Any],
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="invalid-panel-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard = create_dashboard(client, auth_headers, project_id=project_id)
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Invalid panel config",
+            "config": invalid_config,
+        },
+    )
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": invalid_config},
+    )
+
+    assert create_response.status_code == 422
+    assert any("config" in error["loc"] for error in create_response.json()["detail"])
+    assert update_response.status_code == 422
+    assert any("config" in error["loc"] for error in update_response.json()["detail"])
 
 
 @pytest.mark.parametrize(

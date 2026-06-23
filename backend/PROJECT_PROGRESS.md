@@ -2,6 +2,29 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0055a Dashboard panel 配置 schema 最小后端小步
+
+### 已完成
+
+- 在 `DashboardCreate` / `DashboardUpdate` 的既有 `config` JSON 校验后新增最小 `config.panels` 语义校验：当 `config` 是对象且包含顶层 `panels` 时，要求 `panels` 为数组、panel 为对象、必填 `id/title/type/query`、`type` 限定为 `metrics/logs/events/traces/topology`、`query` 为对象、同数组内 `id` 不重复、可选 `layout` 的 `x/y` 非负且 `w/h` 为正数。
+- 保留并复用既有 dashboard JSON 对象或数组、64 KiB、32 层、4096 节点和非有限数拒绝校验；旧版 `{}`、`{"refresh_seconds": 30}` 和未使用顶层 `panels` 的 config 结构继续兼容。
+- 扩展 `backend/tests/test_dashboard_api.py`，覆盖 panel config 创建保存、更新保存、legacy config 兼容，以及非数组 panels、panel 非对象、未知 type、缺必填字段、重复 id、layout 数值非法、query 非对象等 create/update `422`。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 `config.panels` 最小契约和当前仍不做 panel 渲染、ClickHouse 查询或高级变量配置。
+- 后端版本保持 `0.2.11`：本小步是兼容旧 config 的 schema 收窄增强，不新增 API 路径、不变更存储结构、不改变响应模型和部署依赖，因此不提升版本。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL JSON 列读写和 dashboard panel 配置与前端联调仍留给后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：34 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：通过，2 个文件已格式化。
+- 已运行 `uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：2 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-23 T-0053-fix Dashboard JSON 校验审计修复
 
 ### 已完成
