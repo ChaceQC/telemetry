@@ -712,6 +712,8 @@
 - T-0058 后端实现、审计修复和 feature CI 通过：`feature/backend-dev` 提交 `51ff277` 新增 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview`、响应模型、README/API 契约、后端版本 `0.2.12` 和 dashboard API 测试；代码审计发现 1 个 P2，`metrics` panel 的非字符串 `query.window`/`query.aggregation` 会绕过 `QueryFilterError` 形成 500。总 agent 极窄修复并提交 `cc36468`，在枚举判断前先校验字符串类型，回归覆盖 list/object `window` 与 list `aggregation` 返回 `422`；本地后端 gate 54 passed、ruff、format、mypy、`uv lock --check`、`git diff --check` 均通过，feature CI run `28061363490` 成功。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0058 合入 `dev`，merge 提交 `3ee5943`；同步根、前端、后端版本到 `0.2.12`。merge 后本地门禁通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 54 passed、ruff、format、mypy、`uv lock --check`、`git diff --check` 通过，前端 `npm.cmd run typecheck` 通过。待推送 `dev` 并读取 CI 后同步两个 feature 分支。
 - T-0058 已完成同步收口：`23f3dc6` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28061763863`、`28061828781`、`28061828919` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0058 关闭。
+- T-0058 最终文档收口 CI 通过：`002ac37` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28061977805`、`28062046509`、`28062045863` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
+- T-0059 已登记为阶段 5 下一小步：Dashboard panel 查询预览前端接入基础，在 `/dashboards` 已保存 dashboard 的只读 Panel 预览区消费 T-0058 后端 API，为单个已保存 panel 加载样本摘要/预览数据；展示 metrics 聚合摘要、logs/events/traces 最近样本和 topology 节点/边摘要，覆盖未保存草稿、legacy/empty、loading/error/422/unauth 状态。不改后端契约，不做真实图表渲染，不接 ClickHouse，不保存草稿 config，不做变量/模板/告警。
 
 ### 阻塞与风险
 
@@ -738,7 +740,7 @@
 
 ### 下一步
 
-- 继续阶段 5 的下一小步：优先考虑让前端 `/dashboards` 的只读 Panel 预览消费后端 T-0058 查询预览 API，增加按已保存 dashboard/panel 加载样本摘要的基础交互；边界仍是不做真实图表渲染、不接 ClickHouse、不做变量/模板/告警。
+- 前端开发 agent 将在 `feature/frontend-dev` 实现 T-0059 的最小 UI/API 接入、测试、前端进度和必要文档；完成后总 agent 触发代码审计，再决定是否真实 merge 到 `dev`。
 
 ### 验证
 
@@ -785,6 +787,7 @@
 - T-0058 feature/backend-dev CI 通过：GitHub Actions run `28061363490` 在 `cc36468` 上完成，Frontend checks 与 Backend checks 均为 success；Backend checks 已覆盖 ruff lint、ruff format check、type check 和 pytest，Frontend checks 也通过。仅有既有 Node.js 20 actions runtime 弃用注解。
 - T-0058 dev merge 后本地验证通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 54 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`、`uv run ruff format --check app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`、`uv run mypy app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`、`uv lock --check`、`git diff --check` 均通过；前端 `npm.cmd run typecheck` 通过。未启动真实服务、数据库、Docker 或浏览器。
 - T-0058 同步 CI 与 worktree 体检通过：GitHub Actions runs `28061763863`、`28061828781`、`28061828919` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `23f3dc6`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过，确认 root、frontend、backend 三棵 worktree 干净、分支正确、与远端一致，且 feature 分支没有 dev 未包含提交。
+- T-0058 最终文档收口 CI 与 worktree 体检通过：GitHub Actions runs `28061977805`、`28062046509`、`28062045863` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `002ac37`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过，确认 root、frontend、backend 三棵 worktree 干净、分支正确、与远端一致。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
