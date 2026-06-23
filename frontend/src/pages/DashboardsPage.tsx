@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   createDashboard,
@@ -87,6 +87,8 @@ export function DashboardsPage() {
     scopeKey: '',
     value: null
   });
+  const [deleteLocked, setDeleteLocked] = useState(false);
+  const deleteInFlightRef = useRef(false);
   const [localCreateErrorState, setLocalCreateErrorState] = useState<ScopedState<string | null>>({
     scopeKey: '',
     value: null
@@ -238,12 +240,17 @@ export function DashboardsPage() {
         return;
       }
       setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: error });
+    },
+    onSettled: () => {
+      deleteInFlightRef.current = false;
+      setDeleteLocked(false);
     }
   });
 
   const createFormError = createRemoteErrorState.scopeKey === pageScopeKey ? createRemoteErrorState.value : null;
   const updateFormError = updateRemoteErrorState.scopeKey === pageScopeKey ? updateRemoteErrorState.value : null;
   const deleteFormError = deleteRemoteErrorState.scopeKey === pageScopeKey ? deleteRemoteErrorState.value : null;
+  const isDeleteLocked = deleteLocked || deleteMutation.isPending;
   const selectedDashboard = canUseDashboardData
     ? dashboards.find((dashboard) => dashboard.id === activeEditForm.dashboardId) ?? null
     : null;
@@ -337,6 +344,12 @@ export function DashboardsPage() {
   }
 
   function handleDelete(dashboard: Dashboard) {
+    if (deleteInFlightRef.current || deleteMutation.isPending) {
+      return;
+    }
+
+    deleteInFlightRef.current = true;
+    setDeleteLocked(true);
     setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     deleteMutation.mutate(dashboard);
   }
@@ -494,8 +507,7 @@ export function DashboardsPage() {
             error={dashboardsQuery.error}
             dashboards={dashboards}
             selectedDashboardId={activeEditForm.dashboardId}
-            deletingDashboardId={deleteMutation.variables?.id ?? null}
-            isDeleting={deleteMutation.isPending}
+            isDeleting={isDeleteLocked}
             onSelect={(dashboard) => {
               updateEditForm(dashboardToEditForm(dashboard));
               clearLocalEditError();
@@ -656,7 +668,6 @@ function DashboardListState({
   error,
   dashboards,
   selectedDashboardId,
-  deletingDashboardId,
   isDeleting,
   onSelect,
   onDelete
@@ -668,7 +679,6 @@ function DashboardListState({
   error: unknown;
   dashboards: Dashboard[];
   selectedDashboardId: number | null;
-  deletingDashboardId: number | null;
   isDeleting: boolean;
   onSelect: (dashboard: Dashboard) => void;
   onDelete: (dashboard: Dashboard) => void;
@@ -748,7 +758,7 @@ function DashboardListState({
             className="icon-button"
             type="button"
             onClick={() => onDelete(dashboard)}
-            disabled={isDeleting && deletingDashboardId === dashboard.id}
+            disabled={isDeleting}
             title="删除仪表盘"
           >
             <Trash2 size={16} aria-hidden="true" />

@@ -357,6 +357,53 @@ describe('DashboardsPage interactions', () => {
     expect(screen.getAllByText('第 1-1 条，共 50 条，每页 50 条。')).toHaveLength(2);
   });
 
+  it('删除末页多条记录时 pending 会禁用所有删除入口避免快速连删', async () => {
+    const user = userEvent.setup();
+    const laterDashboard = createDashboardFixture({
+      id: 61,
+      name: '第 51 个看板',
+      description: '第二页记录',
+      layout: { version: 2, widgets: [{ i: 'latency' }] },
+      config: { refresh_seconds: 15 }
+    });
+    const lastDashboard = createDashboardFixture({
+      id: 62,
+      name: '第 52 个看板',
+      description: '第二页末尾记录',
+      layout: { version: 2, widgets: [{ i: 'errors' }] },
+      config: { refresh_seconds: 20 }
+    });
+    const pendingDelete = createDeferredNull();
+    apiMocks.deleteDashboard.mockReturnValue(pendingDelete.promise);
+    apiMocks.listDashboards.mockImplementation(async (params?: DashboardListParams) =>
+      params?.offset === 50
+        ? { items: [laterDashboard, lastDashboard], limit: 50, offset: 50, total: 52 }
+        : { items: [dashboard], limit: 50, offset: 0, total: 52 }
+    );
+
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('第 1-1 条，共 52 条，每页 50 条。');
+    await user.click(screen.getByRole('button', { name: '下一页' }));
+    expect(await screen.findByText('第 51 个看板')).toBeTruthy();
+    expect(await screen.findByText('第 52 个看板')).toBeTruthy();
+
+    const deleteButtons = screen.getAllByTitle('删除仪表盘');
+    expect(deleteButtons).toHaveLength(2);
+    fireEvent.click(deleteButtons[0]);
+    fireEvent.click(deleteButtons[1]);
+
+    await waitFor(() => expect(apiMocks.deleteDashboard).toHaveBeenCalledWith(12, 61));
+    await waitFor(() => {
+      expect(deleteButtons[0].hasAttribute('disabled')).toBe(true);
+      expect(deleteButtons[1].hasAttribute('disabled')).toBe(true);
+    });
+
+    expect(apiMocks.deleteDashboard).toHaveBeenCalledTimes(1);
+    pendingDelete.resolve();
+    await waitFor(() => expect(deleteButtons[0].hasAttribute('disabled')).toBe(false));
+  });
+
   it('JSON 输入不是对象或数组时显示本地校验错误且不请求创建接口', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);
@@ -424,3 +471,14 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.createDashboard).not.toHaveBeenCalled();
   });
 });
+
+function createDeferredNull() {
+  let resolvePromise: () => void = () => {
+    throw new Error('deferred promise resolver was not registered');
+  };
+  const promise = new Promise<null>((resolve) => {
+    resolvePromise = () => resolve(null);
+  });
+
+  return { promise, resolve: resolvePromise };
+}
