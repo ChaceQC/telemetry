@@ -79,7 +79,8 @@ closed      已关闭
 | T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | done | done | done |
 | T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | done | todo | done | done | done |
 | T-0051 | 服务拓扑后端基础 | 总 agent | todo | done | done | done | done |
-| T-0052 | 服务拓扑前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0052 | 服务拓扑前端基础 | 总 agent | done | todo | done | done | done |
+| T-0053 | Dashboard CRUD 后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -452,7 +453,9 @@ closed      已关闭
 | 2026-06-23 | T-0052 | 代码审计 agent Poincare the 2nd | 服务拓扑前端基础审计有 P3 | Poincare the 2nd 只读审计 `f0d0ab4` 未发现 P0/P1/P2；发现 P3：调用边 React key 使用 `${from_source}-${to_source}` 可能在带短横线服务名时碰撞；另有 P3 为未做 Playwright + Edge/真实前后端联测，按流程交由后续测试 agent 覆盖。Poincare the 2nd 已关闭，已启动前端修复 agent | blocked |
 | 2026-06-23 | T-0052-fix | 前端修复 agent Faraday the 2nd | 服务拓扑 edge key 修复完成 | Faraday the 2nd 提交并推送 `5f3db06` 到 `feature/frontend-dev`：服务拓扑调用边 key 改为 `[from_source,to_source]` 的 JSON 编码，新增 `api-worker -> db` 与 `api -> worker-db` 不碰撞的窄测试，并记录前端进度；相关页面专项 7 tests、typecheck、lint、diff check 通过。Faraday the 2nd 已关闭，已启动复审 | audit |
 | 2026-06-23 | T-0052-fix | 代码复审 agent Noether the 2nd | 服务拓扑前端修复复审通过 | Noether the 2nd 只读复审 `5f3db06`，确认 edge key P3 已关闭，未发现新的 P0/P1/P2/P3；确认 topology API contract、`/traces/topology` 路由、认证/空态/错误态和既有 query 页面参数白名单未见阻断风险；Playwright + Edge 与真实前后端联测仍交由测试 agent 覆盖。Noether the 2nd 已关闭，建议真实 merge | done |
-| 2026-06-23 | T-0052 | 总 agent | 真实 merge 集成服务拓扑前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `f0d0ab4` 与 `5f3db06` 合入 `dev`，merge 提交 `d5165b7`；已同步根/前端/后端版本到 `0.2.9`，merge 后本地门禁通过，仍待推送、CI、feature 分支同步和真实前后端联合测试 | doing |
+| 2026-06-23 | T-0052 | 总 agent | 真实 merge 集成服务拓扑前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `f0d0ab4` 与 `5f3db06` 合入 `dev`，merge 提交 `d5165b7`；已同步根/前端/后端版本到 `0.2.9`，merge 后本地门禁、`dev`/feature CI、feature 分支同步和 Ptolemy the 2nd 真实前后端联合测试均通过，T-0052 关闭 | done |
+| 2026-06-23 | T-0052 | 测试 agent Ptolemy the 2nd | 服务拓扑真实前后端联合测试通过 | Ptolemy the 2nd 在 `dev/origin/dev` `538b9a5` 使用本机 MySQL80 8.0.42 临时库、真实 FastAPI 后端 `28117`、真实 Vite 前端 `25173` 和 Playwright + Microsoft Edge 验证 `/health=0.2.9` 与 `/traces/topology`；API/数据断言 17/17、浏览器断言 26/26 通过。覆盖 `api -> db`、`db -> cache`、`api -> worker`、`api-worker -> db`、`api -> worker-db`、error/duration、同 source、缺 parent、缺 source、重复 `span_id` ambiguous parent、source/limit/time/error/empty/loading/unauth 状态，以及 traces/logs/events/metrics 回归；Edge console duplicate key warning 0。证据目录 `agents/runtime/e2e-T-0052-20260623-20260623-172056`；测试 agent 已清理自有前后端进程、临时库和端口，未停止用户 MySQL80 或非自有 Edge，已关闭 | done |
+| 2026-06-23 | T-0053 | 总 agent | 登记 Dashboard CRUD 后端基础 | 阶段 5 下一小步限定为后端 Dashboard CRUD 基础：新增 dashboard 持久化模型/迁移/repository/API，支持按项目权限创建、列表、读取、更新、删除 dashboard，保存名称、描述和最小布局/配置 JSON；复用认证、项目 RBAC、MySQL 迁移和隐藏无权限项目语义。不做前端页面、不做 panel 图表渲染、不做变量/时间范围高级配置、不接 ClickHouse 查询和告警。将以 `xhigh` 思考强度启动后端开发 agent，在 `feature/backend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、本地不启动 Docker、MySQL 使用本地服务/临时库/实例、Debian 兼容和只清理自有资源 | doing |
 
 ## 6. 测试记录
 
@@ -533,6 +536,8 @@ closed      已关闭
 | 2026-06-23 | T-0051 | 服务拓扑真实 MySQL/真实后端专项 | Hooke the 2nd；自启动 MySQL 8.0.42、真实 FastAPI 后端 | 通过 | `dev/origin/dev` `148a712`；`/health=0.2.8`，API 场景 23 断言通过。覆盖 topology 正常聚合、权限/认证、source/time/limit/scan limit、重复 `span_id` ambiguous parent、同 source/缺 parent/缺 source、trace 与 events/logs/metrics/aggregate 回归；证据目录 `agents/runtime/e2e-T-0051-20260623-155251`，自有资源已清理 |
 | 2026-06-23 | T-0052 | 服务拓扑前端开发/复审门禁 | Heisenberg/Faraday/Noether；Vitest、typecheck、lint、build、diff check | 通过 | `feature/frontend-dev` `5f3db06`：开发侧 targeted 43 tests、全量 116 tests、typecheck、lint、build、diff check 通过；修复侧 topology 页面 7 tests、typecheck、lint、diff check 通过；复审侧 4 files/44 tests 与 `git diff --check origin/dev..HEAD` 通过。真实前后端 + Edge 联测待总 agent 后续测试 agent 覆盖 |
 | 2026-06-23 | T-0052 | dev merge 后本地验证 | 后端 config/uv lock、前端 topology/query 专项、typecheck、lint、build、`git diff --check` | 通过 | 后端 `tests/test_config.py` 13 passed，`uv lock --check` 通过；前端 4 files/44 tests passed，typecheck、lint、build 通过；`git diff --check` 通过。未启动真实服务、数据库或浏览器 |
+| 2026-06-23 | T-0052 | CI | GitHub Actions runs `28015518023`、`28015597529`、`28015599075` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在 `538b9a5` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-23 | T-0052 | 服务拓扑真实前后端联合测试 | Ptolemy the 2nd；本机 MySQL80 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `538b9a5`；`/health=0.2.9`，API/数据断言 17/17、浏览器断言 26/26 通过。覆盖 topology 主路径、source/limit/time/error/empty/loading/unauth、短横线 source duplicate key 回归、traces/logs/events/metrics 回归；证据目录 `agents/runtime/e2e-T-0052-20260623-20260623-172056`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -625,7 +630,7 @@ closed      已关闭
 | 2026-06-22 | T-0045-fix | feature/backend-dev | dev | 总 agent | 后端修复 `2d357a7` 与 P3 收口 `0928e6f` 已通过 Pauli 专项复验、Russell 审计和 Hume the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `89506c5` | doing |
 | 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁、CI、feature 分支同步和 Turing the 2nd 真实联测均通过，根/前端/后端版本同步到 `0.2.7` | done |
 | 2026-06-23 | T-0051 | feature/backend-dev | dev | 总 agent | 服务拓扑后端基础 `d3c5796` 与审计修复 `7a63b89` 已通过 Hypatia the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，同步根/前端/后端版本到 `0.2.8`；本地门禁、CI、feature 分支同步和 Hooke the 2nd 真实后端专项均通过 | done |
-| 2026-06-23 | T-0052 | feature/frontend-dev | dev | 总 agent | 服务拓扑前端基础 `f0d0ab4` 与 edge key 修复 `5f3db06` 已通过 Noether the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `d5165b7`，版本同步和本地门禁已通过，推送 CI、feature 分支同步和真实联测待完成 | doing |
+| 2026-06-23 | T-0052 | feature/frontend-dev | dev | 总 agent | 服务拓扑前端基础 `f0d0ab4` 与 edge key 修复 `5f3db06` 已通过 Noether the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `d5165b7`，版本同步、本地门禁、CI、feature 分支同步和 Ptolemy the 2nd 真实联测均通过 | done |
 
 ## 10. 决策记录
 
