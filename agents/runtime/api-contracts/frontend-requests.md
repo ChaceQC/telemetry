@@ -2,6 +2,28 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-23 T-0049 Trace 到 Logs 跳转基础
+
+- task: T-0049
+- owner: frontend-agent
+- scope: `/traces` 增加查看相关日志入口；`/logs` 支持 URL 查询参数初始化 Trace ID / Span ID 筛选。
+- status: frontend-ready
+
+### API 契约影响
+
+- 不新增后端接口、请求参数或响应字段。
+- 继续使用既有 `GET /api/v1/query/logs`，并复用已存在的 `trace_id`、`span_id` 可选查询参数。
+- 继续使用既有 `GET /api/v1/query/traces` 返回的 `trace_id` 与 `span_id` 字段构建前端路由链接。
+
+### 前端路由行为
+
+- `/traces` 的 trace 组头提供“查看相关日志”入口，跳转到 `/logs?trace_id=<trace_id>`。
+- `/traces` 的 span 行提供“查看相关日志”入口，跳转到 `/logs?trace_id=<trace_id>&span_id=<span_id>`。
+- 链接使用 React Router 相对应用路由，不硬编码域名、端口或部署子路径。
+- `/logs` 读取 URL 查询参数 `trace_id` 与 `span_id`，trim 空白后初始化 Trace ID / Span ID 筛选；有登录查询权限时按该筛选查询，无登录时显示已应用筛选和登录提示。
+- `/logs` 手动筛选、刷新、回第一页和下一页沿用既有 `submittedFilters + cursor` 分页状态；刷新或提交筛选清空 cursor 回第一页，下一页携带当前筛选和后端返回的 `next_cursor`。
+- URL 参数只影响 `/logs` 初始化，不污染 `/metrics`、`/events` 或 `/traces` 查询参数。
+
 ## 2026-06-23 T-0048 Trace waterfall / 树形详情基础
 
 - task: T-0048

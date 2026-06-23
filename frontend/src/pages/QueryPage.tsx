@@ -45,6 +45,10 @@ import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from
 import { summarizeEventPayload } from '../features/query/eventTimeline';
 import { formatJsonPreviewValue } from '../features/query/jsonPreview';
 import {
+  applyLogsTraceSearchToFilters,
+  buildLogsTraceSearch
+} from '../features/query/logTraceLinks';
+import {
   buildMetricAggregateParams,
   buildQueryParams,
   defaultFilters,
@@ -131,11 +135,30 @@ const signalConfig = {
 } satisfies Record<QuerySignal, unknown>;
 
 export function QueryPage({ signal }: QueryPageProps) {
-  const auth = useAuth();
   const location = useLocation();
+  const workspaceKey = signal === 'logs' ? `${signal}:${location.search}` : signal;
+
+  return (
+    <QueryPageWorkspace
+      key={workspaceKey}
+      signal={signal}
+      locationPathname={location.pathname}
+      locationSearch={location.search}
+    />
+  );
+}
+
+type QueryPageWorkspaceProps = QueryPageProps & {
+  locationPathname: string;
+  locationSearch: string;
+};
+
+function QueryPageWorkspace({ signal, locationPathname, locationSearch }: QueryPageWorkspaceProps) {
+  const auth = useAuth();
   const config = signalConfig[signal];
-  const [draftFilters, setDraftFilters] = useState<SignalScopedFilters>({ signal, filters: defaultFilters });
-  const [submittedFilters, setSubmittedFilters] = useState<SignalScopedFilters>({ signal, filters: defaultFilters });
+  const initialFilters = getInitialFilters(signal, locationSearch);
+  const [draftFilters, setDraftFilters] = useState<SignalScopedFilters>(() => ({ signal, filters: initialFilters }));
+  const [submittedFilters, setSubmittedFilters] = useState<SignalScopedFilters>(() => ({ signal, filters: initialFilters }));
   const [pagination, setPagination] = useState<PaginationState>({ signal, page: 1, version: 0 });
   const canQuery = auth.isAuthenticated && !auth.isRestoring;
   const filters = draftFilters.signal === signal ? draftFilters.filters : defaultFilters;
@@ -274,7 +297,7 @@ export function QueryPage({ signal }: QueryPageProps) {
             <p>{auth.isRestoring ? '会话恢复完成后会自动发起查询。' : '查询接口需要使用当前账号的访问令牌。'}</p>
           </div>
           {!auth.isRestoring ? (
-            <Link className="text-button" to="/login" state={{ from: { pathname: location.pathname } }}>
+            <Link className="text-button" to="/login" state={{ from: { pathname: locationPathname, search: locationSearch } }}>
               <LogIn size={16} aria-hidden="true" />
               <span>登录</span>
             </Link>
@@ -286,7 +309,7 @@ export function QueryPage({ signal }: QueryPageProps) {
         <div className="section-heading">
           <div>
             <h2>筛选条件</h2>
-            <p>默认查询当前账号可访问的全部项目。</p>
+            <p>{formatFilterDescription(signal, activeSubmittedFilters)}</p>
           </div>
           <Icon size={20} aria-hidden="true" />
         </div>
@@ -556,6 +579,23 @@ export function QueryPage({ signal }: QueryPageProps) {
       </section>
     </div>
   );
+}
+
+function getInitialFilters(signal: QuerySignal, search: string) {
+  return signal === 'logs' ? applyLogsTraceSearchToFilters(search) : defaultFilters;
+}
+
+function formatFilterDescription(signal: QuerySignal, filters: QueryFilters) {
+  if (signal !== 'logs') {
+    return '默认查询当前账号可访问的全部项目。';
+  }
+
+  const applied = [
+    filters.traceId.trim() ? `Trace ID: ${filters.traceId.trim()}` : null,
+    filters.spanId.trim() ? `Span ID: ${filters.spanId.trim()}` : null
+  ].filter((part): part is string => Boolean(part));
+
+  return applied.length > 0 ? `已应用关联日志筛选：${applied.join(' / ')}。` : '默认查询当前账号可访问的全部项目。';
 }
 
 function EventTimeline({ events }: { events: EventQueryItem[] }) {
@@ -869,6 +909,14 @@ function TraceWaterfallGroupView({
           </div>
         </div>
         <div className="trace-waterfall-summary">
+          <Link
+            className="text-button trace-log-link"
+            to={{ pathname: '/logs', search: buildLogsTraceSearch({ traceId: group.traceId }) }}
+            title="按当前 Trace ID 查看相关日志"
+          >
+            <Search size={15} aria-hidden="true" />
+            <span>查看相关日志</span>
+          </Link>
           {group.orphanCount > 0 ? <StatusBadge tone="warning">{`${group.orphanCount} 孤儿`}</StatusBadge> : null}
           {!group.hasTiming ? <StatusBadge tone="neutral">无时间轴</StatusBadge> : null}
           <StatusBadge tone={statusTone}>{statusText}</StatusBadge>
@@ -927,6 +975,14 @@ function TraceSpanWaterfallRow({ span, canQuery }: { span: TraceWaterfallSpan; c
             {span.isOrphan ? <StatusBadge tone="warning">缺 parent</StatusBadge> : null}
             {span.isSlow ? <StatusBadge tone="warning">慢</StatusBadge> : null}
             <StatusBadge tone={getTraceStatusTone(item.status_code)}>{formatTraceStatus(item.status_code)}</StatusBadge>
+            <Link
+              className="text-button log-context-toggle trace-log-link"
+              to={{ pathname: '/logs', search: buildLogsTraceSearch({ traceId: item.trace_id, spanId: item.span_id }) }}
+              title="按当前 Trace ID 和 Span ID 查看相关日志"
+            >
+              <Search size={15} aria-hidden="true" />
+              <span>查看相关日志</span>
+            </Link>
             <button
               className="text-button log-context-toggle"
               type="button"

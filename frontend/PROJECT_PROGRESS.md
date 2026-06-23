@@ -2,6 +2,34 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0049 Trace 到 Logs 跳转基础
+
+### 已完成
+
+- `/traces` trace 组头新增“查看相关日志”入口，使用 React Router 相对路由跳转到 `/logs?trace_id=<trace_id>`，不硬编码域名、端口或部署子路径。
+- `/traces` span 行新增“查看相关日志”入口，跳转到 `/logs?trace_id=<trace_id>&span_id=<span_id>`，可按当前 trace/span 查看关联日志。
+- 新增 `features/query/logTraceLinks.ts` 纯函数，统一构建、解析和应用 logs trace/span URL 查询参数，trim 空白并保留 URL 编码行为。
+- `/logs` 支持从 URL 查询参数初始化 Trace ID / Span ID 筛选；已登录时按该筛选查询，未登录时保留已应用筛选提示和登录门禁。
+- 保留 logs 手动筛选、刷新、回第一页、下一页和分页 cursor 行为；URL 参数只初始化 `/logs`，不污染 `/metrics`、`/events` 或 `/traces` 查询参数。
+- 更新 `frontend/README.md`、`agents/runtime/api-contracts/frontend-requests.md`、前端版本文件、`package.json`、`package-lock.json`、`.env.example` 和运行时兜底版本；前端版本提升到 `0.2.6`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不改后端代码，不启动 Docker、后端或 MySQL，不做完整真实前后端联测。
+- 本轮浏览器验证计划使用 Playwright + Microsoft Edge 对前端侧 mock 数据态做最小检查，不代表真实后端联调。
+- 本轮未修改根 `PROJECT_PROGRESS.md` 或根 `AGENT_COMMUNICATION.md`。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/query/logTraceLinks.test.ts src/features/query/queryFilters.test.ts src/pages/QueryPage.test.tsx` 通过（3 个测试文件、21 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过；初次因 URL 同步 effect 触发 `react-hooks/set-state-in-effect`，已改为 `/logs` 查询串驱动 `QueryPageWorkspace` 重挂载初始化筛选后重跑通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（17 个测试文件、82 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+- 测试 agent `Harvey the 2nd` 已完成独立专项复验：首轮发现上述 lint 问题，同时用 Playwright + Microsoft Edge 验证 `/logs?trace_id=trace-a&span_id=span-b` 可预填 Trace ID / Span ID 并显示已应用筛选；开发侧修复后复验 `npm.cmd run lint` 和 T-0049 targeted tests 通过，确认 `QueryPage.tsx` 不再包含 `useEffect` / `setAppliedLogsSearch` 残留。测试 agent 已清理自有 Vite、Edge 和临时资源。
+- 开发侧曾自启动 Vite `127.0.0.1:25249` 尝试扩展 Edge mock trace 数据态检查；受临时 Playwright 包解析限制未形成有效 trace 页面浏览器断言，最终停止自有进程链并确认端口 `25249` 已释放。Trace 跳转链接由 SSR 页面测试覆盖。
+
 ## 2026-06-23 T-0048-fix Trace waterfall 响应式审计修复
 
 ### 已完成
