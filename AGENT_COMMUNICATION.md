@@ -77,7 +77,8 @@ closed      已关闭
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | done | done | done |
-| T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | done | todo | done | done | testing |
+| T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | done | todo | done | done | done |
+| T-0051 | 服务拓扑后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -436,7 +437,9 @@ closed      已关闭
 | 2026-06-23 | T-0050 | 总 agent | 登记日志到 Trace 跳转前端基础 | 阶段 4 下一小步限定为前端 trace/log 互跳闭环：在 `/logs` 查询结果中，当日志记录包含 `trace_id` 和可选 `span_id` 时提供“查看相关 Trace”入口，跳转到 `/traces?trace_id=...` 或 `/traces?trace_id=...&span_id=...`；复用 T-0049 已完成的 `/traces` URL 初始化能力。范围不改后端契约、不新增 API、不做服务拓扑、指标互跳、ClickHouse 或日志上下文深链；将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程 | doing |
 | 2026-06-23 | T-0050 | 前端开发 agent Nietzsche the 2nd | 日志到 Trace 跳转前端基础完成 | Nietzsche the 2nd 提交并推送 `c264662` 到 `feature/frontend-dev`：在 `/logs` 查询结果和日志上下文 actions 中，当记录包含 `trace_id` 时显示“查看相关 Trace”入口，trace-only 跳 `/traces?trace_id=...`，trace+span 跳 `/traces?trace_id=...&span_id=...`；复用/扩展 `logTraceLinks` helper 保持 trim、空值和 URL 编码一致，无 trace_id 或仅 span_id 不显示入口；保持 metrics/events 不污染和既有 trace→logs 跳转不回退。专项 23 tests、前端全量 105 tests、typecheck、lint、build、diff check 均通过；未启动浏览器或测试 agent。Nietzsche the 2nd 已关闭，已启动代码审计 | audit |
 | 2026-06-23 | T-0050 | 代码审计 agent Gibbs the 2nd | 日志到 Trace 跳转前端审计通过 | Gibbs the 2nd 只读审计 `c264662`，未发现 P0/P1/P2/P3；确认 `/logs` 入口仅在 trace_id 存在时显示，span_id 会进入 `/traces` URL，使用 React Router `Link` 且无硬编码域名/端口，T-0049 trace→logs、logs/traces URL 初始化、auth gating 与 metrics/events 参数隔离均无回退。Gibbs the 2nd 已关闭，建议 merge 后按风险真实联测 | done |
-| 2026-06-23 | T-0050 | 总 agent | 真实 merge 集成日志到 Trace 跳转 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `c264662` 合入 `dev`，merge 提交 `4fc5301`；同步根、前端、后端版本到 `0.2.7`，版本门禁已通过。后续推送、读取 CI、同步 feature 分支，并启动测试 agent 用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 验证 logs -> traces 与 trace -> logs 闭环 | testing |
+| 2026-06-23 | T-0050 | 总 agent | 真实 merge 集成日志到 Trace 跳转 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `c264662` 合入 `dev`，merge 提交 `4fc5301`；同步根、前端、后端版本到 `0.2.7`，版本门禁、CI 和 feature 分支同步已通过。Turing the 2nd 真实联测通过后 T-0050 关闭 | done |
+| 2026-06-23 | T-0050 | 测试 agent Turing the 2nd | 日志到 Trace 跳转真实联测通过 | Turing the 2nd 在 `dev/origin/dev` `186b5a5` 使用自启动隔离 MySQL 8.0.42 `39420`、真实后端 `28117`、真实前端 `25173` 和 Playwright + Microsoft Edge 149.0.4022.69 完成联测；`/health=0.2.7`，断言 68 passed/0 failed。覆盖项目/环境/服务/API Key、events/metrics/logs/traces 摄入、trace-only/trace+span/空白 trace/span-only 日志、logs 列表和上下文“查看相关 Trace”显示与 URL、无 trace_id 不显示入口、`/traces` trace/span URL 初始化、已登录硬导航和刷新首包 Authorization、trace -> logs、logs 深链、metrics/events 参数隔离、登出缓存隔离和重新登录 search 保留。证据目录 `agents/runtime/e2e-T-0050-20260623-134651`；测试 agent 已清理自有前端、后端、临时 MySQL、Edge 和端口，未关闭非自有 MySQL，已关闭 | done |
+| 2026-06-23 | T-0051 | 总 agent | 登记服务拓扑后端基础 | 阶段 4 下一小步限定为后端最小服务拓扑 API：基于关系库已摄入 trace spans 的 `trace_id`、`span_id`、`parent_span_id`、`source`、`status_code`、`duration_ms` 和时间范围，按项目权限返回服务节点与父子 span 推导出的 source-to-source 边，包含调用次数、错误次数和耗时摘要；不接 ClickHouse、不做前端拓扑图、不改 trace ingestion 契约、不引入复杂布局或跨项目聚合。将以 `xhigh` 思考强度启动后端开发 agent，在 `feature/backend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、本地不启动 Docker、MySQL 使用本地服务/临时库/实例、Debian 兼容和只清理自有资源 | doing |
 
 ## 6. 测试记录
 
@@ -512,6 +515,7 @@ closed      已关闭
 | 2026-06-23 | T-0050 | dev merge 后本地验证 | 前端 T-0050 专项 test、前端全量 test、typecheck、lint、build、`git diff --check` | 通过 | 专项 2 files/23 tests passed，全量 22 files/105 tests passed；typecheck、lint、build、diff check 均通过。未启动真实后端、真实数据库、浏览器或完整联测，后续交由测试 agent 执行 |
 | 2026-06-23 | T-0050/VERSION | 版本同步本地验证 | 后端配置测试、`uv lock --check`、前端 typecheck/build、`git diff --check` | 通过 | 根、前端、后端版本声明同步到 `0.2.7`；`uv run pytest tests/test_config.py` 11 passed，`uv lock --check`、`npm.cmd run typecheck`、`npm.cmd run build`、diff check 均通过。未启动或关闭任何本地服务 |
 | 2026-06-23 | T-0050 | CI | GitHub Actions runs `28004819590`、`28004851916`、`28004859254` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在提交 `fe572c3` 上通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解风险 |
+| 2026-06-23 | T-0050 | 日志到 Trace 跳转真实前后端联合测试 | Turing the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `186b5a5`；后端 `/health=0.2.7`，断言 68/68 通过。覆盖 logs -> traces 列表/上下文入口、trace-only 和 trace+span URL、无 trace_id/span-only 不显示入口、traces URL 初始化和查询、首包 Authorization、trace -> logs、logs 深链、metrics/events 参数隔离、缓存隔离和登录 search 保留；证据目录 `agents/runtime/e2e-T-0050-20260623-134651`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -602,7 +606,7 @@ closed      已关闭
 | 2026-06-22 | T-0044 | feature/backend-dev | dev | 总 agent | 后端 trace ingestion 最小基础 `f2c6c05` 已通过 Meitner 审计和 Descartes 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `5188aef`；版本同步到 `0.2.2` | done |
 | 2026-06-22 | T-0045 | feature/backend-dev | dev | 总 agent | 后端 trace 查询最小基础 `a249fe7` 与契约修复 `c87a60f` 已通过 Heisenberg 审计和 James 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `2916df9`；版本同步到 `0.2.3` | done |
 | 2026-06-22 | T-0045-fix | feature/backend-dev | dev | 总 agent | 后端修复 `2d357a7` 与 P3 收口 `0928e6f` 已通过 Pauli 专项复验、Russell 审计和 Hume the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `89506c5` | doing |
-| 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁和 CI 均通过，根/前端/后端版本同步到 `0.2.7`；`feature/frontend-dev` 与 `feature/backend-dev` 已快进到 `fe572c3` 并推送，待真实联测 | testing |
+| 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁、CI、feature 分支同步和 Turing the 2nd 真实联测均通过，根/前端/后端版本同步到 `0.2.7` | done |
 
 ## 10. 决策记录
 
