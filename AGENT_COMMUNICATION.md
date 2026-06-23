@@ -582,6 +582,7 @@ closed      已关闭
 | 2026-06-24 | T-0055 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check`；前端 `npm.cmd run typecheck`、`npm.cmd run build`；`git diff --check` | 通过 | 后端 dashboard/config 49 passed，1 条既有 Starlette/TestClient 弃用警告；ruff、format check、mypy、uv lock 通过；前端 typecheck/build 通过；diff check 通过。worktree 体检仅因 `dev` 本地领先远端且根文档待提交而失败，推送后复查 |
 | 2026-06-24 | T-0055 | CI | GitHub Actions run `28050085589` | 通过 | `dev` 提交 `0002728` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解，不阻塞 |
 | 2026-06-24 | T-0055-sync | CI | GitHub Actions runs `28050203922`、`28050218117`、`28050231723` | 通过 | `cd6290b` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
+| 2026-06-24 | T-0056-start | CI | GitHub Actions run `28050373490` | 通过 | T-0056 启动记录提交 `2d989c9` 后 `dev` CI 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 
 ## 7. 审计记录
 
