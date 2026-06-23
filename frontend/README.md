@@ -1,6 +1,6 @@
 # 遥测前端
 
-遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Metrics/Logs/Traces/Events 查询页、Trace 服务拓扑基础展示、健康检查/API client 和环境变量示例。
+遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Dashboard CRUD 基础页面、Metrics/Logs/Traces/Events 查询页、Trace 服务拓扑基础展示、健康检查/API client 和环境变量示例。
 
 ## 环境要求
 
@@ -35,7 +35,7 @@ npm.cmd run preview
 
 ```text
 VITE_APP_NAME=遥测平台
-VITE_APP_VERSION=0.2.10
+VITE_APP_VERSION=0.2.11
 VITE_PUBLIC_BASE_PATH=/
 VITE_API_BASE_URL=http://localhost:28117
 VITE_API_BASE_PATH=/api
@@ -76,6 +76,17 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 
 错误展示不要求后端服务已启动即可验证：API client 兼容 FastAPI `detail` 为字符串、校验错误数组或对象；`/settings` 列表读取错误按页面级展示，创建表单对 `404`、`409`、`422` 使用表单级提示并保留后端返回的具体原因。Settings 列表或创建请求返回 `401` 时统一展示页面级登录过期提示和登录入口，不复用登录表单的账号密码错误文案。
 
+## Dashboard CRUD 页面
+
+`/dashboards` 页面提供阶段 5 的 dashboard 元数据管理基础，使用当前 session token 访问 Dashboard CRUD 后端接口：
+
+- 列表：调用 `GET /api/v1/dashboards`，支持可选 `project_id`、固定首屏 `limit=50` 和 `offset=0`；页面同时复用 `GET /api/v1/projects` 展示项目下拉，也允许手动输入项目 ID。
+- 创建：调用 `POST /api/v1/dashboards`，提交 `project_id`、`name`、可空 `description`、`layout` 和 `config`。
+- 编辑：调用 `PATCH /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，只提交实际变化字段；描述清空会提交 `description=null`。
+- 删除：调用 `DELETE /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，成功后刷新 dashboard 列表。
+
+`layout` 和 `config` 在前端以 JSON textarea 编辑，提交前会先校验必须是 JSON 对象或数组；大小、深度、复杂度和非有限数限制仍以后端校验为准。页面展示 loading、error、empty、未登录/会话恢复状态；Dashboard 查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `dashboards` 缓存，避免显示上一 session 数据。当前不做 panel 图表渲染、变量/时间范围高级配置、ClickHouse 图表查询或告警规则。
+
 ## 总览页摄入统计
 
 `/` 总览页会在登录后调用 `GET /api/v1/ingest/stats?limit=100`，按当前账号可访问项目汇总 metrics、logs 和 events 的 `accepted_count`、`rejected_count`、`bytes_count`、来源数量和最近统计时间。
@@ -105,7 +116,7 @@ src/
   app/          应用 Provider 和路由
   api/          API client、配置和接口封装
   components/   通用布局和展示组件
-  features/     领域组件，当前包含 auth 状态和 settings 基础管理面板
+  features/     领域组件，当前包含 auth、settings、dashboards 和 query 相关能力
   pages/        页面入口
   styles/       全局样式
 ```
@@ -120,5 +131,7 @@ npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
 ```
+
+Vitest 单元测试默认使用 Node 环境；Dashboard CRUD 交互测试通过文件级 `jsdom` 环境和 Testing Library 覆盖创建、更新、删除和本地 JSON 校验。
 
 当前首屏会调用 `GET /health`。后端未启动时页面会显示“待连接”状态，这是预期的可恢复错误态。

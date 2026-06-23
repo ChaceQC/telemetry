@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { appConfig } from '../api/config';
 import { ConsoleLayout } from '../components/ConsoleLayout';
+import { DashboardsPage } from '../pages/DashboardsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
@@ -40,6 +41,10 @@ export const routes = [
       {
         path: 'events',
         element: <QueryPage signal="events" />
+      },
+      {
+        path: 'dashboards',
+        element: <DashboardsPage />
       },
       {
         path: 'alerts',

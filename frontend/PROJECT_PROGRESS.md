@@ -2,6 +2,42 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0054 Dashboard CRUD 前端基础
+
+### 已完成
+
+- 新增 Dashboard CRUD 前端 API client 与 TypeScript 类型，按后端契约消费 `GET/POST /api/v1/dashboards` 和 `GET/PATCH/DELETE /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，列表参数只包含 `project_id`、`limit`、`offset`。
+- 新增 `/dashboards` 路由和侧边导航入口，支持项目下拉/手动项目 ID、dashboard 列表、offset 上一页/下一页、创建、选择编辑、保存名称/描述/layout/config JSON 和删除；未把 dashboard 项目筛选写入 metrics/logs/events/traces 查询参数。
+- Dashboard 页面复用现有 auth gating、Bearer API client、项目列表体验和错误文案风格，覆盖未登录、会话恢复、loading、error、empty、无项目和权限/校验错误展示；Dashboard 查询缓存按 `sessionRevision` 隔离，并在登录、登出、切换账号时清理 `dashboards` 缓存。
+- 审计修复：编辑区不再把首个 dashboard 自动渲染为可提交表单，必须先选择列表项，避免未点列表直接保存时清空 description 或把 layout/config 写成 `{}`；登出、401/unauth、`sessionRevision`、项目 ID/项目范围变化和无效项目 ID 会清理/隔离本地 create/edit/project/offset 状态，避免旧账号/旧项目内容残留显示。
+- `layout` 和 `config` 使用 JSON textarea 编辑，提交前前端校验必须是 JSON 对象或数组，并增加 64 KiB、32 层、4096 节点、NaN/Infinity 本地拦截与 `maxLength` 输入保护。
+- 补充 API client、JSON helper、页面状态、创建/更新/删除交互、首项编辑 state、会话/项目切换清理、分页和 JSON 限制回归测试；为交互测试新增 `jsdom`、`@testing-library/react`、`@testing-library/user-event` devDependencies 并同步 lock。
+- 第二轮审计修复：项目范围切换时创建表单重置为新项目默认草稿，不再跨项目搬运未提交的 name/description/layout/config；删除末页唯一记录后按删除后的 total/limit 回退 offset，避免停留在越界空页。
+- 第三轮审计 P3 修复：dashboard 删除请求 pending 期间立即锁住并禁用当前列表所有删除入口，阻止末页多条记录被快速并发删除后用旧 total 反复计算 offset；补交互测试覆盖末页两条记录快速点击两次删除时只触发一次删除请求，避免留下越界 offset。
+- 第四轮审计 P3 修复：dashboard 删除成功后继续保持删除锁，直到 dashboard 查询 `invalidate/refetch` 完成后才释放，关闭 delete request 已 resolve 但旧列表仍未刷新的 stale-total gap；补交互测试覆盖删除请求已成功、列表刷新 promise 尚未完成时无法触发第二次旧列表删除。
+- 本轮保持前端版本 `0.2.11`，未修改版本文件。
+- 前端版本提升到 `0.2.11`，同步 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不改后端代码、不启动 Docker、不接 ClickHouse、不做 panel 图表渲染、不做变量/时间范围高级配置、不做告警。
+- 未代跑完整真实前后端联合测试；Dashboard CRUD 真实后端/MySQL/权限矩阵仍需由总 agent 或测试 agent 后续联测覆盖。
+- 未启动前端专项测试 agent；由当前前端修复 agent 完成实现和本地前端验证。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过。
+- 第二轮修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、31 个测试通过）。
+- 第三轮 P3 修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、32 个测试通过）。
+- 第三轮 P3 修复后已在 `frontend/` 包目录执行：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；已在 worktree 根目录执行 `git diff --check` 通过。
+- 第四轮 P3 修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、33 个测试通过）。
+- 第四轮 P3 修复后已在 `frontend/` 包目录执行：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；已在 worktree 根目录执行 `git diff --check` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（28 个测试文件、150 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-23 版本同步 0.2.10
 
 ### 已完成
