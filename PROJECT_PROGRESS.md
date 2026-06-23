@@ -665,6 +665,7 @@
 - T-0049-fix 前端修复与复审通过：Sartre the 2nd 提交 `a86f559`，按 sessionRevision 隔离 Overview/Settings 缓存、不可请求认证 API 时隐藏旧数据，并保留登录回跳 search；Euclid the 2nd 复审未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix 合入 `dev`，merge 提交 `bc15a60`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
 - T-0049-fix 真实联测重跑未完全通过：Planck the 2nd 在 `dev/origin/dev` `717dd68` 上确认原 401 首包问题、Settings/Overview 旧缓存闪现和登录回跳 search 均已关闭；但 `/traces?trace_id=<129 chars>` 未将 URL trace_id 传入后端查询，返回 200 而非 422/错误态，证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`。已登记 T-0049-fix2，需前端补 `/traces` URL trace_id 初始化。
+- T-0049-fix2 前端修复与审计通过：Socrates the 2nd 提交 `a30e126`，让 `/traces` 从 URL `trace_id` 初始化筛选并传给后端，超长 trace_id 不再被静默忽略；James the 2nd 审计未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
 
 ### 阻塞与风险
 
@@ -686,11 +687,11 @@
 - T-0049 已知 P3：`/logs` URL 参数只做 trim，手写超过后端 128 字符限制的 `trace_id`/`span_id` 会提交到 logs API 并返回 422；正常由 `/traces` 后端数据生成的跳转不受影响。后续可补前端长度预校验与分页交互用例。
 - T-0049-fix 阻断问题已由 `3ed47cb`/`a86f559` 关闭：已登录 URL 直达或刷新查询页首个业务请求带 Authorization，无 401。
 - T-0049-fix 新增 P2 已由 `a86f559` 关闭并经 Planck 重测观察通过：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据。
-- T-0049-fix2 阻断问题：`/traces?trace_id=...` 未初始化 trace 查询筛选，超长 trace_id 不会传到后端触发 422，普通 trace_id 直达也可能没有实际筛选。
+- T-0049-fix2 阻断问题已由 `a30e126` 关闭：`/traces?trace_id=...` 会初始化 Trace ID 筛选并传给后端，超长 trace_id 不再被静默忽略；仍需真实联测确认 422/错误态。
 
 ### 下一步
 
-- 启动前端修复 agent 在 `feature/frontend-dev` 推进 T-0049-fix2，补 `/traces` URL trace_id 初始化与超长 trace_id 错误路径；修复完成后代码审计、merge 并再次重跑真实联测。
+- 使用真实 `git merge` 将 `feature/frontend-dev` 的 T-0049-fix2 合入 `dev`，完成收窄门禁、推送、CI 读取和 feature 分支同步后，再次重跑真实前后端联合测试。
 
 ### 验证
 
