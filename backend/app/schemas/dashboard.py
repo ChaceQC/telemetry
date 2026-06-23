@@ -229,3 +229,13 @@ class DashboardListResponse(BaseModel):
     limit: int
     offset: int
     total: int
+
+
+class DashboardPanelPreviewResponse(BaseModel):
+    project_id: int
+    dashboard_id: int
+    panel_id: str
+    title: str
+    panel_type: str
+    query: dict[str, Any]
+    preview: dict[str, Any]

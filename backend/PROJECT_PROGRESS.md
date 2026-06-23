@@ -2,6 +2,34 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0058 Dashboard panel 查询预览后端基础
+
+### 已完成
+
+- 新增 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview`，针对已保存 dashboard 的单个 `config.panels[].id` 生成只读查询预览。
+- 预览复用当前关系库 query service：`metrics` 返回指标窗口聚合 `items`，`logs/events/traces` 返回最近样本 `items`，`topology` 返回节点和调用边摘要。
+- 复用 dashboard 读取权限语义：目标项目至少 `viewer`；普通用户无项目成员关系、项目不存在、dashboard 不属于项目、legacy config 或 panel 不存在均按隐藏式 `404` 处理；非法 panel query 白名单字段返回 `422`。
+- `panel.query` 只读取已有查询 API 支持的白名单字段，未知字段忽略；本轮不引入复杂 DSL、不支持未保存草稿 config、不写 dashboard。
+- 新增 `DashboardPanelPreviewResponse`，扩展 `backend/tests/test_dashboard_api.py` 覆盖 metrics/logs/events/traces/topology 成功路径、viewer 权限、无权限隐藏、legacy config/panel 不存在和非法 `limit`。
+- 修复代码审计 P2：`metrics` panel 的 `query.window` 与 `query.aggregation` 在枚举判断前先校验字符串类型，历史保存配置中的数组/对象等非法值返回 `422`，不再绕过 `QueryFilterError` 形成 `500`；回归测试覆盖 list/object `window` 与 list `aggregation`。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`；新增 API 路径，因此后端版本提升到 `0.2.12`。
+- 后端开发 worker Ohm 超时未产出且未修改文件，总 agent 按项目规则极窄接手实现；未修改根工作树业务代码或根协调文件。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮仍只基于关系库 `ingest_records` 查询能力，不接 ClickHouse，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警。
+- 未启动真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard panel preview 执行计划和前端消费仍需后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：54 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`，结果：通过。
+- 已运行 `uv run mypy app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`，结果：4 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0055a-code-audit-P2 Dashboard panel 字符串规范化修复
 
 ### 已完成

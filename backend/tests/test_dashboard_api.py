@@ -99,6 +99,21 @@ def create_project(
     return cast(dict[str, Any], response.json())
 
 
+def create_api_key(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    *,
+    project_id: int,
+) -> str:
+    response = client.post(
+        f"/api/v1/projects/{project_id}/api-keys",
+        headers=auth_headers,
+        json={"name": "dashboard-panel-preview"},
+    )
+    assert response.status_code == 201
+    return str(response.json()["api_key"])
+
+
 def grant_project_role(
     client: TestClient,
     *,
@@ -187,6 +202,7 @@ def _dashboard_panel_config() -> dict[str, Any]:
         ("GET", "/api/v1/dashboards", None),
         ("POST", "/api/v1/dashboards", {"project_id": 1, "name": "服务总览"}),
         ("GET", "/api/v1/projects/1/dashboards/1", None),
+        ("GET", "/api/v1/projects/1/dashboards/1/panels/cpu/preview", None),
         ("PATCH", "/api/v1/projects/1/dashboards/1", {"name": "服务概览"}),
         ("DELETE", "/api/v1/projects/1/dashboards/1", None),
     ],
@@ -523,6 +539,394 @@ def test_dashboard_panel_config_keeps_legacy_config_compatible() -> None:
     assert legacy_config_response.json()["config"] == {"refresh_seconds": 30}
     assert arbitrary_config_response.status_code == 201
     assert arbitrary_config_response.json()["config"] == [{"query": "legacy raw query"}]
+
+
+def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    metrics_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "http.duration",
+                    "value": 10,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:05Z",
+                },
+                {
+                    "name": "http.duration",
+                    "value": 20,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:04:59Z",
+                },
+            ]
+        },
+    )
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "boom",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "ignored",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+            ]
+        },
+    )
+    events_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "type": "deployment",
+            "source": "ci",
+            "timestamp": "2026-06-20T10:03:00Z",
+            "payload": {"version": "2026.6.20"},
+        },
+    )
+    traces_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "trace-preview",
+                    "span_id": "api-root",
+                    "name": "GET /orders",
+                    "start_time": "2026-06-20T10:04:00Z",
+                    "duration_ms": 100,
+                    "status_code": "ok",
+                    "source": "api",
+                },
+                {
+                    "trace_id": "trace-preview",
+                    "span_id": "worker-child",
+                    "parent_span_id": "api-root",
+                    "name": "process order",
+                    "start_time": "2026-06-20T10:04:00.010Z",
+                    "duration_ms": 50,
+                    "status_code": "error",
+                    "source": "worker",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Preview dashboard",
+            "config": {
+                "panels": [
+                    {
+                        "id": "latency",
+                        "title": "Latency",
+                        "type": "metrics",
+                        "query": {
+                            "name": "http.duration",
+                            "source": "api",
+                            "window": "5m",
+                            "aggregation": "avg",
+                            "limit": 5,
+                        },
+                    },
+                    {
+                        "id": "errors",
+                        "title": "Errors",
+                        "type": "logs",
+                        "query": {"level": "error", "limit": 1},
+                    },
+                    {
+                        "id": "deployments",
+                        "title": "Deployments",
+                        "type": "events",
+                        "query": {"type": "deployment", "source": "ci", "limit": 1},
+                    },
+                    {
+                        "id": "trace-list",
+                        "title": "Trace list",
+                        "type": "traces",
+                        "query": {"name": "GET /orders", "limit": 2},
+                    },
+                    {
+                        "id": "topology",
+                        "title": "Topology",
+                        "type": "topology",
+                        "query": {"source": "api", "limit": 5},
+                    },
+                ]
+            },
+        },
+    )
+
+    assert metrics_response.status_code == 202
+    assert logs_response.status_code == 202
+    assert events_response.status_code == 202
+    assert traces_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    dashboard_id = dashboard_response.json()["id"]
+
+    metrics_preview = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/latency/preview",
+        headers=auth_headers,
+    )
+    logs_preview = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/errors/preview",
+        headers=auth_headers,
+    )
+    events_preview = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/deployments/preview",
+        headers=auth_headers,
+    )
+    traces_preview = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/trace-list/preview",
+        headers=auth_headers,
+    )
+    topology_preview = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/topology/preview",
+        headers=auth_headers,
+    )
+
+    assert metrics_preview.status_code == 200
+    metrics_body = metrics_preview.json()
+    assert metrics_body["panel_id"] == "latency"
+    assert metrics_body["panel_type"] == "metrics"
+    assert metrics_body["preview"]["kind"] == "metrics"
+    assert metrics_body["preview"]["mode"] == "aggregate"
+    assert metrics_body["preview"]["items"][0]["name"] == "http.duration"
+    assert metrics_body["preview"]["items"][0]["value"] == 15.0
+    assert metrics_body["preview"]["items"][0]["sample_count"] == 2
+
+    assert logs_preview.status_code == 200
+    assert logs_preview.json()["preview"]["items"][0]["message"] == "boom"
+    assert events_preview.status_code == 200
+    assert events_preview.json()["preview"]["items"][0]["type"] == "deployment"
+    assert traces_preview.status_code == 200
+    assert traces_preview.json()["preview"]["items"][0]["trace_id"] == "trace-preview"
+    assert topology_preview.status_code == 200
+    topology_body = topology_preview.json()
+    assert {node["source"] for node in topology_body["preview"]["nodes"]} == {"api", "worker"}
+    assert topology_body["preview"]["edges"] == [
+        {
+            "from_source": "api",
+            "to_source": "worker",
+            "call_count": 1,
+            "error_count": 1,
+            "avg_duration_ms": 50,
+            "max_duration_ms": 50,
+        }
+    ]
+
+
+def test_dashboard_panel_preview_uses_viewer_permission_and_hides_unscoped_users() -> None:
+    client = build_client()
+    owner, owner_headers = create_auth_headers(client, username="preview-owner")
+    viewer, viewer_headers = create_auth_headers(client, username="preview-viewer")
+    _, stranger_headers = create_auth_headers(client, username="preview-stranger")
+    project = create_project(client, owner_headers)
+    project_id = cast(int, project["id"])
+    grant_project_role(
+        client,
+        project_id=project_id,
+        user_id=viewer.id,
+        role=ProjectRole.viewer,
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=owner_headers,
+        json={
+            "project_id": project_id,
+            "name": "Viewer preview",
+            "config": {
+                "panels": [
+                    {
+                        "id": "empty-logs",
+                        "title": "Empty logs",
+                        "type": "logs",
+                        "query": {"limit": 5},
+                    }
+                ]
+            },
+        },
+    )
+    dashboard_id = dashboard_response.json()["id"]
+
+    viewer_response = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/empty-logs/preview",
+        headers=viewer_headers,
+    )
+    stranger_response = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/empty-logs/preview",
+        headers=stranger_headers,
+    )
+
+    assert owner.id != viewer.id
+    assert dashboard_response.status_code == 201
+    assert viewer_response.status_code == 200
+    assert viewer_response.json()["preview"]["items"] == []
+    assert stranger_response.status_code == 404
+    assert stranger_response.json()["detail"] == "项目不存在"
+
+
+def test_dashboard_panel_preview_hides_missing_panel_and_legacy_config() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-legacy-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    legacy_dashboard = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Legacy preview",
+            "config": {"refresh_seconds": 30},
+        },
+    )
+    panel_dashboard = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Panel preview",
+            "config": {
+                "panels": [
+                    {
+                        "id": "logs",
+                        "title": "Logs",
+                        "type": "logs",
+                        "query": {},
+                    }
+                ]
+            },
+        },
+    )
+
+    legacy_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{legacy_dashboard.json()['id']}/panels/logs/preview"
+        ),
+        headers=auth_headers,
+    )
+    missing_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{panel_dashboard.json()['id']}/panels/missing/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert legacy_dashboard.status_code == 201
+    assert panel_dashboard.status_code == 201
+    assert legacy_response.status_code == 404
+    assert legacy_response.json()["detail"] == "panel 不存在"
+    assert missing_response.status_code == 404
+    assert missing_response.json()["detail"] == "panel 不存在"
+
+
+def test_dashboard_panel_preview_reports_invalid_panel_query_as_422() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-invalid-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Invalid preview",
+            "config": {
+                "panels": [
+                    {
+                        "id": "logs",
+                        "title": "Logs",
+                        "type": "logs",
+                        "query": {"limit": 101},
+                    },
+                    {
+                        "id": "metric-window-list",
+                        "title": "Metric window list",
+                        "type": "metrics",
+                        "query": {"window": ["5m"]},
+                    },
+                    {
+                        "id": "metric-window-object",
+                        "title": "Metric window object",
+                        "type": "metrics",
+                        "query": {"window": {"value": "5m"}},
+                    },
+                    {
+                        "id": "metric-aggregation-list",
+                        "title": "Metric aggregation list",
+                        "type": "metrics",
+                        "query": {"aggregation": ["avg"]},
+                    },
+                ]
+            },
+        },
+    )
+
+    response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/logs/preview"
+        ),
+        headers=auth_headers,
+    )
+    metric_window_list_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/metric-window-list/preview"
+        ),
+        headers=auth_headers,
+    )
+    metric_window_object_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/metric-window-object/preview"
+        ),
+        headers=auth_headers,
+    )
+    metric_aggregation_list_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/metric-aggregation-list/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert dashboard_response.status_code == 201
+    assert response.status_code == 422
+    assert response.json()["detail"] == "panel.query.limit 必须在 1..100 之间"
+    assert metric_window_list_response.status_code == 422
+    assert metric_window_list_response.json()["detail"] == (
+        "panel.query.window 必须是 1m/5m/15m/1h 之一"
+    )
+    assert metric_window_object_response.status_code == 422
+    assert metric_window_object_response.json()["detail"] == (
+        "panel.query.window 必须是 1m/5m/15m/1h 之一"
+    )
+    assert metric_aggregation_list_response.status_code == 422
+    assert metric_aggregation_list_response.json()["detail"] == (
+        "panel.query.aggregation 必须是 avg/sum/min/max/count 之一"
+    )
 
 
 def test_dashboard_validation_errors_are_reported_as_422() -> None:
