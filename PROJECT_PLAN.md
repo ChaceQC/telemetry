@@ -1,6 +1,6 @@
 # 遥测应用项目计划书
 
-版本：0.2.11
+版本：0.2.12
 日期：2026-06-20  
 状态：草案  
 目标环境：Windows 11 开发，Debian 部署  
@@ -1042,7 +1042,7 @@ npm run preview -- --host 127.0.0.1 --port 25174
 
 ```text
 APP_ENV=development
-APP_VERSION=0.2.11
+APP_VERSION=0.2.12
 APP_SECRET_KEY=change-me
 
 API_HOST=127.0.0.1
@@ -1251,7 +1251,8 @@ chore: 更新依赖版本
 11. `0.2.9`：增加 `/traces/topology` 服务拓扑基础视图。
 12. `0.2.10`：增加 Dashboard CRUD 后端基础。
 13. `0.2.11`：增加 Dashboard CRUD 前端基础。
-14. `1.0.0`：达到生产可用基线。
+14. `0.2.12`：增加 Dashboard panel 查询预览后端基础。
+15. `1.0.0`：达到生产可用基线。
 
 发布规则：
 

@@ -709,6 +709,8 @@
 - T-0057 已完成同步收口：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7e1e27c` 合入 `dev`，merge 提交 `5c9f969`；merge 后本地前端 dashboard 专项、typecheck、lint、build、后端 config/lock 和 diff check 均通过。`2888db4` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28058751504`、`28058824508`、`28058824360` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
 - T-0057 收口文档同步 CI 通过：`000e661` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上的 GitHub Actions runs `28058962575`、`28059096263`、`28059096916` 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。本结果随 T-0058 启动登记合并记录，避免纯 CI 文档回声。
 - T-0058 已登记为阶段 5 下一小步：Dashboard panel 查询预览后端基础，为已保存 dashboard 的单个 `config.panels[].id` 提供最小只读查询预览接口，复用当前关系库查询能力返回摘要/样本；覆盖 metrics 聚合摘要、logs/events/traces 最近样本摘要和 topology 节点/边摘要。不改前端页面、不做真实图表渲染、不接 ClickHouse、不支持未保存草稿 config、不做变量/模板/告警或写操作。
+- T-0058 后端实现、审计修复和 feature CI 通过：`feature/backend-dev` 提交 `51ff277` 新增 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview`、响应模型、README/API 契约、后端版本 `0.2.12` 和 dashboard API 测试；代码审计发现 1 个 P2，`metrics` panel 的非字符串 `query.window`/`query.aggregation` 会绕过 `QueryFilterError` 形成 500。总 agent 极窄修复并提交 `cc36468`，在枚举判断前先校验字符串类型，回归覆盖 list/object `window` 与 list `aggregation` 返回 `422`；本地后端 gate 54 passed、ruff、format、mypy、`uv lock --check`、`git diff --check` 均通过，feature CI run `28061363490` 成功。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0058 合入 `dev`，merge 提交 `3ee5943`；同步根、前端、后端版本到 `0.2.12`。merge 后本地门禁通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 54 passed、ruff、format、mypy、`uv lock --check`、`git diff --check` 通过，前端 `npm.cmd run typecheck` 通过。待推送 `dev` 并读取 CI 后同步两个 feature 分支。
 
 ### 阻塞与风险
 
@@ -731,11 +733,11 @@
 - T-0049-fix 阻断问题已由 `3ed47cb`/`a86f559` 关闭：已登录 URL 直达或刷新查询页首个业务请求带 Authorization，无 401。
 - T-0049-fix 新增 P2 已由 `a86f559` 关闭并经 Planck 重测观察通过：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据。
 - T-0049-fix2 阻断问题已由 `a30e126` 关闭并经 Godel 最终联测确认：`/traces?trace_id=...` 会初始化 Trace ID 筛选并传给后端，valid 深链与 129 字符 trace_id 422/错误态均通过。
-- T-0055 残余风险：本轮尚未做真实 MySQL/真实后端服务/前端浏览器联测，`query` 内部语义仍按本小步只校验为对象，不校验查询 DSL；若历史 dashboard 已在旧逻辑下保存带空白 panel 字段，本次不会自动迁移历史数据，需要后续通过更新或专项迁移清理。
+- T-0058 残余风险：本轮只基于关系库 `ingest_records` 查询能力返回已保存 panel 的只读预览；尚未做真实 MySQL/真实后端服务/前端浏览器联测，不接 ClickHouse，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警。历史 dashboard config 中更多非法 query 形态仍按参与预览的白名单字段运行时返回 `422` 或沿现有 query service 语义处理。
 
 ### 下一步
 
-- 后端开发 agent 将在 `feature/backend-dev` 实现 T-0058 最小只读 panel 查询预览 API、测试、后端进度和契约草案；完成后总 agent 触发代码审计，再决定是否真实 merge 到 `dev`。
+- 推送 `dev` 并等待 T-0058 merge/版本同步 CI；通过后将 `feature/backend-dev` 与 `feature/frontend-dev` 快进到最新 `dev`，等待三分支 CI 并执行严格 worktree 体检，再关闭 T-0058。
 
 ### 验证
 
@@ -779,6 +781,8 @@
 - T-0057 merge 后本地门禁通过：merge 提交 `5c9f969` 后，前端专项 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files/42 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check` 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器。
 - T-0057 最终同步 CI 通过：GitHub Actions runs `28058751504`、`28058824508`、`28058824360` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `2888db4`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。随后严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
 - T-0057 收口文档同步 CI 通过：GitHub Actions runs `28058962575`、`28059096263`、`28059096916` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `000e661`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。
+- T-0058 feature/backend-dev CI 通过：GitHub Actions run `28061363490` 在 `cc36468` 上完成，Frontend checks 与 Backend checks 均为 success；Backend checks 已覆盖 ruff lint、ruff format check、type check 和 pytest，Frontend checks 也通过。仅有既有 Node.js 20 actions runtime 弃用注解。
+- T-0058 dev merge 后本地验证通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 54 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`、`uv run ruff format --check app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`、`uv run mypy app/api/routes/dashboard.py app/schemas/dashboard.py tests/test_dashboard_api.py tests/test_config.py`、`uv lock --check`、`git diff --check` 均通过；前端 `npm.cmd run typecheck` 通过。未启动真实服务、数据库、Docker 或浏览器。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

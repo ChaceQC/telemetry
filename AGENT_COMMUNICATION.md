@@ -85,7 +85,7 @@ closed      已关闭
 | T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | done | done | done |
 | T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | done | todo | done | done | done |
-| T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | doing |
+| T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | testing |
 
 ## 4. API 契约登记
 
@@ -101,6 +101,7 @@ closed      已关闭
 | API-0019 | 指标聚合窗口查询 | GET | `/api/v1/query/metrics/aggregate` | `project_id`、`name`、`source`、`occurred_from`、`occurred_to`、`window`、`aggregation` | 返回 `{ items }`；`items` 为按窗口聚合的指标点，包含 `window_start`、`window_end`、`name`、`source`、`aggregation`、`value`、`sample_count`、`unit` | 总 agent | done |
 | API-0020 | Trace 摄入 | POST | `/api/v1/ingest/traces` | 使用 `Authorization: Bearer <api_key>` 或 `X-API-Key`；请求体包含 `spans` 数组，每个 span 含 `trace_id`、`span_id`、`name`、`start_time`、可选 `end_time`、`duration_ms`、`parent_span_id`、`source`、`status`、`attributes`、`payload`，最多 100 spans，总体最大 256 KiB；顶层不得提交 `project_id` 覆盖归属 | 返回 `202` 与 accepted/rejected 统计；按 API Key 项目归属写入关系库 `ingest_records`，`kind=trace`，payload 保留 trace/span 关键字段、raw span 与业务 payload；本小步不接 ClickHouse、不提供 trace 查询/waterfall/拓扑 | 总 agent | done |
 | API-0021 | Trace 查询 | GET | `/api/v1/query/traces` | `project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数；`trace_id`/`span_id` trim 后空白按未传处理，超过 128 返回 `422` | 返回 `{ items, next_cursor }`；`items` 为 trace span 列表，展开 trace/span 关键字段、`attributes`、业务 `payload`、`occurred_at` 和 `received_at`；按用户项目权限过滤，当前来源为关系库 `ingest_records.kind=trace` | 总 agent | done |
+| API-0024 | Dashboard panel 查询预览 | GET | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` | 路径参数限定已保存 dashboard 与 `config.panels[].id`；只读取已保存 config，不接受草稿请求体；目标项目至少 `viewer` | 返回 `project_id`、`dashboard_id`、`panel_id`、`title`、`panel_type`、原始 `query` 和 `preview`；`metrics` 返回关系库窗口聚合摘要，`logs/events/traces` 返回最近样本，`topology` 返回节点/边摘要；非法白名单 query 字段返回 `422` | 总 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -502,6 +503,9 @@ closed      已关闭
 | 2026-06-24 | T-0057 | 总 agent | 真实 merge 集成 Dashboard panel 只读预览 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7e1e27c` 合入 `dev`，merge 提交 `5c9f969`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0057 | 总 agent | CI 与 worktree 同步完成 | `2888db4` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28058751504`、`28058824508`、`28058824360` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0057 关闭 | done |
 | 2026-06-24 | T-0058 | 总 agent | 登记 Dashboard panel 查询预览后端基础 | 阶段 5 下一小步限定为后端只读 panel 查询预览契约基础：为已保存 dashboard 的单个 `config.panels[].id` 提供最小查询预览接口，复用当前关系库查询能力返回统一摘要/样本，支持 `metrics` 聚合摘要、`logs/events/traces` 最近样本摘要和 `topology` 节点/边摘要；复用 dashboard 项目权限和现有 query service 权限语义。不改前端页面，不做真实图表渲染，不接 ClickHouse，不做变量/模板/告警，不支持未保存草稿 config，也不引入写操作。将以 `xhigh` 思考强度启动后端开发 agent，在 `feature/backend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、本地不启动 Docker、MySQL 使用本地服务/临时库/实例、Debian 兼容和只清理自有资源；后端开发 agent 可按需启动测试 agent，但不得代跑完整测试流程 | doing |
+| 2026-06-24 | T-0058 | 总 agent | Dashboard panel 查询预览后端完成 | 后端开发 worker Ohm 超时未产出且未修改文件，总 agent 按项目规则极窄接手实现并提交 `51ff277` 到 `feature/backend-dev`：新增已保存 panel 查询预览 API、响应 schema、dashboard route/query service 分发、README/API 契约/后端进度和测试，后端版本提升到 `0.2.12`；本地后端 gate 通过，feature CI `28060677457` 通过。随后代码审计发现 1 个 P2 | audit |
+| 2026-06-24 | T-0058-fix | 总 agent | Dashboard panel 查询预览审计 P2 修复完成 | 审计发现 `metrics` panel 的非字符串 `query.window`/`query.aggregation` 会在集合成员判断时抛 `TypeError` 并形成 500。总 agent 提交并推送 `cc36468`：枚举判断前先校验字符串类型，非法数组/对象等历史保存配置返回 `422`；补 list/object `window` 与 list `aggregation` 回归测试，更新后端进度和契约。feature/backend-dev CI run `28061363490` 通过 | done |
+| 2026-06-24 | T-0058 | 总 agent | 真实 merge 集成 Dashboard panel 查询预览后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `51ff277` 与 `cc36468` 合入 `dev`，merge 提交 `3ee5943`；同步根/前端/后端版本到 `0.2.12`。merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 6. 测试记录
 
@@ -610,6 +614,8 @@ closed      已关闭
 | 2026-06-24 | T-0057 | dev merge 后本地验证 | 前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q`、`uv lock --check`；`git diff --check` | 通过 | merge 提交 `5c9f969` 后，前端专项 4 files/42 tests passed，typecheck、lint、build 通过；后端 config 13 passed，`uv lock --check` 通过；diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-24 | T-0057-final-sync | CI 与 worktree 同步 | GitHub Actions runs `28058751504`、`28058824508`、`28058824360`；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `2888db4` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致 |
 | 2026-06-24 | T-0057-post-sync | CI | GitHub Actions runs `28058962575`、`28059096263`、`28059096916` | 通过 | T-0057 收口文档提交 `000e661` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。该结果随 T-0058 启动登记合并记录，避免纯 CI 文档回声 |
+| 2026-06-24 | T-0058 | feature/backend-dev CI | GitHub Actions run `28061363490` | 通过 | `cc36468` 上 Frontend checks 与 Backend checks 均为 success；Backend checks 覆盖 ruff lint、ruff format check、type check 和 pytest，Frontend checks 也通过。仅有既有 Node.js 20 actions runtime 弃用注解 |
+| 2026-06-24 | T-0058 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock、前端 typecheck、`git diff --check` | 通过 | merge 提交 `3ee5943` 后，后端 `tests/test_dashboard_api.py tests/test_config.py` 54 passed、1 条既有 Starlette/TestClient 弃用警告；ruff、format、mypy、`uv lock --check`、diff check 均通过；前端 `npm.cmd run typecheck` 通过。未启动真实服务、数据库、Docker 或浏览器 |
 
 ## 7. 审计记录
 
@@ -620,6 +626,8 @@ closed      已关闭
 | 2026-06-24 | T-0056a | Dashboard panel 配置前端小步（`861094e`） | 未通过 | P2：panel 编辑草稿只保存 `editIndex`，手动修改 `config JSON` 重排/删除 panels 后再更新可能覆盖错误 panel；需修复后复审 | blocked |
 | 2026-06-24 | T-0056a-fix | Dashboard panel 编辑索引失效修复（`f6156c6`） | 通过 | 原 P2 已关闭：panel 编辑草稿保存原始 panel id，更新时确认当前 index 仍指向同一 id；手动重排/删除 `config.panels` 后提示重新选择，未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0057 | Dashboard panel 只读预览前端基础（`7e1e27c`） | 通过 | 未发现 P0/P1/P2/P3；预览只消费本地 `configText`，不触发保存或图表/后端查询；状态覆盖、query 摘要、layout clamp/排序和响应式风险均在当前范围可接受 | done |
+| 2026-06-24 | T-0058 | Dashboard panel 查询预览后端基础（`51ff277`） | 未通过 | P2：`metrics` panel 的 `query.window`/`query.aggregation` 若为数组或对象，会在枚举集合判断时触发 `TypeError`，绕过 `QueryFilterError` 并返回 500；已由 `cc36468` 修复 | blocked |
+| 2026-06-24 | T-0058-fix | Dashboard panel 查询预览非法枚举修复（`cc36468`） | 通过 | 原 P2 已关闭：`window/aggregation` 先校验字符串类型，再做枚举判断；历史保存配置中的数组/对象非法值返回 `422`，新增回归覆盖 list/object `window` 与 list `aggregation`。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
@@ -713,6 +721,7 @@ closed      已关闭
 | 2026-06-24 | T-0055 | feature/backend-dev | dev | 总 agent | Dashboard panel 配置 schema `e8b1d37` 与字符串规范化修复 `f3df26c` 已通过 Kant 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `d11b298`，本地门禁和 `dev` CI 均通过；待同步 feature 分支 | done |
 | 2026-06-24 | T-0055-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `cd6290b` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0056/T-0057 | feature/frontend-dev | dev | 总 agent | T-0056 已通过真实 merge、CI 和三分支同步关闭；T-0057 将继续在 `feature/frontend-dev` 推进 Dashboard panel 只读预览前端基础，完成后审计通过再真实 merge 到 `dev` | doing |
+| 2026-06-24 | T-0058 | feature/backend-dev | dev | 总 agent | Dashboard panel 查询预览后端基础 `51ff277` 与非法枚举修复 `cc36468` 已完成审计修复和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `3ee5943`，同步版本到 `0.2.12`；待推送 `dev`、等待 CI 并同步 feature 分支 | testing |
 
 ## 10. 决策记录
 
