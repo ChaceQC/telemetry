@@ -492,6 +492,7 @@ closed      已关闭
 | 2026-06-24 | T-0056a-fix | 总 agent | 启动 panel 编辑索引失效修复 | 已启动前端修复 agent Sartre，在 `feature/frontend-dev` 极窄修复审计 P2，补“选中 panel 后手动重排/删除 config.panels 再更新不会覆盖错误 panel”的回归测试；修复完成后复审再决定是否合并 | done |
 | 2026-06-24 | T-0056a-fix | 总 agent | panel 编辑索引失效修复完成 | Sartre 异常退出后总 agent 接手未提交修复，提交并推送 `f6156c6` 到 `feature/frontend-dev`：panel 编辑草稿新增 `originalPanelId`，更新时校验当前 `editIndex` 仍指向原 panel id；用户手动重排或删除 `config.panels` 后旧草稿会提示重新选择，不再覆盖错误 panel。同步前端 README/进度，并补纯函数与页面交互回归测试 | audit |
 | 2026-06-24 | T-0056a-fix | 代码复审 agent Halley | Dashboard panel 编辑索引失效复审通过 | Halley 只读复审 `f6156c6`，确认原 P2 已关闭：重排/删除 `config.panels` 后旧编辑草稿会被拒绝并保留 textarea 内容；工具函数和页面交互测试覆盖到位。未发现新的 P0/P1/P2/P3，建议真实 merge 到 `dev` | done |
+| 2026-06-24 | T-0056 | 总 agent | 真实 merge 集成 Dashboard panel 配置前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `861094e` 与 `f6156c6` 合入 `dev`，merge 提交 `f6c9e32`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 6. 测试记录
 
@@ -592,6 +593,7 @@ closed      已关闭
 | 2026-06-24 | T-0056-start-sync2 | CI | GitHub Actions run `28050618359` | 通过 | T-0056 启动同步 CI 记录提交 `8125c96` 后 `dev` CI 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0056a | 前端开发/总 agent 窄门禁 | feature CI run `28052217957`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check a0e19ba..861094e`；Playwright CLI + Microsoft Edge 冒烟 | 通过 | `861094e` 上 feature/frontend-dev CI 通过；本地专项 4 files/36 tests passed，typecheck、lint、build、diff check 通过；Edge 访问 `/dashboards` 桌面与 390px 宽度快照正常，panel 编辑区未登录态禁用且无运行时错误。console 仅有既有 React Router future warning 和 favicon 404；自启 Vite/Edge 已清理 |
 | 2026-06-24 | T-0056a-fix | 前端 P2 修复门禁 | feature CI run `28054244416`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` | 通过 | `f6156c6` 上 feature/frontend-dev CI 通过；本地专项 4 files/38 tests passed，typecheck、lint、build、diff check 通过。该结果不替代真实 merge 后的 `dev` 集成门禁 |
+| 2026-06-24 | T-0056 | dev merge 后本地验证 | 前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q`、`uv lock --check`；`git diff --check` | 通过 | merge 提交 `f6c9e32` 后，前端专项 4 files/38 tests passed，typecheck、lint、build 通过；后端 config 13 passed，`uv lock --check` 通过；diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 
 ## 7. 审计记录
 
