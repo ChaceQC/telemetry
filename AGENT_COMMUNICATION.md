@@ -82,7 +82,7 @@ closed      已关闭
 | T-0052 | 服务拓扑前端基础 | 总 agent | done | todo | done | done | done |
 | T-0053 | Dashboard CRUD 后端基础 | 总 agent | todo | done | done | done | done |
 | T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | done | done | done |
-| T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | testing |
+| T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -483,7 +483,7 @@ closed      已关闭
 | 2026-06-24 | T-0055-fix | 总 agent | 启动 panel 字符串规范化修复 | 已启动后端修复 agent Newton，在 `feature/backend-dev` 极窄修复审计 P2：规范化或拒绝 panel `id/title/type` 首尾空白，补 create/update 回归测试，同步后端进度/必要契约，验证后 commit 并 push；总 agent 等修复完成后复审再决定是否真实 merge 到 `dev` | doing |
 | 2026-06-24 | T-0055-fix | 后端修复 agent Newton | Dashboard panel 字符串规范化修复完成 | Newton 提交并推送 `f3df26c` 到 `feature/backend-dev`：`id/title/type` 通过校验后写回裁剪首尾空白后的规范化值，重复 `id` 按规范化值判断；补 create/update 字符串规范化和重复 id 规范化回归，更新后端 README、后端进度和 API 契约。开发侧 `tests/test_dashboard_api.py` 36 passed，ruff、format check、mypy、diff check 通过。Newton 已关闭，已启动只读复审 | audit |
 | 2026-06-24 | T-0055-fix | 代码复审 agent Kant | Dashboard panel 字符串规范化复审通过 | Kant 只读复审 `f3df26c`，确认原 P2 已关闭：`_require_non_empty_string()` 仅对 panel `id/title/type` 写回 trim 后值，重复 id 使用规范化值；legacy config、数组 config、query/layout 和 update 语义未受破坏；新增测试和 README/API 契约覆盖规范化保存与重复判断规则。未发现 P0/P1/P2/P3，建议合并到 `dev` | done |
-| 2026-06-24 | T-0055 | 总 agent | 真实 merge 集成 Dashboard panel 配置后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `e8b1d37` 与 `f3df26c` 合入 `dev`，merge 提交 `d11b298`；本地 merge 后门禁已通过，后续推送 `dev`、读取 GitHub Actions 并同步 feature 分支后再关闭 T-0055 | testing |
+| 2026-06-24 | T-0055 | 总 agent | 真实 merge 集成 Dashboard panel 配置后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `e8b1d37` 与 `f3df26c` 合入 `dev`，merge 提交 `d11b298`；本地 merge 后门禁和 `dev` CI 已通过，后续同步 feature 分支后 T-0055 关闭 | done |
 
 ## 6. 测试记录
 
@@ -577,6 +577,7 @@ closed      已关闭
 | 2026-06-24 | T-0055 | 后端审计前窄门禁 | `uv run pytest tests/test_dashboard_api.py -q`、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`git diff --check origin/dev..origin/feature/backend-dev` | 通过 | 后端 worktree `e8b1d37` 上 dashboard 专项 34 passed，1 条既有 Starlette/TestClient 弃用警告；ruff、format check、mypy、diff check 通过。该结果不替代审计修复后的复审和 merge 后门禁 |
 | 2026-06-24 | T-0055-fix | 后端修复后窄门禁 | `uv run pytest tests/test_dashboard_api.py -q`、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`git diff --check origin/dev..origin/feature/backend-dev`、`scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | 后端 worktree `f3df26c` 上 dashboard 专项 36 passed，1 条既有 Starlette/TestClient 弃用警告；ruff、format check、mypy、diff check 通过；工作树体检确认 root 仅有本次协调文档待提交，feature/backend-dev 比 dev 多 `e8b1d37` 与 `f3df26c` |
 | 2026-06-24 | T-0055 | dev merge 后本地验证 | 后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check`；前端 `npm.cmd run typecheck`、`npm.cmd run build`；`git diff --check` | 通过 | 后端 dashboard/config 49 passed，1 条既有 Starlette/TestClient 弃用警告；ruff、format check、mypy、uv lock 通过；前端 typecheck/build 通过；diff check 通过。worktree 体检仅因 `dev` 本地领先远端且根文档待提交而失败，推送后复查 |
+| 2026-06-24 | T-0055 | CI | GitHub Actions run `28050085589` | 通过 | `dev` 提交 `0002728` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解，不阻塞 |
 
 ## 7. 审计记录
 
@@ -674,7 +675,7 @@ closed      已关闭
 | 2026-06-23 | T-0052 | feature/frontend-dev | dev | 总 agent | 服务拓扑前端基础 `f0d0ab4` 与 edge key 修复 `5f3db06` 已通过 Noether the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `d5165b7`，版本同步、本地门禁、CI、feature 分支同步和 Ptolemy the 2nd 真实联测均通过 | done |
 | 2026-06-23 | T-0053 | feature/backend-dev | dev | 总 agent | Dashboard CRUD 后端基础 `f097af8` 与 JSON 校验修复 `2a0403d` 已通过 Darwin the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `494d22e`，版本同步、本地门禁、CI、feature 分支同步和 Popper the 2nd 真实 MySQL/真实后端专项均通过 | done |
 | 2026-06-23 | T-0054 | feature/frontend-dev | dev | 总 agent | Dashboard CRUD 前端基础 `7221b90` 与审计修复 `7b4642d`、`d8ba7f0`、`58a6d9a`、`e2ca432` 已通过 Jason the 2nd 最终复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，版本同步、本地门禁、CI、feature 分支同步和 Maxwell the 2nd 真实前后端联合测试均通过 | done |
-| 2026-06-24 | T-0055 | feature/backend-dev | dev | 总 agent | Dashboard panel 配置 schema `e8b1d37` 与字符串规范化修复 `f3df26c` 已通过 Kant 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `d11b298`，本地门禁通过，待推送后读取 CI 并同步 feature 分支 | testing |
+| 2026-06-24 | T-0055 | feature/backend-dev | dev | 总 agent | Dashboard panel 配置 schema `e8b1d37` 与字符串规范化修复 `f3df26c` 已通过 Kant 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `d11b298`，本地门禁和 `dev` CI 均通过；待同步 feature 分支 | done |
 
 ## 10. 决策记录
 
