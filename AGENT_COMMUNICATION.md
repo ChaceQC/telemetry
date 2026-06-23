@@ -76,7 +76,7 @@ closed      已关闭
 | T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
-| T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | testing | done | testing |
+| T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -431,6 +431,7 @@ closed      已关闭
 | 2026-06-23 | T-0049-fix2 | 前端修复 agent Socrates the 2nd | Traces URL trace_id 初始化修复完成 | Socrates the 2nd 提交并推送 `a30e126` 到 `feature/frontend-dev`：`/traces` 支持从 URL `trace_id` 初始化筛选并传给 trace query，超长 trace_id 保持进入后端错误路径，保留 metrics/events 不污染和 logs URL 初始化/trace 到 logs 跳转行为。专项 23 tests、前端全量 102 tests、lint、typecheck、build、diff check 均通过；未启动浏览器、Docker 或真实联测。Socrates the 2nd 已关闭，已启动代码审计 | audit |
 | 2026-06-23 | T-0049-fix2 | 代码审计 agent James the 2nd | Traces URL trace_id 初始化审计通过 | James the 2nd 只读审计 `a30e126`，未发现 P0/P1/P2/P3；确认 `/traces?trace_id=...` 会初始化 Trace ID 并传给 `listTraces`，超长值不被前端静默丢弃，`/logs?trace_id&span_id`、trace 到 logs 链接和 metrics/events 不污染均无回退。James the 2nd 已关闭，建议 merge 后重跑真实联测 | done |
 | 2026-06-23 | T-0049-fix2 | 总 agent | 真实 merge 集成 traces URL 初始化 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `a30e126` 合入 `dev`，merge 提交当前 HEAD；后续执行收窄门禁、推送、读取 CI、同步 feature 分支，并启动测试 agent 再次重跑真实 MySQL、真实前后端和 Playwright + Microsoft Edge 联测 | testing |
+| 2026-06-23 | T-0049 | 测试 agent Godel the 2nd | Trace 到日志跳转最终真实联测通过 | Godel the 2nd 在 `dev/origin/dev` `1a66445` 使用自启动临时本地 MySQL 8.0.42 `33307`、真实后端 `28117`、真实前端 `25173` 和 Playwright + Microsoft Edge 149.0.4022.69 完成最终联测；根/前端/后端版本均为 `0.2.6`，`/health=0.2.6`。API 23 步通过，覆盖登录、项目/环境/服务/API Key、events/metrics/logs/traces 上报、logs trace/span 过滤、traces 查询、129 字符 trace_id 422、metrics/events 不受 trace/log 参数污染；浏览器 14 项通过，覆盖 valid/129 trace 深链硬导航和刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading。证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`；测试 agent 已清理自有前端、后端、临时 MySQL、Edge 和端口，已关闭 | done |
 
 ## 6. 测试记录
 
@@ -502,6 +503,7 @@ closed      已关闭
 | 2026-06-23 | T-0048 | Trace waterfall 真实前后端联合测试 | Linnaeus the 2nd；自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev` `f2970d5`；覆盖 trace 多根/父子/孤儿/error/slow/0/缺失/长 duration 数据、Query API status/duration/cursor、浏览器 `/traces` waterfall 展开/树形缩进/详情/响应式 640px/720px、metrics/logs/events 页面回归；自有资源已清理，证据目录 `agents/runtime/e2e-T-0048-20260623-071459` |
 | 2026-06-23 | T-0049 | Trace 到日志跳转真实前后端联合测试 | Helmholtz the 2nd；本机 MySQL80 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未通过 | `dev/origin/dev` `d9c85f0`；API 层和 SPA 内部跳转均通过，但已登录后硬导航/刷新 `/traces?trace_id=...` 或 `/logs?trace_id=...&span_id=...` 时首个查询请求未带 Authorization 并返回 401。证据目录 `agents/runtime/e2e-T-0049-20260623-085949`；测试 agent 已清理自有资源 |
 | 2026-06-23 | T-0049-fix | Trace 到日志跳转真实前后端联合测试重跑 | Planck the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未完全通过 | `dev/origin/dev` `717dd68`；原 401 首包问题、Settings/Overview 旧缓存闪现、登录回跳 search 均通过；失败项为 `/traces?trace_id=<129 chars>` 没有把 URL trace_id 传入后端查询，返回 200 而非 422/错误态。证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`；测试 agent 已清理自有资源 |
+| 2026-06-23 | T-0049 | Trace 到日志跳转最终真实前后端联合测试 | Godel the 2nd；自启动临时本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `1a66445`；API 23 步与浏览器 14 项通过，覆盖 valid/129 trace 深链硬导航/刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading；证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -546,7 +548,7 @@ closed      已关闭
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
 | 2026-06-23 | T-0049 | 已登录后硬导航/刷新查询页首个请求未带 Authorization | 已由 `3ed47cb`/`a86f559` 修复并由 Planck the 2nd 真实联测重跑确认关闭；`/logs?trace_id=...&span_id=...` 与 `/traces?trace_id=...` 首个业务请求均带 Authorization，无 401 | 前端开发 agent / 总 agent | closed |
-| 2026-06-23 | T-0049-fix2 | `/traces?trace_id=...` 未初始化 trace 查询筛选 | 阻断 T-0049 重测完全通过；超长 trace_id URL 未传给后端，返回 200 并展示现有 trace，而非 422/错误态；也意味着普通 URL trace_id 直达可能未真正筛选 | 前端开发 agent / 总 agent | open |
+| 2026-06-23 | T-0049-fix2 | `/traces?trace_id=...` 未初始化 trace 查询筛选 | 已由 `a30e126` 修复并由 Godel the 2nd 真实联测确认关闭；valid trace 深链硬导航/刷新会带 trace_id 与 Authorization，129 字符 trace_id 返回 422/错误态且不展示既有 trace | 前端开发 agent / 总 agent | closed |
 | 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过，Parfit 完整真实前后端联测重跑通过 | 后端开发 agent Avicenna / 总 agent | closed |
 | 2026-06-22 | T-0045 | 真实 MySQL trace 查询存在项目和毫秒时间过滤偏差 | 已由 Darwin `2d357a7` 修复显式项目存在性校验和 MySQL/MariaDB `DATETIME(6)` 精度；Carver the 2nd `0928e6f` 关闭 ORM 默认值与在线 DDL 文档 P3，Hume the 2nd 复审通过；Boole the 2nd 真实前后端联测重跑通过，确认不存在项目 404 和毫秒边界过滤均已关闭 | 后端开发 agent / 总 agent | closed |
 | 2026-06-20 | T-0002 | 当前工具面板未暴露 `create_thread`、`handoff_thread` 或测试子 agent 启动工具；本机 `codex.exe` 与 `codex-command-runner.exe` 执行 `--help` 均返回 Access is denied | 后续已通过可用的多 agent 工具启动测试子 agent Boole 复验 `T-0003`，本阻塞对当前后端骨架任务已解除 | 后端开发 agent / 总 agent | closed |
