@@ -2,6 +2,29 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0056a Dashboard panel 配置前端小步
+
+### 已完成
+
+- 新增 dashboard panel config 纯函数工具，支持从 `config.panels` 读取 panel、校验/规范化后端最小 schema、按 trim 后 id 判重，并在写回 panels 时保留其他顶层 legacy config 字段。
+- `/dashboards` 现有编辑区新增最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；panel 操作只更新 `config JSON` 文本，最终仍通过既有 Dashboard update API 保存。
+- 保留原始 `config JSON` textarea 和 legacy config 兼容；未包含 panels 的 config 会显示 legacy 状态并可新增 panels。
+- 补充纯函数与页面最小交互测试，覆盖 legacy 保留、重复 trim 后 id、query 非 object、layout 边界和保存 `config.panels`。
+
+### 验证
+
+- `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 通过（4 个测试文件、36 个测试）。
+- `npm.cmd run typecheck` 通过。
+- `npm.cmd run lint` 通过。
+- `npm.cmd run build` 通过。
+- `git diff --check` 通过。
+- 未跑 Playwright 浏览器冒烟；本小步只做最小表单接线，无真实图表渲染。
+
+### 风险
+
+- 未做真实后端/MySQL 联测；后端 schema 已按当前已知 T-0055 契约对齐。
+- 当前 panel 操作是配置编辑基础，不包含图表渲染、ClickHouse 查询、变量/时间范围、模板或告警。
+
 ## 2026-06-23 T-0054 Dashboard CRUD 前端基础
 
 ### 已完成

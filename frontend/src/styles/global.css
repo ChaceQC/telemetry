@@ -825,6 +825,128 @@ h2 {
   line-height: 1.4;
 }
 
+.dashboard-panel-editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.dashboard-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-panel-heading strong,
+.dashboard-panel-heading span {
+  display: block;
+}
+
+.dashboard-panel-heading strong {
+  color: #172026;
+}
+
+.dashboard-panel-heading span {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-panel-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.dashboard-panel-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.dashboard-panel-list li.is-selected .dashboard-panel-list-item {
+  border-color: var(--accent);
+  background: #f0faf8;
+}
+
+.dashboard-panel-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  background: #ffffff;
+  text-align: left;
+}
+
+.dashboard-panel-list-item strong,
+.dashboard-panel-list-item small,
+.dashboard-panel-list-item span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-panel-list-item small {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dashboard-panel-list-item code {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dashboard-panel-empty {
+  min-height: 86px;
+}
+
+.dashboard-panel-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-panel-query-field,
+.dashboard-panel-layout-fields,
+.dashboard-panel-apply {
+  grid-column: 1 / -1;
+}
+
+.dashboard-panel-query-field textarea {
+  min-height: 104px;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.dashboard-panel-layout-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .query-toolbar,
 .query-results {
   padding: 22px;
