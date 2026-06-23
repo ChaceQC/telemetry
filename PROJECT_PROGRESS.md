@@ -717,6 +717,7 @@
 - T-0059 前端开发侧已完成：新增 `previewDashboardPanel()` API client、类型化 `DashboardPanelPreviewPayload`、`dashboardQueryKeys.panelPreview` 和查询预览摘要模型；`/dashboards` 只读 Panel 预览卡片新增“加载/刷新预览”，仅在已保存 dashboard/panel 且当前 `config JSON` 未改动时请求后端，未保存草稿显示“保存后可查询”且不触发 API。UI 覆盖 metrics 聚合、logs/events/traces 最近样本、topology 节点/边摘要、空结果、422/error 和未登录/未选择/legacy/empty/invalid 本地状态。
 - T-0059 已完成前端 feature CI、本地审计和真实 merge：`feature/frontend-dev` 提交 `5b28d5b` 已通过 GitHub Actions run `28064233579`；总 agent 本地审计未发现 P0/P1/P2/P3，代码审计 agent Parfit 因超时关闭且未返回可用结论；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`。merge 后本地门禁通过：前端 dashboard 专项 4 files / 45 tests passed、typecheck、lint、build 通过，后端 config 13 passed、`uv lock --check`、`git diff --check` 通过。当前等待推送 `dev` 并读取 CI，再同步两个 feature 分支。
 - T-0059 同步 CI 与 worktree 体检通过：`ce5cca2` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 均通过；两个 feature 分支已 fast-forward 到 `dev`。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过，确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交。T-0059 关闭。
+- T-0060 已登记为阶段 5 测试收口小步：Dashboard panel 查询预览真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖登录、项目/API Key/样本摄入、Dashboard CRUD 与 panels 保存、metrics/logs/events/traces/topology panel 预览、未保存草稿不请求后端、非法 query 422/error 展示、权限/未认证边界和既有查询/拓扑快速回归。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
 
 ### 阻塞与风险
 
@@ -744,7 +745,7 @@
 
 ### 下一步
 
-- 继续阶段 5 下一小步，优先补 Dashboard panel 查询预览真实前后端联测或推进基础图表渲染能力。
+- 启动并等待 T-0060 测试 agent 完成 Dashboard panel 查询预览真实前后端联测；若通过，再推进基础图表渲染能力。
 
 ### 验证
 
