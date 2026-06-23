@@ -1,4 +1,5 @@
 import type { Dashboard, DashboardJson } from '../../api/dashboards';
+import { normalizeDashboardConfigPanels } from './dashboardPanels';
 
 export const DEFAULT_DASHBOARD_LAYOUT = {
   version: 1,
@@ -47,6 +48,18 @@ export function parseDashboardJsonField(value: string, label: string): Dashboard
       return {
         ok: false,
         message: validationError
+      };
+    }
+
+    if (label === 'config') {
+      const normalizedConfig = normalizeDashboardConfigPanels(parsed);
+      if (!normalizedConfig.ok) {
+        return normalizedConfig;
+      }
+
+      return {
+        ok: true,
+        value: normalizedConfig.value
       };
     }
 

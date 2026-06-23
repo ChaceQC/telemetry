@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   LogIn,
   Pencil,
+  Plus,
   RefreshCw,
   Save,
   ShieldAlert,
@@ -39,6 +40,17 @@ import {
   buildDashboardPayload,
   normalizePositiveInteger
 } from '../features/dashboards/dashboardPayload';
+import {
+  DASHBOARD_PANEL_TYPES,
+  createDefaultDashboardPanelDraft,
+  dashboardPanelToDraft,
+  readDashboardPanelsFromConfigText,
+  removeDashboardPanelFromConfigText,
+  upsertDashboardPanelInConfigText,
+  type DashboardPanel,
+  type DashboardPanelDraft,
+  type DashboardPanelsReadResult
+} from '../features/dashboards/dashboardPanels';
 import { dashboardQueryKeys, dashboardQueryRootKey } from '../features/dashboards/queryKeys';
 import { findUnauthorizedApiError, resolveSettingsAuthState } from '../features/settings/authState';
 import { settingsQueryKeys } from '../features/settings/queryKeys';
@@ -50,6 +62,7 @@ const emptyProjects: Project[] = [];
 
 type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
+type PanelDraftState = DashboardPanelDraft;
 type ScopedState<TValue> = {
   scopeKey: string;
   value: TValue;
@@ -69,6 +82,10 @@ export function DashboardsPage() {
   const [editFormState, setEditFormState] = useState<ScopedState<EditFormState>>(() => ({
     scopeKey: '',
     value: dashboardToEditForm(null)
+  }));
+  const [panelDraftState, setPanelDraftState] = useState<ScopedState<PanelDraftState>>(() => ({
+    scopeKey: '',
+    value: createDefaultDashboardPanelDraft()
   }));
   const [dashboardOffsetState, setDashboardOffsetState] = useState<ScopedState<number>>({ scopeKey: '', value: 0 });
   const [formUnauthorizedErrorState, setFormUnauthorizedErrorState] = useState<ScopedState<unknown | null>>({
@@ -255,6 +272,15 @@ export function DashboardsPage() {
     ? dashboards.find((dashboard) => dashboard.id === activeEditForm.dashboardId) ?? null
     : null;
   const visibleEditForm = selectedDashboard ? activeEditForm : dashboardToEditForm(null);
+  const panelReadResult = selectedDashboard
+    ? readDashboardPanelsFromConfigText(visibleEditForm.configText)
+    : createEmptyPanelReadResult();
+  const visiblePanels = panelReadResult.ok ? panelReadResult.panels : [];
+  const panelScopeKey = buildDashboardPanelScopeKey(pageScopeKey, visibleEditForm.dashboardId);
+  const activePanelDraft =
+    selectedDashboard && panelDraftState.scopeKey === panelScopeKey
+      ? panelDraftState.value
+      : createDefaultDashboardPanelDraft(visiblePanels);
 
   function handleProjectSelect(value: string) {
     const nextProjectId = normalizePositiveInteger(value) ? value : '';
@@ -270,6 +296,10 @@ export function DashboardsPage() {
       value: createDefaultDashboardForm(nextProjectId)
     });
     setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(null) });
+    setPanelDraftState({
+      scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
+      value: createDefaultDashboardPanelDraft()
+    });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -287,6 +317,18 @@ export function DashboardsPage() {
 
   function updateEditForm(value: EditFormState) {
     setEditFormState({ scopeKey: pageScopeKey, value });
+  }
+
+  function updatePanelDraft(value: PanelDraftState) {
+    setPanelDraftState({ scopeKey: panelScopeKey, value });
+  }
+
+  function resetPanelDraft(configText = visibleEditForm.configText) {
+    const panels = readDashboardPanelsFromConfigText(configText);
+    setPanelDraftState({
+      scopeKey: panelScopeKey,
+      value: createDefaultDashboardPanelDraft(panels.ok ? panels.panels : [])
+    });
   }
 
   function handleCreateSubmit(event: FormEvent) {
@@ -352,6 +394,38 @@ export function DashboardsPage() {
     setDeleteLocked(true);
     setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     deleteMutation.mutate(dashboard);
+  }
+
+  function handlePanelApply() {
+    if (!selectedDashboard) {
+      return;
+    }
+
+    const result = upsertDashboardPanelInConfigText(visibleEditForm.configText, activePanelDraft);
+    if (!result.ok) {
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
+      return;
+    }
+
+    updateEditForm({ ...visibleEditForm, configText: result.configText });
+    clearLocalEditError();
+    resetPanelDraft(result.configText);
+  }
+
+  function handlePanelDelete(index: number) {
+    if (!selectedDashboard) {
+      return;
+    }
+
+    const result = removeDashboardPanelFromConfigText(visibleEditForm.configText, index);
+    if (!result.ok) {
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
+      return;
+    }
+
+    updateEditForm({ ...visibleEditForm, configText: result.configText });
+    clearLocalEditError();
+    resetPanelDraft(result.configText);
   }
 
   const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
@@ -644,6 +718,17 @@ export function DashboardsPage() {
               onChange={(configText) => updateEditForm({ ...visibleEditForm, configText })}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
+            <DashboardPanelEditor
+              disabled={!authState.shouldRequest || !selectedDashboard}
+              panelReadResult={panelReadResult}
+              panels={visiblePanels}
+              draft={activePanelDraft}
+              onDraftChange={updatePanelDraft}
+              onNew={() => resetPanelDraft()}
+              onSelect={(panel, index) => updatePanelDraft(dashboardPanelToDraft(panel, index))}
+              onDelete={handlePanelDelete}
+              onApply={handlePanelApply}
+            />
             <InlineError message={localEditError} error={updateFormError} />
             <button
               className="primary-button"
@@ -856,6 +941,164 @@ function JsonTextarea({
   );
 }
 
+function DashboardPanelEditor({
+  disabled,
+  panelReadResult,
+  panels,
+  draft,
+  onDraftChange,
+  onNew,
+  onSelect,
+  onDelete,
+  onApply
+}: {
+  disabled: boolean;
+  panelReadResult: DashboardPanelsReadResult;
+  panels: DashboardPanel[];
+  draft: DashboardPanelDraft;
+  onDraftChange: (draft: DashboardPanelDraft) => void;
+  onNew: () => void;
+  onSelect: (panel: DashboardPanel, index: number) => void;
+  onDelete: (index: number) => void;
+  onApply: () => void;
+}) {
+  return (
+    <div className="dashboard-panel-editor" aria-label="Panel 配置">
+      <div className="dashboard-panel-heading">
+        <div>
+          <strong>Panels</strong>
+          <span>{panelReadResult.ok ? `${panels.length} 个 panel` : panelReadResult.message}</span>
+        </div>
+        <button className="text-button" type="button" onClick={onNew} disabled={disabled || !panelReadResult.ok}>
+          <Plus size={16} aria-hidden="true" />
+          <span>新增</span>
+        </button>
+      </div>
+
+      {panelReadResult.ok ? (
+        panels.length > 0 ? (
+          <ul className="dashboard-panel-list">
+            {panels.map((panel, index) => (
+              <li key={`${panel.id}-${index}`} className={draft.mode === 'edit' && draft.editIndex === index ? 'is-selected' : undefined}>
+                <button className="dashboard-panel-list-item" type="button" onClick={() => onSelect(panel, index)} disabled={disabled}>
+                  <span>
+                    <strong>{panel.title}</strong>
+                    <small>
+                      {panel.id} / {panel.type}
+                    </small>
+                  </span>
+                  <code>
+                    {panel.layout
+                      ? `${panel.layout.x},${panel.layout.y} ${panel.layout.w}x${panel.layout.h}`
+                      : 'no layout'}
+                  </code>
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => onDelete(index)}
+                  disabled={disabled}
+                  title="删除 panel"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="resource-state dashboard-panel-empty">
+            <LayoutDashboard size={18} aria-hidden="true" />
+            <div>
+              <strong>{panelReadResult.hasPanels ? '暂无 panel' : 'Legacy config'}</strong>
+              <span>{panelReadResult.hasPanels ? '当前 panels 数组为空。' : '当前 config 未包含 panels，可直接新增。'}</span>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="resource-state resource-state--error dashboard-panel-empty" role="status">
+          <ShieldAlert size={18} aria-hidden="true" />
+          <div>
+            <strong>Panel 配置不可用</strong>
+            <span>{panelReadResult.message}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="dashboard-panel-form">
+        <label className="field">
+          <span>Panel ID</span>
+          <input
+            value={draft.id}
+            maxLength={64}
+            onChange={(event) => onDraftChange({ ...draft, id: event.target.value })}
+            disabled={disabled || !panelReadResult.ok}
+          />
+        </label>
+        <label className="field">
+          <span>标题</span>
+          <input
+            value={draft.title}
+            maxLength={120}
+            onChange={(event) => onDraftChange({ ...draft, title: event.target.value })}
+            disabled={disabled || !panelReadResult.ok}
+          />
+        </label>
+        <label className="field">
+          <span>类型</span>
+          <select
+            value={draft.type}
+            onChange={(event) => onDraftChange({ ...draft, type: event.target.value as DashboardPanelDraft['type'] })}
+            disabled={disabled || !panelReadResult.ok}
+          >
+            {DASHBOARD_PANEL_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field dashboard-panel-query-field">
+          <span>query JSON</span>
+          <textarea
+            aria-label="panel query JSON"
+            value={draft.queryText}
+            onChange={(event) => onDraftChange({ ...draft, queryText: event.target.value })}
+            disabled={disabled || !panelReadResult.ok}
+            spellCheck={false}
+          />
+        </label>
+        <div className="dashboard-panel-layout-fields">
+          {(['x', 'y', 'w', 'h'] as const).map((key) => (
+            <label className="field" key={key}>
+              <span>{key}</span>
+              <input
+                type="number"
+                min={key === 'x' || key === 'y' ? '0' : '1'}
+                step="any"
+                value={draft.layout[key]}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    layout: {
+                      ...draft.layout,
+                      [key]: event.target.value
+                    }
+                  })
+                }
+                disabled={disabled || !panelReadResult.ok}
+              />
+            </label>
+          ))}
+        </div>
+        <button className="text-button dashboard-panel-apply" type="button" onClick={onApply} disabled={disabled || !panelReadResult.ok}>
+          <Save size={16} aria-hidden="true" />
+          <span>{draft.mode === 'edit' ? '更新 panel' : '添加 panel'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function InlineError({ error, message }: { error?: unknown; message?: string | null }) {
   const text = message ?? (error ? readErrorMessage(error, 'form') : null);
 
@@ -916,6 +1159,19 @@ function buildDashboardPageScopeKey({
   dashboardOffset: number;
 }) {
   return JSON.stringify({ authScopeKey, projectIdInput, dashboardOffset });
+}
+
+function buildDashboardPanelScopeKey(pageScopeKey: string, dashboardId: number | null) {
+  return JSON.stringify({ pageScopeKey, dashboardId });
+}
+
+function createEmptyPanelReadResult(): DashboardPanelsReadResult {
+  return {
+    ok: true,
+    config: {},
+    panels: [],
+    hasPanels: false
+  };
 }
 
 function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {

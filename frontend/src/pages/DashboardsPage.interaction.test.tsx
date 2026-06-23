@@ -205,6 +205,105 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.deleteDashboard).toHaveBeenCalledWith(12, 7);
   });
 
+  it('在编辑区添加 panel 后通过既有更新接口保存 config.panels', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    expect(within(editPanel as HTMLElement).getByText('Legacy config')).toBeTruthy();
+
+    await user.clear(within(editPanel as HTMLElement).getByLabelText('Panel ID'));
+    await user.type(within(editPanel as HTMLElement).getByLabelText('Panel ID'), ' cpu ');
+    await user.clear(within(editPanel as HTMLElement).getByLabelText('标题'));
+    await user.type(within(editPanel as HTMLElement).getByLabelText('标题'), ' CPU 使用率 ');
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('panel query JSON'), {
+      target: { value: '{"name":"cpu.usage"}' }
+    });
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('y'), { target: { value: '1' } });
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('h'), { target: { value: '3' } });
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '添加 panel' }));
+
+    await waitFor(() => {
+      expect((within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value).toContain(
+        '"panels"'
+      );
+    });
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
+      12,
+      7,
+      {
+        config: {
+          refresh_seconds: 30,
+          panels: [
+            {
+              id: 'cpu',
+              title: 'CPU 使用率',
+              type: 'metrics',
+              query: { name: 'cpu.usage' },
+              layout: { x: 0, y: 1, w: 6, h: 3 }
+            }
+          ]
+        }
+      }
+    ]);
+  });
+
+  it('手动重排 config.panels 后更新旧草稿不会覆盖错误 panel', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [
+          { id: 'cpu', title: 'CPU', type: 'metrics', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } },
+          { id: 'logs', title: '日志', type: 'logs', query: {}, layout: { x: 0, y: 3, w: 6, h: 3 } }
+        ]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: /logs \/ logs/ }));
+    await user.clear(within(editPanel as HTMLElement).getByLabelText('标题'));
+    await user.type(within(editPanel as HTMLElement).getByLabelText('标题'), '错误日志');
+    const reorderedConfigText = JSON.stringify(
+      {
+        refresh_seconds: 30,
+        panels: [
+          { id: 'logs', title: '日志', type: 'logs', query: {}, layout: { x: 0, y: 3, w: 6, h: 3 } },
+          { id: 'cpu', title: 'CPU', type: 'metrics', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }
+        ]
+      },
+      null,
+      2
+    );
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: { value: reorderedConfigText }
+    });
+
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '更新 panel' }));
+
+    expect(await screen.findByText('当前 config.panels 已变化，请重新选择要更新的 panel。')).toBeTruthy();
+    expect((within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value).toBe(
+      reorderedConfigText
+    );
+    expect(JSON.parse(reorderedConfigText)).toEqual({
+      refresh_seconds: 30,
+      panels: [
+        { id: 'logs', title: '日志', type: 'logs', query: {}, layout: { x: 0, y: 3, w: 6, h: 3 } },
+        { id: 'cpu', title: 'CPU', type: 'metrics', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }
+      ]
+    });
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
   it('未点击列表项时不会自动提交首个 dashboard', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);
