@@ -146,12 +146,13 @@ function createSignedInAuth(): AuthContextValue {
 function renderQueryPage(
   queryClient: QueryClient,
   auth: AuthContextValue,
-  signal: 'metrics' | 'logs' | 'traces' | 'events'
+  signal: 'metrics' | 'logs' | 'traces' | 'events',
+  initialEntry = `/${signal}`
 ) {
   return renderToString(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={auth}>
-        <MemoryRouter initialEntries={[`/${signal}`]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
           <QueryPage signal={signal} />
         </MemoryRouter>
       </AuthContext.Provider>
@@ -306,6 +307,10 @@ describe('QueryPage traces', () => {
     expect(html).toContain('30.500 ms');
     expect(html).toContain('trace-a');
     expect(html).toContain('span-db');
+    expect(html).toContain('查看相关日志');
+    expect(html).toContain('href="/logs?trace_id=trace-a"');
+    expect(html).toContain('href="/logs?trace_id=trace-a&amp;span_id=span-root"');
+    expect(html).toContain('href="/logs?trace_id=trace-a&amp;span_id=span-db"');
     expect(html).toContain('展开详情');
     expect(html).toContain('回第一页');
     expect(html).toContain('下一页');
@@ -335,7 +340,11 @@ describe('QueryPage traces', () => {
   it('trace 组收起时仅保留组头，不渲染组内 span 行', () => {
     const groups = buildTraceWaterfallGroups([currentTrace]);
 
-    const html = renderToString(<TraceWaterfallView groups={groups} canQuery defaultExpanded={false} />);
+    const html = renderToString(
+      <MemoryRouter>
+        <TraceWaterfallView groups={groups} canQuery defaultExpanded={false} />
+      </MemoryRouter>
+    );
 
     expect(html).toContain('Trace trace-a');
     expect(html).toContain('aria-expanded="false"');
@@ -370,6 +379,73 @@ describe('QueryPage traces', () => {
     expect(firstPageKey).not.toBe(refreshedKey);
     expect(firstPageKey).not.toBe(filteredKey);
     expect(firstPageKey).not.toBe(nextSessionKey);
+  });
+});
+
+describe('QueryPage logs URL filters', () => {
+  it('logs 页面从 URL 初始化 Trace ID / Span ID 筛选并读取对应缓存结果', () => {
+    const queryClient = new QueryClient();
+    const filters = {
+      ...defaultFilters,
+      traceId: 'trace-url',
+      spanId: 'span-url'
+    };
+    const linkedLog: LogQueryItem = {
+      ...staleLog,
+      id: 43,
+      trace_id: 'trace-url',
+      span_id: 'span-url',
+      message: 'linked trace log'
+    };
+
+    queryClient.setQueryData<QueryResultPage<LogQueryItem>>(
+      buildSignalQueryKey(1, 'logs', buildQueryParams('logs', filters), 0),
+      {
+        items: [linkedLog],
+        next_cursor: null
+      }
+    );
+
+    const html = renderQueryPage(
+      queryClient,
+      createSignedInAuth(),
+      'logs',
+      '/logs?trace_id=trace-url&span_id=span-url'
+    );
+
+    expect(html).toContain('已应用关联日志筛选：Trace ID: trace-url / Span ID: span-url。');
+    expect(html).toContain('value="trace-url"');
+    expect(html).toContain('value="span-url"');
+    expect(html).toContain('linked trace log');
+    expect(html).toContain('第 1 页，1 条记录');
+  });
+
+  it('metrics 和 events 页面忽略 URL 中的 trace/span 参数', () => {
+    const metricsClient = new QueryClient();
+    const eventsClient = new QueryClient();
+    seedSignalData(metricsClient, 'metrics', [currentMetric]);
+    seedMetricAggregateData(metricsClient, [aggregateMetric]);
+    seedSignalData(eventsClient, 'events', [timelineEvent]);
+
+    const metricsHtml = renderQueryPage(
+      metricsClient,
+      createSignedInAuth(),
+      'metrics',
+      '/metrics?trace_id=ignored-trace&span_id=ignored-span'
+    );
+    const eventsHtml = renderQueryPage(
+      eventsClient,
+      createSignedInAuth(),
+      'events',
+      '/events?trace_id=ignored-trace&span_id=ignored-span'
+    );
+
+    expect(metricsHtml).toContain('http.requests');
+    expect(eventsHtml).toContain('deploy.finished');
+    expect(metricsHtml).not.toContain('已应用关联日志筛选');
+    expect(eventsHtml).not.toContain('已应用关联日志筛选');
+    expect(metricsHtml).not.toContain('ignored-trace');
+    expect(eventsHtml).not.toContain('ignored-span');
   });
 });
 

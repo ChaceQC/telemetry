@@ -35,7 +35,7 @@ npm.cmd run preview
 
 ```text
 VITE_APP_NAME=遥测平台
-VITE_APP_VERSION=0.2.5
+VITE_APP_VERSION=0.2.6
 VITE_PUBLIC_BASE_PATH=/
 VITE_API_BASE_URL=http://localhost:28117
 VITE_API_BASE_PATH=/api
@@ -87,11 +87,11 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 `/metrics`、`/logs`、`/traces` 和 `/events` 页面已替换为查询工作台，使用当前 session token 访问查询接口：
 
 - `/metrics`：调用 `GET /api/v1/query/metrics`，支持项目 ID、指标名、来源、时间范围、数量和 `cursor` 筛选，并在当前页结果属于同一 `name`/`unit` 序列时展示 value 随 received_at 变化的轻量趋势图。
-- `/logs`：调用 `GET /api/v1/query/logs`，支持项目 ID、日志级别、关键词、Trace ID、Span ID、Request ID、User ID、来源、时间范围、数量和 `cursor` 筛选；每条日志可展开“查看上下文”，调用 `GET /api/v1/query/logs/{log_id}/context?before=5&after=5` 展示目标日志前后记录，`before`/`after` 可在 0 到 20 内调整。
-- `/traces`：调用 `GET /api/v1/query/traces`，支持项目 ID、Trace ID、Span ID、Span 名称、来源、时间范围、数量和 `cursor` 筛选；当前页结果按 `trace_id` 分组，组内按 `parent_span_id` 显示树形缩进和 waterfall 耗时条，孤儿 span 会作为稳定根节点展示；错误 span、慢 span 和缺失时间数据会以克制标识提示，每条 span 仍可展开查看 trace_id、span_id、parent_span_id、name、source、status、duration、start/end/occurred/received 时间、attributes 和 payload。
+- `/logs`：调用 `GET /api/v1/query/logs`，支持项目 ID、日志级别、关键词、Trace ID、Span ID、Request ID、User ID、来源、时间范围、数量和 `cursor` 筛选；访问 `/logs?trace_id=...&span_id=...` 时会用 URL 初始化 Trace ID / Span ID 筛选并查询或显示已应用筛选；每条日志可展开“查看上下文”，调用 `GET /api/v1/query/logs/{log_id}/context?before=5&after=5` 展示目标日志前后记录，`before`/`after` 可在 0 到 20 内调整。
+- `/traces`：调用 `GET /api/v1/query/traces`，支持项目 ID、Trace ID、Span ID、Span 名称、来源、时间范围、数量和 `cursor` 筛选；当前页结果按 `trace_id` 分组，组内按 `parent_span_id` 显示树形缩进和 waterfall 耗时条，孤儿 span 会作为稳定根节点展示；trace 组和 span 行提供“查看相关日志”入口，使用相对路由跳转到 `/logs` 并携带 `trace_id` 和可选 `span_id`；错误 span、慢 span 和缺失时间数据会以克制标识提示，每条 span 仍可展开查看 trace_id、span_id、parent_span_id、name、source、status、duration、start/end/occurred/received 时间、attributes 和 payload。
 - `/events`：调用 `GET /api/v1/query/events`，支持项目 ID、事件类型、来源、时间范围、数量和 `cursor` 筛选；结果区按当前页 API 返回顺序展示为事件时间线，包含事件类型、source、occurred/received 时间、项目 ID、事件 ID，以及 payload 摘要和可展开 JSON 预览。
 
-查询响应按后端查询契约使用 envelope：`{"items": [...], "next_cursor": string | null}`。查询页首次加载第一页；点击“下一页”时使用上一页返回的 `next_cursor` 继续查询；点击“回第一页”、刷新或提交新的筛选条件时会清空旧 cursor 并回到第一页。日志关键词、Request ID 和 User ID 仅用于 `/logs` 请求；Trace ID 和 Span ID 用于 `/logs` 与 `/traces` 各自接口，不会透传给 metrics 或 events。
+查询响应按后端查询契约使用 envelope：`{"items": [...], "next_cursor": string | null}`。查询页首次加载第一页；点击“下一页”时使用上一页返回的 `next_cursor` 继续查询；点击“回第一页”、刷新或提交新的筛选条件时会清空旧 cursor 并回到第一页。日志关键词、Request ID 和 User ID 仅用于 `/logs` 请求；Trace ID 和 Span ID 用于 `/logs` 与 `/traces` 各自接口，不会透传给 metrics 或 events。URL 中的 `trace_id` / `span_id` 只初始化 `/logs` 页面筛选，不影响 `/metrics`、`/events` 或 `/traces` 查询参数。
 
 未登录或会话恢复中时，查询页显示登录提示并暂停请求，同时不会继续渲染旧 session 缓存的结果列表、分页或日志上下文；登录、登出和切换账号会按认证会话隔离并清理 `query` 查询缓存。登录后可刷新或提交筛选条件重新查询。当前页面提供筛选表单、加载/错误/空态、刷新、回第一页、下一页、结果列表，`/metrics` 当前页指标趋势图，`/logs` 单条日志上下文面板，`/traces` trace 组展开/收起、树形 waterfall 和单条 span 详情展开，以及 `/events` 当前页事件时间线；当前页混合多个指标名或单位时会显示趋势不可用提示。服务依赖拓扑、跨页趋势、事件详情跳转和事件跨页合并后续拆分。
 
