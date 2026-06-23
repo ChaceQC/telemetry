@@ -82,6 +82,7 @@ closed      已关闭
 | T-0052 | 服务拓扑前端基础 | 总 agent | done | todo | done | done | done |
 | T-0053 | Dashboard CRUD 后端基础 | 总 agent | todo | done | done | done | done |
 | T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | done | done | done |
+| T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -476,6 +477,7 @@ closed      已关闭
 | 2026-06-23 | T-0054-fix4 | 代码复审 agent Jason the 2nd | Dashboard CRUD 前端最终复审通过 | Jason the 2nd 只读复审 `e2ca432`，确认 stale-total/refetch P3 已关闭，早前 P1/P2/P3 均保持关闭，未发现新的 P0/P1/P2/P3；确认 Dashboard API contract、既有页面回归和前端版本 `0.2.11` 范围可接受。Jason the 2nd 已关闭，建议真实 merge | done |
 | 2026-06-23 | T-0054 | 总 agent | 真实 merge 集成 Dashboard CRUD 前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7221b90`、`7b4642d`、`d8ba7f0`、`58a6d9a` 和 `e2ca432` 合入 `dev`，merge 提交 `33da4b1`；同步根/前端/后端版本到 `0.2.11`；merge 后本地门禁、`dev`/feature CI、feature 分支同步和真实前后端联合测试均通过，T-0054 关闭 | done |
 | 2026-06-23 | T-0054 | 测试 agent Maxwell the 2nd | Dashboard CRUD 真实前后端联合测试通过 | Maxwell the 2nd 在 `dev/origin/dev` `8a9be60` 使用真实 MySQL 临时库、真实 FastAPI 后端 `28117`、真实 Vite 前端 `25173` 和 Playwright + Microsoft Edge 验证 `/dashboards`；API 40 项断言通过，覆盖 dashboard CRUD、权限隔离、JSON 校验、分页数据、auth/project/environment/service/API Key/events/metrics/logs/traces/topology/ingest stats 回归；后端 `/health=0.2.11`，前端 `/dashboards` ready，证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`；测试 agent 已清理自有资源 | done |
+| 2026-06-24 | T-0055 | 总 agent | 登记 Dashboard panel 配置后端基础 | 阶段 5 下一小步限定为后端 panel 配置 schema 基础：在现有 Dashboard CRUD 的 `layout`/`config` JSON 校验之上，新增最小 dashboard panel 配置验证，支持保存 metrics/logs/events/traces/topology 等 panel 的 `id`、`title`、`type`、`query`、基础布局坐标和基础查询参数；更新后端 schema/service/helper、测试、README、后端进度和 API 契约草案。不改前端页面，不做 panel 图表渲染，不接 ClickHouse 图表查询，不做变量/时间范围高级配置或告警。将以 `xhigh` 思考强度启动后端开发 agent，在 `feature/backend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、本地不启动 Docker、MySQL 使用本地服务/临时库/实例、Debian 兼容和只清理自有资源；后端开发 agent 可按需启动测试 agent，但不得代跑完整测试流程 | doing |
 
 ## 6. 测试记录
 
@@ -565,6 +567,7 @@ closed      已关闭
 | 2026-06-23 | T-0054 | CI | GitHub Actions runs `28034441225`、`28034545419`、`28034538393` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在 `8a9be60` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-23 | T-0054 | Dashboard CRUD 真实前后端联合测试 | Maxwell the 2nd；真实 MySQL 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `8a9be60`；`/health=0.2.11`，API 40 项断言通过，前端 `/dashboards` ready。覆盖 dashboard CRUD、权限/JSON 校验、分页数据和既有查询/摄入/拓扑回归；证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`，自有资源已清理 |
 | 2026-06-24 | T-0054-docs | CI | GitHub Actions runs `28044232620`、`28044259701`、`28044259979` | 通过 | T-0054 文档收口提交 `3ccfca5` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-24 | T-0054-docs2 | CI | GitHub Actions runs `28044411641`、`28044433265`、`28044432365` | 通过 | T-0054 文档收口 CI 记录提交 `b622ebd` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；仅有既有 Node.js runtime 弃用注解。该记录与 T-0055 启动记录合并提交，避免纯 CI 记录反复触发文档回声 |
 
 ## 7. 审计记录
 

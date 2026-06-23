@@ -687,6 +687,7 @@
 - T-0053 真实 MySQL/真实后端专项通过：Popper the 2nd 在 `dev/origin/dev` `6cd2909` 使用自启动隔离 MySQL 8.0.42、真实 FastAPI 后端验证 `/health=0.2.10`、Dashboard migration 和 API，断言 133/133、HTTP 场景 55/55 通过；覆盖 migration upgrade/downgrade、dashboards 表/JSON 字段/索引/外键、CRUD/分页/partial update、权限隔离、JSON 超大/过深/过复杂/NaN/Infinity 422，以及 auth/project/environment/service/API Key/events ingest/query 回归。证据目录 `agents/runtime/e2e-T-0053-20260623-190744`；测试 agent 已清理自有资源并关闭。
 - T-0054 已登记为阶段 5 下一小步：Dashboard CRUD 前端基础，消费既有后端 Dashboard CRUD API，实现项目选择、dashboard 列表、创建、编辑名称/描述/最小 layout/config JSON、删除和 loading/error/empty/unauth 状态；不改后端契约、不做 panel 图表渲染、不做变量/时间范围高级配置、不接 ClickHouse 查询和告警。
 - T-0054 前端开发、审计修复、最终复审、CI 和真实联测均通过：Dalton the 2nd 提交 `7221b90` 新增 Dashboard CRUD API client/types、`/dashboards` 页面、导航入口、项目选择、列表、创建、编辑、删除和状态处理，并将前端版本提升到 `0.2.11`；Avicenna the 2nd 审计发现 2 个 P1 和 2 个 P2，Gauss the 2nd 提交 `7b4642d` 修复编辑初态、状态隔离、分页和 JSON 本地保护；Hubble the 2nd 复审仍发现项目草稿残留 P1 和删除末页 P3，Pauli the 2nd 提交 `d8ba7f0` 修复；Cicero the 2nd 与 Descartes the 2nd 继续发现删除并发/刷新窗口 P3，Kepler the 2nd `58a6d9a` 和 Halley the 2nd `e2ca432` 关闭；Jason the 2nd 最终复审未发现 P0/P1/P2/P3。总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，并同步根、前端、后端版本到 `0.2.11`；`dev`/feature CI、feature 分支同步和 Maxwell the 2nd 真实前后端联合测试均通过。T-0054 关闭。
+- T-0055 已登记为阶段 5 下一小步：Dashboard panel 配置后端基础，先在现有 Dashboard CRUD 的 `layout`/`config` JSON 校验之上新增最小 panel 配置 schema 与后端校验/测试，支持保存 metrics/logs/events/traces/topology 等 panel 的 `id`、`title`、`type`、`query`、基础布局坐标和基础查询参数；不改前端页面、不做 panel 图表渲染、不接 ClickHouse 图表查询、不做变量/时间范围高级配置或告警。
 
 ### 阻塞与风险
 
@@ -712,7 +713,7 @@
 
 ### 下一步
 
-- 登记并启动 T-0055 Dashboard panel 配置后端基础：先为 dashboard `layout`/`config` 明确定义最小 panel 配置 schema 与后端校验/测试，支持保存 metrics/logs/events/traces/topology 等 panel 的标题、类型、数据源引用和基础查询参数；不做前端渲染、不接 ClickHouse 图表查询、不做变量/时间范围高级配置或告警。
+- 后端开发 agent 在 `feature/backend-dev` 推进 T-0055 Dashboard panel 配置后端基础；完成后由总 agent 启动代码审计 agent，审计通过后再按真实 merge 集成到 `dev` 并安排必要验证。
 
 ### 验证
 
@@ -736,6 +737,7 @@
 - T-0054 CI 通过：GitHub Actions runs `28034441225`、`28034545419`、`28034538393` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。
 - T-0054 真实前后端联合测试通过：Maxwell the 2nd 使用真实 MySQL 临时库、真实 FastAPI 后端 `28117`、真实 Vite 前端 `25173` 和 Playwright + Microsoft Edge 验证 Dashboard CRUD 前端集成；API 40 项断言通过，后端 `/health=0.2.11`，前端 `/dashboards` ready，覆盖 dashboard CRUD、权限/JSON 校验、分页数据和既有摄入/查询/拓扑回归；证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`，自有资源已清理。
 - T-0054 文档收口 CI 通过：GitHub Actions runs `28044232620`、`28044259701`、`28044259979` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。
+- T-0054 文档收口 CI 记录提交后 CI 通过：GitHub Actions runs `28044411641`、`28044433265`、`28044432365` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。该结果与 T-0055 启动记录合并记录，避免纯 CI 记录反复触发文档回声。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
