@@ -693,6 +693,8 @@
 - T-0055-fix 后端修复 agent Newton 已提交并推送 `f3df26c`：panel `id/title/type` 通过校验后写回裁剪首尾空白后的规范化值，重复 `id` 按规范化值判断；新增 create/update 规范化和重复 id 规范化回归测试，并同步后端 README、后端进度和 API 契约。
 - T-0055-fix 代码复审 agent Kant 复审通过：确认原 P2 已关闭，legacy config、数组 config、query/layout 与 update 语义未受破坏，新增测试和文档覆盖到位；未发现 P0/P1/P2/P3，可合并到 `dev`。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0055 合入 `dev`，merge 提交 `d11b298`；merge 后本地门禁和 `dev` CI 均通过，待同步 feature 分支。
+- T-0055 已完成同步收口：`cd6290b` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28050203922`、`28050218117`、`28050231723` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
+- T-0056 已登记为阶段 5 下一小步：Dashboard panel 配置前端基础，在现有 `/dashboards` CRUD 页面上读取/编辑后端 `config.panels`，提供最小 panel 列表、添加/编辑/删除、`id/title/type/query` 与基础 layout 字段校验、JSON query 编辑和保存到既有 Dashboard update API；不做真实图表渲染、不接 ClickHouse 查询、不做变量/时间范围高级配置、模板或告警。
 
 ### 阻塞与风险
 
@@ -719,7 +721,7 @@
 
 ### 下一步
 
-- 将 `feature/backend-dev` 与 `feature/frontend-dev` 快进到最新 `dev` 并推送，然后复查三棵 worktree；随后登记阶段 5 下一小步：Dashboard 图表布局/前端 panel 配置基础。
+- 前端开发 agent 在 `feature/frontend-dev` 推进 T-0056 Dashboard panel 配置前端基础；完成后由总 agent 启动代码审计 agent，审计通过后再按真实 merge 集成到 `dev` 并安排必要验证。
 
 ### 验证
 
@@ -748,6 +750,7 @@
 - T-0055-fix 修复后窄门禁通过：在后端 worktree `f3df26c` 上运行 `uv run pytest tests/test_dashboard_api.py -q` 得到 36 passed、1 条既有 Starlette/TestClient 弃用警告；ruff、format check、mypy、`git diff --check origin/dev..origin/feature/backend-dev` 和 worktree 体检均通过。
 - T-0055 merge 后本地门禁通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 49 passed，1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 通过；前端 `npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 本地领先远端且根文档待提交而失败，推送后复查。
 - T-0055 dev CI 通过：GitHub Actions run `28050085589` 在 `0002728` 上完成，Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解，不阻塞。
+- T-0055 最终同步 CI 通过：GitHub Actions runs `28050203922`、`28050218117`、`28050231723` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `cd6290b`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。随后严格 worktree 体检通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
