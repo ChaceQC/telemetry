@@ -511,6 +511,7 @@ closed      已关闭
 | 2026-06-23 | T-0049 | Trace 到日志跳转最终真实前后端联合测试 | Godel the 2nd；自启动临时本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `1a66445`；API 23 步与浏览器 14 项通过，覆盖 valid/129 trace 深链硬导航/刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading；证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`，自有资源已清理 |
 | 2026-06-23 | T-0050 | dev merge 后本地验证 | 前端 T-0050 专项 test、前端全量 test、typecheck、lint、build、`git diff --check` | 通过 | 专项 2 files/23 tests passed，全量 22 files/105 tests passed；typecheck、lint、build、diff check 均通过。未启动真实后端、真实数据库、浏览器或完整联测，后续交由测试 agent 执行 |
 | 2026-06-23 | T-0050/VERSION | 版本同步本地验证 | 后端配置测试、`uv lock --check`、前端 typecheck/build、`git diff --check` | 通过 | 根、前端、后端版本声明同步到 `0.2.7`；`uv run pytest tests/test_config.py` 11 passed，`uv lock --check`、`npm.cmd run typecheck`、`npm.cmd run build`、diff check 均通过。未启动或关闭任何本地服务 |
+| 2026-06-23 | T-0050 | CI | GitHub Actions runs `28004819590`、`28004851916`、`28004859254` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在提交 `fe572c3` 上通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解风险 |
 
 ## 7. 审计记录
 
@@ -601,7 +602,7 @@ closed      已关闭
 | 2026-06-22 | T-0044 | feature/backend-dev | dev | 总 agent | 后端 trace ingestion 最小基础 `f2c6c05` 已通过 Meitner 审计和 Descartes 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `5188aef`；版本同步到 `0.2.2` | done |
 | 2026-06-22 | T-0045 | feature/backend-dev | dev | 总 agent | 后端 trace 查询最小基础 `a249fe7` 与契约修复 `c87a60f` 已通过 Heisenberg 审计和 James 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `2916df9`；版本同步到 `0.2.3` | done |
 | 2026-06-22 | T-0045-fix | feature/backend-dev | dev | 总 agent | 后端修复 `2d357a7` 与 P3 收口 `0928e6f` 已通过 Pauli 专项复验、Russell 审计和 Hume the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `89506c5` | doing |
-| 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁已通过并同步版本到 `0.2.7`，待 CI、feature 分支同步和真实联测 | testing |
+| 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁和 CI 均通过，根/前端/后端版本同步到 `0.2.7`；`feature/frontend-dev` 与 `feature/backend-dev` 已快进到 `fe572c3` 并推送，待真实联测 | testing |
 
 ## 10. 决策记录
 

@@ -673,6 +673,7 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0050 合入 `dev`，merge 提交 `4fc5301`；本次同步根、前端、后端版本到 `0.2.7`，当前等待推送、CI 读取、feature 分支同步和真实前后端联合测试。
 - T-0050 dev merge 后本地验证通过：前端专项 2 files/23 tests、前端全量 22 files/105 tests、typecheck、lint、build 和 `git diff --check` 均通过；未启动真实服务或浏览器，完整联测交由测试 agent 执行。
 - T-0050 版本同步门禁通过：后端 `uv run pytest tests/test_config.py` 11 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 与 `npm.cmd run build` 通过；`git diff --check` 通过。
+- T-0050 已推送并同步 feature 分支：`dev`、`feature/frontend-dev`、`feature/backend-dev` 均在 `fe572c3` 通过 GitHub Actions；两个 feature 分支已快进到 `fe572c3` 并推送。已启动测试 agent Turing the 2nd 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 做完整 trace/log 互跳联测。
 
 ### 阻塞与风险
 
@@ -698,7 +699,7 @@
 
 ### 下一步
 
-- 推送 T-0050 到 `origin/dev`，读取 CI 并同步 feature 分支后，启动测试 agent 用真实 MySQL、真实前后端、Playwright + Microsoft Edge 验证 trace/log 互跳闭环。
+- 等待测试 agent Turing the 2nd 完成 T-0050 真实 MySQL、真实前后端、Playwright + Microsoft Edge 联测；通过后记录结果、关闭测试 agent，并继续阶段 4 下一小步。
 
 ### 验证
 
@@ -707,6 +708,7 @@
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
 - T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
 - T-0050 版本同步门禁通过：`uv run pytest tests/test_config.py` 11 passed、`uv lock --check`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过。
+- T-0050 CI 通过：GitHub Actions runs `28004819590`、`28004851916`、`28004859254` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
