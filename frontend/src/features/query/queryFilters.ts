@@ -4,6 +4,7 @@ import type {
   MetricAggregateParams,
   MetricAggregation,
   MetricQueryParams,
+  TraceTopologyParams,
   TraceQueryParams
 } from '../../api/query';
 
@@ -96,6 +97,22 @@ export function buildMetricAggregateParams(filters: QueryFilters): MetricAggrega
     limit: toNumber(filters.limit),
     window: normalizeMetricWindow(filters.metricWindow),
     aggregation: normalizeMetricAggregation(filters.metricAggregation)
+  };
+}
+
+export function buildTraceTopologyParams(filters: QueryFilters): TraceTopologyParams | null {
+  const projectId = toNumber(filters.projectId);
+
+  if (projectId === undefined || !Number.isInteger(projectId) || projectId < 1) {
+    return null;
+  }
+
+  return {
+    project_id: projectId,
+    source: toOptional(filters.source),
+    occurred_from: toOptional(filters.occurredFrom),
+    occurred_to: toOptional(filters.occurredTo),
+    limit: toNumber(filters.limit)
   };
 }
 

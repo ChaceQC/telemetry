@@ -2,6 +2,32 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0052 服务拓扑前端基础
+
+### 已完成
+
+- 新增 `GET /api/v1/query/traces/topology` 前端 API client 与 TypeScript 类型，按契约支持必填 `project_id`、可选 `occurred_from` / `occurred_to`、`source` 和 `limit`，不使用 `cursor`。
+- 新增 `buildTraceTopologyParams`，服务拓扑参数只包含后端契约字段；普通 metrics/logs/events/traces 查询保持白名单构造，不透传误传的 topology 形态参数。
+- 新增 `/traces/topology` 路由与 `TraceTopologyPage`，复用现有查询工作台的项目 ID、来源、时间范围、数量、刷新、loading、error、empty 和未登录提示风格；项目 ID 未填时暂停查询并提示必填。
+- `/traces` 页面头部新增“服务拓扑”入口，拓扑页提供返回 Span 列表入口；保持 trace/log 互跳、auth gating 和 URL 参数隔离。
+- 拓扑结果以轻量节点/调用边摘要展示 `source`、`span_count`、`trace_count`、`error_span_count`、平均/最大 duration，以及 `from_source`、`to_source`、`call_count`、`error_count`、平均/最大 duration；不引入复杂图布局、拖拽、画布或重型可视化库。
+- 前端版本提升到 `0.2.9`，同步 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不启动 Docker、不接 ClickHouse、不做真实 MySQL/后端/前端联合测试。
+- 未启动 Playwright + Edge 浏览器冒烟；本轮使用 API/client、筛选构造、SSR 页面和 CSS 静态测试覆盖前端侧行为。
+- 未启动测试 agent；由当前前端开发 agent 完成专项与全量前端验证。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/TraceTopologyPage.test.tsx src/pages/QueryPage.test.tsx` 通过（4 个测试文件、43 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（23 个测试文件、116 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-23 版本同步 0.2.8
 
 ### 已完成

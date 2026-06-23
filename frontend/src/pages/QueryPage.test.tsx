@@ -365,6 +365,8 @@ describe('QueryPage traces', () => {
 
     expect(html).toContain('链路查询');
     expect(html).toContain('Span 名称');
+    expect(html).toContain('服务拓扑');
+    expect(html).toContain('href="/traces/topology"');
     expect(html).toContain('1 个 trace 组 / 3 条 span');
     expect(html).toContain('class="trace-waterfall-list"');
     expect(html).toContain('Trace trace-a');

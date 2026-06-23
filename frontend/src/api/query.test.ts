@@ -153,6 +153,54 @@ describe('query api client', () => {
     );
   });
 
+  it('Trace 拓扑查询会携带必填 project_id 和拓扑筛选参数但不使用 cursor', async () => {
+    const { getTraceTopology, setApiAuthToken } = await loadQueryClient();
+    const response = {
+      nodes: [
+        {
+          source: 'api',
+          span_count: 12,
+          trace_count: 4,
+          error_span_count: 2,
+          avg_duration_ms: 38.5,
+          max_duration_ms: 120
+        }
+      ],
+      edges: [
+        {
+          from_source: 'api',
+          to_source: 'worker',
+          call_count: 6,
+          error_count: 1,
+          avg_duration_ms: 24.5,
+          max_duration_ms: 70
+        }
+      ]
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
+
+    setApiAuthToken('query-token');
+    await expect(
+      getTraceTopology({
+        project_id: 12,
+        source: ' api ',
+        occurred_from: '2026-06-20T10:00',
+        occurred_to: '2026-06-20T11:00',
+        limit: 25,
+        cursor: 'ignored-cursor'
+      } as never)
+    ).resolves.toEqual(response);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/traces/topology?project_id=12&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&limit=25',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer query-token'
+        })
+      })
+    );
+  });
+
   it('metrics 和 events 查询不会透传误传的 logs 专属参数', async () => {
     const { listMetrics, listEvents } = await loadQueryClient();
     const fetchMock = vi
@@ -184,6 +232,26 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://localhost:28117/api/v1/query/events?type=deploy.started',
+      expect.any(Object)
+    );
+  });
+
+  it('普通 traces 查询不会透传误传的 topology 专属形态参数', async () => {
+    const { listTraces } = await loadQueryClient();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));
+
+    await listTraces({
+      project_id: 12,
+      source: 'api',
+      limit: 25,
+      cursor: 'trace-cursor-1',
+      from_source: 'ignored',
+      to_source: 'ignored',
+      call_count: 999
+    } as never);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/query/traces?project_id=12&source=api&limit=25&cursor=trace-cursor-1',
       expect.any(Object)
     );
   });
