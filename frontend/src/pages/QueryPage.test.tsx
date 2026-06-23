@@ -18,7 +18,7 @@ import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from '..
 import { buildLogContextQueryKey, buildSignalQueryKey } from '../features/query/querySession';
 import { buildTraceWaterfallGroups } from '../features/query/traceWaterfall';
 import { buildTraceWaterfallScopeKey } from '../features/query/traceWaterfallScope';
-import { QueryPage, TraceDetailPanel, TraceWaterfallView } from './QueryPage';
+import { LogContextGroup, QueryPage, TraceDetailPanel, TraceWaterfallView } from './QueryPage';
 
 const defaultLogParams = {
   project_id: undefined,
@@ -454,6 +454,68 @@ describe('QueryPage traces', () => {
 });
 
 describe('QueryPage logs URL filters', () => {
+  it('logs 查询结果有 trace_id 时显示相关 Trace 跳转并按需携带 span_id', () => {
+    const queryClient = new QueryClient();
+    const traceOnlyLog: LogQueryItem = {
+      ...staleLog,
+      id: 43,
+      trace_id: 'trace-only',
+      span_id: null,
+      message: 'trace-only log'
+    };
+    const traceSpanLog: LogQueryItem = {
+      ...staleLog,
+      id: 44,
+      trace_id: 'trace/a',
+      span_id: 'span b',
+      message: 'trace span log'
+    };
+    const noTraceLog: LogQueryItem = {
+      ...staleLog,
+      id: 45,
+      trace_id: null,
+      span_id: 'span-only',
+      message: 'no trace log'
+    };
+    seedSignalData(queryClient, 'logs', [traceOnlyLog, traceSpanLog, noTraceLog]);
+
+    const html = renderQueryPage(queryClient, createSignedInAuth(), 'logs');
+
+    expect(html.match(/href="\/traces\?/g)).toHaveLength(2);
+    expect(html).toContain('href="/traces?trace_id=trace-only"');
+    expect(html).toContain('href="/traces?trace_id=trace%2Fa&amp;span_id=span+b"');
+    expect(html).toContain('no trace log');
+    expect(html).not.toContain('span-only"');
+  });
+
+  it('日志上下文详情有 trace_id 时显示相关 Trace 跳转，没有 trace_id 时不显示', () => {
+    const detailLog: LogQueryItem = {
+      ...staleLog,
+      id: 46,
+      trace_id: ' trace/detail ',
+      span_id: ' span detail ',
+      message: 'detail trace log'
+    };
+    const noTraceDetailLog: LogQueryItem = {
+      ...staleLog,
+      id: 47,
+      trace_id: null,
+      span_id: 'span-only',
+      message: 'detail without trace'
+    };
+
+    const html = renderToString(
+      <MemoryRouter>
+        <LogContextGroup title="Target" logs={[detailLog, noTraceDetailLog]} emptyText="empty" isTarget />
+      </MemoryRouter>
+    );
+
+    expect(html.match(/href="\/traces\?/g)).toHaveLength(1);
+    expect(html).toContain('href="/traces?trace_id=trace%2Fdetail&amp;span_id=span+detail"');
+    expect(html).toContain('detail without trace');
+    expect(html).not.toContain('span-only"');
+  });
+
   it('logs 页面从 URL 初始化 Trace ID / Span ID 筛选并读取对应缓存结果', () => {
     const queryClient = new QueryClient();
     const filters = {
@@ -598,6 +660,8 @@ describe('QueryPage logs URL filters', () => {
     expect(eventsHtml).toContain('deploy.finished');
     expect(metricsHtml).not.toContain('已应用关联日志筛选');
     expect(eventsHtml).not.toContain('已应用关联日志筛选');
+    expect(metricsHtml).not.toContain('查看相关 Trace');
+    expect(eventsHtml).not.toContain('查看相关 Trace');
     expect(metricsHtml).not.toContain('ignored-trace');
     expect(eventsHtml).not.toContain('ignored-span');
   });

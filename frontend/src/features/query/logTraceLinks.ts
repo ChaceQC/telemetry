@@ -8,15 +8,27 @@ export type LogsTraceSearch = {
 
 export type TraceSearchFilters = LogsTraceSearch;
 
-type LogsTraceSearchInput = {
+type TraceSearchInput = {
   traceId?: string | null;
   spanId?: string | null;
 };
 
-export function buildLogsTraceSearch(input: LogsTraceSearchInput): string {
+export function buildLogsTraceSearch(input: TraceSearchInput): string {
+  return buildTraceSearch(input);
+}
+
+export function buildTracesTraceSearch(input: TraceSearchInput): string {
+  return buildTraceSearch(input, { requireTraceId: true });
+}
+
+function buildTraceSearch(input: TraceSearchInput, options: { requireTraceId?: boolean } = {}): string {
   const params = new URLSearchParams();
   const traceId = normalizeSearchValue(input.traceId);
   const spanId = normalizeSearchValue(input.spanId);
+
+  if (options.requireTraceId && !traceId) {
+    return '';
+  }
 
   if (traceId) {
     params.set('trace_id', traceId);
