@@ -2,6 +2,27 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0057 Dashboard panel 只读预览前端基础
+
+### 已完成
+
+- 在 dashboard panel 纯函数工具中新增只读预览模型，基于 `readDashboardPanelsFromConfigText()` 的结果区分 invalid、legacy、empty 和 ready 状态。
+- 预览模型按基础 layout 的 `y/x` 顺序排列 panel，保留原始 panels index，并为页面生成 12 列网格位置、layout `x/y/w/h` 标签和稳定 query 摘要。
+- `/dashboards` 编辑区新增只读 Panel 预览，直接消费当前 `config JSON` textarea 文本；用户通过 panel editor 添加/编辑/删除 panel 或手动修改 JSON 后，预览随本地表单状态同步更新。
+- 预览展示 panel 标题、`type / id`、原始序号、layout 和 query 摘要；覆盖未登录、未选择 dashboard、legacy config、空 `panels`、invalid `config.panels` 状态。
+- 本轮不新增后端 API，不改后端契约，不触发保存 API，不请求图表数据，不接 ClickHouse，不做变量/时间范围高级配置、模板或告警。
+
+### 验证
+
+- Dashboard 专项 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files/42 tests passed。
+- `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
+- Playwright + Microsoft Edge 访问 `/dashboards` 桌面、390px 移动和全页截图通过；未登录/未选择状态下 Panel 预览可见且移动端无明显重叠。自启 Vite `25187` 和本地临时截图目录已清理。
+
+### 风险
+
+- 预览只展示配置摘要和基础 layout 网格感，不代表真实图表渲染结果或查询可执行性。
+- 未做真实后端/MySQL 联测；本轮行为以本地 `config JSON` textarea 和既有 Dashboard CRUD 状态为边界。
+
 ## 2026-06-24 T-0056a Dashboard panel 配置前端小步
 
 ### 已完成

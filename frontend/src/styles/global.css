@@ -921,6 +921,115 @@ h2 {
   min-height: 86px;
 }
 
+.dashboard-panel-preview {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.dashboard-panel-preview-heading,
+.dashboard-panel-preview-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboard-panel-preview-heading > div,
+.dashboard-panel-preview-card-heading > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dashboard-panel-preview-heading strong,
+.dashboard-panel-preview-card-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+}
+
+.dashboard-panel-preview-heading span,
+.dashboard-panel-preview-help,
+.dashboard-panel-preview-card-heading span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-panel-preview-help {
+  margin: 0;
+}
+
+.dashboard-panel-preview-state {
+  min-height: 86px;
+}
+
+.dashboard-panel-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-panel-preview-grid li {
+  min-width: 0;
+}
+
+.dashboard-panel-preview-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  min-height: 132px;
+  padding: 11px;
+  border: 1px solid #d4e1e3;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dashboard-panel-preview-card-heading code {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-panel-preview-meta {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.dashboard-panel-preview-meta div {
+  min-width: 0;
+}
+
+.dashboard-panel-preview-meta dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.dashboard-panel-preview-meta dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #26343a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .dashboard-panel-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2375,6 +2484,10 @@ h2 {
 
   .trace-span-content {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-panel-preview-grid > li {
+    grid-column: 1 / -1 !important;
   }
 
   .trace-waterfall-scale {

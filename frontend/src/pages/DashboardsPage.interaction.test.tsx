@@ -212,7 +212,8 @@ describe('DashboardsPage interactions', () => {
     await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
     const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
     expect(editPanel).not.toBeNull();
-    expect(within(editPanel as HTMLElement).getByText('Legacy config')).toBeTruthy();
+    const panelEditor = within(editPanel as HTMLElement).getByLabelText('Panel 配置');
+    expect(within(panelEditor).getByText('Legacy config')).toBeTruthy();
 
     await user.clear(within(editPanel as HTMLElement).getByLabelText('Panel ID'));
     await user.type(within(editPanel as HTMLElement).getByLabelText('Panel ID'), ' cpu ');
@@ -230,6 +231,12 @@ describe('DashboardsPage interactions', () => {
         '"panels"'
       );
     });
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+    expect(within(preview).getByText('CPU 使用率')).toBeTruthy();
+    expect(within(preview).getByText('metrics / cpu')).toBeTruthy();
+    expect(within(preview).getByText('x 0 / y 1 / w 6 / h 3')).toBeTruthy();
+    expect(within(preview).getByText('query { name: "cpu.usage" }')).toBeTruthy();
+
     await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
 
     expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
@@ -250,6 +257,58 @@ describe('DashboardsPage interactions', () => {
         }
       }
     ]);
+  });
+
+  it('手动修改 config JSON 后只读 panel 预览立即同步且不保存', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    expect(within(preview).getByText('Legacy config')).toBeTruthy();
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify(
+          {
+            refresh_seconds: 30,
+            panels: [
+              {
+                id: 'logs',
+                title: '错误日志',
+                type: 'logs',
+                query: {
+                  level: 'error',
+                  tags: ['prod', 'api', { service: 'payments' }],
+                  text: 'a very long keyword search expression that should not overflow the preview surface'
+                },
+                layout: { x: 6, y: 2, w: 6, h: 3 }
+              },
+              {
+                id: 'cpu',
+                title: 'CPU 使用率',
+                type: 'metrics',
+                query: {},
+                layout: { x: 0, y: 0, w: 6, h: 4 }
+              }
+            ]
+          },
+          null,
+          2
+        )
+      }
+    });
+
+    expect(within(preview).getByText('2 个 panel')).toBeTruthy();
+    expect(within(preview).getByText('CPU 使用率')).toBeTruthy();
+    expect(within(preview).getByText('metrics / cpu')).toBeTruthy();
+    expect(within(preview).getByText('query {}')).toBeTruthy();
+    expect(within(preview).getByText('错误日志')).toBeTruthy();
+    expect(within(preview).getByText('logs / logs')).toBeTruthy();
+    expect(within(preview).getByText('x 6 / y 2 / w 6 / h 3')).toBeTruthy();
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
   });
 
   it('手动重排 config.panels 后更新旧草稿不会覆盖错误 panel', async () => {
@@ -333,7 +392,7 @@ describe('DashboardsPage interactions', () => {
 
     rerenderWithAuth(createSignedOutAuth(2));
 
-    await screen.findByText('等待登录');
+    expect(await screen.findAllByText('等待登录')).not.toHaveLength(0);
     expect(screen.queryByDisplayValue('本地未保存名称')).toBeNull();
     expect(screen.queryByDisplayValue('SLO 值班看板')).toBeNull();
 
