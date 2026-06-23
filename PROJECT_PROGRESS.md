@@ -715,6 +715,7 @@
 - T-0058 最终文档收口 CI 通过：`002ac37` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28061977805`、`28062046509`、`28062045863` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
 - T-0059 已登记为阶段 5 下一小步：Dashboard panel 查询预览前端接入基础，在 `/dashboards` 已保存 dashboard 的只读 Panel 预览区消费 T-0058 后端 API，为单个已保存 panel 加载样本摘要/预览数据；展示 metrics 聚合摘要、logs/events/traces 最近样本和 topology 节点/边摘要，覆盖未保存草稿、legacy/empty、loading/error/422/unauth 状态。不改后端契约，不做真实图表渲染，不接 ClickHouse，不保存草稿 config，不做变量/模板/告警。
 - T-0059 前端开发侧已完成：新增 `previewDashboardPanel()` API client、类型化 `DashboardPanelPreviewPayload`、`dashboardQueryKeys.panelPreview` 和查询预览摘要模型；`/dashboards` 只读 Panel 预览卡片新增“加载/刷新预览”，仅在已保存 dashboard/panel 且当前 `config JSON` 未改动时请求后端，未保存草稿显示“保存后可查询”且不触发 API。UI 覆盖 metrics 聚合、logs/events/traces 最近样本、topology 节点/边摘要、空结果、422/error 和未登录/未选择/legacy/empty/invalid 本地状态。
+- T-0059 已完成前端 feature CI、本地审计和真实 merge：`feature/frontend-dev` 提交 `5b28d5b` 已通过 GitHub Actions run `28064233579`；总 agent 本地审计未发现 P0/P1/P2/P3，代码审计 agent Parfit 因超时关闭且未返回可用结论；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`。merge 后本地门禁通过：前端 dashboard 专项 4 files / 45 tests passed、typecheck、lint、build 通过，后端 config 13 passed、`uv lock --check`、`git diff --check` 通过。当前等待推送 `dev` 并读取 CI，再同步两个 feature 分支。
 
 ### 阻塞与风险
 
@@ -738,11 +739,11 @@
 - T-0049-fix 新增 P2 已由 `a86f559` 关闭并经 Planck 重测观察通过：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据。
 - T-0049-fix2 阻断问题已由 `a30e126` 关闭并经 Godel 最终联测确认：`/traces?trace_id=...` 会初始化 Trace ID 筛选并传给后端，valid 深链与 129 字符 trace_id 422/错误态均通过。
 - T-0058 残余风险：本轮只基于关系库 `ingest_records` 查询能力返回已保存 panel 的只读预览；尚未做真实 MySQL/真实后端服务/前端浏览器联测，不接 ClickHouse，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警。历史 dashboard config 中更多非法 query 形态仍按参与预览的白名单字段运行时返回 `422` 或沿现有 query service 语义处理。
-- T-0059 残余风险：本轮为前端按需消费 T-0058 预览 API，仍未启动真实后端、数据库或浏览器联测；预览数据只做摘要/样例展示，不做真实图表渲染、ClickHouse 查询、变量替换、模板、缓存、后台刷新或告警。已通过本地单元/交互测试覆盖未保存草稿不请求后端、422 错误展示和 panel path 编码，但真实权限/数据链路需后续集成测试确认。
+- T-0059 残余风险：本轮为前端按需消费 T-0058 预览 API，仍未启动真实后端、数据库或浏览器联测；预览数据只做摘要/样例展示，不做真实图表渲染、ClickHouse 查询、变量替换、模板、缓存、后台刷新或告警。已通过本地单元/交互测试覆盖未保存草稿不请求后端、422 错误展示和 panel path 编码，但真实权限/数据链路需后续集成测试确认。代码审计 agent 本轮未能返回结论，总 agent 已完成本地审计并记录无阻断发现。
 
 ### 下一步
 
-- T-0059 进入提交、代码审计和集成阶段；通过后由总 agent 使用真实 `git merge --no-ff` 合入 `dev`，再同步三个分支并读取 CI。
+- 推送 T-0059 dev merge，读取 GitHub Actions；CI 通过后 fast-forward 同步 `feature/frontend-dev` 与 `feature/backend-dev`，再运行严格 worktree 体检并继续阶段 5 下一小步。
 
 ### 验证
 
