@@ -219,6 +219,82 @@ describe('TraceTopologyPage', () => {
     expect(html).not.toContain('Span ID');
   });
 
+  it('带短横线的调用边不会产生重复 key warning', () => {
+    const queryClient = new QueryClient();
+    seedTopologyData(queryClient, {
+      nodes: [
+        {
+          source: 'api-worker',
+          span_count: 2,
+          trace_count: 1,
+          error_span_count: 0,
+          avg_duration_ms: 10,
+          max_duration_ms: 20
+        },
+        {
+          source: 'api',
+          span_count: 2,
+          trace_count: 1,
+          error_span_count: 0,
+          avg_duration_ms: 10,
+          max_duration_ms: 20
+        },
+        {
+          source: 'db',
+          span_count: 2,
+          trace_count: 1,
+          error_span_count: 0,
+          avg_duration_ms: 10,
+          max_duration_ms: 20
+        },
+        {
+          source: 'worker-db',
+          span_count: 2,
+          trace_count: 1,
+          error_span_count: 0,
+          avg_duration_ms: 10,
+          max_duration_ms: 20
+        }
+      ],
+      edges: [
+        {
+          from_source: 'api-worker',
+          to_source: 'db',
+          call_count: 3,
+          error_count: 0,
+          avg_duration_ms: 10,
+          max_duration_ms: 20
+        },
+        {
+          from_source: 'api',
+          to_source: 'worker-db',
+          call_count: 4,
+          error_count: 1,
+          avg_duration_ms: 15,
+          max_duration_ms: 25
+        }
+      ]
+    });
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      const html = renderTopologyPage(queryClient, createSignedInAuth(), '/traces/topology?project_id=21&source=api&limit=50');
+
+      expect(html).toContain('4 个服务节点 / 2 条调用边');
+      expect(html.match(/class="topology-edge"/g)).toHaveLength(2);
+      expect(html).toContain('api-worker');
+      expect(html).toContain('worker-db');
+      expect(html).toContain('3');
+      expect(html).toContain('4');
+      const duplicateKeyWarning = consoleErrorSpy.mock.calls.some((call) =>
+        call.some((value) => String(value).includes('Encountered two children with the same key'))
+      );
+      expect(duplicateKeyWarning).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it('空拓扑响应展示 empty 状态', () => {
     const queryClient = new QueryClient();
     seedTopologyData(queryClient, { nodes: [], edges: [] });

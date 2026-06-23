@@ -316,7 +316,7 @@ function TopologyEdgeList({ edges }: { edges: TraceTopologyEdge[] }) {
       {edges.length > 0 ? (
         <ol className="topology-list topology-edge-list">
           {edges.map((edge) => (
-            <li key={`topology-edge-${edge.from_source}-${edge.to_source}`}>
+            <li key={getTopologyEdgeKey(edge)}>
               <article className="topology-edge">
                 <div className="topology-edge-route">
                   <strong>{edge.from_source}</strong>
@@ -342,6 +342,10 @@ function TopologyEdgeList({ edges }: { edges: TraceTopologyEdge[] }) {
       )}
     </section>
   );
+}
+
+function getTopologyEdgeKey(edge: TraceTopologyEdge) {
+  return `topology-edge-${JSON.stringify([edge.from_source, edge.to_source])}`;
 }
 
 function TopologyMetricGrid({ metrics }: { metrics: Array<[string, string]> }) {

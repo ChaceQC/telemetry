@@ -12,15 +12,18 @@
 - `/traces` 页面头部新增“服务拓扑”入口，拓扑页提供返回 Span 列表入口；保持 trace/log 互跳、auth gating 和 URL 参数隔离。
 - 拓扑结果以轻量节点/调用边摘要展示 `source`、`span_count`、`trace_count`、`error_span_count`、平均/最大 duration，以及 `from_source`、`to_source`、`call_count`、`error_count`、平均/最大 duration；不引入复杂图布局、拖拽、画布或重型可视化库。
 - 前端版本提升到 `0.2.9`，同步 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md`。
+- 修复审计 P3：服务拓扑调用边 React key 改为基于 `[from_source, to_source]` 的 JSON 编码，避免 `api-worker -> db` 与 `api -> worker-db` 等带短横线服务名组合产生歧义；本轮仅修复前端渲染 key，不改后端契约或业务字段，前端版本已是 `0.2.9`，不做无意义版本 bump。
 
 ### 阻塞与风险
 
 - 本轮不改后端契约、不启动 Docker、不接 ClickHouse、不做真实 MySQL/后端/前端联合测试。
 - 未启动 Playwright + Edge 浏览器冒烟；本轮使用 API/client、筛选构造、SSR 页面和 CSS 静态测试覆盖前端侧行为。
 - 未启动测试 agent；由当前前端开发 agent 完成专项与全量前端验证。
+- 审计指出的另一个 P3 为未做 Playwright/真实联测；按任务边界本修复 agent 不抢完整测试流程，后续由总 agent 安排测试 agent 覆盖。
 
 ### 验证
 
+- 本轮 P3 修复已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/TraceTopologyPage.test.tsx` 通过（1 个测试文件、7 个测试通过），新增断言覆盖带短横线 source 的两条调用边稳定渲染且无 duplicate key warning。
 - 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/query.test.ts src/features/query/queryFilters.test.ts src/pages/TraceTopologyPage.test.tsx src/pages/QueryPage.test.tsx` 通过（4 个测试文件、43 个测试通过）。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
