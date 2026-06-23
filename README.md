@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前版本为 `0.2.6`，已进入阶段 4 Trace 和关联分析的 trace 到日志跳转基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图、日志上下文查看、关系库 trace span 查询基础、`/traces` 查询页、trace waterfall/树形详情和从 trace 跳转到 `/logs` 的基础入口；traces 目前先写入关系库 `ingest_records`，`GET /api/v1/query/traces` 已支持 trace/span/name/source/status/duration/time 过滤，尚未接入 ClickHouse、服务拓扑或更完整的跨信号关联。
+当前版本为 `0.2.7`，已进入阶段 4 Trace 和关联分析的日志到 Trace 反向跳转基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图、日志上下文查看、关系库 trace span 查询基础、`/traces` 查询页、trace waterfall/树形详情，以及 trace 与 logs 的基础互跳入口；traces 目前先写入关系库 `ingest_records`，`GET /api/v1/query/traces` 已支持 trace/span/name/source/status/duration/time 过滤，尚未接入 ClickHouse、服务拓扑或更完整的跨信号关联。
 
 ## 目录结构
 

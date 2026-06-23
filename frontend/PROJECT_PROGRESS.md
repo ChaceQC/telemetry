@@ -2,6 +2,24 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0050 Logs 到 Trace 跳转基础
+
+### 已完成
+
+- `/logs` 查询结果和日志上下文 actions 中，当日志记录包含 `trace_id` 时显示“查看相关 Trace”入口。
+- trace-only 跳转到 `/traces?trace_id=<trace_id>`；trace+span 跳转到 `/traces?trace_id=<trace_id>&span_id=<span_id>`，复用既有 `/traces` URL 初始化能力。
+- 复用 `features/query/logTraceLinks.ts` helper，保持 trim、空值处理和 URL 编码一致；无 `trace_id` 或仅 `span_id` 的日志不显示入口。
+- 更新 `frontend/README.md`、前端版本文件、`package.json`、`package-lock.json`、`.env.example` 和运行时兜底版本；前端版本提升到 `0.2.7`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不改后端代码，不启动 Docker、后端或 MySQL，不代替测试 agent 做完整真实前后端联测。
+- 完整 trace/log 互跳闭环需由测试 agent 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖。
+
+### 验证
+
+- 开发侧完成专项、全量测试、typecheck、lint、build 和 diff check；总 agent 在 `dev` merge 后复跑专项 2 files/23 tests、全量 22 files/105 tests、typecheck、lint、build 和 `git diff --check` 均通过。
+
 ## 2026-06-23 T-0049 Trace 到 Logs 跳转基础
 
 ### 已完成

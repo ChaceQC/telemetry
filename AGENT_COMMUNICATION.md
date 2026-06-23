@@ -77,7 +77,7 @@ closed      已关闭
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | done | done | done |
-| T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | done | todo | done | done | testing |
 
 ## 4. API 契约登记
 
@@ -434,6 +434,9 @@ closed      已关闭
 | 2026-06-23 | T-0049-fix2 | 总 agent | 真实 merge 集成 traces URL 初始化 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `a30e126` 合入 `dev`，merge 提交当前 HEAD；后续执行收窄门禁、推送、读取 CI、同步 feature 分支，并启动测试 agent 再次重跑真实 MySQL、真实前后端和 Playwright + Microsoft Edge 联测 | testing |
 | 2026-06-23 | T-0049 | 测试 agent Godel the 2nd | Trace 到日志跳转最终真实联测通过 | Godel the 2nd 在 `dev/origin/dev` `1a66445` 使用自启动临时本地 MySQL 8.0.42 `33307`、真实后端 `28117`、真实前端 `25173` 和 Playwright + Microsoft Edge 149.0.4022.69 完成最终联测；根/前端/后端版本均为 `0.2.6`，`/health=0.2.6`。API 23 步通过，覆盖登录、项目/环境/服务/API Key、events/metrics/logs/traces 上报、logs trace/span 过滤、traces 查询、129 字符 trace_id 422、metrics/events 不受 trace/log 参数污染；浏览器 14 项通过，覆盖 valid/129 trace 深链硬导航和刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading。证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`；测试 agent 已清理自有前端、后端、临时 MySQL、Edge 和端口，已关闭 | done |
 | 2026-06-23 | T-0050 | 总 agent | 登记日志到 Trace 跳转前端基础 | 阶段 4 下一小步限定为前端 trace/log 互跳闭环：在 `/logs` 查询结果中，当日志记录包含 `trace_id` 和可选 `span_id` 时提供“查看相关 Trace”入口，跳转到 `/traces?trace_id=...` 或 `/traces?trace_id=...&span_id=...`；复用 T-0049 已完成的 `/traces` URL 初始化能力。范围不改后端契约、不新增 API、不做服务拓扑、指标互跳、ClickHouse 或日志上下文深链；将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程 | doing |
+| 2026-06-23 | T-0050 | 前端开发 agent Nietzsche the 2nd | 日志到 Trace 跳转前端基础完成 | Nietzsche the 2nd 提交并推送 `c264662` 到 `feature/frontend-dev`：在 `/logs` 查询结果和日志上下文 actions 中，当记录包含 `trace_id` 时显示“查看相关 Trace”入口，trace-only 跳 `/traces?trace_id=...`，trace+span 跳 `/traces?trace_id=...&span_id=...`；复用/扩展 `logTraceLinks` helper 保持 trim、空值和 URL 编码一致，无 trace_id 或仅 span_id 不显示入口；保持 metrics/events 不污染和既有 trace→logs 跳转不回退。专项 23 tests、前端全量 105 tests、typecheck、lint、build、diff check 均通过；未启动浏览器或测试 agent。Nietzsche the 2nd 已关闭，已启动代码审计 | audit |
+| 2026-06-23 | T-0050 | 代码审计 agent Gibbs the 2nd | 日志到 Trace 跳转前端审计通过 | Gibbs the 2nd 只读审计 `c264662`，未发现 P0/P1/P2/P3；确认 `/logs` 入口仅在 trace_id 存在时显示，span_id 会进入 `/traces` URL，使用 React Router `Link` 且无硬编码域名/端口，T-0049 trace→logs、logs/traces URL 初始化、auth gating 与 metrics/events 参数隔离均无回退。Gibbs the 2nd 已关闭，建议 merge 后按风险真实联测 | done |
+| 2026-06-23 | T-0050 | 总 agent | 真实 merge 集成日志到 Trace 跳转 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `c264662` 合入 `dev`，merge 提交 `4fc5301`；同步根、前端、后端版本到 `0.2.7`，版本门禁已通过。后续推送、读取 CI、同步 feature 分支，并启动测试 agent 用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 验证 logs -> traces 与 trace -> logs 闭环 | testing |
 
 ## 6. 测试记录
 
@@ -506,6 +509,8 @@ closed      已关闭
 | 2026-06-23 | T-0049 | Trace 到日志跳转真实前后端联合测试 | Helmholtz the 2nd；本机 MySQL80 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未通过 | `dev/origin/dev` `d9c85f0`；API 层和 SPA 内部跳转均通过，但已登录后硬导航/刷新 `/traces?trace_id=...` 或 `/logs?trace_id=...&span_id=...` 时首个查询请求未带 Authorization 并返回 401。证据目录 `agents/runtime/e2e-T-0049-20260623-085949`；测试 agent 已清理自有资源 |
 | 2026-06-23 | T-0049-fix | Trace 到日志跳转真实前后端联合测试重跑 | Planck the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未完全通过 | `dev/origin/dev` `717dd68`；原 401 首包问题、Settings/Overview 旧缓存闪现、登录回跳 search 均通过；失败项为 `/traces?trace_id=<129 chars>` 没有把 URL trace_id 传入后端查询，返回 200 而非 422/错误态。证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`；测试 agent 已清理自有资源 |
 | 2026-06-23 | T-0049 | Trace 到日志跳转最终真实前后端联合测试 | Godel the 2nd；自启动临时本地 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `1a66445`；API 23 步与浏览器 14 项通过，覆盖 valid/129 trace 深链硬导航/刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading；证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`，自有资源已清理 |
+| 2026-06-23 | T-0050 | dev merge 后本地验证 | 前端 T-0050 专项 test、前端全量 test、typecheck、lint、build、`git diff --check` | 通过 | 专项 2 files/23 tests passed，全量 22 files/105 tests passed；typecheck、lint、build、diff check 均通过。未启动真实后端、真实数据库、浏览器或完整联测，后续交由测试 agent 执行 |
+| 2026-06-23 | T-0050/VERSION | 版本同步本地验证 | 后端配置测试、`uv lock --check`、前端 typecheck/build、`git diff --check` | 通过 | 根、前端、后端版本声明同步到 `0.2.7`；`uv run pytest tests/test_config.py` 11 passed，`uv lock --check`、`npm.cmd run typecheck`、`npm.cmd run build`、diff check 均通过。未启动或关闭任何本地服务 |
 
 ## 7. 审计记录
 
@@ -596,6 +601,7 @@ closed      已关闭
 | 2026-06-22 | T-0044 | feature/backend-dev | dev | 总 agent | 后端 trace ingestion 最小基础 `f2c6c05` 已通过 Meitner 审计和 Descartes 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `5188aef`；版本同步到 `0.2.2` | done |
 | 2026-06-22 | T-0045 | feature/backend-dev | dev | 总 agent | 后端 trace 查询最小基础 `a249fe7` 与契约修复 `c87a60f` 已通过 Heisenberg 审计和 James 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `2916df9`；版本同步到 `0.2.3` | done |
 | 2026-06-22 | T-0045-fix | feature/backend-dev | dev | 总 agent | 后端修复 `2d357a7` 与 P3 收口 `0928e6f` 已通过 Pauli 专项复验、Russell 审计和 Hume the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `89506c5` | doing |
+| 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁已通过并同步版本到 `0.2.7`，待 CI、feature 分支同步和真实联测 | testing |
 
 ## 10. 决策记录
 

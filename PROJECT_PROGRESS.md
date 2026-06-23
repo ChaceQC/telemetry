@@ -669,6 +669,10 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix2 合入 `dev`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
 - T-0049 最终真实前后端联合测试通过：Godel the 2nd 在 `dev/origin/dev` `1a66445` 上使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，覆盖 API 23 步与浏览器 14 项，包括 valid/129 trace 深链硬导航/刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading；证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。T-0049 关闭。
 - T-0050 已登记为阶段 4 下一小步：前端实现日志到 Trace 的反向跳转基础，在 `/logs` 结果中基于日志 `trace_id`/`span_id` 跳转 `/traces?trace_id=...` 或 `/traces?trace_id=...&span_id=...`；不改后端契约，不做服务拓扑、指标互跳、ClickHouse 或日志上下文深链。
+- T-0050 前端开发与审计通过：Nietzsche the 2nd 提交 `c264662`，在 `/logs` 查询结果和日志上下文中为含 `trace_id` 的日志提供“查看相关 Trace”入口，复用 helper 生成 `/traces` URL；Gibbs the 2nd 只读审计未发现 P0/P1/P2/P3。当前可进入真实 merge 和收窄门禁。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0050 合入 `dev`，merge 提交 `4fc5301`；本次同步根、前端、后端版本到 `0.2.7`，当前等待推送、CI 读取、feature 分支同步和真实前后端联合测试。
+- T-0050 dev merge 后本地验证通过：前端专项 2 files/23 tests、前端全量 22 files/105 tests、typecheck、lint、build 和 `git diff --check` 均通过；未启动真实服务或浏览器，完整联测交由测试 agent 执行。
+- T-0050 版本同步门禁通过：后端 `uv run pytest tests/test_config.py` 11 passed，`uv lock --check` 通过；前端 `npm.cmd run typecheck` 与 `npm.cmd run build` 通过；`git diff --check` 通过。
 
 ### 阻塞与风险
 
@@ -694,13 +698,15 @@
 
 ### 下一步
 
-- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0050；开发 agent 可启动测试 agent 做专项验证，但不得代跑完整真实前后端联合测试。完成后由总 agent 启动代码审计，并按风险决定是否真实联测。
+- 推送 T-0050 到 `origin/dev`，读取 CI 并同步 feature 分支后，启动测试 agent 用真实 MySQL、真实前后端、Playwright + Microsoft Edge 验证 trace/log 互跳闭环。
 
 ### 验证
 
 - 后端 Lovelace 开发侧快速冒烟 `uv run pytest tests/test_query_api.py` 12 passed；其余完整验证由测试 agent 独立复验，不作为开发 agent 交付门禁替代。
 - T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
+- T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
+- T-0050 版本同步门禁通过：`uv run pytest tests/test_config.py` 11 passed、`uv lock --check`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
