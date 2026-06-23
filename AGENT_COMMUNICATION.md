@@ -78,7 +78,8 @@ closed      已关闭
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | done | done | done |
 | T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | done | todo | done | done | done |
-| T-0051 | 服务拓扑后端基础 | 总 agent | todo | done | done | done | testing |
+| T-0051 | 服务拓扑后端基础 | 总 agent | todo | done | done | done | done |
+| T-0052 | 服务拓扑前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -444,7 +445,9 @@ closed      已关闭
 | 2026-06-23 | T-0051 | 代码审计 agent Dirac the 2nd | 服务拓扑后端基础审计未通过 | Dirac the 2nd 只读审计 `d3c5796` 发现 P1：topology 查询未做数据库侧上限，`limit=1` 仍可能读取项目全部 trace span；P2：同一 trace 内重复 `span_id` 时 parent map 取第一条，child edge 可能误归属。未发现 P0/P3。Dirac the 2nd 已关闭，已启动后端修复 agent | blocked |
 | 2026-06-23 | T-0051-fix | 后端修复 agent Aristotle the 2nd | 服务拓扑审计问题修复完成 | Aristotle the 2nd 提交并推送 `7a63b89` 到 `feature/backend-dev`：新增 `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT` 默认 `10000` 并在 repository SQL 层 `.limit()`，保持 API `limit` 为返回节点数限制；同一 `trace_id` 内重复 `span_id` 视为 ambiguous parent，child 指向该 parent id 时跳过 edge；补测试和文档，后端版本保持 `0.2.8`。后端专项、config、全量 pytest 173 passed/2 skipped、ruff、format、mypy、uv lock、diff check 均通过；未启动本地服务或数据库。Aristotle the 2nd 已关闭，已启动复审 | audit |
 | 2026-06-23 | T-0051-fix | 代码复审 agent Hypatia the 2nd | 服务拓扑修复复审通过 | Hypatia the 2nd 只读复审 `7a63b89`，确认 P1/P2 均关闭，未发现新的 P0/P1/P2/P3；确认 SQL 层 scan limit 生效、重复 parent span 稳定跳过 edge、配置/文档/测试同步、后端版本保持 `0.2.8` 且未擅自改根/前端版本。Hypatia the 2nd 已关闭，建议真实 merge | done |
-| 2026-06-23 | T-0051 | 总 agent | 真实 merge 集成服务拓扑后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `d3c5796` 与 `7a63b89` 合入 `dev`，merge 提交当前 HEAD；同步根、前端、后端版本到 `0.2.8`，本地后端/版本门禁已通过。后续推送、读取 CI、同步 feature 分支，并启动测试 agent 做真实 MySQL/真实后端专项验证 | testing |
+| 2026-06-23 | T-0051 | 总 agent | 真实 merge 集成服务拓扑后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `d3c5796` 与 `7a63b89` 合入 `dev`，merge 提交 `2370347`；同步根、前端、后端版本到 `0.2.8`，本地后端/版本门禁、CI、feature 分支同步和 Hooke the 2nd 真实 MySQL/真实后端专项均通过，T-0051 关闭 | done |
+| 2026-06-23 | T-0051 | 测试 agent Hooke the 2nd | 服务拓扑真实 MySQL/真实后端专项通过 | Hooke the 2nd 在 `dev/origin/dev` `148a712` 使用自启动 MySQL 8.0.42 `33306`、真实后端 `28151` 验证 `/health=0.2.8` 和 `GET /api/v1/query/traces/topology`；API 场景 23 断言全通过。覆盖认证、管理链路、API Key trace 摄入 11 spans、api/cache/db/worker 节点、`api -> db` 与 `db -> cache` 边、错误和 duration 聚合、同 source/缺 parent/缺 source/重复 `span_id` ambiguous parent 不生成错误 edge、`project_id` 必填 422、未认证 401、无权限/不存在 404、source/time/limit/scan limit、`/query/traces` 与 events/logs/metrics/aggregate 回归。证据目录 `agents/runtime/e2e-T-0051-20260623-155251`；测试 agent 已清理自有后端、临时 MySQL、临时库/用户和端口，未关闭非自有 MySQL，已关闭 | done |
+| 2026-06-23 | T-0052 | 总 agent | 登记服务拓扑前端基础 | 阶段 4 下一小步限定为前端展示接入：在现有查询应用中新增服务拓扑基础视图或 `/traces/topology` 入口，调用 `GET /api/v1/query/traces/topology` 展示节点与调用边摘要，支持项目、时间范围、source、limit 查询，展示 loading/error/empty 状态，并保持认证、项目权限、metrics/logs/events/traces 既有页面不回退；不改后端契约、不做复杂图布局、不接 ClickHouse、不做仪表盘模板。将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容和只清理自有资源 | doing |
 
 ## 6. 测试记录
 
@@ -522,6 +525,7 @@ closed      已关闭
 | 2026-06-23 | T-0050 | CI | GitHub Actions runs `28004819590`、`28004851916`、`28004859254` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在提交 `fe572c3` 上通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解风险 |
 | 2026-06-23 | T-0050 | 日志到 Trace 跳转真实前后端联合测试 | Turing the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `186b5a5`；后端 `/health=0.2.7`，断言 68/68 通过。覆盖 logs -> traces 列表/上下文入口、trace-only 和 trace+span URL、无 trace_id/span-only 不显示入口、traces URL 初始化和查询、首包 Authorization、trace -> logs、logs 深链、metrics/events 参数隔离、缓存隔离和登录 search 保留；证据目录 `agents/runtime/e2e-T-0050-20260623-134651`，自有资源已清理 |
 | 2026-06-23 | T-0051 | dev merge 后本地验证 | 后端 topology/config 专项、后端全量、ruff、format、mypy、uv lock、前端 typecheck/build、`git diff --check` | 通过 | topology 专项 12 passed/42 deselected，config 13 passed，后端全量 173 passed/2 skipped；ruff、format、mypy、`uv lock --check`、前端 typecheck/build、diff check 均通过 |
+| 2026-06-23 | T-0051 | 服务拓扑真实 MySQL/真实后端专项 | Hooke the 2nd；自启动 MySQL 8.0.42、真实 FastAPI 后端 | 通过 | `dev/origin/dev` `148a712`；`/health=0.2.8`，API 场景 23 断言通过。覆盖 topology 正常聚合、权限/认证、source/time/limit/scan limit、重复 `span_id` ambiguous parent、同 source/缺 parent/缺 source、trace 与 events/logs/metrics/aggregate 回归；证据目录 `agents/runtime/e2e-T-0051-20260623-155251`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -613,7 +617,7 @@ closed      已关闭
 | 2026-06-22 | T-0045 | feature/backend-dev | dev | 总 agent | 后端 trace 查询最小基础 `a249fe7` 与契约修复 `c87a60f` 已通过 Heisenberg 审计和 James 真实 MySQL/真实后端验证，并使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `2916df9`；版本同步到 `0.2.3` | done |
 | 2026-06-22 | T-0045-fix | feature/backend-dev | dev | 总 agent | 后端修复 `2d357a7` 与 P3 收口 `0928e6f` 已通过 Pauli 专项复验、Russell 审计和 Hume the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `89506c5` | doing |
 | 2026-06-23 | T-0050 | feature/frontend-dev | dev | 总 agent | 前端日志到 Trace 跳转基础 `c264662` 已通过 Gibbs the 2nd 审计；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `4fc5301`，本地门禁、CI、feature 分支同步和 Turing the 2nd 真实联测均通过，根/前端/后端版本同步到 `0.2.7` | done |
-| 2026-06-23 | T-0051 | feature/backend-dev | dev | 总 agent | 服务拓扑后端基础 `d3c5796` 与审计修复 `7a63b89` 已通过 Hypatia the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，当前同步根/前端/后端版本到 `0.2.8`，待本地门禁、CI、feature 分支同步和真实测试 | testing |
+| 2026-06-23 | T-0051 | feature/backend-dev | dev | 总 agent | 服务拓扑后端基础 `d3c5796` 与审计修复 `7a63b89` 已通过 Hypatia the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，同步根/前端/后端版本到 `0.2.8`；本地门禁、CI、feature 分支同步和 Hooke the 2nd 真实后端专项均通过 | done |
 
 ## 10. 决策记录
 
