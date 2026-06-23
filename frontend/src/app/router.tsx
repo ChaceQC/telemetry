@@ -6,6 +6,7 @@ import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { QueryPage } from '../pages/QueryPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { TraceTopologyPage } from '../pages/TraceTopologyPage';
 
 export const routes = [
   {
@@ -27,6 +28,10 @@ export const routes = [
       {
         path: 'logs',
         element: <QueryPage signal="logs" />
+      },
+      {
+        path: 'traces/topology',
+        element: <TraceTopologyPage />
       },
       {
         path: 'traces',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMetricAggregateParams, buildQueryParams, defaultFilters } from './queryFilters';
+import { buildMetricAggregateParams, buildQueryParams, buildTraceTopologyParams, defaultFilters } from './queryFilters';
 
 describe('query filters', () => {
   it('logs 查询参数包含 keyword、trace/span、request/user 且保留分页 cursor', () => {
@@ -129,5 +129,36 @@ describe('query filters', () => {
       window: '15m',
       aggregation: 'sum'
     });
+  });
+
+  it('trace topology 参数要求 project_id 且只包含拓扑契约字段', () => {
+    expect(
+      buildTraceTopologyParams({
+        ...defaultFilters,
+        projectId: '21',
+        primary: 'ignored span name',
+        keyword: 'ignored keyword',
+        traceId: 'ignored-trace',
+        spanId: 'ignored-span',
+        requestId: 'ignored-request',
+        userId: 'ignored-user',
+        source: ' api ',
+        occurredFrom: '2026-06-20T10:00',
+        occurredTo: '2026-06-20T11:00',
+        limit: '25'
+      })
+    ).toEqual({
+      project_id: 21,
+      source: 'api',
+      occurred_from: '2026-06-20T10:00',
+      occurred_to: '2026-06-20T11:00',
+      limit: 25
+    });
+  });
+
+  it('trace topology 缺少有效 project_id 时不会构造请求参数', () => {
+    expect(buildTraceTopologyParams(defaultFilters)).toBeNull();
+    expect(buildTraceTopologyParams({ ...defaultFilters, projectId: '0' })).toBeNull();
+    expect(buildTraceTopologyParams({ ...defaultFilters, projectId: '1.5' })).toBeNull();
   });
 });

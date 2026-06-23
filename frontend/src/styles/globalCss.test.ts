@@ -13,6 +13,18 @@ describe('global trace waterfall styles', () => {
     expect(traceBreakpoint).toContain('.trace-waterfall-heading');
     expect(mobileBreakpoint).not.toContain('.trace-span-content');
   });
+
+  it('服务拓扑布局在窄屏切换为单列并允许标题换行', () => {
+    const tabletBreakpoint = sliceMediaBlock('@media (max-width: 960px)', '@media (max-width: 720px)');
+    const mobileBreakpoint = sliceMediaBlock('@media (max-width: 560px)');
+
+    expect(tabletBreakpoint).toContain('.topology-grid');
+    expect(tabletBreakpoint).toContain('grid-template-columns: 1fr');
+    expect(mobileBreakpoint).toContain('.topology-panel-heading');
+    expect(mobileBreakpoint).toContain('.topology-node-heading');
+    expect(mobileBreakpoint).toContain('.topology-edge-route');
+    expect(mobileBreakpoint).toContain('flex-direction: column');
+  });
 });
 
 function sliceMediaBlock(startMarker: string, endMarker?: string) {

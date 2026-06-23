@@ -1222,6 +1222,132 @@ h2 {
   background: #f7fbfb;
 }
 
+.topology-form {
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+
+.topology-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.topology-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.topology-panel-heading,
+.topology-node-heading,
+.topology-edge-route {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topology-panel-heading > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.topology-panel-heading span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.topology-panel-heading strong,
+.topology-node-heading strong,
+.topology-edge-route strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+}
+
+.topology-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topology-list li {
+  min-width: 0;
+}
+
+.topology-node,
+.topology-edge {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.topology-edge-route {
+  justify-content: flex-start;
+}
+
+.topology-edge-route svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--accent-strong);
+}
+
+.topology-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.topology-metrics div {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.topology-metrics dt {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.topology-metrics dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #172026;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.topology-empty-text {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .trace-waterfall-list {
   display: grid;
   gap: 12px;
@@ -1931,6 +2057,7 @@ h2 {
   .status-panel,
   .content-grid,
   .management-grid,
+  .topology-grid,
   .query-form,
   .login-shell {
     grid-template-columns: 1fr;
@@ -2053,7 +2180,10 @@ h2 {
   .query-record-actions,
   .log-context-toolbar,
   .log-context-controls,
-  .log-context-line-main {
+  .log-context-line-main,
+  .topology-panel-heading,
+  .topology-node-heading,
+  .topology-edge-route {
     align-items: stretch;
     flex-direction: column;
   }

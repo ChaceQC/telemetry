@@ -29,6 +29,10 @@ export type TraceQueryParams = QueryCommonParams & {
   name?: string;
 };
 
+export type TraceTopologyParams = Omit<QueryCommonParams, 'cursor' | 'project_id'> & {
+  project_id: number;
+};
+
 export type LogContextParams = {
   before?: number;
   after?: number;
@@ -101,6 +105,29 @@ export type TraceQueryItem = {
   payload: unknown;
   occurred_at: string | null;
   received_at: string;
+};
+
+export type TraceTopologyNode = {
+  source: string;
+  span_count: number;
+  trace_count: number;
+  error_span_count: number;
+  avg_duration_ms: number | null;
+  max_duration_ms: number | null;
+};
+
+export type TraceTopologyEdge = {
+  from_source: string;
+  to_source: string;
+  call_count: number;
+  error_count: number;
+  avg_duration_ms: number | null;
+  max_duration_ms: number | null;
+};
+
+export type TraceTopologyResponse = {
+  nodes: TraceTopologyNode[];
+  edges: TraceTopologyEdge[];
 };
 
 export type QueryResultPage<TItem> = {
@@ -183,6 +210,18 @@ export function listTraces(params: TraceQueryParams = {}) {
     limit: params.limit,
     cursor: params.cursor
   });
+}
+
+export function getTraceTopology(params: TraceTopologyParams) {
+  return apiRequest<TraceTopologyResponse>(
+    buildQueryPath('/api/v1/query/traces/topology', {
+      project_id: params.project_id,
+      source: params.source,
+      occurred_from: params.occurred_from,
+      occurred_to: params.occurred_to,
+      limit: params.limit
+    })
+  );
 }
 
 export function listMetrics(params: MetricQueryParams = {}) {

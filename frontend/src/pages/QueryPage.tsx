@@ -277,6 +277,12 @@ function QueryPageWorkspace({ signal, locationPathname, locationSearch }: QueryP
         </div>
 
         <div className="header-actions">
+          {signal === 'traces' ? (
+            <Link className="text-button" to="/traces/topology">
+              <Activity size={16} aria-hidden="true" />
+              <span>服务拓扑</span>
+            </Link>
+          ) : null}
           <button
             className="icon-button"
             type="button"
