@@ -498,6 +498,7 @@ closed      已关闭
 | 2026-06-24 | T-0057 | 总 agent | 登记 Dashboard panel 只读预览前端基础 | 阶段 5 下一小步限定为前端只读 panel 预览：在现有 `/dashboards` 页面选中 dashboard 后，基于当前 `config JSON` / `config.panels` 显示可扫描的 panel 预览区，包含 panel 标题、类型、id、layout 位置尺寸和 query 摘要，覆盖 empty/legacy/invalid/unauth 状态；预览只消费本地表单文本，不发起图表数据请求、不保存、不新增后端 API、不接 ClickHouse、不做真实图表渲染、变量/时间范围高级配置、模板或告警。将使用 `frontend-skill` 的应用 UI 约束，以 restrained operational UI 为准，不做 landing/hero | doing |
 | 2026-06-24 | T-0057 | 总 agent | Dashboard panel 只读预览前端完成 | Leibniz 未返回但留下可用未提交改动，总 agent 接手审查、验证、补前端进度后提交并推送 `7e1e27c` 到 `feature/frontend-dev`：新增 panel preview model/query summary 纯函数和测试，`/dashboards` 编辑区新增只读 Panel 预览，直接消费当前 `config JSON`，展示标题、type/id、layout、query 摘要，并覆盖未登录、未选择、legacy、empty、invalid 状态；不触发保存 API 或图表数据请求 | audit |
 | 2026-06-24 | T-0057 | 代码审计 agent Rawls | Dashboard panel 只读预览审计通过 | Rawls 只读审计 `7e1e27c`，确认预览只由当前编辑表单 `configText` 派生，未触发保存、图表查询、ClickHouse 或后端查询；invalid/legacy/empty 状态、query 摘要、layout clamp/排序逻辑和交互测试覆盖到位。未发现 P0/P1/P2/P3，建议真实 merge 到 `dev` | done |
+| 2026-06-24 | T-0057 | 总 agent | 真实 merge 集成 Dashboard panel 只读预览 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7e1e27c` 合入 `dev`，merge 提交 `5c9f969`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 6. 测试记录
 
@@ -603,6 +604,7 @@ closed      已关闭
 | 2026-06-24 | T-0056-final-sync | CI | GitHub Actions runs `28055118582`、`28055190963`、`28055192531` | 通过 | `48d2fdb` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过 |
 | 2026-06-24 | T-0057-start | CI | GitHub Actions runs `28055654204`、`28055733768`、`28055733185` | 通过 | T-0057 启动记录提交 `77aca8e` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0057 | 前端开发/审计门禁 | feature CI run `28057913337`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check`；Playwright + Microsoft Edge 冒烟；Rawls 只读审计命令 | 通过 | `7e1e27c` 上 feature/frontend-dev CI 通过；总 agent 本地专项 4 files/42 tests passed，typecheck、lint、build、diff check 通过；Edge 访问 `/dashboards` 桌面、390px 移动和全页截图正常，未登录/未选择状态下 Panel 预览可见且无明显移动端重叠，自启 Vite `25187` 和临时截图目录已清理；Rawls 窄测 3 files/35 tests、eslint、typecheck、diff check 均通过 |
+| 2026-06-24 | T-0057 | dev merge 后本地验证 | 前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q`、`uv lock --check`；`git diff --check` | 通过 | merge 提交 `5c9f969` 后，前端专项 4 files/42 tests passed，typecheck、lint、build 通过；后端 config 13 passed，`uv lock --check` 通过；diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 
 ## 7. 审计记录
 
