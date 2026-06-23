@@ -6,6 +6,8 @@ export type LogsTraceSearch = {
   hasAppliedFilters: boolean;
 };
 
+export type TraceSearchFilters = LogsTraceSearch;
+
 type LogsTraceSearchInput = {
   traceId?: string | null;
   spanId?: string | null;
@@ -29,6 +31,10 @@ export function buildLogsTraceSearch(input: LogsTraceSearchInput): string {
 }
 
 export function parseLogsTraceSearch(search: string | URLSearchParams): LogsTraceSearch {
+  return parseTraceSearch(search);
+}
+
+export function parseTraceSearch(search: string | URLSearchParams): TraceSearchFilters {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search;
   const traceId = normalizeSearchValue(params.get('trace_id'));
   const spanId = normalizeSearchValue(params.get('span_id'));
@@ -44,7 +50,14 @@ export function applyLogsTraceSearchToFilters(
   search: string | URLSearchParams,
   filters: QueryFilters = defaultFilters
 ): QueryFilters {
-  const parsed = parseLogsTraceSearch(search);
+  return applyTraceSearchToFilters(search, filters);
+}
+
+export function applyTraceSearchToFilters(
+  search: string | URLSearchParams,
+  filters: QueryFilters = defaultFilters
+): QueryFilters {
+  const parsed = parseTraceSearch(search);
 
   if (!parsed.hasAppliedFilters) {
     return filters;

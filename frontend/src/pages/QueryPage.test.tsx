@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import { ApiClientError } from '../api/http';
 import type {
   EventQueryItem,
   LogContextResponse,
@@ -190,6 +191,34 @@ function seedSignalData<TItem>(
     items,
     next_cursor: nextCursor
   });
+}
+
+function seedSignalError(
+  queryClient: QueryClient,
+  signal: 'metrics' | 'logs' | 'traces' | 'events',
+  params: unknown,
+  error: Error
+) {
+  queryClient.getQueryCache().build(
+    queryClient,
+    {
+      queryKey: buildSignalQueryKey(1, signal, params, 0)
+    },
+    {
+      data: undefined,
+      dataUpdateCount: 0,
+      dataUpdatedAt: 0,
+      error,
+      errorUpdateCount: 1,
+      errorUpdatedAt: 1,
+      fetchFailureCount: 1,
+      fetchFailureReason: error,
+      fetchMeta: null,
+      isInvalidated: false,
+      status: 'error',
+      fetchStatus: 'idle'
+    }
+  );
 }
 
 function seedMetricAggregateData(queryClient: QueryClient, items: MetricAggregateItem[]) {
@@ -462,9 +491,29 @@ describe('QueryPage logs URL filters', () => {
     expect(html).toContain('第 1 页，1 条记录');
   });
 
-  it('traces 页面不从 URL trace/span 参数初始化筛选，避免污染链路查询路径', () => {
+  it('traces 页面从 URL 初始化 Trace ID / Span ID 筛选并读取对应缓存结果', () => {
     const queryClient = new QueryClient();
     seedSignalData(queryClient, 'traces', [currentTrace]);
+    const filters = {
+      ...defaultFilters,
+      traceId: 'trace-url',
+      spanId: 'span-url'
+    };
+    const linkedTrace: TraceQueryItem = {
+      ...currentTrace,
+      id: 79,
+      trace_id: 'trace-url',
+      span_id: 'span-url',
+      name: 'linked URL trace'
+    };
+
+    queryClient.setQueryData<QueryResultPage<TraceQueryItem>>(
+      buildSignalQueryKey(1, 'traces', buildQueryParams('traces', filters), 0),
+      {
+        items: [linkedTrace],
+        next_cursor: null
+      }
+    );
 
     const html = renderQueryPage(
       queryClient,
@@ -474,11 +523,55 @@ describe('QueryPage logs URL filters', () => {
     );
 
     expect(html).toContain('链路查询');
-    expect(html).toContain('SELECT orders');
-    expect(html).toContain('默认查询当前账号可访问的全部项目。');
-    expect(html).not.toContain('value="trace-url"');
-    expect(html).not.toContain('value="span-url"');
+    expect(html).toContain('已应用链路筛选：Trace ID: trace-url / Span ID: span-url。');
+    expect(html).toContain('value="trace-url"');
+    expect(html).toContain('value="span-url"');
+    expect(html).toContain('linked URL trace');
+    expect(html).toContain('第 1 页，1 个 trace 组 / 1 条 span');
+    expect(html).not.toContain('SELECT orders');
     expect(html).not.toContain('已应用关联日志筛选');
+  });
+
+  it('traces 页面保留超长 URL trace_id 并展示后端 422 错误态', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retryOnMount: false
+        }
+      }
+    });
+    const overlongTraceId = 't'.repeat(129);
+    const filters = {
+      ...defaultFilters,
+      traceId: overlongTraceId
+    };
+    seedSignalData(queryClient, 'traces', [currentTrace]);
+    seedSignalError(
+      queryClient,
+      'traces',
+      buildQueryParams('traces', filters),
+      new ApiClientError({
+        message: 'validation failed',
+        status: 422,
+        details: {
+          detail: [{ loc: ['query', 'trace_id'], msg: 'String should have at most 128 characters' }]
+        }
+      })
+    );
+
+    const html = renderQueryPage(
+      queryClient,
+      createSignedInAuth(),
+      'traces',
+      `/traces?trace_id=${overlongTraceId}`
+    );
+
+    expect(html).toContain('查询失败');
+    expect(html).toContain('请求参数未通过校验，请刷新页面后重试。');
+    expect(html).toContain('query.trace_id: String should have at most 128 characters');
+    expect(html).toContain(`value="${overlongTraceId}"`);
+    expect(html).not.toContain('SELECT orders');
+    expect(html).not.toContain('class="trace-waterfall-list"');
   });
 
   it('metrics 和 events 页面忽略 URL 中的 trace/span 参数', () => {

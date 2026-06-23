@@ -45,7 +45,7 @@ import { buildMetricTrendModel, metricTrendViewBox, type MetricTrendModel } from
 import { summarizeEventPayload } from '../features/query/eventTimeline';
 import { formatJsonPreviewValue } from '../features/query/jsonPreview';
 import {
-  applyLogsTraceSearchToFilters,
+  applyTraceSearchToFilters,
   buildLogsTraceSearch
 } from '../features/query/logTraceLinks';
 import {
@@ -136,7 +136,7 @@ const signalConfig = {
 
 export function QueryPage({ signal }: QueryPageProps) {
   const location = useLocation();
-  const workspaceKey = signal === 'logs' ? `${signal}:${location.search}` : signal;
+  const workspaceKey = signal === 'logs' || signal === 'traces' ? `${signal}:${location.search}` : signal;
 
   return (
     <QueryPageWorkspace
@@ -582,11 +582,11 @@ function QueryPageWorkspace({ signal, locationPathname, locationSearch }: QueryP
 }
 
 function getInitialFilters(signal: QuerySignal, search: string) {
-  return signal === 'logs' ? applyLogsTraceSearchToFilters(search) : defaultFilters;
+  return signal === 'logs' || signal === 'traces' ? applyTraceSearchToFilters(search) : defaultFilters;
 }
 
 function formatFilterDescription(signal: QuerySignal, filters: QueryFilters) {
-  if (signal !== 'logs') {
+  if (signal !== 'logs' && signal !== 'traces') {
     return '默认查询当前账号可访问的全部项目。';
   }
 
@@ -595,7 +595,13 @@ function formatFilterDescription(signal: QuerySignal, filters: QueryFilters) {
     filters.spanId.trim() ? `Span ID: ${filters.spanId.trim()}` : null
   ].filter((part): part is string => Boolean(part));
 
-  return applied.length > 0 ? `已应用关联日志筛选：${applied.join(' / ')}。` : '默认查询当前账号可访问的全部项目。';
+  if (applied.length === 0) {
+    return '默认查询当前账号可访问的全部项目。';
+  }
+
+  return signal === 'logs'
+    ? `已应用关联日志筛选：${applied.join(' / ')}。`
+    : `已应用链路筛选：${applied.join(' / ')}。`;
 }
 
 function EventTimeline({ events }: { events: EventQueryItem[] }) {
