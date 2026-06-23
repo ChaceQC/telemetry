@@ -2,6 +2,41 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0053 Dashboard CRUD 后端基础
+
+### 已完成
+
+- 新增 `dashboards` 持久化模型与 Alembic 迁移 `20260623_0009_create_dashboards.py`，字段包含 `project_id`、`name`、`description`、`layout` JSON、`config` JSON、`created_by_user_id`、`updated_by_user_id`、创建/更新时间，并添加 `(project_id, updated_at, id)` 列表索引。
+- 新增 `DashboardCreate`、`DashboardUpdate`、`DashboardResponse`、`DashboardListResponse`，校验名称/描述长度、JSON 对象或数组、空 patch、`limit/offset` 边界。
+- 新增 dashboard repository/service/API route，提供 `GET/POST /api/v1/dashboards` 和 `GET/PATCH/DELETE /api/v1/projects/{project_id}/dashboards/{dashboard_id}`。
+- 复用 Bearer 用户认证和项目 RBAC：列表/读取要求 `viewer`，创建/更新/删除要求 `editor`；无项目成员关系按 `404 项目不存在` 隐藏，跨项目 dashboard ID 按 `404 仪表盘不存在` 隐藏，超级用户仍要求项目存在。
+- 补充后端测试覆盖 CRUD 成功路径、分页、审计字段、权限隔离、未认证、无权限/不存在资源、校验错误、repository 外键映射、SQLite migration 升降级和 MySQL JSON DDL 编译。
+- 更新 `backend/README.md`、`agents/runtime/api-contracts/backend.md`、版本声明和版本测试；后端版本提升到 `0.2.10`，建议总 agent 判断是否同步根/前端版本。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮不做前端 dashboard 页面、panel 图表渲染、变量/时间范围高级配置、ClickHouse 查询、告警规则或完整前后端联合测试。
+- 开发侧未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard migration/API CRUD、JSON 列读写和执行计划留给后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py`，结果：13 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py`，结果：26 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest`，结果：186 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：通过，86 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：86 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+- 已运行 SQLite Alembic 临时库升降级：`uv run alembic -x database_url=sqlite:///<temp>.db upgrade head` 与 `downgrade base`，结果：通过，临时 SQLite 文件已删除。
+- 已运行 MySQL 方言离线 SQL 生成：`uv run alembic -x database_url=mysql+pymysql://user:pass@127.0.0.1:3306/telemetry?charset=utf8mb4 upgrade 20260622_0008:head --sql` 和 `downgrade 20260623_0009:20260622_0008 --sql`；输出包含 `CREATE TABLE dashboards`、`layout JSON NOT NULL`、`config JSON NOT NULL`、`ix_dashboards_project_updated_at_id` 和 `DROP TABLE dashboards`。
+- 测试 agent `Lovelace the 2nd` 完成后端专项复验，结论：通过。其执行 dashboard/config pytest、全量 pytest、相关 ruff/format/mypy 和 MySQL 离线 SQL 生成均通过；未启动 Docker、真实 MySQL、后端服务、前端、浏览器或长驻进程，无需清理资源。
+
+### 待测试 / 待审计
+
+- 请总 agent 在本后端提交 push 后启动代码审计 agent 审查 T-0053 dashboard CRUD、权限隐藏、JSON schema、migration 和文档契约。
+
 ## 2026-06-23 T-0051-fix Trace 服务拓扑审计阻断修复
 
 ### 已完成

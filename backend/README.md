@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -121,9 +121,10 @@ uv run python main.py
 | `rbac_team_members` | 团队成员 | 外键 `team_id`、`user_id`，同团队同用户唯一 |
 | `rbac_project_members` | 项目成员角色 | 外键 `project_id`、`user_id`，同项目同用户唯一，角色为 `viewer`、`editor`、`admin` |
 | `api_keys` | 项目 API Key | 外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一；只保存哈希和展示前缀，不保存明文 key |
+| `dashboards` | 项目仪表盘 | 外键 `project_id`、`created_by_user_id`、`updated_by_user_id`；保存 `name`、`description`、`layout` JSON、`config` JSON、创建/更新时间；`(project_id, updated_at, id)` 索引支撑项目内列表分页 |
 | `ingest_records` | 最小摄入记录 | 外键 `project_id`、`api_key_id`；保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；MySQL/MariaDB 下 `occurred_at` 和 `received_at` 使用 `DATETIME(6)` 保留微秒精度；`(project_id, kind, received_at, id)` 组合索引支撑日志上下文窗口和带项目过滤的查询分页 |
 
-MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。`20260622_0008` 迁移会把已有 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 调整为 `DATETIME(6)`，并将 `received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`；SQLAlchemy 模型在 MySQL/MariaDB 方言下的建表 DDL 也会编译为 `DATETIME(6)` 与 `CURRENT_TIMESTAMP(6)`，SQLite 仍保持 `CURRENT_TIMESTAMP` 以兼容本地测试。生产建库和升级必须使用 Alembic 迁移，`Base.metadata.create_all()` 仅用于测试或一次性临时库初始化，不作为生产 schema 管理入口。Alembic 生成的 MySQL/MariaDB 离线 SQL 为标准 `ALTER TABLE ... CHANGE ... DATETIME(6)` 语法，兼容 Debian 常见 MySQL 8 和 MariaDB 包。由于 0008 会修改 `received_at` 这个已参与索引的列，真实 MySQL/MariaDB 大表执行前必须评估表规模、锁等待、备份/回滚、复制延迟和维护窗口，必要时先在同版本影子库演练或采用在线 schema 变更工具。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
+MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。`20260622_0008` 迁移会把已有 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 调整为 `DATETIME(6)`，并将 `received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`；SQLAlchemy 模型在 MySQL/MariaDB 方言下的建表 DDL 也会编译为 `DATETIME(6)` 与 `CURRENT_TIMESTAMP(6)`，SQLite 仍保持 `CURRENT_TIMESTAMP` 以兼容本地测试。`20260623_0009` 新增 `dashboards` 表，MySQL/MariaDB 下 `layout` 和 `config` 使用原生 JSON 列，SQLite 测试路径使用 SQLAlchemy JSON 兼容类型。生产建库和升级必须使用 Alembic 迁移，`Base.metadata.create_all()` 仅用于测试或一次性临时库初始化，不作为生产 schema 管理入口。Alembic 生成的 MySQL/MariaDB 离线 SQL 为标准 `ALTER TABLE ... CHANGE ... DATETIME(6)` 语法，兼容 Debian 常见 MySQL 8 和 MariaDB 包。由于 0008 会修改 `received_at` 这个已参与索引的列，真实 MySQL/MariaDB 大表执行前必须评估表规模、锁等待、备份/回滚、复制延迟和维护窗口，必要时先在同版本影子库演练或采用在线 schema 变更工具。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级、MySQL DDL 编译和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
 
 ### 真实 MySQL 回归测试
 
@@ -191,7 +192,7 @@ GET /health
 {
   "status": "ok",
   "service": "telemetry-backend",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "environment": "local",
   "port": 28117
 }
@@ -350,6 +351,56 @@ GET /health
 | `404` | 项目不存在、普通用户不在目标项目权限范围内，或撤销的 API Key 不属于该项目/不存在 |
 | `409` | API Key 数据库完整性约束错误 |
 | `422` | 请求体字段或路径参数格式错误 |
+
+## Dashboard API
+
+当前阶段提供项目范围 dashboard CRUD 后端基础，不包含前端页面、panel 渲染、变量/时间范围高级配置、ClickHouse 查询或告警规则。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的 dashboard；超级用户可访问全部已存在项目。
+
+权限规则：
+
+| 动作 | 最低角色 | 说明 |
+| --- | --- | --- |
+| 列表/读取 | `viewer` | 全局列表自动过滤为可访问项目；指定无成员关系的 `project_id` 返回 `404 项目不存在` |
+| 创建/更新/删除 | `editor` | `viewer` 返回 `403 无项目权限`；跨项目 dashboard ID 按 `404 仪表盘不存在` 处理 |
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/dashboards` | 列出 dashboard，可用 `project_id`、`limit`、`offset` 过滤/分页 |
+| `POST` | `/api/v1/dashboards` | 创建 dashboard |
+| `GET` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}` | 读取单个 dashboard |
+| `PATCH` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}` | 部分更新 dashboard |
+| `DELETE` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}` | 删除 dashboard，成功返回 `204` |
+
+创建请求体：
+
+```json
+{
+  "project_id": 1,
+  "name": "服务总览",
+  "description": "值班视图",
+  "layout": {"version": 1, "widgets": []},
+  "config": {"refresh_seconds": 30}
+}
+```
+
+响应示例：
+
+```json
+{
+  "id": 1,
+  "project_id": 1,
+  "name": "服务总览",
+  "description": "值班视图",
+  "layout": {"version": 1, "widgets": []},
+  "config": {"refresh_seconds": 30},
+  "created_by_user_id": 1,
+  "updated_by_user_id": 1,
+  "created_at": "2026-06-23T10:20:00Z",
+  "updated_at": "2026-06-23T10:20:00Z"
+}
+```
+
+列表响应为对象 envelope：`{"items": [...], "limit": 50, "offset": 0, "total": 1}`。字段规则：`name` 为 1 到 100 字符，`description` 最多 500 字符；`layout` 和 `config` 必须是 JSON 对象或数组，创建时默认 `{}`；更新至少提供一个字段，`description=null` 表示清空描述，`name/layout/config=null` 返回 `422`。错误边界：缺少或无效 token 返回 `401`；项目不存在、无项目成员关系或 dashboard 不在指定项目下返回 `404`；角色不足返回 `403`；数据库完整性冲突返回 `409`；字段、路径参数和分页参数非法返回 `422`。
 
 ## 数据摄入 API
 
@@ -614,25 +665,30 @@ tests/              # pytest 测试
 - `app/api/dependencies.py`：请求级数据库 session、管理服务、认证服务和当前用户依赖。
 - `app/api/routes/auth.py`：登录和当前用户接口。
 - `app/api/routes/api_keys.py`：项目 API Key 创建、列表和撤销接口。
+- `app/api/routes/dashboard.py`：项目 dashboard 创建、列表、读取、更新和删除接口。
 - `app/api/routes/health.py`：健康检查接口。
 - `app/api/routes/ingest.py`：API Key 鉴权的数据摄入接口。
 - `app/api/routes/management.py`：项目、环境、服务管理接口。
 - `app/models/api_keys.py`：API Key ORM 模型。
 - `app/models/auth.py`：用户 ORM 模型。
+- `app/models/dashboard.py`：Dashboard ORM 模型。
 - `app/models/ingest.py`：最小摄入记录 ORM 模型。
 - `app/models/management.py`：项目、环境、服务 ORM 模型。
 - `app/schemas/auth.py`：认证 API 的 Pydantic 请求和响应模型。
 - `app/schemas/api_keys.py`：API Key API 的 Pydantic 请求和响应模型。
+- `app/schemas/dashboard.py`：Dashboard API 的 Pydantic 请求、更新和响应模型。
 - `app/schemas/ingest.py`：摄入 API 的 Pydantic 请求和响应模型。
 - `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
 - `app/schemas/permissions.py`：项目角色枚举和角色层级判断。
 - `app/services/auth.py`：密码哈希、token 签发/解析和认证规则。
 - `app/services/api_keys.py`：API Key 生成、哈希、权限校验、撤销和后续摄入校验入口。
+- `app/services/dashboard.py`：Dashboard CRUD 用例、项目权限和资源隐藏规则。
 - `app/services/ingest.py`：摄入用例服务，按 API Key 上下文写入项目范围记录。
 - `app/services/management.py`：基础管理业务规则和归属关系校验。
 - `app/services/permissions.py`：项目级权限判断入口，包含超级用户绕过和角色校验。
 - `app/repositories/auth.py`：认证 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/api_keys.py`：API Key repository 协议和 SQLAlchemy 实现。
+- `app/repositories/dashboard.py`：Dashboard repository 协议和 SQLAlchemy 实现。
 - `app/repositories/ingest.py`：摄入记录 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/management.py`：基础管理 repository 协议、SQLAlchemy 实现和测试用内存实现。
 - `app/repositories/permissions.py`：项目成员角色 repository 协议和 SQLAlchemy 实现。
@@ -643,6 +699,7 @@ tests/              # pytest 测试
 - `migrations/versions/20260621_0005_create_ingest_records.py`：最小摄入记录表迁移。
 - `migrations/versions/20260622_0007_add_ingest_records_query_index.py`：为日志上下文和带项目过滤的查询分页补充 `ingest_records(project_id, kind, received_at, id)` 组合索引。
 - `migrations/versions/20260622_0008_ingest_records_mysql_microseconds.py`：将 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 升级为 `DATETIME(6)`，保证毫秒/微秒级时间范围过滤。
+- `migrations/versions/20260623_0009_create_dashboards.py`：创建项目 dashboard 元数据表、JSON 配置列和项目列表索引。
 
 ## 验证命令
 
@@ -657,4 +714,4 @@ uv run alembic upgrade head
 uv run python main.py
 ```
 
-当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目 environment_id 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、trace spans 摄入绑定 API Key 项目、`kind=trace` 写入、trace payload/raw span 持久化、trace duration/time 校验、trace 非有限值拒绝、trace 验证失败/限流拒绝按 `kind=trace` 统计、事件/日志/指标/trace 查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、trace 查询从 payload 顶层关键字段展开 span、按 `trace_id`/`span_id`/`name`/`source`/`status_code`/`duration_ms` 上下界/时间范围过滤、trace cursor 筛选签名不匹配返回 `422`、trace 服务拓扑节点/边推导、权限、时间/source 过滤、空结果、错误计数和 duration 聚合、数据库侧 scan limit、重复 `span_id` parent 归属不唯一时跳过 child edge、SQLite/MySQL/MariaDB trace 顶层 JSON 字段和 duration 数值比较 SQL 编译、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套对象/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、组合筛选、空结果、非法参数和 limit、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、`ingest_records.kind` 字符串列兼容 `trace` kind、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；真实 MySQL 联测曾发现未显式下取整会把 `00:00:59`、`00:04:59` 边界样本上浮到下一桶，本轮已在 SQL 编译层锁定修复；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成，MySQL 关键词搜索的非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划、trace 真实 MySQL 写入/统计/查询/拓扑执行计划和指标窗口聚合执行计划需后续真实库专项补验或扩展。
+当前阶段尚未引入用户创建管理界面、团队/成员管理 API、项目成员授权 API、前端 dashboard 页面、panel 图表渲染、告警逻辑，真实 MySQL/ClickHouse/MongoDB/Redis 服务也尚未在本 worktree 启动。因此后端验证边界限定为配置读取、应用创建、健康检查契约、基础管理 API 契约、认证 API 契约、密码哈希、项目级 RBAC 判断、API Key 明文只返回一次且不入库、撤销后 `verify_key()` 失效、API Key 管理端点对无项目权限普通用户隐藏项目存在性、dashboard CRUD 成功路径、项目权限隔离、viewer/editor/superuser 角色边界、无权限/跨项目 dashboard 隐藏、JSON 字段校验、limit/offset 分页、SQLite dashboard 迁移升降级和 MySQL dashboard JSON DDL 编译、摄入 API 使用 API Key 绑定项目、缺失/无效/撤销 API Key 拒绝、payload 校验错误清晰、客户端无法通过顶层 `project_id` 覆盖归属、创建项目与创建者授权事务回滚、跨项目 environment_id 非泄露、启用后摄入 API Key 固定窗口限流返回 `429`、Redis 限流后端固定窗口计数与不可用错误映射、成功摄入后关系库统计聚合和项目权限查询、已验证 API Key 后的验证失败/限流拒绝统计、trace spans 摄入绑定 API Key 项目、`kind=trace` 写入、trace payload/raw span 持久化、trace duration/time 校验、trace 非有限值拒绝、trace 验证失败/限流拒绝按 `kind=trace` 统计、事件/日志/指标/trace 查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、trace 查询从 payload 顶层关键字段展开 span、按 `trace_id`/`span_id`/`name`/`source`/`status_code`/`duration_ms` 上下界/时间范围过滤、trace cursor 筛选签名不匹配返回 `422`、trace 服务拓扑节点/边推导、权限、时间/source 过滤、空结果、错误计数和 duration 聚合、数据库侧 scan limit、重复 `span_id` parent 归属不唯一时跳过 child edge、SQLite/MySQL/MariaDB trace 顶层 JSON 字段和 duration 数值比较 SQL 编译、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套对象/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、组合筛选、空结果、非法参数和 limit、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、`ingest_records.kind` 字符串列兼容 `trace` kind、SQLite repository 约束、SQLite Alembic 升降级、ClickHouse compose 配置展开、ClickHouse init SQL 挂载和表名静态检查、MongoDB compose 配置展开、MongoDB init 脚本挂载和 events 索引静态检查、代码静态检查；真实 MySQL 联测曾发现未显式下取整会把 `00:00:59`、`00:04:59` 边界样本上浮到下一桶，本轮已在 SQL 编译层锁定修复；MySQL、ClickHouse、MongoDB 和 Redis 容器补验需在后续任务完成，MySQL dashboard 迁移/API CRUD、关键词搜索的非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划、trace 真实 MySQL 写入/统计/查询/拓扑执行计划和指标窗口聚合执行计划需后续真实库专项补验或扩展。
