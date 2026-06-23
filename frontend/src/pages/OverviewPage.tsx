@@ -32,7 +32,7 @@ const recentEvents = [
 
 export function OverviewPage() {
   const auth = useAuth();
-  const canLoadStats = auth.isAuthenticated && !auth.isRestoring;
+  const canLoadStats = auth.canRequestAuthenticatedApi;
   const healthQuery = useQuery({
     queryKey: ['health'],
     queryFn: getHealth,

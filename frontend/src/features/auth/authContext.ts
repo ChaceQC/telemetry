@@ -11,6 +11,7 @@ export type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isRestoring: boolean;
+  canRequestAuthenticatedApi: boolean;
   sessionRevision: number;
   sessionErrorMessage: string | null;
   login: (payload: LoginRequest) => Promise<AuthUser | null>;
@@ -19,3 +20,7 @@ export type AuthContextValue = {
 };
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function resolveCanRequestAuthenticatedApi(auth: Pick<AuthContextValue, 'isAuthenticated' | 'isRestoring'>) {
+  return auth.isAuthenticated && !auth.isRestoring;
+}

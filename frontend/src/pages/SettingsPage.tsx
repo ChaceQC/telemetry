@@ -16,7 +16,7 @@ export function SettingsPage() {
   const auth = useAuth();
   const location = useLocation();
   const [formUnauthorizedError, setFormUnauthorizedError] = useState<unknown>(null);
-  const shouldRequestSettings = auth.isAuthenticated && !auth.isRestoring;
+  const shouldRequestSettings = auth.canRequestAuthenticatedApi;
   const projectsQuery = useQuery({
     queryKey: settingsQueryKeys.projects,
     queryFn: listProjects,

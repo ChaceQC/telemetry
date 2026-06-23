@@ -116,7 +116,22 @@ function createSignedOutAuth(): AuthContextValue {
     user: null,
     isAuthenticated: false,
     isRestoring: false,
+    canRequestAuthenticatedApi: false,
     sessionRevision: 0,
+    sessionErrorMessage: null,
+    login: vi.fn(async () => null),
+    logout: vi.fn(),
+    refreshCurrentUser: vi.fn(async () => null)
+  };
+}
+
+function createRestoringAuth(): AuthContextValue {
+  return {
+    user: null,
+    isAuthenticated: true,
+    isRestoring: true,
+    canRequestAuthenticatedApi: false,
+    sessionRevision: 1,
     sessionErrorMessage: null,
     login: vi.fn(async () => null),
     logout: vi.fn(),
@@ -135,6 +150,7 @@ function createSignedInAuth(): AuthContextValue {
     },
     isAuthenticated: true,
     isRestoring: false,
+    canRequestAuthenticatedApi: true,
     sessionRevision: 1,
     sessionErrorMessage: null,
     login: vi.fn(async () => null),
@@ -210,6 +226,32 @@ describe('QueryPage auth guards', () => {
     expect(html).not.toContain('stale cached context target');
     expect(html).not.toContain('stale cached context before');
     expect(html).not.toContain('日志上下文');
+  });
+
+  it('会话恢复未完成时暂缓查询视图并隐藏已登录缓存数据', () => {
+    const queryClient = new QueryClient();
+    seedSignalData(queryClient, 'logs', [staleLog]);
+
+    const html = renderLogsPage(queryClient, createRestoringAuth());
+
+    expect(html).toContain('正在恢复登录状态');
+    expect(html).toContain('会话恢复完成后会自动发起查询。');
+    expect(html).toContain('等待查询结果');
+    expect(html).not.toContain('stale cached log message');
+    expect(html).not.toContain('href="/login"');
+    expect(html).not.toContain('查询失败');
+  });
+
+  it('会话恢复完成后允许查询视图读取当前 session 查询结果', () => {
+    const queryClient = new QueryClient();
+    seedSignalData(queryClient, 'logs', [staleLog]);
+
+    const html = renderLogsPage(queryClient, createSignedInAuth());
+
+    expect(html).toContain('stale cached log message');
+    expect(html).toContain('第 1 页，1 条记录');
+    expect(html).not.toContain('登录后查询遥测数据');
+    expect(html).not.toContain('正在恢复登录状态');
   });
 
   it('仅 logs 查询表单渲染 logs 专属筛选字段', () => {
@@ -418,6 +460,25 @@ describe('QueryPage logs URL filters', () => {
     expect(html).toContain('value="span-url"');
     expect(html).toContain('linked trace log');
     expect(html).toContain('第 1 页，1 条记录');
+  });
+
+  it('traces 页面不从 URL trace/span 参数初始化筛选，避免污染链路查询路径', () => {
+    const queryClient = new QueryClient();
+    seedSignalData(queryClient, 'traces', [currentTrace]);
+
+    const html = renderQueryPage(
+      queryClient,
+      createSignedInAuth(),
+      'traces',
+      '/traces?trace_id=trace-url&span_id=span-url'
+    );
+
+    expect(html).toContain('链路查询');
+    expect(html).toContain('SELECT orders');
+    expect(html).toContain('默认查询当前账号可访问的全部项目。');
+    expect(html).not.toContain('value="trace-url"');
+    expect(html).not.toContain('value="span-url"');
+    expect(html).not.toContain('已应用关联日志筛选');
   });
 
   it('metrics 和 events 页面忽略 URL 中的 trace/span 参数', () => {
