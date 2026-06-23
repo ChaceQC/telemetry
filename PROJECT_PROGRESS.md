@@ -664,6 +664,7 @@
 - T-0049-fix 初审未通过：Wegener the 2nd 的 `3ed47cb` 已修复首包 Authorization 方向问题，但 Ramanujan the 2nd 发现 2 个 P2：Settings/Overview 在登出、恢复中或切换账号时可能继续显示上一 session 的缓存数据；已启动 Sartre the 2nd 继续修复，当前不得 merge。
 - T-0049-fix 前端修复与复审通过：Sartre the 2nd 提交 `a86f559`，按 sessionRevision 隔离 Overview/Settings 缓存、不可请求认证 API 时隐藏旧数据，并保留登录回跳 search；Euclid the 2nd 复审未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix 合入 `dev`，merge 提交 `bc15a60`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
+- T-0049-fix 真实联测重跑未完全通过：Planck the 2nd 在 `dev/origin/dev` `717dd68` 上确认原 401 首包问题、Settings/Overview 旧缓存闪现和登录回跳 search 均已关闭；但 `/traces?trace_id=<129 chars>` 未将 URL trace_id 传入后端查询，返回 200 而非 422/错误态，证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`。已登记 T-0049-fix2，需前端补 `/traces` URL trace_id 初始化。
 
 ### 阻塞与风险
 
@@ -683,12 +684,13 @@
 - T-0044 只建立 trace ingestion 最小后端基础：traces 先落关系库 `ingest_records` 并按 `kind=trace` 统计；不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑、跨信号关联或前端页面。后续仍需覆盖 ClickHouse trace span 写入、trace 查询 API、大数据量执行计划、Redis 真实限流和 UI 联动。
 - T-0045 只查询当前关系库中已摄入的 trace span 列表；不做 trace 树构建、waterfall 排版、服务依赖拓扑、日志互跳、ClickHouse 查询或前端页面，避免一次性扩大阶段 4 范围。
 - T-0049 已知 P3：`/logs` URL 参数只做 trim，手写超过后端 128 字符限制的 `trace_id`/`span_id` 会提交到 logs API 并返回 422；正常由 `/traces` 后端数据生成的跳转不受影响。后续可补前端长度预校验与分页交互用例。
-- T-0049-fix 阻断问题：已登录后 URL 直达或刷新查询页时，Auth 会话尚未完成恢复就触发首个查询，导致请求不带 Authorization；需前端在会话恢复完成后再发起 URL 初始化查询，并覆盖 `/logs`、`/traces` 的硬导航/刷新路径。
-- T-0049-fix 新增 P2 已由 `a86f559` 关闭：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据；仍需真实浏览器联测确认无旧数据闪现。
+- T-0049-fix 阻断问题已由 `3ed47cb`/`a86f559` 关闭：已登录 URL 直达或刷新查询页首个业务请求带 Authorization，无 401。
+- T-0049-fix 新增 P2 已由 `a86f559` 关闭并经 Planck 重测观察通过：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据。
+- T-0049-fix2 阻断问题：`/traces?trace_id=...` 未初始化 trace 查询筛选，超长 trace_id 不会传到后端触发 422，普通 trace_id 直达也可能没有实际筛选。
 
 ### 下一步
 
-- 使用真实 `git merge` 将 `feature/frontend-dev` 的 T-0049-fix 合入 `dev`，完成收窄门禁、推送、CI 读取和 feature 分支同步后，重跑真实前后端联合测试 agent。
+- 启动前端修复 agent 在 `feature/frontend-dev` 推进 T-0049-fix2，补 `/traces` URL trace_id 初始化与超长 trace_id 错误路径；修复完成后代码审计、merge 并再次重跑真实联测。
 
 ### 验证
 

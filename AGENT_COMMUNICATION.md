@@ -427,6 +427,7 @@ closed      已关闭
 | 2026-06-23 | T-0049-fix | 前端修复 agent Sartre the 2nd | Auth 缓存隔离修复完成 | Sartre the 2nd 提交并推送 `a86f559` 到 `feature/frontend-dev`：按 sessionRevision 隔离 Overview 与 Settings 查询缓存，在不可请求认证 API 时隐藏旧统计/旧项目环境服务数据，Auth 边界清理 query/settings/overview 缓存；新增 `loginReturnPath` 保留 `pathname + search`，关闭未登录用户从 `/logs?trace_id=...&span_id=...` 登录后丢失查询串的 P3。专项 40 tests、前端全量 101 tests、typecheck、lint、build、diff check 均通过；未启动浏览器、Docker 或真实联测。Sartre the 2nd 已关闭，已启动复审 | audit |
 | 2026-06-23 | T-0049-fix | 代码复审 agent Euclid the 2nd | Auth 缓存隔离复审通过 | Euclid the 2nd 只读复审 `a86f559`，确认 Ramanujan 两个 P2 已关闭，未发现新的 P0/P1/P2/P3；Settings 与 Overview 已按 sessionRevision 隔离并在恢复中/未登录状态不展示上一 session 缓存，原 Helmholtz 首包 Authorization blocker 仍由同步 token 恢复和 `canRequestAuthenticatedApi` gating 关闭，登录回跳保留 search。Euclid the 2nd 已关闭，建议 merge 后重跑真实联测 | done |
 | 2026-06-23 | T-0049-fix | 总 agent | 真实 merge 集成 auth 修复 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `3ed47cb` 与 `a86f559` 合入 `dev`，merge 提交 `bc15a60`；后续执行收窄门禁、推送、读取 CI、同步 feature 分支，并启动测试 agent 重跑真实 MySQL、真实前后端和 Playwright + Microsoft Edge 联测 | testing |
+| 2026-06-23 | T-0049-fix | 测试 agent Planck the 2nd | Trace 到日志跳转真实联测重跑未完全通过 | Planck the 2nd 在 `dev/origin/dev` `717dd68` 使用自启动隔离 MySQL 8.0.42 `127.0.0.1:33073`、真实后端 `28117`、真实前端 `25173` 和 Playwright + Microsoft Edge 重跑联测。原 401 首包问题已关闭：`/logs?trace_id=...&span_id=...` 与 `/traces?trace_id=...` 硬导航/刷新首个业务请求均带 Authorization 且无 401；trace 到 logs 组/行跳转、登出/切换账号无 Settings/Overview 旧数据闪现、未登录深链登录后保留 search、慢 `/auth/me` 无无限 loading 均通过。失败点：`/traces?trace_id=<129 chars>` 未将 URL `trace_id` 带入 trace 查询，实际请求为 `/api/v1/query/traces?limit=100` 并返回 200，而非后端 422/前端错误态；证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`。Planck the 2nd 已清理自有后端、前端、Edge、临时 MySQL/库和端口；已关闭 | blocked |
 
 ## 6. 测试记录
 
@@ -497,6 +498,7 @@ closed      已关闭
 | 2026-06-23 | T-0046/T-0047 | 真实前后端联合测试 | Meitner the 2nd；本机 MySQL 8.0.42 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev` `1fa3f21`；覆盖 `/traces` 页面、trace `status_code`/duration 过滤、cursor/错误边界、null/长 JSON 详情展示、metrics/logs/events 页面与 API 快速回归；临时库和自有 PID 已清理，证据目录 `tmp/T-0046-T0047-e2e-20260623-050157` |
 | 2026-06-23 | T-0048 | Trace waterfall 真实前后端联合测试 | Linnaeus the 2nd；自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev` `f2970d5`；覆盖 trace 多根/父子/孤儿/error/slow/0/缺失/长 duration 数据、Query API status/duration/cursor、浏览器 `/traces` waterfall 展开/树形缩进/详情/响应式 640px/720px、metrics/logs/events 页面回归；自有资源已清理，证据目录 `agents/runtime/e2e-T-0048-20260623-071459` |
 | 2026-06-23 | T-0049 | Trace 到日志跳转真实前后端联合测试 | Helmholtz the 2nd；本机 MySQL80 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未通过 | `dev/origin/dev` `d9c85f0`；API 层和 SPA 内部跳转均通过，但已登录后硬导航/刷新 `/traces?trace_id=...` 或 `/logs?trace_id=...&span_id=...` 时首个查询请求未带 Authorization 并返回 401。证据目录 `agents/runtime/e2e-T-0049-20260623-085949`；测试 agent 已清理自有资源 |
+| 2026-06-23 | T-0049-fix | Trace 到日志跳转真实前后端联合测试重跑 | Planck the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 未完全通过 | `dev/origin/dev` `717dd68`；原 401 首包问题、Settings/Overview 旧缓存闪现、登录回跳 search 均通过；失败项为 `/traces?trace_id=<129 chars>` 没有把 URL trace_id 传入后端查询，返回 200 而非 422/错误态。证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`；测试 agent 已清理自有资源 |
 
 ## 7. 审计记录
 
@@ -540,7 +542,8 @@ closed      已关闭
 | 日期 | 任务 ID | 问题 | 影响 | 负责人 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
-| 2026-06-23 | T-0049 | 已登录后硬导航/刷新查询页首个请求未带 Authorization | 阻断 T-0049 真实联测；影响 `/traces?trace_id=...`、`/logs?trace_id=...&span_id=...` 等 URL 直达和刷新路径，SPA 内部导航或手动点击查询可恢复 | 前端开发 agent / 总 agent | open |
+| 2026-06-23 | T-0049 | 已登录后硬导航/刷新查询页首个请求未带 Authorization | 已由 `3ed47cb`/`a86f559` 修复并由 Planck the 2nd 真实联测重跑确认关闭；`/logs?trace_id=...&span_id=...` 与 `/traces?trace_id=...` 首个业务请求均带 Authorization，无 401 | 前端开发 agent / 总 agent | closed |
+| 2026-06-23 | T-0049-fix2 | `/traces?trace_id=...` 未初始化 trace 查询筛选 | 阻断 T-0049 重测完全通过；超长 trace_id URL 未传给后端，返回 200 并展示现有 trace，而非 422/错误态；也意味着普通 URL trace_id 直达可能未真正筛选 | 前端开发 agent / 总 agent | open |
 | 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过，Parfit 完整真实前后端联测重跑通过 | 后端开发 agent Avicenna / 总 agent | closed |
 | 2026-06-22 | T-0045 | 真实 MySQL trace 查询存在项目和毫秒时间过滤偏差 | 已由 Darwin `2d357a7` 修复显式项目存在性校验和 MySQL/MariaDB `DATETIME(6)` 精度；Carver the 2nd `0928e6f` 关闭 ORM 默认值与在线 DDL 文档 P3，Hume the 2nd 复审通过；Boole the 2nd 真实前后端联测重跑通过，确认不存在项目 404 和毫秒边界过滤均已关闭 | 后端开发 agent / 总 agent | closed |
 | 2026-06-20 | T-0002 | 当前工具面板未暴露 `create_thread`、`handoff_thread` 或测试子 agent 启动工具；本机 `codex.exe` 与 `codex-command-runner.exe` 执行 `--help` 均返回 Access is denied | 后续已通过可用的多 agent 工具启动测试子 agent Boole 复验 `T-0003`，本阻塞对当前后端骨架任务已解除 | 后端开发 agent / 总 agent | closed |
