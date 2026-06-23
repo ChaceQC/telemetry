@@ -564,6 +564,7 @@ closed      已关闭
 | 2026-06-23 | T-0054 | dev merge 后本地验证 | 前端 Dashboard/Auth/router 专项、typecheck、lint、build、后端 config/uv lock、`git diff --check` | 通过 | 前端 Dashboard/Auth/router 专项 6 files/43 tests passed，typecheck、lint、build 通过；后端 `tests/test_config.py` 13 passed，`uv lock --check` 通过；diff check 通过。首次运行前根 `node_modules` 缺少新 devDependencies，执行 `npm.cmd install` 后复验通过且 lockfile 无业务差异 |
 | 2026-06-23 | T-0054 | CI | GitHub Actions runs `28034441225`、`28034545419`、`28034538393` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在 `8a9be60` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-23 | T-0054 | Dashboard CRUD 真实前后端联合测试 | Maxwell the 2nd；真实 MySQL 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `8a9be60`；`/health=0.2.11`，API 40 项断言通过，前端 `/dashboards` ready。覆盖 dashboard CRUD、权限/JSON 校验、分页数据和既有查询/摄入/拓扑回归；证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`，自有资源已清理 |
+| 2026-06-24 | T-0054-docs | CI | GitHub Actions runs `28044232620`、`28044259701`、`28044259979` | 通过 | T-0054 文档收口提交 `3ccfca5` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；仅有既有 Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
