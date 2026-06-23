@@ -84,6 +84,7 @@ closed      已关闭
 | T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 | T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | done | done | done |
+| T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -494,6 +495,7 @@ closed      已关闭
 | 2026-06-24 | T-0056a-fix | 代码复审 agent Halley | Dashboard panel 编辑索引失效复审通过 | Halley 只读复审 `f6156c6`，确认原 P2 已关闭：重排/删除 `config.panels` 后旧编辑草稿会被拒绝并保留 textarea 内容；工具函数和页面交互测试覆盖到位。未发现新的 P0/P1/P2/P3，建议真实 merge 到 `dev` | done |
 | 2026-06-24 | T-0056 | 总 agent | 真实 merge 集成 Dashboard panel 配置前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `861094e` 与 `f6156c6` 合入 `dev`，merge 提交 `f6c9e32`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0056 | 总 agent | CI 与 worktree 同步完成 | `6e9b4a1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28054879272`、`28054966016`、`28054966365` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0056 关闭 | done |
+| 2026-06-24 | T-0057 | 总 agent | 登记 Dashboard panel 只读预览前端基础 | 阶段 5 下一小步限定为前端只读 panel 预览：在现有 `/dashboards` 页面选中 dashboard 后，基于当前 `config JSON` / `config.panels` 显示可扫描的 panel 预览区，包含 panel 标题、类型、id、layout 位置尺寸和 query 摘要，覆盖 empty/legacy/invalid/unauth 状态；预览只消费本地表单文本，不发起图表数据请求、不保存、不新增后端 API、不接 ClickHouse、不做真实图表渲染、变量/时间范围高级配置、模板或告警。将使用 `frontend-skill` 的应用 UI 约束，以 restrained operational UI 为准，不做 landing/hero | doing |
 
 ## 6. 测试记录
 
@@ -698,6 +700,7 @@ closed      已关闭
 | 2026-06-23 | T-0054 | feature/frontend-dev | dev | 总 agent | Dashboard CRUD 前端基础 `7221b90` 与审计修复 `7b4642d`、`d8ba7f0`、`58a6d9a`、`e2ca432` 已通过 Jason the 2nd 最终复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，版本同步、本地门禁、CI、feature 分支同步和 Maxwell the 2nd 真实前后端联合测试均通过 | done |
 | 2026-06-24 | T-0055 | feature/backend-dev | dev | 总 agent | Dashboard panel 配置 schema `e8b1d37` 与字符串规范化修复 `f3df26c` 已通过 Kant 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `d11b298`，本地门禁和 `dev` CI 均通过；待同步 feature 分支 | done |
 | 2026-06-24 | T-0055-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `cd6290b` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
+| 2026-06-24 | T-0056/T-0057 | feature/frontend-dev | dev | 总 agent | T-0056 已通过真实 merge、CI 和三分支同步关闭；T-0057 将继续在 `feature/frontend-dev` 推进 Dashboard panel 只读预览前端基础，完成后审计通过再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 

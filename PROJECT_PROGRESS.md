@@ -703,6 +703,7 @@
 - T-0056a-fix 代码复审 agent Halley 只读复审通过：确认原 P2 已关闭，未发现新的 P0/P1/P2/P3；`feature/frontend-dev` CI run `28054244416` 已通过，下一步执行真实 merge 到 `dev` 并跑集成门禁。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0056 合入 `dev`，merge 提交 `f6c9e32`；merge 后本地前端专项、typecheck、lint、build、后端 config/lock 和 diff check 均通过，待推送 `dev` 并等待 CI 后同步 feature 分支。
 - T-0056 已完成同步收口：`6e9b4a1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28054879272`、`28054966016`、`28054966365` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
+- T-0057 已登记为阶段 5 下一小步：Dashboard panel 只读预览前端基础，在现有 `/dashboards` 页面选中 dashboard 后，基于当前 `config JSON` / `config.panels` 显示可扫描的 panel 预览区，包含 panel 标题、类型、id、layout 位置尺寸和 query 摘要；覆盖 empty/legacy/invalid/unauth 状态。预览只消费本地表单文本，不发起图表数据请求、不保存、不新增后端 API、不接 ClickHouse、不做真实图表渲染、变量/时间范围高级配置、模板或告警。
 
 ### 阻塞与风险
 
@@ -729,7 +730,7 @@
 
 ### 下一步
 
-- 继续阶段 5 下一小步：围绕 Dashboard panel 展示/查询语义选择一个极窄增量，先登记范围和契约，再按 agent 协作流程推进。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0057 Dashboard panel 只读预览前端基础；完成后由总 agent 启动只读代码审计，审计通过后再真实 merge 到 `dev`。
 
 ### 验证
 
@@ -767,6 +768,7 @@
 - T-0056 merge 后本地门禁通过：前端专项 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files/38 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check` 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器。
 - T-0056 最终同步 CI 通过：GitHub Actions runs `28054879272`、`28054966016`、`28054966365` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `6e9b4a1`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。随后严格 worktree 体检通过。
 - T-0056 收口文档同步 CI 通过：GitHub Actions runs `28055118582`、`28055190963`、`28055192531` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `48d2fdb`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检再次通过。
+- T-0056 最终 CI 记录提交同步通过：GitHub Actions runs `28055325838`、`28055342519`、`28055342017` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `1d23e8b`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。本结果随 T-0057 启动记录合并登记，避免纯 CI 文档回声。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
