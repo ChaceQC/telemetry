@@ -716,6 +716,7 @@
 - T-0059 已登记为阶段 5 下一小步：Dashboard panel 查询预览前端接入基础，在 `/dashboards` 已保存 dashboard 的只读 Panel 预览区消费 T-0058 后端 API，为单个已保存 panel 加载样本摘要/预览数据；展示 metrics 聚合摘要、logs/events/traces 最近样本和 topology 节点/边摘要，覆盖未保存草稿、legacy/empty、loading/error/422/unauth 状态。不改后端契约，不做真实图表渲染，不接 ClickHouse，不保存草稿 config，不做变量/模板/告警。
 - T-0059 前端开发侧已完成：新增 `previewDashboardPanel()` API client、类型化 `DashboardPanelPreviewPayload`、`dashboardQueryKeys.panelPreview` 和查询预览摘要模型；`/dashboards` 只读 Panel 预览卡片新增“加载/刷新预览”，仅在已保存 dashboard/panel 且当前 `config JSON` 未改动时请求后端，未保存草稿显示“保存后可查询”且不触发 API。UI 覆盖 metrics 聚合、logs/events/traces 最近样本、topology 节点/边摘要、空结果、422/error 和未登录/未选择/legacy/empty/invalid 本地状态。
 - T-0059 已完成前端 feature CI、本地审计和真实 merge：`feature/frontend-dev` 提交 `5b28d5b` 已通过 GitHub Actions run `28064233579`；总 agent 本地审计未发现 P0/P1/P2/P3，代码审计 agent Parfit 因超时关闭且未返回可用结论；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`。merge 后本地门禁通过：前端 dashboard 专项 4 files / 45 tests passed、typecheck、lint、build 通过，后端 config 13 passed、`uv lock --check`、`git diff --check` 通过。当前等待推送 `dev` 并读取 CI，再同步两个 feature 分支。
+- T-0059 同步 CI 与 worktree 体检通过：`ce5cca2` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 均通过；两个 feature 分支已 fast-forward 到 `dev`。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过，确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交。T-0059 关闭。
 
 ### 阻塞与风险
 
@@ -743,7 +744,7 @@
 
 ### 下一步
 
-- 推送 T-0059 dev merge，读取 GitHub Actions；CI 通过后 fast-forward 同步 `feature/frontend-dev` 与 `feature/backend-dev`，再运行严格 worktree 体检并继续阶段 5 下一小步。
+- 继续阶段 5 下一小步，优先补 Dashboard panel 查询预览真实前后端联测或推进基础图表渲染能力。
 
 ### 验证
 
@@ -792,6 +793,7 @@
 - T-0058 同步 CI 与 worktree 体检通过：GitHub Actions runs `28061763863`、`28061828781`、`28061828919` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `23f3dc6`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过，确认 root、frontend、backend 三棵 worktree 干净、分支正确、与远端一致，且 feature 分支没有 dev 未包含提交。
 - T-0058 最终文档收口 CI 与 worktree 体检通过：GitHub Actions runs `28061977805`、`28062046509`、`28062045863` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `002ac37`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过，确认 root、frontend、backend 三棵 worktree 干净、分支正确、与远端一致。
 - T-0059 前端开发侧本地门禁通过：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files / 45 tests passed；`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 和 `git diff --check` 均通过。未启动真实服务、数据库、Docker 或浏览器。
+- T-0059 同步 CI 与 worktree 体检通过：GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `ce5cca2`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
