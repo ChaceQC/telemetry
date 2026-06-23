@@ -13,11 +13,11 @@ import type { AuthContextValue } from '../features/auth/authContext';
 import { DASHBOARD_JSON_MAX_BYTES, DASHBOARD_JSON_MAX_DEPTH } from '../features/dashboards/dashboardJson';
 import { DashboardsPage } from './DashboardsPage';
 
+type DashboardListResult = { items: Dashboard[]; limit: number; offset: number; total: number };
+
 const apiMocks = vi.hoisted(() => ({
   listProjects: vi.fn<() => Promise<Project[]>>(),
-  listDashboards: vi.fn<
-    (params?: DashboardListParams) => Promise<{ items: Dashboard[]; limit: number; offset: number; total: number }>
-  >(),
+  listDashboards: vi.fn<(params?: DashboardListParams) => Promise<DashboardListResult>>(),
   createDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn()
@@ -404,6 +404,65 @@ describe('DashboardsPage interactions', () => {
     await waitFor(() => expect(deleteButtons[0].hasAttribute('disabled')).toBe(false));
   });
 
+  it('删除请求成功但列表刷新未完成前仍禁用旧列表删除入口', async () => {
+    const user = userEvent.setup();
+    const laterDashboard = createDashboardFixture({
+      id: 61,
+      name: '第 51 个看板',
+      description: '第二页记录',
+      layout: { version: 2, widgets: [{ i: 'latency' }] },
+      config: { refresh_seconds: 15 }
+    });
+    const lastDashboard = createDashboardFixture({
+      id: 62,
+      name: '第 52 个看板',
+      description: '第二页末尾记录',
+      layout: { version: 2, widgets: [{ i: 'errors' }] },
+      config: { refresh_seconds: 20 }
+    });
+    const pendingRefresh = createDeferred<DashboardListResult>();
+    let deleted = false;
+    let refreshAfterDeleteRequested = false;
+    apiMocks.deleteDashboard.mockImplementation(async () => {
+      deleted = true;
+      return null;
+    });
+    apiMocks.listDashboards.mockImplementation(async (params?: DashboardListParams) => {
+      if (params?.offset === 50 && deleted) {
+        refreshAfterDeleteRequested = true;
+        return pendingRefresh.promise;
+      }
+
+      return params?.offset === 50
+        ? { items: [laterDashboard, lastDashboard], limit: 50, offset: 50, total: 52 }
+        : { items: [dashboard], limit: 50, offset: 0, total: 52 };
+    });
+
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('第 1-1 条，共 52 条，每页 50 条。');
+    await user.click(screen.getByRole('button', { name: '下一页' }));
+    expect(await screen.findByText('第 51 个看板')).toBeTruthy();
+    expect(await screen.findByText('第 52 个看板')).toBeTruthy();
+
+    const deleteButtons = screen.getAllByTitle('删除仪表盘');
+    fireEvent.click(deleteButtons[0]);
+    await waitFor(() => expect(apiMocks.deleteDashboard).toHaveBeenCalledWith(12, 61));
+    await waitFor(() => expect(refreshAfterDeleteRequested).toBe(true));
+    await waitFor(() => {
+      expect(deleteButtons[0].hasAttribute('disabled')).toBe(true);
+      expect(deleteButtons[1].hasAttribute('disabled')).toBe(true);
+    });
+
+    fireEvent.click(deleteButtons[1]);
+
+    expect(apiMocks.deleteDashboard).toHaveBeenCalledTimes(1);
+    pendingRefresh.resolve({ items: [lastDashboard], limit: 50, offset: 50, total: 51 });
+    await waitFor(() => expect(screen.queryByText('第 51 个看板')).toBeNull());
+    expect(screen.getByText('第 52 个看板')).toBeTruthy();
+    expect(screen.getByTitle('删除仪表盘').hasAttribute('disabled')).toBe(false);
+  });
+
   it('JSON 输入不是对象或数组时显示本地校验错误且不请求创建接口', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);
@@ -472,13 +531,19 @@ describe('DashboardsPage interactions', () => {
   });
 });
 
-function createDeferredNull() {
-  let resolvePromise: () => void = () => {
+function createDeferred<TValue>() {
+  let resolvePromise: (value: TValue) => void = () => {
     throw new Error('deferred promise resolver was not registered');
   };
-  const promise = new Promise<null>((resolve) => {
-    resolvePromise = () => resolve(null);
+  const promise = new Promise<TValue>((resolve) => {
+    resolvePromise = resolve;
   });
 
   return { promise, resolve: resolvePromise };
+}
+
+function createDeferredNull() {
+  const deferred = createDeferred<null>();
+
+  return { promise: deferred.promise, resolve: () => deferred.resolve(null) };
 }

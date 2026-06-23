@@ -14,6 +14,7 @@
 - 补充 API client、JSON helper、页面状态、创建/更新/删除交互、首项编辑 state、会话/项目切换清理、分页和 JSON 限制回归测试；为交互测试新增 `jsdom`、`@testing-library/react`、`@testing-library/user-event` devDependencies 并同步 lock。
 - 第二轮审计修复：项目范围切换时创建表单重置为新项目默认草稿，不再跨项目搬运未提交的 name/description/layout/config；删除末页唯一记录后按删除后的 total/limit 回退 offset，避免停留在越界空页。
 - 第三轮审计 P3 修复：dashboard 删除请求 pending 期间立即锁住并禁用当前列表所有删除入口，阻止末页多条记录被快速并发删除后用旧 total 反复计算 offset；补交互测试覆盖末页两条记录快速点击两次删除时只触发一次删除请求，避免留下越界 offset。
+- 第四轮审计 P3 修复：dashboard 删除成功后继续保持删除锁，直到 dashboard 查询 `invalidate/refetch` 完成后才释放，关闭 delete request 已 resolve 但旧列表仍未刷新的 stale-total gap；补交互测试覆盖删除请求已成功、列表刷新 promise 尚未完成时无法触发第二次旧列表删除。
 - 本轮保持前端版本 `0.2.11`，未修改版本文件。
 - 前端版本提升到 `0.2.11`，同步 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md`。
 
@@ -29,6 +30,8 @@
 - 第二轮修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、31 个测试通过）。
 - 第三轮 P3 修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、32 个测试通过）。
 - 第三轮 P3 修复后已在 `frontend/` 包目录执行：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；已在 worktree 根目录执行 `git diff --check` 通过。
+- 第四轮 P3 修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、33 个测试通过）。
+- 第四轮 P3 修复后已在 `frontend/` 包目录执行：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；已在 worktree 根目录执行 `git diff --check` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（28 个测试文件、150 个测试通过）。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。

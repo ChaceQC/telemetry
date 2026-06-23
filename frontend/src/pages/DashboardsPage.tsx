@@ -223,7 +223,7 @@ export function DashboardsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (dashboard: Dashboard) => deleteDashboard(dashboard.project_id, dashboard.id),
-    onSuccess: (_result, dashboard) => {
+    onSuccess: async (_result, dashboard) => {
       const nextOffset = resolveOffsetAfterDeletingOne(dashboardOffset, total, DASHBOARD_PAGE_LIMIT);
       if (activeEditForm.dashboardId === dashboard.id) {
         setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
@@ -232,7 +232,7 @@ export function DashboardsPage() {
         setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
       }
       setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
-      invalidateDashboards(queryClient);
+      await invalidateDashboards(queryClient);
     },
     onError: (error) => {
       if (isAuthError(error)) {
@@ -919,7 +919,7 @@ function buildDashboardPageScopeKey({
 }
 
 function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: dashboardQueryRootKey });
+  return queryClient.invalidateQueries({ queryKey: dashboardQueryRootKey });
 }
 
 function isAuthError(error: unknown) {
