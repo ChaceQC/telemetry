@@ -84,7 +84,7 @@ closed      已关闭
 | T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 | T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | done | done | done |
-| T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | done | todo | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -496,6 +496,8 @@ closed      已关闭
 | 2026-06-24 | T-0056 | 总 agent | 真实 merge 集成 Dashboard panel 配置前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `861094e` 与 `f6156c6` 合入 `dev`，merge 提交 `f6c9e32`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0056 | 总 agent | CI 与 worktree 同步完成 | `6e9b4a1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28054879272`、`28054966016`、`28054966365` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0056 关闭 | done |
 | 2026-06-24 | T-0057 | 总 agent | 登记 Dashboard panel 只读预览前端基础 | 阶段 5 下一小步限定为前端只读 panel 预览：在现有 `/dashboards` 页面选中 dashboard 后，基于当前 `config JSON` / `config.panels` 显示可扫描的 panel 预览区，包含 panel 标题、类型、id、layout 位置尺寸和 query 摘要，覆盖 empty/legacy/invalid/unauth 状态；预览只消费本地表单文本，不发起图表数据请求、不保存、不新增后端 API、不接 ClickHouse、不做真实图表渲染、变量/时间范围高级配置、模板或告警。将使用 `frontend-skill` 的应用 UI 约束，以 restrained operational UI 为准，不做 landing/hero | doing |
+| 2026-06-24 | T-0057 | 总 agent | Dashboard panel 只读预览前端完成 | Leibniz 未返回但留下可用未提交改动，总 agent 接手审查、验证、补前端进度后提交并推送 `7e1e27c` 到 `feature/frontend-dev`：新增 panel preview model/query summary 纯函数和测试，`/dashboards` 编辑区新增只读 Panel 预览，直接消费当前 `config JSON`，展示标题、type/id、layout、query 摘要，并覆盖未登录、未选择、legacy、empty、invalid 状态；不触发保存 API 或图表数据请求 | audit |
+| 2026-06-24 | T-0057 | 代码审计 agent Rawls | Dashboard panel 只读预览审计通过 | Rawls 只读审计 `7e1e27c`，确认预览只由当前编辑表单 `configText` 派生，未触发保存、图表查询、ClickHouse 或后端查询；invalid/legacy/empty 状态、query 摘要、layout clamp/排序逻辑和交互测试覆盖到位。未发现 P0/P1/P2/P3，建议真实 merge 到 `dev` | done |
 
 ## 6. 测试记录
 
@@ -600,6 +602,7 @@ closed      已关闭
 | 2026-06-24 | T-0056-sync | CI | GitHub Actions runs `28054879272`、`28054966016`、`28054966365` | 通过 | `6e9b4a1` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0056-final-sync | CI | GitHub Actions runs `28055118582`、`28055190963`、`28055192531` | 通过 | `48d2fdb` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过 |
 | 2026-06-24 | T-0057-start | CI | GitHub Actions runs `28055654204`、`28055733768`、`28055733185` | 通过 | T-0057 启动记录提交 `77aca8e` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
+| 2026-06-24 | T-0057 | 前端开发/审计门禁 | feature CI run `28057913337`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check`；Playwright + Microsoft Edge 冒烟；Rawls 只读审计命令 | 通过 | `7e1e27c` 上 feature/frontend-dev CI 通过；总 agent 本地专项 4 files/42 tests passed，typecheck、lint、build、diff check 通过；Edge 访问 `/dashboards` 桌面、390px 移动和全页截图正常，未登录/未选择状态下 Panel 预览可见且无明显移动端重叠，自启 Vite `25187` 和临时截图目录已清理；Rawls 窄测 3 files/35 tests、eslint、typecheck、diff check 均通过 |
 
 ## 7. 审计记录
 
@@ -609,6 +612,7 @@ closed      已关闭
 | 2026-06-24 | T-0055-fix | Dashboard panel 字符串规范化修复（`f3df26c`） | 通过 | 原 P2 已关闭：panel `id/title/type` 规范化值写回保存，重复 id 按规范化值判断；未发现新 P0/P1/P2/P3。残余风险为未做真实 MySQL JSON 列回归，且历史已保存的带空白 panel 字段不会自动迁移 | done |
 | 2026-06-24 | T-0056a | Dashboard panel 配置前端小步（`861094e`） | 未通过 | P2：panel 编辑草稿只保存 `editIndex`，手动修改 `config JSON` 重排/删除 panels 后再更新可能覆盖错误 panel；需修复后复审 | blocked |
 | 2026-06-24 | T-0056a-fix | Dashboard panel 编辑索引失效修复（`f6156c6`） | 通过 | 原 P2 已关闭：panel 编辑草稿保存原始 panel id，更新时确认当前 index 仍指向同一 id；手动重排/删除 `config.panels` 后提示重新选择，未发现新的 P0/P1/P2/P3 | done |
+| 2026-06-24 | T-0057 | Dashboard panel 只读预览前端基础（`7e1e27c`） | 通过 | 未发现 P0/P1/P2/P3；预览只消费本地 `configText`，不触发保存或图表/后端查询；状态覆盖、query 摘要、layout clamp/排序和响应式风险均在当前范围可接受 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
