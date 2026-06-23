@@ -668,6 +668,7 @@
 - T-0049-fix2 前端修复与审计通过：Socrates the 2nd 提交 `a30e126`，让 `/traces` 从 URL `trace_id` 初始化筛选并传给后端，超长 trace_id 不再被静默忽略；James the 2nd 审计未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix2 合入 `dev`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
 - T-0049 最终真实前后端联合测试通过：Godel the 2nd 在 `dev/origin/dev` `1a66445` 上使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，覆盖 API 23 步与浏览器 14 项，包括 valid/129 trace 深链硬导航/刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading；证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。T-0049 关闭。
+- T-0050 已登记为阶段 4 下一小步：前端实现日志到 Trace 的反向跳转基础，在 `/logs` 结果中基于日志 `trace_id`/`span_id` 跳转 `/traces?trace_id=...` 或 `/traces?trace_id=...&span_id=...`；不改后端契约，不做服务拓扑、指标互跳、ClickHouse 或日志上下文深链。
 
 ### 阻塞与风险
 
@@ -693,7 +694,7 @@
 
 ### 下一步
 
-- 推送并读取 T-0049 最终联测记录 CI；同步 `feature/frontend-dev` 和 `feature/backend-dev` 后，登记阶段 4 下一小步并启动对应开发 agent。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0050；开发 agent 可启动测试 agent 做专项验证，但不得代跑完整真实前后端联合测试。完成后由总 agent 启动代码审计，并按风险决定是否真实联测。
 
 ### 验证
 

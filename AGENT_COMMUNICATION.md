@@ -77,6 +77,7 @@ closed      已关闭
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | done | done | done |
+| T-0050 | 日志到 Trace 跳转前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -432,6 +433,7 @@ closed      已关闭
 | 2026-06-23 | T-0049-fix2 | 代码审计 agent James the 2nd | Traces URL trace_id 初始化审计通过 | James the 2nd 只读审计 `a30e126`，未发现 P0/P1/P2/P3；确认 `/traces?trace_id=...` 会初始化 Trace ID 并传给 `listTraces`，超长值不被前端静默丢弃，`/logs?trace_id&span_id`、trace 到 logs 链接和 metrics/events 不污染均无回退。James the 2nd 已关闭，建议 merge 后重跑真实联测 | done |
 | 2026-06-23 | T-0049-fix2 | 总 agent | 真实 merge 集成 traces URL 初始化 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `a30e126` 合入 `dev`，merge 提交当前 HEAD；后续执行收窄门禁、推送、读取 CI、同步 feature 分支，并启动测试 agent 再次重跑真实 MySQL、真实前后端和 Playwright + Microsoft Edge 联测 | testing |
 | 2026-06-23 | T-0049 | 测试 agent Godel the 2nd | Trace 到日志跳转最终真实联测通过 | Godel the 2nd 在 `dev/origin/dev` `1a66445` 使用自启动临时本地 MySQL 8.0.42 `33307`、真实后端 `28117`、真实前端 `25173` 和 Playwright + Microsoft Edge 149.0.4022.69 完成最终联测；根/前端/后端版本均为 `0.2.6`，`/health=0.2.6`。API 23 步通过，覆盖登录、项目/环境/服务/API Key、events/metrics/logs/traces 上报、logs trace/span 过滤、traces 查询、129 字符 trace_id 422、metrics/events 不受 trace/log 参数污染；浏览器 14 项通过，覆盖 valid/129 trace 深链硬导航和刷新首包、logs trace/span 深链、trace 组/span 查看相关日志、metrics/events 参数隔离、登出/切账号缓存隔离、未登录深链登录后保留 search、慢 `/auth/me` 不无限 loading。证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`；测试 agent 已清理自有前端、后端、临时 MySQL、Edge 和端口，已关闭 | done |
+| 2026-06-23 | T-0050 | 总 agent | 登记日志到 Trace 跳转前端基础 | 阶段 4 下一小步限定为前端 trace/log 互跳闭环：在 `/logs` 查询结果中，当日志记录包含 `trace_id` 和可选 `span_id` 时提供“查看相关 Trace”入口，跳转到 `/traces?trace_id=...` 或 `/traces?trace_id=...&span_id=...`；复用 T-0049 已完成的 `/traces` URL 初始化能力。范围不改后端契约、不新增 API、不做服务拓扑、指标互跳、ClickHouse 或日志上下文深链；将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程 | doing |
 
 ## 6. 测试记录
 
