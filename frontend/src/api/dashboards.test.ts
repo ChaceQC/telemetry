@@ -117,6 +117,36 @@ describe('dashboard api client', () => {
     );
   });
 
+  it('panel 查询预览路径会编码 panel id 并携带当前 token', async () => {
+    const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
+    const response = {
+      project_id: 12,
+      dashboard_id: 7,
+      panel_id: 'error logs',
+      title: 'Error logs',
+      panel_type: 'logs',
+      query: {},
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
+
+    setApiAuthToken('preview-token');
+    await expect(previewDashboardPanel(12, 7, 'error logs')).resolves.toEqual(response);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/projects/12/dashboards/7/panels/error%20logs/preview',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer preview-token'
+        })
+      })
+    );
+  });
+
   it('空列表参数不生成空查询串', async () => {
     const { listDashboards } = await loadDashboardClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], limit: 50, offset: 0, total: 0 }));

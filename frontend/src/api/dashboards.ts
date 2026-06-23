@@ -1,4 +1,12 @@
 import { apiRequest } from './http';
+import type {
+  EventQueryItem,
+  LogQueryItem,
+  MetricAggregateItem,
+  TraceQueryItem,
+  TraceTopologyEdge,
+  TraceTopologyNode
+} from './query';
 import { buildQueryPath } from './queryParams';
 
 export type DashboardJson = Record<string, unknown> | unknown[];
@@ -27,6 +35,44 @@ export type DashboardListResponse = {
   limit: number;
   offset: number;
   total: number;
+};
+
+export type DashboardPanelPreviewPayload =
+  | {
+      kind: 'metrics';
+      mode: 'aggregate';
+      items: MetricAggregateItem[];
+    }
+  | {
+      kind: 'logs';
+      mode: 'recent';
+      items: LogQueryItem[];
+    }
+  | {
+      kind: 'events';
+      mode: 'recent';
+      items: EventQueryItem[];
+    }
+  | {
+      kind: 'traces';
+      mode: 'recent';
+      items: TraceQueryItem[];
+    }
+  | {
+      kind: 'topology';
+      mode: 'topology';
+      nodes: TraceTopologyNode[];
+      edges: TraceTopologyEdge[];
+    };
+
+export type DashboardPanelPreviewResponse = {
+  project_id: number;
+  dashboard_id: number;
+  panel_id: string;
+  title: string;
+  panel_type: DashboardPanelPreviewPayload['kind'];
+  query: Record<string, unknown>;
+  preview: DashboardPanelPreviewPayload;
 };
 
 export type CreateDashboardRequest = {
@@ -76,6 +122,12 @@ export function deleteDashboard(projectId: number, dashboardId: number) {
   return apiRequest<null>(buildProjectDashboardPath(projectId, dashboardId), {
     method: 'DELETE'
   });
+}
+
+export function previewDashboardPanel(projectId: number, dashboardId: number, panelId: string) {
+  return apiRequest<DashboardPanelPreviewResponse>(
+    `${buildProjectDashboardPath(projectId, dashboardId)}/panels/${encodeURIComponent(panelId)}/preview`
+  );
 }
 
 function buildProjectDashboardPath(projectId: number, dashboardId: number) {
