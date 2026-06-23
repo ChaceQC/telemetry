@@ -660,6 +660,7 @@
 - T-0049 前端开发已完成：`57f2b36` 已推送到 `feature/frontend-dev`，实现 `/traces` 到 `/logs?trace_id&span_id` 跳转和 logs URL 参数初始化，前端版本提升到 `0.2.6`；等待代码审计。
 - T-0049 前端审计通过：Galileo the 2nd 只读审计 `57f2b36` vs `origin/dev`，未发现 P0/P1/P2；残余 P3 为手写超长 `trace_id`/`span_id` 由后端 422 处理、缺少 `/traces?trace_id=...` 不受污染和 URL 初始化后分页 cursor 的显式交互测试。当前可进入真实 merge，并在 merge 后启动真实前后端联合测试 agent。
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049 合入 `dev`，merge 提交 `b54697b`；当前同步根、前端、后端版本到 `0.2.6`，等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试 agent 验证。
+- T-0049 真实前后端联合测试未通过：Helmholtz the 2nd 在 `dev/origin/dev` `d9c85f0` 上验证 API 层与 SPA 内部 trace 到 logs 跳转均通过，但已登录后硬导航/刷新 `/traces?trace_id=...` 或 `/logs?trace_id=...&span_id=...` 时，首个查询请求未带 Authorization 并返回 401；证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。已登记 T-0049-fix，需前端修复会话恢复期间的查询触发竞态。
 
 ### 阻塞与风险
 
@@ -679,14 +680,16 @@
 - T-0044 只建立 trace ingestion 最小后端基础：traces 先落关系库 `ingest_records` 并按 `kind=trace` 统计；不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑、跨信号关联或前端页面。后续仍需覆盖 ClickHouse trace span 写入、trace 查询 API、大数据量执行计划、Redis 真实限流和 UI 联动。
 - T-0045 只查询当前关系库中已摄入的 trace span 列表；不做 trace 树构建、waterfall 排版、服务依赖拓扑、日志互跳、ClickHouse 查询或前端页面，避免一次性扩大阶段 4 范围。
 - T-0049 已知 P3：`/logs` URL 参数只做 trim，手写超过后端 128 字符限制的 `trace_id`/`span_id` 会提交到 logs API 并返回 422；正常由 `/traces` 后端数据生成的跳转不受影响。后续可补前端长度预校验与分页交互用例。
+- T-0049-fix 阻断问题：已登录后 URL 直达或刷新查询页时，Auth 会话尚未完成恢复就触发首个查询，导致请求不带 Authorization；需前端在会话恢复完成后再发起 URL 初始化查询，并覆盖 `/logs`、`/traces` 的硬导航/刷新路径。
 
 ### 下一步
 
-- 完成 T-0049 merge 后的收窄本地门禁、推送并读取 GitHub Actions；随后同步 `feature/frontend-dev` 和 `feature/backend-dev` 到最新 `dev`，并启动真实前后端联合测试 agent 验证 trace 到 logs 跳转路径。
+- 启动前端修复 agent 在 `feature/frontend-dev` 推进 T-0049-fix，修复已登录硬导航/刷新查询页首个请求未带 Authorization 的会话恢复竞态；修复完成后启动代码审计 agent，并在合入 `dev` 后重跑真实前后端联合测试。
 
 ### 验证
 
 - 后端 Lovelace 开发侧快速冒烟 `uv run pytest tests/test_query_api.py` 12 passed；其余完整验证由测试 agent 独立复验，不作为开发 agent 交付门禁替代。
+- T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
