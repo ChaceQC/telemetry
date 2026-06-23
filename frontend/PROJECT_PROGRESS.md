@@ -2,6 +2,17 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 版本同步 0.2.10
+
+### 已完成
+
+- 随 T-0053 Dashboard CRUD 后端基础合入 `dev`，总 agent 将 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md` 的前端版本同步到 `0.2.10`。
+- 本轮仅做项目版本声明同步，不修改前端业务交互或 API client。
+
+### 验证
+
+- 版本同步后的前端 typecheck/build 由总 agent 在根集成门禁中执行并记录。
+
 ## 2026-06-23 T-0052 服务拓扑前端基础
 
 ### 已完成
