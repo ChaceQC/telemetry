@@ -46,8 +46,8 @@ def test_version_file_declares_current_backend_version(monkeypatch) -> None:
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
     settings = Settings()
 
-    assert version_file.read_text(encoding="utf-8").strip() == "0.2.10"
-    assert settings.app_version == "0.2.10"
+    assert version_file.read_text(encoding="utf-8").strip() == "0.2.11"
+    assert settings.app_version == "0.2.11"
 
 
 def test_local_environment_allows_project_frontend_origins_by_default(monkeypatch) -> None:

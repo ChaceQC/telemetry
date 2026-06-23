@@ -81,7 +81,7 @@ closed      已关闭
 | T-0051 | 服务拓扑后端基础 | 总 agent | todo | done | done | done | done |
 | T-0052 | 服务拓扑前端基础 | 总 agent | done | todo | done | done | done |
 | T-0053 | Dashboard CRUD 后端基础 | 总 agent | todo | done | done | done | done |
-| T-0054 | Dashboard CRUD 前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | todo | done | doing |
 
 ## 4. API 契约登记
 
@@ -464,6 +464,17 @@ closed      已关闭
 | 2026-06-23 | T-0053 | 总 agent | 真实 merge 集成 Dashboard CRUD 后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `f097af8` 与 `2a0403d` 合入 `dev`，merge 提交 `494d22e`；同步根/前端/后端版本到 `0.2.10`，merge 后本地门禁、`dev`/feature CI、feature 分支同步和 Popper the 2nd 真实 MySQL/真实后端专项测试均通过，T-0053 关闭 | done |
 | 2026-06-23 | T-0053 | 测试 agent Popper the 2nd | Dashboard CRUD 真实 MySQL/真实后端专项通过 | Popper the 2nd 在 `dev/origin/dev` `6cd2909` 使用自启动隔离 MySQL 8.0.42 `33353`、真实 FastAPI 后端 `28253` 验证 `/health=0.2.10`、dashboard migration 和 HTTP API；断言 133/133、HTTP 场景 55/55 通过。覆盖 migration upgrade/downgrade、dashboards 表/JSON 字段/索引/外键、create/list/get/update/delete、分页、partial update、未认证/权限/跨项目隔离、JSON 超大/过深/过复杂/NaN/Infinity 422，以及 auth/project/environment/service/API Key/events ingest/query 快速回归。证据目录 `agents/runtime/e2e-T-0053-20260623-190744`；测试 agent 已清理自有 MySQL、后端进程、临时库/datadir/端口，未停止用户 MySQL80，已关闭 | done |
 | 2026-06-23 | T-0054 | 总 agent | 登记 Dashboard CRUD 前端基础 | 阶段 5 下一小步限定为前端 Dashboard CRUD 基础：在前端新增 Dashboard 列表/详情或编辑基础视图，消费既有 Dashboard CRUD 后端 API，支持项目选择、列表、创建、编辑名称/描述/最小 layout/config JSON、删除、loading/error/empty/unauth 状态和权限错误提示；保持现有 metrics/logs/events/traces/topology 页面不回退。不改后端契约、不做 panel 图表渲染、不做变量/时间范围高级配置、不接 ClickHouse 查询、不做告警。将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容和只清理自有资源 | doing |
+| 2026-06-23 | T-0054 | 前端开发 agent Dalton the 2nd | Dashboard CRUD 前端基础完成 | Dalton the 2nd 提交并推送 `7221b90` 到 `feature/frontend-dev`：新增 Dashboard CRUD API client/types、`/dashboards` 页面、侧边导航入口、项目选择、列表、创建、编辑、删除、loading/error/empty/unauth 状态和 sessionRevision 缓存隔离；前端版本提升到 `0.2.11`。开发侧全量 Vitest 28 files/140 tests、typecheck、lint、build、diff check 通过。Dalton the 2nd 已关闭，已启动代码审计 | audit |
+| 2026-06-23 | T-0054 | 代码审计 agent Avicenna the 2nd | Dashboard CRUD 前端基础审计未通过 | Avicenna the 2nd 只读审计 `7221b90` 发现 2 个 P1 和 2 个 P2：首项编辑未初始化 editForm 可能误清空配置；本地 create/edit/project 状态在登出/账号/项目切换时可能残留；固定 `limit=50, offset=0` 无分页；JSON 编辑缺少大小/深度/复杂度/finite-number 前端保护。Avicenna the 2nd 已关闭，已启动前端修复 agent | blocked |
+| 2026-06-23 | T-0054-fix | 前端修复 agent Gauss the 2nd | Dashboard 编辑状态加固完成 | Gauss the 2nd 提交并推送 `7b4642d` 到 `feature/frontend-dev`：编辑区不再自动把首个 dashboard 作为可提交表单，按 session/auth/project/offset scope 隔离本地状态，增加 offset 上一页/下一页分页，JSON textarea 增加 maxLength、64 KiB、32 层、4096 节点和 NaN/Infinity 校验；补测试。专项 29 tests、全量 148 tests、typecheck、lint、build、diff check 通过 | audit |
+| 2026-06-23 | T-0054-fix | 代码复审 agent Hubble the 2nd | Dashboard 编辑状态复审仍有问题 | Hubble the 2nd 只读复审 `7b4642d` 确认首项编辑、分页主路径和 JSON 保护基本关闭，但发现 P1：项目切换仍把旧 createForm 草稿带到新项目；P3：删除末页唯一记录后 offset 不回退。Hubble the 2nd 已关闭，已启动第二轮修复 | blocked |
+| 2026-06-23 | T-0054-fix2 | 前端修复 agent Pauli the 2nd | Dashboard 项目草稿隔离修复完成 | Pauli the 2nd 提交并推送 `d8ba7f0` 到 `feature/frontend-dev`：项目范围切换时 createForm 重置为 `createDefaultDashboardForm(nextProjectId)`，删除末页唯一记录后按删除后的 total/limit 回退 offset，并补交互回归测试；Dashboard 专项 31 tests、全量 150 tests、typecheck、lint、build、diff check 通过 | audit |
+| 2026-06-23 | T-0054-fix2 | 代码复审 agent Cicero the 2nd | Dashboard 项目草稿隔离复审仍有 P3 | Cicero the 2nd 只读复审 `d8ba7f0` 未发现 P0/P1/P2，但发现 P3：并发删除同一末页多条记录仍可能因 stale total 停在越界 offset。Cicero the 2nd 已关闭，已启动第三轮窄修复 | blocked |
+| 2026-06-23 | T-0054-fix3 | 前端修复 agent Kepler the 2nd | Dashboard 删除分页修复完成 | Kepler the 2nd 提交并推送 `58a6d9a` 到 `feature/frontend-dev`：删除 pending 期间用同步锁拦截快速连点，并禁用当前列表所有删除入口；补末页两条记录快速删除测试。Dashboard 专项 32 tests、typecheck、lint、build、diff check 通过 | audit |
+| 2026-06-23 | T-0054-fix3 | 代码复审 agent Descartes the 2nd | Dashboard 删除分页复审仍有 P3 | Descartes the 2nd 只读复审 `58a6d9a` 未发现 P0/P1/P2，但发现 P3：delete 请求完成但列表 refetch 未完成时锁在 onSettled 释放，旧列表仍可能触发第二次删除。Descartes the 2nd 已关闭，已启动第四轮极窄修复 | blocked |
+| 2026-06-23 | T-0054-fix4 | 前端修复 agent Halley the 2nd | Dashboard 删除锁穿透刷新修复完成 | Halley the 2nd 提交并推送 `e2ca432` 到 `feature/frontend-dev`：delete success 等待 `invalidateDashboards()` / refetch 完成后才释放删除锁，补“delete 已 resolve、列表刷新未完成前不能触发第二次删除”的回归测试。Dashboard 专项 33 tests、typecheck、lint、build、diff check 通过 | audit |
+| 2026-06-23 | T-0054-fix4 | 代码复审 agent Jason the 2nd | Dashboard CRUD 前端最终复审通过 | Jason the 2nd 只读复审 `e2ca432`，确认 stale-total/refetch P3 已关闭，早前 P1/P2/P3 均保持关闭，未发现新的 P0/P1/P2/P3；确认 Dashboard API contract、既有页面回归和前端版本 `0.2.11` 范围可接受。Jason the 2nd 已关闭，建议真实 merge | done |
+| 2026-06-23 | T-0054 | 总 agent | 真实 merge 集成 Dashboard CRUD 前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7221b90`、`7b4642d`、`d8ba7f0`、`58a6d9a` 和 `e2ca432` 合入 `dev`，merge 提交 `33da4b1`；当前同步根/前端/后端版本到 `0.2.11`，merge 后本地门禁通过，仍待推送、CI、feature 分支同步和真实前后端联合测试 | doing |
 
 ## 6. 测试记录
 
@@ -549,6 +560,7 @@ closed      已关闭
 | 2026-06-23 | T-0053 | dev merge 后本地验证 | 后端 dashboard/config/ingest JSON 专项、ruff、format、mypy、uv lock、前端 typecheck/build、`git diff --check` | 通过 | dashboard+config 33 passed，ingest non_finite 11 passed/27 deselected；ruff、format、mypy、`uv lock --check`、前端 typecheck/build、diff check 均通过。未启动真实服务、数据库或浏览器 |
 | 2026-06-23 | T-0053 | CI | GitHub Actions runs `28021329309`、`28021408508`、`28021408669` | 通过 | `dev`、`feature/backend-dev`、`feature/frontend-dev` 均在 `6cd2909` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-23 | T-0053 | Dashboard CRUD 真实 MySQL/真实后端专项 | Popper the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端 | 通过 | `dev/origin/dev` `6cd2909`；`/health=0.2.10`，断言 133/133、HTTP 场景 55/55 通过。覆盖 migration upgrade/downgrade、dashboard CRUD、权限隔离、JSON 校验和 auth/project/events 快速回归；证据目录 `agents/runtime/e2e-T-0053-20260623-190744`，自有资源已清理 |
+| 2026-06-23 | T-0054 | dev merge 后本地验证 | 前端 Dashboard/Auth/router 专项、typecheck、lint、build、后端 config/uv lock、`git diff --check` | 通过 | 前端 Dashboard/Auth/router 专项 6 files/43 tests passed，typecheck、lint、build 通过；后端 `tests/test_config.py` 13 passed，`uv lock --check` 通过；diff check 通过。首次运行前根 `node_modules` 缺少新 devDependencies，执行 `npm.cmd install` 后复验通过且 lockfile 无业务差异 |
 
 ## 7. 审计记录
 
@@ -643,6 +655,7 @@ closed      已关闭
 | 2026-06-23 | T-0051 | feature/backend-dev | dev | 总 agent | 服务拓扑后端基础 `d3c5796` 与审计修复 `7a63b89` 已通过 Hypatia the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，同步根/前端/后端版本到 `0.2.8`；本地门禁、CI、feature 分支同步和 Hooke the 2nd 真实后端专项均通过 | done |
 | 2026-06-23 | T-0052 | feature/frontend-dev | dev | 总 agent | 服务拓扑前端基础 `f0d0ab4` 与 edge key 修复 `5f3db06` 已通过 Noether the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `d5165b7`，版本同步、本地门禁、CI、feature 分支同步和 Ptolemy the 2nd 真实联测均通过 | done |
 | 2026-06-23 | T-0053 | feature/backend-dev | dev | 总 agent | Dashboard CRUD 后端基础 `f097af8` 与 JSON 校验修复 `2a0403d` 已通过 Darwin the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `494d22e`，版本同步、本地门禁、CI、feature 分支同步和 Popper the 2nd 真实 MySQL/真实后端专项均通过 | done |
+| 2026-06-23 | T-0054 | feature/frontend-dev | dev | 总 agent | Dashboard CRUD 前端基础 `7221b90` 与审计修复 `7b4642d`、`d8ba7f0`、`58a6d9a`、`e2ca432` 已通过 Jason the 2nd 最终复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，版本同步和本地门禁已通过，推送 CI、feature 分支同步和真实联测待完成 | doing |
 
 ## 10. 决策记录
 

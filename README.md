@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前版本为 `0.2.10`，已进入阶段 5 仪表盘的 Dashboard CRUD 后端基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图、日志上下文查看、关系库 trace span 查询基础、`/traces` 查询页、trace waterfall/树形详情、trace 与 logs 的基础互跳入口、后端关系库 trace 服务拓扑最小查询、`/traces/topology` 服务拓扑基础视图，以及 Dashboard CRUD 后端 API；traces 目前先写入关系库 `ingest_records`，`GET /api/v1/query/traces` 已支持 trace/span/name/source/status/duration/time 过滤，`GET /api/v1/query/traces/topology` 已支持单项目服务拓扑摘要，Dashboard 已支持按项目权限创建、列表、读取、更新和删除，尚未接入前端仪表盘页面、ClickHouse 图表查询或告警能力。
+当前版本为 `0.2.11`，已进入阶段 5 仪表盘的 Dashboard CRUD 前端基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图、日志上下文查看、关系库 trace span 查询基础、`/traces` 查询页、trace waterfall/树形详情、trace 与 logs 的基础互跳入口、后端关系库 trace 服务拓扑最小查询、`/traces/topology` 服务拓扑基础视图、Dashboard CRUD 后端 API，以及 `/dashboards` 基础管理页；traces 目前先写入关系库 `ingest_records`，`GET /api/v1/query/traces` 已支持 trace/span/name/source/status/duration/time 过滤，`GET /api/v1/query/traces/topology` 已支持单项目服务拓扑摘要，Dashboard 已支持按项目权限创建、列表、读取、更新和删除，并在前端提供基础 CRUD 交互，尚未接入 panel 图表渲染、ClickHouse 图表查询、变量时间范围或告警能力。
 
 ## 目录结构
 
