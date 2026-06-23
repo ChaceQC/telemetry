@@ -657,6 +657,8 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0048/T-0048-fix 合入 `dev`；当前同步根、前端、后端版本到 `0.2.5`。
 - T-0048 真实前后端联合测试通过：Linnaeus the 2nd 使用自启动临时 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，覆盖 trace 多根/父子/孤儿/error/slow/0/缺失/长 duration 数据、Trace Query API status/duration/cursor、浏览器 `/traces` waterfall 展开/树形缩进/详情/响应式 640px/720px、metrics/logs/events 页面回归；测试 agent 已清理自有资源，证据目录 `agents/runtime/e2e-T-0048-20260623-071459`。
 - T-0049 已登记为阶段 4 下一小步：前端实现 trace 到 logs 的跳转基础，在 `/traces` 详情中携带 `trace_id`/`span_id` 跳转 `/logs`，并让 `/logs` 可从 URL 参数初始化筛选；不改后端契约。
+- T-0049 前端开发已完成：`57f2b36` 已推送到 `feature/frontend-dev`，实现 `/traces` 到 `/logs?trace_id&span_id` 跳转和 logs URL 参数初始化，前端版本提升到 `0.2.6`；等待代码审计。
+- T-0049 前端审计通过：Galileo the 2nd 只读审计 `57f2b36` vs `origin/dev`，未发现 P0/P1/P2；残余 P3 为手写超长 `trace_id`/`span_id` 由后端 422 处理、缺少 `/traces?trace_id=...` 不受污染和 URL 初始化后分页 cursor 的显式交互测试。当前可进入真实 merge，并在 merge 后启动真实前后端联合测试 agent。
 
 ### 阻塞与风险
 
@@ -675,10 +677,11 @@
 - T-0043 只扩展 logs 白名单结构化字段 `request_id`、`user_id`，优先匹配当前日志 `attributes` 对象；不实现任意 payload key 查询、复杂字段 DSL、ClickHouse 日志查询或脱敏策略，避免一次性扩大查询语义。
 - T-0044 只建立 trace ingestion 最小后端基础：traces 先落关系库 `ingest_records` 并按 `kind=trace` 统计；不接 ClickHouse，不做 trace 查询、waterfall、服务拓扑、跨信号关联或前端页面。后续仍需覆盖 ClickHouse trace span 写入、trace 查询 API、大数据量执行计划、Redis 真实限流和 UI 联动。
 - T-0045 只查询当前关系库中已摄入的 trace span 列表；不做 trace 树构建、waterfall 排版、服务依赖拓扑、日志互跳、ClickHouse 查询或前端页面，避免一次性扩大阶段 4 范围。
+- T-0049 已知 P3：`/logs` URL 参数只做 trim，手写超过后端 128 字符限制的 `trace_id`/`span_id` 会提交到 logs API 并返回 422；正常由 `/traces` 后端数据生成的跳转不受影响。后续可补前端长度预校验与分页交互用例。
 
 ### 下一步
 
-- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0049；开发 agent 可启动测试 agent 做专项验证，但不得代跑完整测试流程。完成后由总 agent 启动代码审计，并按风险决定是否真实联测。
+- 使用真实 `git merge` 将 `feature/frontend-dev` 的 T-0049 合入 `dev`，同步根/前端/后端版本到 `0.2.6`，完成收窄门禁、推送、CI 读取和 feature 分支同步后，启动测试 agent 用真实 MySQL、真实前后端、Playwright + Microsoft Edge 做联合测试。
 
 ### 验证
 

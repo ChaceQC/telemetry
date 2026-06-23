@@ -76,7 +76,7 @@ closed      已关闭
 | T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
-| T-0049 | Trace 到日志跳转前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | todo | done | doing |
 
 ## 4. API 契约登记
 
@@ -419,6 +419,8 @@ closed      已关闭
 | 2026-06-23 | T-0048 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0048 trace waterfall 与修复合入 `dev`，merge 提交当前 HEAD；同步根、前端、后端版本到 `0.2.5`。后续执行收窄门禁、推送、读取 CI、同步 feature 分支并按风险启动真实联测 | done |
 | 2026-06-23 | T-0048 | 测试 agent Linnaeus the 2nd | Trace waterfall 真实联测通过 | Linnaeus the 2nd 在 `dev` `f2970d5` 上使用自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实前端和 Playwright + Microsoft Edge 完成联测：MySQL 迁移到 head `20260622_0008`，`/health=0.2.5`；创建项目/环境/服务/API Key 后上报 12 条 trace spans，覆盖多根、父子、孤儿 parent、错误、慢、0 duration、缺失 duration、长 duration、长 name/source 和 attributes/payload；Trace Query API 覆盖返回目标 spans、`status_code=ERROR`、`duration_min_ms=1000`、`duration_max_ms=0`、分页 cursor；浏览器 `/traces` 验证 trace 组、展开/收起、树形缩进、waterfall 条、错误/慢/孤儿标识、span 详情、刷新/分页状态、640px/720px 无横向溢出；`/metrics`、`/logs`、`/events` 侧栏回归通过。测试 agent 已清理自有 MySQL/后端/前端/Edge/临时目录，证据目录 `agents/runtime/e2e-T-0048-20260623-071459` | done |
 | 2026-06-23 | T-0049 | 总 agent | 登记 Trace 到日志跳转前端基础 | 阶段 4 下一小步限定为前端 trace/log 关联入口：在 `/traces` span 详情或 trace 组中提供“查看相关日志”入口，携带 `trace_id` 和可选 `span_id` 跳转到 `/logs`；让 `/logs` 页面能从 URL 查询参数初始化 Trace ID / Span ID 筛选并执行查询/显示筛选。范围不改后端契约，不新增后端 API，不做 log context 深链、指标互跳、ClickHouse 或服务拓扑；将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、Playwright + Microsoft Edge、本地不启动 Docker、Debian 兼容、只清理自有资源、可启动测试 agent 但不代跑完整测试流程 | doing |
+| 2026-06-23 | T-0049 | 前端开发 agent Anscombe the 2nd | Trace 到日志跳转前端基础完成 | Anscombe the 2nd 提交并推送 `57f2b36` 到 `feature/frontend-dev`：`/traces` trace 组和 span 行新增“查看相关日志”入口，跳转到 `/logs?trace_id=...`，span 行额外携带 `span_id`；`/logs` 支持从 URL 初始化 Trace ID / Span ID 筛选并保留手动筛选、刷新、回第一页、下一页；新增 `logTraceLinks` URL 构建/解析测试，覆盖 trace 页面链接、logs URL 初始化、metrics/events 不误传；前端版本提升到 `0.2.6` 并同步 package/lock/VERSION/env/config/README/进度/契约草案。lint、typecheck、专项、全量测试、build、diff check 通过；测试 agent Harvey the 2nd 发现并复验 lint 问题，Edge + Playwright 验证 `/logs?trace_id=trace-a&span_id=span-b` URL 预填通过并清理自有资源。Anscombe the 2nd 已关闭，已启动代码审计 | audit |
+| 2026-06-23 | T-0049 | 代码审计 agent Galileo the 2nd | Trace 到日志跳转前端审计通过 | Galileo the 2nd 只读审计 `57f2b36` vs `origin/dev`，未发现 P0/P1/P2，确认 `/traces` 使用 React Router `Link` 跳转 `/logs` 并携带 `trace_id`/可选 `span_id`，`/logs` 能从 URL 初始化 Trace ID / Span ID 筛选且不会污染 metrics/events；残余 P3 为手写超长 `trace_id`/`span_id` 会由后端 422 处理、尚缺 `/traces?trace_id=...` 不受 URL 参数污染和 URL 初始化后分页 cursor 的显式交互测试。Galileo the 2nd 已关闭，建议进入真实 merge 和后续真实联测 | done |
 
 ## 6. 测试记录
 
