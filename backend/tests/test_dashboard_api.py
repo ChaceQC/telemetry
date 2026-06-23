@@ -859,7 +859,25 @@ def test_dashboard_panel_preview_reports_invalid_panel_query_as_422() -> None:
                         "title": "Logs",
                         "type": "logs",
                         "query": {"limit": 101},
-                    }
+                    },
+                    {
+                        "id": "metric-window-list",
+                        "title": "Metric window list",
+                        "type": "metrics",
+                        "query": {"window": ["5m"]},
+                    },
+                    {
+                        "id": "metric-window-object",
+                        "title": "Metric window object",
+                        "type": "metrics",
+                        "query": {"window": {"value": "5m"}},
+                    },
+                    {
+                        "id": "metric-aggregation-list",
+                        "title": "Metric aggregation list",
+                        "type": "metrics",
+                        "query": {"aggregation": ["avg"]},
+                    },
                 ]
             },
         },
@@ -872,10 +890,43 @@ def test_dashboard_panel_preview_reports_invalid_panel_query_as_422() -> None:
         ),
         headers=auth_headers,
     )
+    metric_window_list_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/metric-window-list/preview"
+        ),
+        headers=auth_headers,
+    )
+    metric_window_object_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/metric-window-object/preview"
+        ),
+        headers=auth_headers,
+    )
+    metric_aggregation_list_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/metric-aggregation-list/preview"
+        ),
+        headers=auth_headers,
+    )
 
     assert dashboard_response.status_code == 201
     assert response.status_code == 422
     assert response.json()["detail"] == "panel.query.limit 必须在 1..100 之间"
+    assert metric_window_list_response.status_code == 422
+    assert metric_window_list_response.json()["detail"] == (
+        "panel.query.window 必须是 1m/5m/15m/1h 之一"
+    )
+    assert metric_window_object_response.status_code == 422
+    assert metric_window_object_response.json()["detail"] == (
+        "panel.query.window 必须是 1m/5m/15m/1h 之一"
+    )
+    assert metric_aggregation_list_response.status_code == 422
+    assert metric_aggregation_list_response.json()["detail"] == (
+        "panel.query.aggregation 必须是 avg/sum/min/max/count 之一"
+    )
 
 
 def test_dashboard_validation_errors_are_reported_as_422() -> None:

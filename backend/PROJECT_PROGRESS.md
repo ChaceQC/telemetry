@@ -11,6 +11,7 @@
 - 复用 dashboard 读取权限语义：目标项目至少 `viewer`；普通用户无项目成员关系、项目不存在、dashboard 不属于项目、legacy config 或 panel 不存在均按隐藏式 `404` 处理；非法 panel query 白名单字段返回 `422`。
 - `panel.query` 只读取已有查询 API 支持的白名单字段，未知字段忽略；本轮不引入复杂 DSL、不支持未保存草稿 config、不写 dashboard。
 - 新增 `DashboardPanelPreviewResponse`，扩展 `backend/tests/test_dashboard_api.py` 覆盖 metrics/logs/events/traces/topology 成功路径、viewer 权限、无权限隐藏、legacy config/panel 不存在和非法 `limit`。
+- 修复代码审计 P2：`metrics` panel 的 `query.window` 与 `query.aggregation` 在枚举判断前先校验字符串类型，历史保存配置中的数组/对象等非法值返回 `422`，不再绕过 `QueryFilterError` 形成 `500`；回归测试覆盖 list/object `window` 与 list `aggregation`。
 - 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`；新增 API 路径，因此后端版本提升到 `0.2.12`。
 - 后端开发 worker Ohm 超时未产出且未修改文件，总 agent 按项目规则极窄接手实现；未修改根工作树业务代码或根协调文件。
 

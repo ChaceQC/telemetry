@@ -1,6 +1,6 @@
 from datetime import datetime
 from math import isfinite
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
@@ -107,18 +107,22 @@ def _panel_query_float(query: dict[str, Any], key: str) -> float | None:
 
 def _panel_metric_window(query: dict[str, Any]) -> Literal["1m", "5m", "15m", "1h"]:
     value = query.get("window", "5m")
+    if not isinstance(value, str):
+        raise QueryFilterError("panel.query.window 必须是 1m/5m/15m/1h 之一")
     if value not in {"1m", "5m", "15m", "1h"}:
         raise QueryFilterError("panel.query.window 必须是 1m/5m/15m/1h 之一")
-    return value
+    return cast(Literal["1m", "5m", "15m", "1h"], value)
 
 
 def _panel_metric_aggregation(
     query: dict[str, Any],
 ) -> Literal["avg", "sum", "min", "max", "count"]:
     value = query.get("aggregation", "avg")
+    if not isinstance(value, str):
+        raise QueryFilterError("panel.query.aggregation 必须是 avg/sum/min/max/count 之一")
     if value not in {"avg", "sum", "min", "max", "count"}:
         raise QueryFilterError("panel.query.aggregation 必须是 avg/sum/min/max/count 之一")
-    return value
+    return cast(Literal["avg", "sum", "min", "max", "count"], value)
 
 
 def _panel_query_type(query: dict[str, Any]) -> str | None:

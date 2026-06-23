@@ -497,7 +497,7 @@ PATCH 请求体示例：
   - `events`：`type` 或 `event_type`。
   - `traces`：`trace_id`、`span_id`、`name`、`status_code`、`duration_min_ms`、`duration_max_ms`。
   - `topology`：使用通用 `source`、时间范围和 `limit`。
-- 字段规则：未知 query 字段忽略；`limit` 默认为 `20`，范围 `1..100`；时间字段必须是 ISO 8601 字符串；字符串字段类型错误、过长、非法 `window/aggregation`、非有限 duration 或 duration 下界大于上界返回 `422`。
+- 字段规则：未知 query 字段忽略；`limit` 默认为 `20`，范围 `1..100`；时间字段必须是 ISO 8601 字符串；`metrics` 的 `window/aggregation` 必须是字符串枚举值；字符串字段类型错误、过长、非法 `window/aggregation`、非有限 duration 或 duration 下界大于上界返回 `422`。
 - 错误：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `404 Not Found`：项目不存在、普通用户不在项目权限范围内、dashboard 不属于该项目/不存在、`config` 非对象或未保存 `panels`、`panel_id` 不存在。
