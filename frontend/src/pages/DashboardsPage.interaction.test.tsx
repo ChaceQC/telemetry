@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -39,6 +39,13 @@ const project: Project = {
   name: '核心平台',
   key: 'core-platform',
   description: '主项目'
+};
+
+const otherProject: Project = {
+  id: 34,
+  name: '支付平台',
+  key: 'payments',
+  description: '第二项目'
 };
 
 const dashboard: Dashboard = createDashboardFixture({
@@ -242,6 +249,43 @@ describe('DashboardsPage interactions', () => {
     expect(screen.queryByDisplayValue('SLO 值班看板')).toBeNull();
   });
 
+  it('切换项目范围时不会把当前创建草稿带到新项目', async () => {
+    apiMocks.listProjects.mockResolvedValue([project, otherProject]);
+    apiMocks.listDashboards.mockImplementation(async (params?: DashboardListParams) =>
+      params?.project_id === otherProject.id
+        ? { items: [], limit: 50, offset: 0, total: 0 }
+        : { items: [dashboard], limit: 50, offset: 0, total: 1 }
+    );
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('SLO 值班看板');
+    const createPanel = screen.getByRole('heading', { name: '创建' }).closest('article');
+    expect(createPanel).not.toBeNull();
+
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('项目 ID'), { target: { value: '12' } });
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('名称'), { target: { value: '跨项目草稿' } });
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('描述'), { target: { value: '不能带到支付平台' } });
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('layout JSON'), {
+      target: { value: '{"version":99}' }
+    });
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: { value: '{"refresh_seconds":5}' }
+    });
+
+    fireEvent.change(screen.getByRole('combobox', { name: '项目' }), { target: { value: `${otherProject.id}` } });
+
+    await screen.findByText('暂无仪表盘');
+    expect((within(createPanel as HTMLElement).getByLabelText('项目 ID') as HTMLInputElement).value).toBe('34');
+    expect((within(createPanel as HTMLElement).getByLabelText('名称') as HTMLInputElement).value).toBe('');
+    expect((within(createPanel as HTMLElement).getByLabelText('描述') as HTMLTextAreaElement).value).toBe('');
+    expect((within(createPanel as HTMLElement).getByLabelText('layout JSON') as HTMLTextAreaElement).value).toBe(
+      '{\n  "version": 1,\n  "widgets": []\n}'
+    );
+    expect((within(createPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value).toBe(
+      '{\n  "refresh_seconds": 30\n}'
+    );
+  });
+
   it('支持下一页和上一页访问超过 50 条后的 dashboard', async () => {
     const user = userEvent.setup();
     const laterDashboard = createDashboardFixture({
@@ -272,6 +316,45 @@ describe('DashboardsPage interactions', () => {
     await user.click(screen.getByRole('button', { name: '上一页' }));
 
     expect(await screen.findByText('SLO 值班看板')).toBeTruthy();
+  });
+
+  it('删除末页唯一记录后会回退到上一页', async () => {
+    const user = userEvent.setup();
+    const laterDashboard = createDashboardFixture({
+      id: 61,
+      name: '第 51 个看板',
+      description: '第二页记录',
+      layout: { version: 2, widgets: [{ i: 'latency' }] },
+      config: { refresh_seconds: 15 }
+    });
+    let deleted = false;
+    apiMocks.deleteDashboard.mockImplementation(async () => {
+      deleted = true;
+      return null;
+    });
+    apiMocks.listDashboards.mockImplementation(async (params?: DashboardListParams) => {
+      if (params?.offset === 50) {
+        return { items: [laterDashboard], limit: 50, offset: 50, total: 51 };
+      }
+
+      return { items: [dashboard], limit: 50, offset: 0, total: deleted ? 50 : 51 };
+    });
+
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('第 1-1 条，共 51 条，每页 50 条。');
+    await user.click(screen.getByRole('button', { name: '下一页' }));
+    expect(await screen.findByText('第 51 个看板')).toBeTruthy();
+    expect(apiMocks.listDashboards).toHaveBeenLastCalledWith({ project_id: undefined, limit: 50, offset: 50 });
+
+    await user.click(screen.getByTitle('删除仪表盘'));
+
+    await waitFor(() => expect(apiMocks.deleteDashboard).toHaveBeenCalledWith(12, 61));
+    await waitFor(() =>
+      expect(apiMocks.listDashboards).toHaveBeenLastCalledWith({ project_id: undefined, limit: 50, offset: 0 })
+    );
+    expect(await screen.findByText('SLO 值班看板')).toBeTruthy();
+    expect(screen.getAllByText('第 1-1 条，共 50 条，每页 50 条。')).toHaveLength(2);
   });
 
   it('JSON 输入不是对象或数组时显示本地校验错误且不请求创建接口', async () => {

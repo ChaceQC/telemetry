@@ -222,8 +222,12 @@ export function DashboardsPage() {
   const deleteMutation = useMutation({
     mutationFn: (dashboard: Dashboard) => deleteDashboard(dashboard.project_id, dashboard.id),
     onSuccess: (_result, dashboard) => {
+      const nextOffset = resolveOffsetAfterDeletingOne(dashboardOffset, total, DASHBOARD_PAGE_LIMIT);
       if (activeEditForm.dashboardId === dashboard.id) {
         setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
+      }
+      if (nextOffset !== dashboardOffset) {
+        setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
       }
       setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
@@ -246,6 +250,7 @@ export function DashboardsPage() {
   const visibleEditForm = selectedDashboard ? activeEditForm : dashboardToEditForm(null);
 
   function handleProjectSelect(value: string) {
+    const nextProjectId = normalizePositiveInteger(value) ? value : '';
     const nextOffsetScopeKey = buildDashboardOffsetScopeKey(authScopeKey, value);
     const nextPageScopeKey = buildDashboardPageScopeKey({
       authScopeKey,
@@ -255,7 +260,7 @@ export function DashboardsPage() {
     setProjectIdInputState({ scopeKey: authScopeKey, value });
     setCreateFormState({
       scopeKey: nextPageScopeKey,
-      value: { ...activeCreateForm, projectId: normalizePositiveInteger(value) ? value : '' }
+      value: createDefaultDashboardForm(nextProjectId)
     });
     setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(null) });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
@@ -874,6 +879,13 @@ function formatDashboardPageSummary(pageStart: number, pageEnd: number, total: n
   }
 
   return `第 ${pageStart}-${pageEnd} 条，共 ${total} 条，每页 ${limit} 条。`;
+}
+
+function resolveOffsetAfterDeletingOne(currentOffset: number, currentTotal: number, limit: number) {
+  const nextTotal = Math.max(0, currentTotal - 1);
+  const lastOffset = nextTotal > 0 ? Math.floor((nextTotal - 1) / limit) * limit : 0;
+
+  return Math.min(currentOffset, lastOffset);
 }
 
 function buildDashboardAuthScopeKey(sessionRevision: number, shouldRequest: boolean) {

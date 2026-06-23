@@ -12,6 +12,8 @@
 - 审计修复：编辑区不再把首个 dashboard 自动渲染为可提交表单，必须先选择列表项，避免未点列表直接保存时清空 description 或把 layout/config 写成 `{}`；登出、401/unauth、`sessionRevision`、项目 ID/项目范围变化和无效项目 ID 会清理/隔离本地 create/edit/project/offset 状态，避免旧账号/旧项目内容残留显示。
 - `layout` 和 `config` 使用 JSON textarea 编辑，提交前前端校验必须是 JSON 对象或数组，并增加 64 KiB、32 层、4096 节点、NaN/Infinity 本地拦截与 `maxLength` 输入保护。
 - 补充 API client、JSON helper、页面状态、创建/更新/删除交互、首项编辑 state、会话/项目切换清理、分页和 JSON 限制回归测试；为交互测试新增 `jsdom`、`@testing-library/react`、`@testing-library/user-event` devDependencies 并同步 lock。
+- 第二轮审计修复：项目范围切换时创建表单重置为新项目默认草稿，不再跨项目搬运未提交的 name/description/layout/config；删除末页唯一记录后按删除后的 total/limit 回退 offset，避免停留在越界空页。
+- 本轮保持前端版本 `0.2.11`，未修改版本文件。
 - 前端版本提升到 `0.2.11`，同步 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md`。
 
 ### 阻塞与风险
@@ -23,7 +25,8 @@
 ### 验证
 
 - 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过。
-- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（28 个测试文件、140 个测试通过）。
+- 第二轮修复已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、31 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（28 个测试文件、150 个测试通过）。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
