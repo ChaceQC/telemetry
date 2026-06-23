@@ -85,6 +85,7 @@ closed      已关闭
 | T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | done | done | done |
 | T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | done | todo | done | done | done |
+| T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -500,6 +501,7 @@ closed      已关闭
 | 2026-06-24 | T-0057 | 代码审计 agent Rawls | Dashboard panel 只读预览审计通过 | Rawls 只读审计 `7e1e27c`，确认预览只由当前编辑表单 `configText` 派生，未触发保存、图表查询、ClickHouse 或后端查询；invalid/legacy/empty 状态、query 摘要、layout clamp/排序逻辑和交互测试覆盖到位。未发现 P0/P1/P2/P3，建议真实 merge 到 `dev` | done |
 | 2026-06-24 | T-0057 | 总 agent | 真实 merge 集成 Dashboard panel 只读预览 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7e1e27c` 合入 `dev`，merge 提交 `5c9f969`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0057 | 总 agent | CI 与 worktree 同步完成 | `2888db4` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28058751504`、`28058824508`、`28058824360` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0057 关闭 | done |
+| 2026-06-24 | T-0058 | 总 agent | 登记 Dashboard panel 查询预览后端基础 | 阶段 5 下一小步限定为后端只读 panel 查询预览契约基础：为已保存 dashboard 的单个 `config.panels[].id` 提供最小查询预览接口，复用当前关系库查询能力返回统一摘要/样本，支持 `metrics` 聚合摘要、`logs/events/traces` 最近样本摘要和 `topology` 节点/边摘要；复用 dashboard 项目权限和现有 query service 权限语义。不改前端页面，不做真实图表渲染，不接 ClickHouse，不做变量/模板/告警，不支持未保存草稿 config，也不引入写操作。将以 `xhigh` 思考强度启动后端开发 agent，在 `feature/backend-dev` 工作，遵守 Windows 11/PowerShell/UTF-8、本地不启动 Docker、MySQL 使用本地服务/临时库/实例、Debian 兼容和只清理自有资源；后端开发 agent 可按需启动测试 agent，但不得代跑完整测试流程 | doing |
 
 ## 6. 测试记录
 
@@ -607,6 +609,7 @@ closed      已关闭
 | 2026-06-24 | T-0057 | 前端开发/审计门禁 | feature CI run `28057913337`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check`；Playwright + Microsoft Edge 冒烟；Rawls 只读审计命令 | 通过 | `7e1e27c` 上 feature/frontend-dev CI 通过；总 agent 本地专项 4 files/42 tests passed，typecheck、lint、build、diff check 通过；Edge 访问 `/dashboards` 桌面、390px 移动和全页截图正常，未登录/未选择状态下 Panel 预览可见且无明显移动端重叠，自启 Vite `25187` 和临时截图目录已清理；Rawls 窄测 3 files/35 tests、eslint、typecheck、diff check 均通过 |
 | 2026-06-24 | T-0057 | dev merge 后本地验证 | 前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q`、`uv lock --check`；`git diff --check` | 通过 | merge 提交 `5c9f969` 后，前端专项 4 files/42 tests passed，typecheck、lint、build 通过；后端 config 13 passed，`uv lock --check` 通过；diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-24 | T-0057-final-sync | CI 与 worktree 同步 | GitHub Actions runs `28058751504`、`28058824508`、`28058824360`；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `2888db4` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致 |
+| 2026-06-24 | T-0057-post-sync | CI | GitHub Actions runs `28058962575`、`28059096263`、`28059096916` | 通过 | T-0057 收口文档提交 `000e661` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。该结果随 T-0058 启动登记合并记录，避免纯 CI 文档回声 |
 
 ## 7. 审计记录
 
