@@ -76,7 +76,7 @@ closed      已关闭
 | T-0046 | Trace 查询页前端基础 | 总 agent | done | todo | todo | done | done |
 | T-0047 | Trace 状态与耗时过滤后端基础 | 总 agent | todo | done | done | done | done |
 | T-0048 | Trace waterfall 与树形详情前端基础 | 总 agent | done | todo | todo | done | done |
-| T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | blocked | done | blocked |
+| T-0049 | Trace 到日志跳转前端基础 | 总 agent | done | todo | testing | done | testing |
 
 ## 4. API 契约登记
 
@@ -424,6 +424,8 @@ closed      已关闭
 | 2026-06-23 | T-0049 | 总 agent | 真实 merge 集成到 dev | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049 trace 到日志跳转前端基础合入 `dev`，merge 提交 `b54697b`；同步根、前端、后端版本到 `0.2.6`。后续执行收窄门禁、推送、读取 CI、同步 feature 分支，并启动测试 agent 使用真实 MySQL、真实前后端和 Playwright + Microsoft Edge 做联合测试 | testing |
 | 2026-06-23 | T-0049 | 测试 agent Helmholtz the 2nd | Trace 到日志跳转真实联测未通过 | Helmholtz the 2nd 在 `dev/origin/dev` `d9c85f0` 使用本机 MySQL80 临时库 `telemetry_t0049_20260623092140`、真实后端 `28117`、真实前端 `25173` 和 Playwright + Microsoft Edge 完成联测。API 层创建用户/会话/项目/环境/服务/API Key、trace/log/metric/event 上报、logs trace/span 过滤、分页 cursor、空结果、未认证、traces/metrics/events 回归均通过；浏览器 SPA 内部从 `/traces` 跳 `/logs?trace_id...` 和 `/logs?trace_id...&span_id...`、手动筛选、分页、登出隐藏、`/traces?trace_id=...` 不污染筛选均通过。失败点：已登录后硬导航或刷新 `/traces?trace_id=...`、`/logs?trace_id=...&span_id=...` 时页面侧边栏显示账号，但首个查询请求未带 Authorization，后端返回 `401 缺少访问令牌`；点击查询后可恢复。证据目录 `agents/runtime/e2e-T-0049-20260623-085949`，测试 agent 已清理自有后端、前端、Edge、临时库和端口；已关闭 | blocked |
 | 2026-06-23 | T-0049-fix | 代码审计 agent Ramanujan the 2nd | Auth 恢复竞态修复初审未通过 | Wegener the 2nd 提交并推送 `3ed47cb` 到 `feature/frontend-dev`，同步恢复 token 并用 `canRequestAuthenticatedApi` gate 认证查询；Ramanujan the 2nd 只读审计确认 Helmholtz 首包 Authorization 阻断方向已关闭，未发现 P0/P1，但发现 2 个 P2：Settings 在登出/切换账号/恢复中可能继续显示旧 session 项目/环境/服务缓存，Overview 在未登录/恢复中可能继续显示旧 session 摄入统计。Ramanujan the 2nd 已关闭，当前不得 merge，已启动前端修复 agent Sartre the 2nd 继续关闭 P2 | blocked |
+| 2026-06-23 | T-0049-fix | 前端修复 agent Sartre the 2nd | Auth 缓存隔离修复完成 | Sartre the 2nd 提交并推送 `a86f559` 到 `feature/frontend-dev`：按 sessionRevision 隔离 Overview 与 Settings 查询缓存，在不可请求认证 API 时隐藏旧统计/旧项目环境服务数据，Auth 边界清理 query/settings/overview 缓存；新增 `loginReturnPath` 保留 `pathname + search`，关闭未登录用户从 `/logs?trace_id=...&span_id=...` 登录后丢失查询串的 P3。专项 40 tests、前端全量 101 tests、typecheck、lint、build、diff check 均通过；未启动浏览器、Docker 或真实联测。Sartre the 2nd 已关闭，已启动复审 | audit |
+| 2026-06-23 | T-0049-fix | 代码复审 agent Euclid the 2nd | Auth 缓存隔离复审通过 | Euclid the 2nd 只读复审 `a86f559`，确认 Ramanujan 两个 P2 已关闭，未发现新的 P0/P1/P2/P3；Settings 与 Overview 已按 sessionRevision 隔离并在恢复中/未登录状态不展示上一 session 缓存，原 Helmholtz 首包 Authorization blocker 仍由同步 token 恢复和 `canRequestAuthenticatedApi` gating 关闭，登录回跳保留 search。Euclid the 2nd 已关闭，建议 merge 后重跑真实联测 | done |
 
 ## 6. 测试记录
 
@@ -522,6 +524,7 @@ closed      已关闭
 | 2026-06-22 | T-0041 | 后端 logs trace/span 字段过滤 | 通过 | Zeno 只读审计未发现 P0/P1/P2；残余风险为真实 MySQL 执行语义仍需后续专项补验，FastAPI OpenAPI 参数 schema 未直接表达长度约束但 service 运行时返回 422，未达 P2 | done |
 | 2026-06-22 | T-0041 | 前端 logs Trace ID / Span ID 筛选 | 通过 | Poincare 只读审计未发现 P0/P1/P2；残余风险为未做浏览器视觉/交互验证，真实用户填写后翻页与后端精确匹配需后续集成覆盖 | done |
 | 2026-06-23 | T-0049-fix | 前端 Auth 恢复竞态与缓存隔离修复 | 未通过 | Ramanujan the 2nd 只读审计 `3ed47cb` 未发现 P0/P1，确认首包 Authorization blocker 修复方向有效；发现 P2：Settings/Overview 已认证查询缓存未按 session 隔离或在登出/恢复中隐藏，可能泄露上一 session 数据。已启动 Sartre the 2nd 继续修复 | blocked |
+| 2026-06-23 | T-0049-fix | 前端 Auth 恢复竞态与缓存隔离修复复审 | 通过 | Euclid the 2nd 只读复审 `a86f559` 未发现 P0/P1/P2/P3，确认首包 Authorization blocker、Settings/Overview 旧缓存泄露和登录回跳丢 search 均已关闭；仍需真实联测覆盖硬刷新首个业务查询、登出/切换账号无旧数据闪现和慢速 `/auth/me` 分支 | done |
 | 2026-06-22 | T-0042 | 后端 metrics aggregate API | 通过 | Curie 初审发现 MySQL/MariaDB 聚合分桶 P2；Planck 修复 `75c249b` 后 Hypatia 复审未发现 P0/P1/P2；Dewey 真实联测后又发现 MySQL 边界秒上浮，Avicenna `7120835` 修复后 Hume 复审无 P0/P1/P2、Lorentz/Parfit 真实 MySQL 验证通过；残余风险为大数据量性能和 ClickHouse 聚合后续接入 | done |
 | 2026-06-22 | T-0042 | 前端 metrics aggregate 控件与视图 | 通过 | Tesla 只读审计未发现 P0/P1/P2；Parfit 已用真实前端覆盖 `/metrics` 聚合控件、结果字段、空态和错误态；残余风险为移动端细节和更复杂多序列/大数据量展示 | done |
 | 2026-06-22 | T-0042-fix | 后端 metrics aggregate MySQL 分桶修复 | 通过 | Hume 只读审计 `7120835` 未发现 P0/P1/P2；确认 MySQL/MariaDB 表达式使用 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` 且未重新引入 `UNIX_TIMESTAMP` 或 session time_zone 依赖；Parfit 完整真实前后端联测已通过，残余风险为大数据量性能 | done |

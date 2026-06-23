@@ -662,6 +662,7 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049 合入 `dev`，merge 提交 `b54697b`；当前同步根、前端、后端版本到 `0.2.6`，等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试 agent 验证。
 - T-0049 真实前后端联合测试未通过：Helmholtz the 2nd 在 `dev/origin/dev` `d9c85f0` 上验证 API 层与 SPA 内部 trace 到 logs 跳转均通过，但已登录后硬导航/刷新 `/traces?trace_id=...` 或 `/logs?trace_id=...&span_id=...` 时，首个查询请求未带 Authorization 并返回 401；证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。已登记 T-0049-fix，需前端修复会话恢复期间的查询触发竞态。
 - T-0049-fix 初审未通过：Wegener the 2nd 的 `3ed47cb` 已修复首包 Authorization 方向问题，但 Ramanujan the 2nd 发现 2 个 P2：Settings/Overview 在登出、恢复中或切换账号时可能继续显示上一 session 的缓存数据；已启动 Sartre the 2nd 继续修复，当前不得 merge。
+- T-0049-fix 前端修复与复审通过：Sartre the 2nd 提交 `a86f559`，按 sessionRevision 隔离 Overview/Settings 缓存、不可请求认证 API 时隐藏旧数据，并保留登录回跳 search；Euclid the 2nd 复审未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
 
 ### 阻塞与风险
 
@@ -682,11 +683,11 @@
 - T-0045 只查询当前关系库中已摄入的 trace span 列表；不做 trace 树构建、waterfall 排版、服务依赖拓扑、日志互跳、ClickHouse 查询或前端页面，避免一次性扩大阶段 4 范围。
 - T-0049 已知 P3：`/logs` URL 参数只做 trim，手写超过后端 128 字符限制的 `trace_id`/`span_id` 会提交到 logs API 并返回 422；正常由 `/traces` 后端数据生成的跳转不受影响。后续可补前端长度预校验与分页交互用例。
 - T-0049-fix 阻断问题：已登录后 URL 直达或刷新查询页时，Auth 会话尚未完成恢复就触发首个查询，导致请求不带 Authorization；需前端在会话恢复完成后再发起 URL 初始化查询，并覆盖 `/logs`、`/traces` 的硬导航/刷新路径。
-- T-0049-fix 新增 P2：Settings 与 Overview 的 React Query 缓存需按 session 隔离或在不可请求认证 API 时隐藏，否则登出/切换账号/恢复中可能短暂暴露上一 session 数据。
+- T-0049-fix 新增 P2 已由 `a86f559` 关闭：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据；仍需真实浏览器联测确认无旧数据闪现。
 
 ### 下一步
 
-- 等待前端修复 agent Sartre the 2nd 关闭 T-0049-fix 的 Settings/Overview 缓存隔离 P2；修复完成后启动代码复审 agent，并在复审通过、合入 `dev` 后重跑真实前后端联合测试。
+- 使用真实 `git merge` 将 `feature/frontend-dev` 的 T-0049-fix 合入 `dev`，完成收窄门禁、推送、CI 读取和 feature 分支同步后，重跑真实前后端联合测试 agent。
 
 ### 验证
 
