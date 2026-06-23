@@ -4,7 +4,9 @@ import type { PropsWithChildren } from 'react';
 import { getCurrentUser, login } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
 import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
+import { clearIngestStatsQueryCache } from '../overview/queryKeys';
 import { clearTelemetryQueryCache } from '../query/querySession';
+import { clearSettingsQueryCache } from '../settings/queryKeys';
 import { AuthContext } from './authContext';
 import { resolveCanRequestAuthenticatedApi, type AuthContextValue, type AuthSession } from './authContext';
 import { formatSessionErrorMessage, shouldClearSessionForAuthError } from './authErrors';
@@ -31,7 +33,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [session]);
 
   const logout = useCallback(() => {
-    clearTelemetryQueryCache(queryClient);
+    clearAuthenticatedQueryCaches(queryClient);
     clearApiAuthToken();
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
@@ -45,6 +47,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const currentUser = await getCurrentUser();
+      if (!session.user) {
+        clearAuthenticatedQueryCaches(queryClient);
+        setSessionRevision((current) => current + 1);
+      }
       setSessionErrorMessage(null);
       setSession((currentSession) => (currentSession ? { ...currentSession, user: currentUser } : currentSession));
       return currentUser;
@@ -56,7 +62,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
       throw error;
     }
-  }, [logout, session]);
+  }, [logout, queryClient, session]);
 
   useEffect(() => {
     if (!session || session.user) {
@@ -68,6 +74,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     getCurrentUser()
       .then((currentUser) => {
         if (!ignore) {
+          clearAuthenticatedQueryCaches(queryClient);
+          setSessionRevision((current) => current + 1);
           setSessionErrorMessage(null);
           setSession((currentSession) => (currentSession ? { ...currentSession, user: currentUser } : currentSession));
         }
@@ -88,7 +96,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       ignore = true;
     };
-  }, [logout, session]);
+  }, [logout, queryClient, session]);
 
   const loginWithPassword = useCallback(async (payload: LoginRequest) => {
     const response = await login(payload);
@@ -98,7 +106,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user: response.user ?? null
     };
 
-    clearTelemetryQueryCache(queryClient);
+    clearAuthenticatedQueryCaches(queryClient);
     setApiAuthToken(nextSession.accessToken, nextSession.tokenType);
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
@@ -132,4 +140,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function clearAuthenticatedQueryCaches(queryClient: Parameters<typeof clearTelemetryQueryCache>[0]) {
+  clearTelemetryQueryCache(queryClient);
+  clearSettingsQueryCache(queryClient);
+  clearIngestStatsQueryCache(queryClient);
 }

@@ -3,6 +3,7 @@ import { Cloud, FolderKanban, LogIn, RefreshCw, Server, ShieldAlert } from 'luci
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { listEnvironments, listProjects, listServices } from '../api/settings';
+import type { Environment, Project, Service } from '../api/settings';
 import { EnvironmentsPanel } from '../features/settings/EnvironmentsPanel';
 import { ProjectsPanel } from '../features/settings/ProjectsPanel';
 import { findUnauthorizedApiError, resolveSettingsAuthState } from '../features/settings/authState';
@@ -12,27 +13,31 @@ import { SettingsSummaryItem } from '../features/settings/SettingsSummary';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
 
+const emptyProjects: Project[] = [];
+const emptyEnvironments: Environment[] = [];
+const emptyServices: Service[] = [];
+
 export function SettingsPage() {
   const auth = useAuth();
   const location = useLocation();
   const [formUnauthorizedError, setFormUnauthorizedError] = useState<unknown>(null);
   const shouldRequestSettings = auth.canRequestAuthenticatedApi;
   const projectsQuery = useQuery({
-    queryKey: settingsQueryKeys.projects,
+    queryKey: settingsQueryKeys.projectList(auth.sessionRevision),
     queryFn: listProjects,
     enabled: shouldRequestSettings,
     retry: false
   });
 
   const environmentsQuery = useQuery({
-    queryKey: settingsQueryKeys.environments,
+    queryKey: settingsQueryKeys.environmentList(auth.sessionRevision),
     queryFn: listEnvironments,
     enabled: shouldRequestSettings,
     retry: false
   });
 
   const servicesQuery = useQuery({
-    queryKey: settingsQueryKeys.services,
+    queryKey: settingsQueryKeys.serviceList(auth.sessionRevision),
     queryFn: listServices,
     enabled: shouldRequestSettings,
     retry: false
@@ -46,11 +51,13 @@ export function SettingsPage() {
     authError: unauthorizedError
   });
   const isAuthBlocked = authState.status !== 'ready';
-  const projects = projectsQuery.data ?? [];
-  const environments = environmentsQuery.data ?? [];
-  const services = servicesQuery.data ?? [];
-  const anyLoading = projectsQuery.isLoading || environmentsQuery.isLoading || servicesQuery.isLoading;
-  const anyError = projectsQuery.isError || environmentsQuery.isError || servicesQuery.isError;
+  const canUseSettingsData = authState.shouldRequest;
+  const projects = canUseSettingsData ? projectsQuery.data ?? emptyProjects : emptyProjects;
+  const environments = canUseSettingsData ? environmentsQuery.data ?? emptyEnvironments : emptyEnvironments;
+  const services = canUseSettingsData ? servicesQuery.data ?? emptyServices : emptyServices;
+  const anyLoading =
+    canUseSettingsData && (projectsQuery.isLoading || environmentsQuery.isLoading || servicesQuery.isLoading);
+  const anyError = canUseSettingsData && (projectsQuery.isError || environmentsQuery.isError || servicesQuery.isError);
   const shouldShowAuthNotice = authState.status !== 'ready';
 
   return (
@@ -104,7 +111,7 @@ export function SettingsPage() {
             <p>{authState.message}</p>
           </div>
           {authState.status !== 'restoring' ? (
-            <Link className="text-button" to="/login" state={{ from: { pathname: location.pathname } }}>
+            <Link className="text-button" to="/login" state={{ from: { pathname: location.pathname, search: location.search } }}>
               <LogIn size={16} aria-hidden="true" />
               <span>登录</span>
             </Link>
@@ -122,10 +129,10 @@ export function SettingsPage() {
         <ProjectsPanel
           projects={projects}
           panelState={{
-            isLoading: projectsQuery.isLoading,
-            isError: projectsQuery.isError,
+            isLoading: canUseSettingsData && projectsQuery.isLoading,
+            isError: canUseSettingsData && projectsQuery.isError,
             error: projectsQuery.error,
-            isFetching: projectsQuery.isFetching,
+            isFetching: canUseSettingsData && projectsQuery.isFetching,
             canRefresh: authState.shouldRequest,
             refetch: projectsQuery.refetch
           }}
@@ -137,10 +144,10 @@ export function SettingsPage() {
           environments={environments}
           projectsAvailable={projects.length > 0}
           panelState={{
-            isLoading: environmentsQuery.isLoading,
-            isError: environmentsQuery.isError,
+            isLoading: canUseSettingsData && environmentsQuery.isLoading,
+            isError: canUseSettingsData && environmentsQuery.isError,
             error: environmentsQuery.error,
-            isFetching: environmentsQuery.isFetching,
+            isFetching: canUseSettingsData && environmentsQuery.isFetching,
             canRefresh: authState.shouldRequest,
             refetch: environmentsQuery.refetch
           }}
@@ -153,10 +160,10 @@ export function SettingsPage() {
           services={services}
           projectsAvailable={projects.length > 0}
           panelState={{
-            isLoading: servicesQuery.isLoading,
-            isError: servicesQuery.isError,
+            isLoading: canUseSettingsData && servicesQuery.isLoading,
+            isError: canUseSettingsData && servicesQuery.isError,
             error: servicesQuery.error,
-            isFetching: servicesQuery.isFetching,
+            isFetching: canUseSettingsData && servicesQuery.isFetching,
             canRefresh: authState.shouldRequest,
             refetch: servicesQuery.refetch
           }}
