@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
   FileJson,
   LayoutDashboard,
   LoaderCircle,
@@ -27,7 +29,11 @@ import { formatApiErrorMessage } from '../api/http';
 import { listProjects, type Project } from '../api/settings';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAuth } from '../features/auth/useAuth';
-import { createDefaultDashboardForm, dashboardToEditForm } from '../features/dashboards/dashboardJson';
+import {
+  DASHBOARD_JSON_TEXT_MAX_LENGTH,
+  createDefaultDashboardForm,
+  dashboardToEditForm
+} from '../features/dashboards/dashboardJson';
 import {
   buildDashboardPatchPayload,
   buildDashboardPayload,
@@ -44,18 +50,66 @@ const emptyProjects: Project[] = [];
 
 type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
+type ScopedState<TValue> = {
+  scopeKey: string;
+  value: TValue;
+};
 
 export function DashboardsPage() {
   const auth = useAuth();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [projectIdInput, setProjectIdInput] = useState('');
-  const [formUnauthorizedError, setFormUnauthorizedError] = useState<unknown>(null);
-  const [createForm, setCreateForm] = useState<CreateFormState>(() => createDefaultDashboardForm());
-  const [editForm, setEditForm] = useState<EditFormState>(() => dashboardToEditForm(null));
-  const [localCreateError, setLocalCreateError] = useState<string | null>(null);
-  const [localEditError, setLocalEditError] = useState<string | null>(null);
   const shouldRequest = auth.canRequestAuthenticatedApi;
+  const authScopeKey = buildDashboardAuthScopeKey(auth.sessionRevision, shouldRequest);
+  const [projectIdInputState, setProjectIdInputState] = useState<ScopedState<string>>({ scopeKey: '', value: '' });
+  const [createFormState, setCreateFormState] = useState<ScopedState<CreateFormState>>(() => ({
+    scopeKey: '',
+    value: createDefaultDashboardForm()
+  }));
+  const [editFormState, setEditFormState] = useState<ScopedState<EditFormState>>(() => ({
+    scopeKey: '',
+    value: dashboardToEditForm(null)
+  }));
+  const [dashboardOffsetState, setDashboardOffsetState] = useState<ScopedState<number>>({ scopeKey: '', value: 0 });
+  const [formUnauthorizedErrorState, setFormUnauthorizedErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [createRemoteErrorState, setCreateRemoteErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [updateRemoteErrorState, setUpdateRemoteErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [deleteRemoteErrorState, setDeleteRemoteErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [localCreateErrorState, setLocalCreateErrorState] = useState<ScopedState<string | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [localEditErrorState, setLocalEditErrorState] = useState<ScopedState<string | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const scopedProjectIdInput =
+    shouldRequest && projectIdInputState.scopeKey === authScopeKey ? projectIdInputState.value : '';
+  const normalizedProjectId = normalizePositiveInteger(scopedProjectIdInput);
+  const isProjectIdInputInvalid = scopedProjectIdInput.trim().length > 0 && !normalizedProjectId;
+  const shouldRequestDashboards = shouldRequest && !isProjectIdInputInvalid;
+  const dashboardOffsetScopeKey = buildDashboardOffsetScopeKey(authScopeKey, scopedProjectIdInput);
+  const dashboardOffset =
+    shouldRequest && dashboardOffsetState.scopeKey === dashboardOffsetScopeKey ? dashboardOffsetState.value : 0;
+  const pageScopeKey = buildDashboardPageScopeKey({
+    authScopeKey,
+    projectIdInput: scopedProjectIdInput,
+    dashboardOffset
+  });
+  const activeFormUnauthorizedError =
+    formUnauthorizedErrorState.scopeKey === authScopeKey ? formUnauthorizedErrorState.value : null;
 
   const projectsQuery = useQuery({
     queryKey: settingsQueryKeys.projectList(auth.sessionRevision),
@@ -64,51 +118,86 @@ export function DashboardsPage() {
     retry: false
   });
 
-  const normalizedProjectId = normalizePositiveInteger(projectIdInput);
   const dashboardParams = useMemo<DashboardListParams>(
     () => ({
       project_id: normalizedProjectId ?? undefined,
       limit: DASHBOARD_PAGE_LIMIT,
-      offset: 0
+      offset: dashboardOffset
     }),
-    [normalizedProjectId]
+    [dashboardOffset, normalizedProjectId]
   );
   const dashboardsQuery = useQuery({
     queryKey: dashboardQueryKeys.list(auth.sessionRevision, dashboardParams),
     queryFn: () => listDashboards(dashboardParams),
-    enabled: shouldRequest,
+    enabled: shouldRequestDashboards,
     retry: false
   });
 
   const unauthorizedError =
-    findUnauthorizedApiError([projectsQuery.error, dashboardsQuery.error]) ?? formUnauthorizedError;
+    findUnauthorizedApiError([projectsQuery.error, dashboardsQuery.error]) ?? activeFormUnauthorizedError;
   const authState = resolveSettingsAuthState({
     isAuthenticated: auth.isAuthenticated,
     isRestoring: auth.isRestoring,
     authError: unauthorizedError
   });
-  const canUseData = authState.shouldRequest;
-  const projects = canUseData ? projectsQuery.data ?? emptyProjects : emptyProjects;
-  const dashboards = canUseData ? dashboardsQuery.data?.items ?? emptyDashboards : emptyDashboards;
-  const total = canUseData ? dashboardsQuery.data?.total ?? dashboards.length : 0;
-  const selectedProject = normalizedProjectId
-    ? projects.find((project) => project.id === normalizedProjectId) ?? null
+  const canUseAuthData = authState.shouldRequest;
+  const canUseDashboardData = canUseAuthData && !isProjectIdInputInvalid;
+  const projectIdInput = canUseAuthData ? scopedProjectIdInput : '';
+  const visibleProjectId = canUseAuthData ? normalizedProjectId : null;
+  const projectIdInputInvalidForDisplay = canUseAuthData && isProjectIdInputInvalid;
+  const activeCreateForm =
+    canUseAuthData && createFormState.scopeKey === pageScopeKey
+      ? createFormState.value
+      : createDefaultDashboardForm(canUseAuthData && normalizedProjectId ? `${normalizedProjectId}` : '');
+  const activeEditForm =
+    canUseDashboardData && editFormState.scopeKey === pageScopeKey
+      ? editFormState.value
+      : dashboardToEditForm(null);
+  const localCreateError =
+    canUseAuthData && localCreateErrorState.scopeKey === pageScopeKey ? localCreateErrorState.value : null;
+  const localEditError =
+    canUseDashboardData && localEditErrorState.scopeKey === pageScopeKey ? localEditErrorState.value : null;
+  const projects = canUseAuthData ? projectsQuery.data ?? emptyProjects : emptyProjects;
+  const dashboards = canUseDashboardData ? dashboardsQuery.data?.items ?? emptyDashboards : emptyDashboards;
+  const total = canUseDashboardData ? dashboardsQuery.data?.total ?? dashboards.length : 0;
+  const selectedProject = visibleProjectId
+    ? projects.find((project) => project.id === visibleProjectId) ?? null
     : null;
-  const anyLoading = canUseData && (projectsQuery.isLoading || dashboardsQuery.isLoading);
-  const anyError = canUseData && (projectsQuery.isError || dashboardsQuery.isError);
+  const anyLoading =
+    canUseAuthData && (projectsQuery.isLoading || (!projectIdInputInvalidForDisplay && dashboardsQuery.isLoading));
+  const anyError =
+    canUseAuthData && (projectsQuery.isError || (!projectIdInputInvalidForDisplay && dashboardsQuery.isError));
+  const pageStart = total > 0 ? dashboardOffset + 1 : 0;
+  const pageEnd = Math.min(dashboardOffset + dashboards.length, total);
+  const hasPreviousPage = dashboardOffset > 0;
+  const hasNextPage = dashboardOffset + dashboards.length < total;
+  const isPageChanging = canUseDashboardData && dashboardsQuery.isFetching;
 
   const createMutation = useMutation({
     mutationFn: createDashboard,
     onSuccess: (dashboard) => {
-      setCreateForm(createDefaultDashboardForm(`${dashboard.project_id}`));
-      setProjectIdInput(`${dashboard.project_id}`);
-      setEditForm(dashboardToEditForm(dashboard));
+      const nextProjectId = `${dashboard.project_id}`;
+      const nextOffsetScopeKey = buildDashboardOffsetScopeKey(authScopeKey, nextProjectId);
+      const nextPageScopeKey = buildDashboardPageScopeKey({
+        authScopeKey,
+        projectIdInput: nextProjectId,
+        dashboardOffset: 0
+      });
+      setCreateFormState({ scopeKey: nextPageScopeKey, value: createDefaultDashboardForm(nextProjectId) });
+      setProjectIdInputState({ scopeKey: authScopeKey, value: nextProjectId });
+      setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
+      setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
+      setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+      setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
+      setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
       invalidateDashboards(queryClient);
     },
     onError: (error) => {
       if (isAuthError(error)) {
-        setFormUnauthorizedError(error);
+        setFormUnauthorizedErrorState({ scopeKey: authScopeKey, value: error });
+        return;
       }
+      setCreateRemoteErrorState({ scopeKey: pageScopeKey, value: error });
     }
   });
 
@@ -116,42 +205,76 @@ export function DashboardsPage() {
     mutationFn: ({ dashboard, payload }: { dashboard: Dashboard; payload: Parameters<typeof updateDashboard>[2] }) =>
       updateDashboard(dashboard.project_id, dashboard.id, payload),
     onSuccess: (dashboard) => {
-      setEditForm(dashboardToEditForm(dashboard));
+      setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(dashboard) });
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
+      setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
     },
     onError: (error) => {
       if (isAuthError(error)) {
-        setFormUnauthorizedError(error);
+        setFormUnauthorizedErrorState({ scopeKey: authScopeKey, value: error });
+        return;
       }
+      setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: error });
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: (dashboard: Dashboard) => deleteDashboard(dashboard.project_id, dashboard.id),
     onSuccess: (_result, dashboard) => {
-      if (editForm.dashboardId === dashboard.id) {
-        setEditForm(dashboardToEditForm(null));
+      if (activeEditForm.dashboardId === dashboard.id) {
+        setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
       }
+      setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
     },
     onError: (error) => {
       if (isAuthError(error)) {
-        setFormUnauthorizedError(error);
+        setFormUnauthorizedErrorState({ scopeKey: authScopeKey, value: error });
+        return;
       }
+      setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: error });
     }
   });
 
-  const createFormError = isAuthError(createMutation.error) ? null : createMutation.error;
-  const updateFormError = isAuthError(updateMutation.error) ? null : updateMutation.error;
-  const deleteFormError = isAuthError(deleteMutation.error) ? null : deleteMutation.error;
-  const selectedDashboard =
-    (editForm.dashboardId ? dashboards.find((dashboard) => dashboard.id === editForm.dashboardId) : dashboards[0]) ?? null;
-  const visibleEditForm =
-    editForm.dashboardId || !selectedDashboard || editForm.name ? editForm : dashboardToEditForm(selectedDashboard);
+  const createFormError = createRemoteErrorState.scopeKey === pageScopeKey ? createRemoteErrorState.value : null;
+  const updateFormError = updateRemoteErrorState.scopeKey === pageScopeKey ? updateRemoteErrorState.value : null;
+  const deleteFormError = deleteRemoteErrorState.scopeKey === pageScopeKey ? deleteRemoteErrorState.value : null;
+  const selectedDashboard = canUseDashboardData
+    ? dashboards.find((dashboard) => dashboard.id === activeEditForm.dashboardId) ?? null
+    : null;
+  const visibleEditForm = selectedDashboard ? activeEditForm : dashboardToEditForm(null);
 
   function handleProjectSelect(value: string) {
-    setProjectIdInput(value);
-    setCreateForm((current) => ({ ...current, projectId: normalizePositiveInteger(value) ? value : '' }));
+    const nextOffsetScopeKey = buildDashboardOffsetScopeKey(authScopeKey, value);
+    const nextPageScopeKey = buildDashboardPageScopeKey({
+      authScopeKey,
+      projectIdInput: value,
+      dashboardOffset: 0
+    });
+    setProjectIdInputState({ scopeKey: authScopeKey, value });
+    setCreateFormState({
+      scopeKey: nextPageScopeKey,
+      value: { ...activeCreateForm, projectId: normalizePositiveInteger(value) ? value : '' }
+    });
+    setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(null) });
+    setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
+    setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setUpdateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setDeleteRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    createMutation.reset();
+    updateMutation.reset();
+    deleteMutation.reset();
+  }
+
+  function updateCreateForm(value: CreateFormState) {
+    setCreateFormState({ scopeKey: pageScopeKey, value });
+  }
+
+  function updateEditForm(value: EditFormState) {
+    setEditFormState({ scopeKey: pageScopeKey, value });
   }
 
   function handleCreateSubmit(event: FormEvent) {
@@ -160,29 +283,31 @@ export function DashboardsPage() {
       return;
     }
 
-    const parsedProjectId = normalizePositiveInteger(createForm.projectId);
+    const parsedProjectId = normalizePositiveInteger(activeCreateForm.projectId);
     if (!parsedProjectId) {
       createMutation.reset();
-      setLocalCreateError('项目 ID 必须是正整数。');
+      setCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalCreateErrorState({ scopeKey: pageScopeKey, value: '项目 ID 必须是正整数。' });
       return;
     }
 
     const payload = buildDashboardPayload({
       projectId: parsedProjectId,
-      name: createForm.name,
-      description: createForm.description,
-      layoutText: createForm.layoutText,
-      configText: createForm.configText
+      name: activeCreateForm.name,
+      description: activeCreateForm.description,
+      layoutText: activeCreateForm.layoutText,
+      configText: activeCreateForm.configText
     });
 
     if (!payload.ok) {
       createMutation.reset();
-      setCreateForm((current) => ({ ...current }));
-      setLocalCreateError(payload.message);
+      setCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalCreateErrorState({ scopeKey: pageScopeKey, value: payload.message });
       return;
     }
 
     clearLocalCreateError();
+    setCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     createMutation.mutate(payload.value);
   }
 
@@ -196,20 +321,23 @@ export function DashboardsPage() {
 
     if (!payload.ok) {
       updateMutation.reset();
-      setLocalEditError(payload.message);
+      setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: payload.message });
       return;
     }
 
     clearLocalEditError();
+    setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     updateMutation.mutate({ dashboard: selectedDashboard, payload: payload.value });
   }
 
   function handleDelete(dashboard: Dashboard) {
+    setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     deleteMutation.mutate(dashboard);
   }
 
-  const clearLocalCreateError = () => setLocalCreateError(null);
-  const clearLocalEditError = () => setLocalEditError(null);
+  const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
+  const clearLocalEditError = () => setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
 
   return (
     <div className="dashboards-page">
@@ -281,7 +409,7 @@ export function DashboardsPage() {
         <div className="section-heading">
           <div>
             <h2>项目范围</h2>
-            <p>{formatProjectScope(normalizedProjectId, selectedProject)}</p>
+            <p>{formatProjectScope(visibleProjectId, selectedProject)}</p>
           </div>
           <LayoutDashboard size={20} aria-hidden="true" />
         </div>
@@ -290,7 +418,7 @@ export function DashboardsPage() {
           <label className="field">
             <span>项目</span>
             <select
-              value={normalizedProjectId ? `${normalizedProjectId}` : ''}
+              value={visibleProjectId ? `${visibleProjectId}` : ''}
               onChange={(event) => handleProjectSelect(event.target.value)}
               disabled={!authState.shouldRequest}
             >
@@ -322,27 +450,76 @@ export function DashboardsPage() {
           <div className="section-heading">
             <div>
               <h2>列表</h2>
-              <p>{dashboardsQuery.data ? `${total} 条结果，最多显示 ${DASHBOARD_PAGE_LIMIT} 条。` : '等待仪表盘列表。'}</p>
+              <p>
+                {projectIdInputInvalidForDisplay
+                  ? '项目 ID 需为正整数。'
+                  : dashboardsQuery.data
+                    ? formatDashboardPageSummary(pageStart, pageEnd, total, DASHBOARD_PAGE_LIMIT)
+                    : '等待仪表盘列表。'}
+              </p>
             </div>
-            <StatusBadge tone={anyError ? 'danger' : anyLoading ? 'warning' : dashboards.length > 0 ? 'success' : 'neutral'}>
-              {anyError ? '读取失败' : anyLoading ? '加载中' : `${dashboards.length} 条`}
+            <StatusBadge
+              tone={
+                anyError
+                  ? 'danger'
+                  : projectIdInputInvalidForDisplay
+                    ? 'warning'
+                    : anyLoading
+                      ? 'warning'
+                      : dashboards.length > 0
+                        ? 'success'
+                        : 'neutral'
+              }
+            >
+              {anyError
+                ? '读取失败'
+                : projectIdInputInvalidForDisplay
+                  ? '待修正'
+                  : anyLoading
+                    ? '加载中'
+                    : `${dashboards.length} 条`}
             </StatusBadge>
           </div>
 
           <DashboardListState
-            canUseData={canUseData}
-            isLoading={canUseData && dashboardsQuery.isLoading}
-            isError={canUseData && dashboardsQuery.isError}
+            authReady={canUseAuthData}
+            projectIdInvalid={projectIdInputInvalidForDisplay}
+            isLoading={canUseDashboardData && dashboardsQuery.isLoading}
+            isError={canUseDashboardData && dashboardsQuery.isError}
             error={dashboardsQuery.error}
             dashboards={dashboards}
-            selectedDashboardId={editForm.dashboardId}
+            selectedDashboardId={activeEditForm.dashboardId}
             deletingDashboardId={deleteMutation.variables?.id ?? null}
             isDeleting={deleteMutation.isPending}
             onSelect={(dashboard) => {
-              setEditForm(dashboardToEditForm(dashboard));
+              updateEditForm(dashboardToEditForm(dashboard));
               clearLocalEditError();
             }}
             onDelete={handleDelete}
+          />
+          <DashboardPagination
+            canUseData={canUseDashboardData}
+            isFetching={isPageChanging}
+            pageStart={pageStart}
+            pageEnd={pageEnd}
+            total={total}
+            limit={DASHBOARD_PAGE_LIMIT}
+            hasPreviousPage={hasPreviousPage}
+            hasNextPage={hasNextPage}
+            onPrevious={() => {
+              updateEditForm(dashboardToEditForm(null));
+              setDashboardOffsetState({
+                scopeKey: dashboardOffsetScopeKey,
+                value: Math.max(0, dashboardOffset - DASHBOARD_PAGE_LIMIT)
+              });
+            }}
+            onNext={() => {
+              updateEditForm(dashboardToEditForm(null));
+              setDashboardOffsetState({
+                scopeKey: dashboardOffsetScopeKey,
+                value: dashboardOffset + DASHBOARD_PAGE_LIMIT
+              });
+            }}
           />
           <InlineError error={deleteFormError} />
         </article>
@@ -363,8 +540,8 @@ export function DashboardsPage() {
                 type="number"
                 min="1"
                 required
-                value={createForm.projectId}
-                onChange={(event) => setCreateForm({ ...createForm, projectId: event.target.value })}
+                value={activeCreateForm.projectId}
+                onChange={(event) => updateCreateForm({ ...activeCreateForm, projectId: event.target.value })}
                 disabled={!authState.shouldRequest}
               />
             </label>
@@ -373,8 +550,8 @@ export function DashboardsPage() {
               <input
                 required
                 maxLength={100}
-                value={createForm.name}
-                onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })}
+                value={activeCreateForm.name}
+                onChange={(event) => updateCreateForm({ ...activeCreateForm, name: event.target.value })}
                 placeholder="服务总览"
                 disabled={!authState.shouldRequest}
               />
@@ -383,22 +560,22 @@ export function DashboardsPage() {
               <span>描述</span>
               <textarea
                 maxLength={500}
-                value={createForm.description}
-                onChange={(event) => setCreateForm({ ...createForm, description: event.target.value })}
+                value={activeCreateForm.description}
+                onChange={(event) => updateCreateForm({ ...activeCreateForm, description: event.target.value })}
                 placeholder="值班视图"
                 disabled={!authState.shouldRequest}
               />
             </label>
             <JsonTextarea
               label="layout JSON"
-              value={createForm.layoutText}
-              onChange={(layoutText) => setCreateForm({ ...createForm, layoutText })}
+              value={activeCreateForm.layoutText}
+              onChange={(layoutText) => updateCreateForm({ ...activeCreateForm, layoutText })}
               disabled={!authState.shouldRequest}
             />
             <JsonTextarea
               label="config JSON"
-              value={createForm.configText}
-              onChange={(configText) => setCreateForm({ ...createForm, configText })}
+              value={activeCreateForm.configText}
+              onChange={(configText) => updateCreateForm({ ...activeCreateForm, configText })}
               disabled={!authState.shouldRequest}
             />
             <InlineError message={localCreateError} error={createFormError} />
@@ -425,7 +602,7 @@ export function DashboardsPage() {
                 required
                 maxLength={100}
                 value={visibleEditForm.name}
-                onChange={(event) => setEditForm({ ...editForm, name: event.target.value })}
+                onChange={(event) => updateEditForm({ ...visibleEditForm, name: event.target.value })}
                 disabled={!authState.shouldRequest || !selectedDashboard}
               />
             </label>
@@ -434,20 +611,20 @@ export function DashboardsPage() {
               <textarea
                 maxLength={500}
                 value={visibleEditForm.description}
-                onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
+                onChange={(event) => updateEditForm({ ...visibleEditForm, description: event.target.value })}
                 disabled={!authState.shouldRequest || !selectedDashboard}
               />
             </label>
             <JsonTextarea
               label="layout JSON"
               value={visibleEditForm.layoutText}
-              onChange={(layoutText) => setEditForm({ ...editForm, layoutText })}
+              onChange={(layoutText) => updateEditForm({ ...visibleEditForm, layoutText })}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
             <JsonTextarea
               label="config JSON"
               value={visibleEditForm.configText}
-              onChange={(configText) => setEditForm({ ...editForm, configText })}
+              onChange={(configText) => updateEditForm({ ...visibleEditForm, configText })}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
             <InlineError message={localEditError} error={updateFormError} />
@@ -467,7 +644,8 @@ export function DashboardsPage() {
 }
 
 function DashboardListState({
-  canUseData,
+  authReady,
+  projectIdInvalid,
   isLoading,
   isError,
   error,
@@ -478,7 +656,8 @@ function DashboardListState({
   onSelect,
   onDelete
 }: {
-  canUseData: boolean;
+  authReady: boolean;
+  projectIdInvalid: boolean;
   isLoading: boolean;
   isError: boolean;
   error: unknown;
@@ -489,13 +668,25 @@ function DashboardListState({
   onSelect: (dashboard: Dashboard) => void;
   onDelete: (dashboard: Dashboard) => void;
 }) {
-  if (!canUseData) {
+  if (!authReady) {
     return (
       <div className="resource-state">
         <ShieldAlert size={18} aria-hidden="true" />
         <div>
           <strong>等待登录</strong>
           <span>登录后会加载当前账号可访问的 dashboard。</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (projectIdInvalid) {
+    return (
+      <div className="resource-state resource-state--error" role="status">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div>
+          <strong>项目 ID 无效</strong>
+          <span>请输入正整数项目 ID，或清空后查看全部可访问项目。</span>
         </div>
       </div>
     );
@@ -563,6 +754,56 @@ function DashboardListState({
   );
 }
 
+function DashboardPagination({
+  canUseData,
+  isFetching,
+  pageStart,
+  pageEnd,
+  total,
+  limit,
+  hasPreviousPage,
+  hasNextPage,
+  onPrevious,
+  onNext
+}: {
+  canUseData: boolean;
+  isFetching: boolean;
+  pageStart: number;
+  pageEnd: number;
+  total: number;
+  limit: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="dashboard-pagination" aria-label="仪表盘分页">
+      <span>{formatDashboardPageSummary(pageStart, pageEnd, total, limit)}</span>
+      <div className="dashboard-pagination-actions">
+        <button
+          className="text-button"
+          type="button"
+          onClick={onPrevious}
+          disabled={!canUseData || isFetching || !hasPreviousPage}
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+          <span>上一页</span>
+        </button>
+        <button
+          className="text-button"
+          type="button"
+          onClick={onNext}
+          disabled={!canUseData || isFetching || !hasNextPage}
+        >
+          <span>下一页</span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DashboardSummaryItem({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
     <div className="summary-item">
@@ -587,7 +828,15 @@ function JsonTextarea({
   return (
     <label className="field dashboard-json-field">
       <span>{label}</span>
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} spellCheck={false} />
+      <textarea
+        aria-label={label}
+        value={value}
+        maxLength={DASHBOARD_JSON_TEXT_MAX_LENGTH}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        spellCheck={false}
+      />
+      <small>最多 64 KiB，嵌套不超过 32 层，复杂度不超过 4096 个节点。</small>
     </label>
   );
 }
@@ -617,6 +866,34 @@ function formatProjectScope(projectId: number | null, project: Project | null) {
   }
 
   return `仅显示项目 #${projectId} 的 dashboard。`;
+}
+
+function formatDashboardPageSummary(pageStart: number, pageEnd: number, total: number, limit: number) {
+  if (total === 0) {
+    return `0 条结果，每页 ${limit} 条。`;
+  }
+
+  return `第 ${pageStart}-${pageEnd} 条，共 ${total} 条，每页 ${limit} 条。`;
+}
+
+function buildDashboardAuthScopeKey(sessionRevision: number, shouldRequest: boolean) {
+  return JSON.stringify({ sessionRevision, shouldRequest });
+}
+
+function buildDashboardOffsetScopeKey(authScopeKey: string, projectIdInput: string) {
+  return JSON.stringify({ authScopeKey, projectIdInput });
+}
+
+function buildDashboardPageScopeKey({
+  authScopeKey,
+  projectIdInput,
+  dashboardOffset
+}: {
+  authScopeKey: string;
+  projectIdInput: string;
+  dashboardOffset: number;
+}) {
+  return JSON.stringify({ authScopeKey, projectIdInput, dashboardOffset });
 }
 
 function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {

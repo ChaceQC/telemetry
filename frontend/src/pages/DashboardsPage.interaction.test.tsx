@@ -6,15 +6,18 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Dashboard } from '../api/dashboards';
+import type { Dashboard, DashboardListParams } from '../api/dashboards';
 import type { Project } from '../api/settings';
 import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
+import { DASHBOARD_JSON_MAX_BYTES, DASHBOARD_JSON_MAX_DEPTH } from '../features/dashboards/dashboardJson';
 import { DashboardsPage } from './DashboardsPage';
 
 const apiMocks = vi.hoisted(() => ({
   listProjects: vi.fn<() => Promise<Project[]>>(),
-  listDashboards: vi.fn<() => Promise<{ items: Dashboard[]; limit: number; offset: number; total: number }>>(),
+  listDashboards: vi.fn<
+    (params?: DashboardListParams) => Promise<{ items: Dashboard[]; limit: number; offset: number; total: number }>
+  >(),
   createDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn()
@@ -38,20 +41,32 @@ const project: Project = {
   description: '主项目'
 };
 
-const dashboard: Dashboard = {
+const dashboard: Dashboard = createDashboardFixture({
   id: 7,
   project_id: project.id,
   name: 'SLO 值班看板',
   description: '核心服务面板',
   layout: { version: 1, widgets: [] },
-  config: { refresh_seconds: 30 },
-  created_by_user_id: 1,
-  updated_by_user_id: 1,
-  created_at: '2026-06-23T10:20:00Z',
-  updated_at: '2026-06-23T10:30:00Z'
-};
+  config: { refresh_seconds: 30 }
+});
 
-function createSignedInAuth(): AuthContextValue {
+function createDashboardFixture(overrides: Partial<Dashboard> = {}): Dashboard {
+  return {
+    id: 7,
+    project_id: project.id,
+    name: 'SLO 值班看板',
+    description: '核心服务面板',
+    layout: { version: 1, widgets: [] },
+    config: { refresh_seconds: 30 },
+    created_by_user_id: 1,
+    updated_by_user_id: 1,
+    created_at: '2026-06-23T10:20:00Z',
+    updated_at: '2026-06-23T10:30:00Z',
+    ...overrides
+  };
+}
+
+function createSignedInAuth(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
   return {
     user: {
       id: 2,
@@ -67,11 +82,26 @@ function createSignedInAuth(): AuthContextValue {
     sessionErrorMessage: null,
     login: vi.fn(async () => null),
     logout: vi.fn(),
+    refreshCurrentUser: vi.fn(async () => null),
+    ...overrides
+  };
+}
+
+function createSignedOutAuth(sessionRevision = 1): AuthContextValue {
+  return {
+    user: null,
+    isAuthenticated: false,
+    isRestoring: false,
+    canRequestAuthenticatedApi: false,
+    sessionRevision,
+    sessionErrorMessage: null,
+    login: vi.fn(async () => null),
+    logout: vi.fn(),
     refreshCurrentUser: vi.fn(async () => null)
   };
 }
 
-function renderPage(element: ReactElement) {
+function renderPage(element: ReactElement, auth: AuthContextValue = createSignedInAuth()) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -81,13 +111,21 @@ function renderPage(element: ReactElement) {
     }
   });
 
-  return render(
+  const buildTree = (authValue: AuthContextValue, page: ReactElement = element) => (
     <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={createSignedInAuth()}>
-        <MemoryRouter initialEntries={['/dashboards']}>{element}</MemoryRouter>
+      <AuthContext.Provider value={authValue}>
+        <MemoryRouter initialEntries={['/dashboards']}>{page}</MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>
   );
+
+  const view = render(buildTree(auth));
+
+  return {
+    ...view,
+    queryClient,
+    rerenderWithAuth: (nextAuth: AuthContextValue, page: ReactElement = element) => view.rerender(buildTree(nextAuth, page))
+  };
 }
 
 beforeEach(() => {
@@ -160,7 +198,106 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.deleteDashboard).toHaveBeenCalledWith(12, 7);
   });
 
+  it('未点击列表项时不会自动提交首个 dashboard', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('SLO 值班看板');
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+
+    expect(within(editPanel as HTMLElement).queryByDisplayValue('SLO 值班看板')).toBeNull();
+    const saveButton = within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' });
+    expect(saveButton.hasAttribute('disabled')).toBe(true);
+    await user.click(saveButton);
+
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it('登出、session 切换和项目范围切换会清理本地编辑内容', async () => {
+    const user = userEvent.setup();
+    const { rerenderWithAuth } = renderPage(<DashboardsPage />, createSignedInAuth({ sessionRevision: 1 }));
+
+    await screen.findAllByText('SLO 值班看板');
+    await user.click(screen.getByRole('button', { name: /SLO 值班看板/ }));
+    const firstEditPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(firstEditPanel).not.toBeNull();
+    await user.clear(within(firstEditPanel as HTMLElement).getByLabelText('名称'));
+    await user.type(within(firstEditPanel as HTMLElement).getByLabelText('名称'), '本地未保存名称');
+
+    rerenderWithAuth(createSignedOutAuth(2));
+
+    await screen.findByText('等待登录');
+    expect(screen.queryByDisplayValue('本地未保存名称')).toBeNull();
+    expect(screen.queryByDisplayValue('SLO 值班看板')).toBeNull();
+
+    apiMocks.listDashboards.mockResolvedValueOnce({ items: [], limit: 50, offset: 0, total: 0 });
+    rerenderWithAuth(createSignedInAuth({ sessionRevision: 3 }));
+
+    await screen.findByText('暂无仪表盘');
+    expect(screen.queryByDisplayValue('本地未保存名称')).toBeNull();
+
+    fireEvent.change(screen.getAllByLabelText('项目 ID')[0], { target: { value: '0' } });
+    expect(await screen.findByText('项目 ID 无效')).toBeTruthy();
+    expect(screen.queryByDisplayValue('SLO 值班看板')).toBeNull();
+  });
+
+  it('支持下一页和上一页访问超过 50 条后的 dashboard', async () => {
+    const user = userEvent.setup();
+    const laterDashboard = createDashboardFixture({
+      id: 61,
+      name: '第 51 个看板',
+      description: '第二页记录',
+      layout: { version: 2, widgets: [{ i: 'latency' }] },
+      config: { refresh_seconds: 15 }
+    });
+    apiMocks.listDashboards.mockImplementation(async (params?: DashboardListParams) =>
+      params?.offset === 50
+        ? { items: [laterDashboard], limit: 50, offset: 50, total: 51 }
+        : { items: [dashboard], limit: 50, offset: 0, total: 51 }
+    );
+
+    renderPage(<DashboardsPage />);
+
+    expect(await screen.findAllByText('第 1-1 条，共 51 条，每页 50 条。')).toHaveLength(2);
+    const nextButton = screen.getByRole('button', { name: '下一页' });
+    expect(nextButton.hasAttribute('disabled')).toBe(false);
+
+    await user.click(nextButton);
+
+    expect(await screen.findByText('第 51 个看板')).toBeTruthy();
+    expect(apiMocks.listDashboards).toHaveBeenLastCalledWith({ project_id: undefined, limit: 50, offset: 50 });
+    expect(screen.getAllByText('第 51-51 条，共 51 条，每页 50 条。')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: '上一页' }));
+
+    expect(await screen.findByText('SLO 值班看板')).toBeTruthy();
+  });
+
   it('JSON 输入不是对象或数组时显示本地校验错误且不请求创建接口', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('SLO 值班看板');
+    const createPanel = screen.getByRole('heading', { name: '创建' }).closest('article');
+    expect(createPanel).not.toBeNull();
+    expect(within(createPanel as HTMLElement).getByLabelText('layout JSON').getAttribute('maxLength')).toBe(
+      `${DASHBOARD_JSON_MAX_BYTES}`
+    );
+
+    await user.clear(within(createPanel as HTMLElement).getByLabelText('项目 ID'));
+    await user.type(within(createPanel as HTMLElement).getByLabelText('项目 ID'), '12');
+    await user.type(within(createPanel as HTMLElement).getByLabelText('名称'), '坏 JSON 看板');
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('layout JSON'), {
+      target: { value: '"text"' }
+    });
+    await user.click(within(createPanel as HTMLElement).getByRole('button', { name: '创建仪表盘' }));
+
+    expect(await screen.findByText('layout 必须是 JSON 对象或数组。')).toBeTruthy();
+    expect(apiMocks.createDashboard).not.toHaveBeenCalled();
+  });
+
+  it('超大、过深、NaN 和 Infinity JSON 会被本地校验拦截', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);
 
@@ -172,11 +309,35 @@ describe('DashboardsPage interactions', () => {
     await user.type(within(createPanel as HTMLElement).getByLabelText('项目 ID'), '12');
     await user.type(within(createPanel as HTMLElement).getByLabelText('名称'), '坏 JSON 看板');
     fireEvent.change(within(createPanel as HTMLElement).getByLabelText('layout JSON'), {
-      target: { value: '"text"' }
+      target: { value: JSON.stringify({ blob: 'x'.repeat(DASHBOARD_JSON_MAX_BYTES) }) }
     });
     await user.click(within(createPanel as HTMLElement).getByRole('button', { name: '创建仪表盘' }));
 
-    expect(await screen.findByText('layout 必须是 JSON 对象或数组。')).toBeTruthy();
+    expect(await screen.findByText(`layout 不能超过 ${DASHBOARD_JSON_MAX_BYTES} 字节。`)).toBeTruthy();
+    expect(apiMocks.createDashboard).not.toHaveBeenCalled();
+
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('layout JSON'), {
+      target: { value: `${'['.repeat(DASHBOARD_JSON_MAX_DEPTH)}0${']'.repeat(DASHBOARD_JSON_MAX_DEPTH)}` }
+    });
+    await user.click(within(createPanel as HTMLElement).getByRole('button', { name: '创建仪表盘' }));
+
+    expect(await screen.findByText(`layout 嵌套深度不能超过 ${DASHBOARD_JSON_MAX_DEPTH}。`)).toBeTruthy();
+    expect(apiMocks.createDashboard).not.toHaveBeenCalled();
+
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('layout JSON'), {
+      target: { value: '{"value":NaN}' }
+    });
+    await user.click(within(createPanel as HTMLElement).getByRole('button', { name: '创建仪表盘' }));
+
+    expect(await screen.findByText('layout 不能包含 NaN 或 Infinity。')).toBeTruthy();
+    expect(apiMocks.createDashboard).not.toHaveBeenCalled();
+
+    fireEvent.change(within(createPanel as HTMLElement).getByLabelText('layout JSON'), {
+      target: { value: '{"value":Infinity}' }
+    });
+    await user.click(within(createPanel as HTMLElement).getByRole('button', { name: '创建仪表盘' }));
+
+    expect(await screen.findByText('layout 不能包含 NaN 或 Infinity。')).toBeTruthy();
     expect(apiMocks.createDashboard).not.toHaveBeenCalled();
   });
 });

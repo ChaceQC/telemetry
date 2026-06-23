@@ -100,8 +100,13 @@ function dashboardResponse(items: Dashboard[] = [dashboard]): DashboardListRespo
   };
 }
 
-function seedDashboards(queryClient: QueryClient, sessionRevision: number, response = dashboardResponse()) {
-  queryClient.setQueryData(dashboardQueryKeys.list(sessionRevision, { project_id: undefined, limit: 50, offset: 0 }), response);
+function seedDashboards(
+  queryClient: QueryClient,
+  sessionRevision: number,
+  response = dashboardResponse(),
+  params: { project_id?: number; limit: number; offset: number } = { project_id: undefined, limit: 50, offset: 0 }
+) {
+  queryClient.setQueryData(dashboardQueryKeys.list(sessionRevision, params), response);
 }
 
 function seedDashboardError(queryClient: QueryClient, sessionRevision: number, error: Error) {
@@ -213,6 +218,16 @@ describe('DashboardsPage states', () => {
     expect(html).toContain('保存修改');
     expect(html).not.toContain('Trace ID');
     expect(html).not.toContain('Span ID');
+  });
+
+  it('总数超过当前页时显示分页范围', () => {
+    const queryClient = new QueryClient();
+    seedProjects(queryClient, 2);
+    seedDashboards(queryClient, 2, { items: [dashboard], limit: 50, offset: 0, total: 51 });
+
+    const html = renderWithProviders(<DashboardsPage />, queryClient, createSignedInAuth(2));
+
+    expect(html).toContain('第 1-1 条，共 51 条，每页 50 条。');
   });
 
   it('列表加载中和读取错误状态可见', () => {

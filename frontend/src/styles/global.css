@@ -780,6 +780,32 @@ h2 {
   font-weight: 800;
 }
 
+.dashboard-pagination {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.dashboard-pagination > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dashboard-pagination-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .dashboard-editor-form {
   display: grid;
   gap: 12px;
@@ -791,6 +817,12 @@ h2 {
   font-size: 12px;
   line-height: 1.5;
   white-space: pre;
+}
+
+.dashboard-json-field small {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .query-toolbar,
@@ -2175,6 +2207,7 @@ h2 {
   .content-grid,
   .management-grid,
   .dashboard-grid,
+  .dashboard-pagination,
   .dashboard-project-controls,
   .topology-grid,
   .query-form,
@@ -2207,6 +2240,15 @@ h2 {
   .trace-span-actions {
     align-items: flex-start;
     justify-content: flex-start;
+  }
+
+  .dashboard-pagination {
+    align-items: stretch;
+  }
+
+  .dashboard-pagination-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .trace-span-content {

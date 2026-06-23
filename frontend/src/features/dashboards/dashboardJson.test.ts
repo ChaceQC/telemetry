@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DASHBOARD_JSON_MAX_BYTES,
+  DASHBOARD_JSON_MAX_DEPTH,
+  DASHBOARD_JSON_MAX_NODES,
   createDefaultDashboardForm,
   dashboardToEditForm,
   formatDashboardJson,
@@ -40,6 +43,40 @@ describe('dashboard JSON helpers', () => {
     expect(parseDashboardJsonField('{bad-json}', 'config')).toEqual({
       ok: false,
       message: 'config 不是有效 JSON。'
+    });
+  });
+
+  it('拒绝超过 64 KiB 的 JSON 文本', () => {
+    const value = JSON.stringify({ blob: 'x'.repeat(DASHBOARD_JSON_MAX_BYTES) });
+
+    expect(parseDashboardJsonField(value, 'layout')).toEqual({
+      ok: false,
+      message: `layout 不能超过 ${DASHBOARD_JSON_MAX_BYTES} 字节。`
+    });
+  });
+
+  it('拒绝过深 JSON 和过多节点', () => {
+    const tooDeep = `${'['.repeat(DASHBOARD_JSON_MAX_DEPTH)}0${']'.repeat(DASHBOARD_JSON_MAX_DEPTH)}`;
+    const tooComplex = JSON.stringify(Array.from({ length: DASHBOARD_JSON_MAX_NODES }, (_, index) => index));
+
+    expect(parseDashboardJsonField(tooDeep, 'config')).toEqual({
+      ok: false,
+      message: `config 嵌套深度不能超过 ${DASHBOARD_JSON_MAX_DEPTH}。`
+    });
+    expect(parseDashboardJsonField(tooComplex, 'layout')).toEqual({
+      ok: false,
+      message: `layout 复杂度不能超过 ${DASHBOARD_JSON_MAX_NODES} 个节点。`
+    });
+  });
+
+  it('拒绝 NaN 和 Infinity token', () => {
+    expect(parseDashboardJsonField('{"value":NaN}', 'layout')).toEqual({
+      ok: false,
+      message: 'layout 不能包含 NaN 或 Infinity。'
+    });
+    expect(parseDashboardJsonField('{"value":Infinity}', 'config')).toEqual({
+      ok: false,
+      message: 'config 不能包含 NaN 或 Infinity。'
     });
   });
 
