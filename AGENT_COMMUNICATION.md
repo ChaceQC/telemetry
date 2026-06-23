@@ -85,7 +85,7 @@ closed      已关闭
 | T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | done | done | done |
 | T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | done | todo | done | done | done |
-| T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | testing |
+| T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -506,6 +506,7 @@ closed      已关闭
 | 2026-06-24 | T-0058 | 总 agent | Dashboard panel 查询预览后端完成 | 后端开发 worker Ohm 超时未产出且未修改文件，总 agent 按项目规则极窄接手实现并提交 `51ff277` 到 `feature/backend-dev`：新增已保存 panel 查询预览 API、响应 schema、dashboard route/query service 分发、README/API 契约/后端进度和测试，后端版本提升到 `0.2.12`；本地后端 gate 通过，feature CI `28060677457` 通过。随后代码审计发现 1 个 P2 | audit |
 | 2026-06-24 | T-0058-fix | 总 agent | Dashboard panel 查询预览审计 P2 修复完成 | 审计发现 `metrics` panel 的非字符串 `query.window`/`query.aggregation` 会在集合成员判断时抛 `TypeError` 并形成 500。总 agent 提交并推送 `cc36468`：枚举判断前先校验字符串类型，非法数组/对象等历史保存配置返回 `422`；补 list/object `window` 与 list `aggregation` 回归测试，更新后端进度和契约。feature/backend-dev CI run `28061363490` 通过 | done |
 | 2026-06-24 | T-0058 | 总 agent | 真实 merge 集成 Dashboard panel 查询预览后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `51ff277` 与 `cc36468` 合入 `dev`，merge 提交 `3ee5943`；同步根/前端/后端版本到 `0.2.12`。merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
+| 2026-06-24 | T-0058 | 总 agent | CI 与 worktree 同步完成 | `23f3dc6` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28061763863`、`28061828781`、`28061828919` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0058 关闭，下一步推进前端消费 panel 查询预览 API 的小步 | done |
 
 ## 6. 测试记录
 
@@ -616,6 +617,7 @@ closed      已关闭
 | 2026-06-24 | T-0057-post-sync | CI | GitHub Actions runs `28058962575`、`28059096263`、`28059096916` | 通过 | T-0057 收口文档提交 `000e661` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。该结果随 T-0058 启动登记合并记录，避免纯 CI 文档回声 |
 | 2026-06-24 | T-0058 | feature/backend-dev CI | GitHub Actions run `28061363490` | 通过 | `cc36468` 上 Frontend checks 与 Backend checks 均为 success；Backend checks 覆盖 ruff lint、ruff format check、type check 和 pytest，Frontend checks 也通过。仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0058 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock、前端 typecheck、`git diff --check` | 通过 | merge 提交 `3ee5943` 后，后端 `tests/test_dashboard_api.py tests/test_config.py` 54 passed、1 条既有 Starlette/TestClient 弃用警告；ruff、format、mypy、`uv lock --check`、diff check 均通过；前端 `npm.cmd run typecheck` 通过。未启动真实服务、数据库、Docker 或浏览器 |
+| 2026-06-24 | T-0058-sync | CI 与 worktree 同步 | GitHub Actions runs `28061763863`、`28061828781`、`28061828919`；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `23f3dc6` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检确认三棵 worktree 干净、分支正确、与远端一致，feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -721,7 +723,8 @@ closed      已关闭
 | 2026-06-24 | T-0055 | feature/backend-dev | dev | 总 agent | Dashboard panel 配置 schema `e8b1d37` 与字符串规范化修复 `f3df26c` 已通过 Kant 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `d11b298`，本地门禁和 `dev` CI 均通过；待同步 feature 分支 | done |
 | 2026-06-24 | T-0055-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `cd6290b` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0056/T-0057 | feature/frontend-dev | dev | 总 agent | T-0056 已通过真实 merge、CI 和三分支同步关闭；T-0057 将继续在 `feature/frontend-dev` 推进 Dashboard panel 只读预览前端基础，完成后审计通过再真实 merge 到 `dev` | doing |
-| 2026-06-24 | T-0058 | feature/backend-dev | dev | 总 agent | Dashboard panel 查询预览后端基础 `51ff277` 与非法枚举修复 `cc36468` 已完成审计修复和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `3ee5943`，同步版本到 `0.2.12`；待推送 `dev`、等待 CI 并同步 feature 分支 | testing |
+| 2026-06-24 | T-0058 | feature/backend-dev | dev | 总 agent | Dashboard panel 查询预览后端基础 `51ff277` 与非法枚举修复 `cc36468` 已完成审计修复和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `3ee5943`，同步版本到 `0.2.12`；`23f3dc6` 已同步到三分支且 CI/体检通过 | done |
+| 2026-06-24 | T-0058-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `23f3dc6` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 
 ## 10. 决策记录
 
