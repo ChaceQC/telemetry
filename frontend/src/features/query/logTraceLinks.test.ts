@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { applyLogsTraceSearchToFilters, buildLogsTraceSearch, parseLogsTraceSearch } from './logTraceLinks';
+import {
+  applyLogsTraceSearchToFilters,
+  buildLogsTraceSearch,
+  buildTracesTraceSearch,
+  parseLogsTraceSearch
+} from './logTraceLinks';
 import { defaultFilters } from './queryFilters';
 
 describe('log trace links', () => {
@@ -7,6 +12,14 @@ describe('log trace links', () => {
     expect(buildLogsTraceSearch({ traceId: ' trace/a ', spanId: ' span b ' })).toBe(
       '?trace_id=trace%2Fa&span_id=span+b'
     );
+  });
+
+  it('构建 traces 查询串时复用 trace/span 编码并要求 trace_id', () => {
+    expect(buildTracesTraceSearch({ traceId: ' trace/a ', spanId: ' span b ' })).toBe(
+      '?trace_id=trace%2Fa&span_id=span+b'
+    );
+    expect(buildTracesTraceSearch({ traceId: ' trace/a ' })).toBe('?trace_id=trace%2Fa');
+    expect(buildTracesTraceSearch({ traceId: ' ', spanId: 'span-only' })).toBe('');
   });
 
   it('解析 logs 查询串时只读取非空 trace_id 和 span_id', () => {

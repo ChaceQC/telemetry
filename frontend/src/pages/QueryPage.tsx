@@ -46,7 +46,8 @@ import { summarizeEventPayload } from '../features/query/eventTimeline';
 import { formatJsonPreviewValue } from '../features/query/jsonPreview';
 import {
   applyTraceSearchToFilters,
-  buildLogsTraceSearch
+  buildLogsTraceSearch,
+  buildTracesTraceSearch
 } from '../features/query/logTraceLinks';
 import {
   buildMetricAggregateParams,
@@ -701,6 +702,7 @@ function LogRecord({
         <strong>{log.message}</strong>
         <div className="query-record-actions">
           <StatusBadge tone={getLogLevelTone(log.level)}>{log.level}</StatusBadge>
+          <LogTraceLink traceId={log.trace_id} spanId={log.span_id} />
           <button
             className="text-button log-context-toggle"
             type="button"
@@ -809,7 +811,7 @@ function LogRecord({
   );
 }
 
-function LogContextGroup({
+export function LogContextGroup({
   title,
   logs,
   emptyText,
@@ -832,7 +834,10 @@ function LogContextGroup({
             <li key={`log-context-${title}-${item.id}`}>
               <div className="log-context-line-main">
                 <strong>{item.message}</strong>
-                <StatusBadge tone={getLogLevelTone(item.level)}>{item.level}</StatusBadge>
+                <div className="query-record-actions">
+                  <StatusBadge tone={getLogLevelTone(item.level)}>{item.level}</StatusBadge>
+                  <LogTraceLink traceId={item.trace_id} spanId={item.span_id} />
+                </div>
               </div>
               <p className="query-record-meta">{formatLogMeta(item)}</p>
             </li>
@@ -842,6 +847,25 @@ function LogContextGroup({
         <p className="log-context-empty">{emptyText}</p>
       )}
     </section>
+  );
+}
+
+function LogTraceLink({ traceId, spanId }: { traceId: string | null; spanId?: string | null }) {
+  const search = buildTracesTraceSearch({ traceId, spanId });
+
+  if (!search) {
+    return null;
+  }
+
+  return (
+    <Link
+      className="text-button log-context-toggle"
+      to={{ pathname: '/traces', search }}
+      title={search.includes('span_id=') ? '按当前 Trace ID 和 Span ID 查看相关 Trace' : '按当前 Trace ID 查看相关 Trace'}
+    >
+      <GitBranch size={15} aria-hidden="true" />
+      <span>查看相关 Trace</span>
+    </Link>
   );
 }
 
