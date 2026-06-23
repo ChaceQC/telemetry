@@ -3,6 +3,12 @@ import type { DashboardJson } from '../../api/dashboards';
 export const DASHBOARD_PANEL_TYPES = ['metrics', 'logs', 'events', 'traces', 'topology'] as const;
 export const DASHBOARD_PANEL_ID_MAX_LENGTH = 64;
 export const DASHBOARD_PANEL_TITLE_MAX_LENGTH = 120;
+export const DASHBOARD_PANEL_PREVIEW_COLUMNS = 12;
+
+const DASHBOARD_PANEL_QUERY_SUMMARY_MAX_LENGTH = 180;
+const DASHBOARD_PANEL_QUERY_VALUE_MAX_LENGTH = 48;
+const DASHBOARD_PANEL_QUERY_TOP_LEVEL_LIMIT = 4;
+const DASHBOARD_PANEL_QUERY_NESTED_LIMIT = 3;
 
 export type DashboardPanelType = (typeof DASHBOARD_PANEL_TYPES)[number];
 
@@ -47,6 +53,44 @@ export type DashboardPanelsReadResult =
   | {
       ok: false;
       message: string;
+    };
+
+export type DashboardPanelPreviewItem = {
+  id: string;
+  title: string;
+  type: DashboardPanelType;
+  originalIndex: number;
+  layout: DashboardPanelLayout | null;
+  layoutLabel: string;
+  querySummary: string;
+  gridColumn: string;
+};
+
+export type DashboardPanelPreviewModel =
+  | {
+      state: 'invalid';
+      statusLabel: string;
+      message: string;
+      panels: [];
+    }
+  | {
+      state: 'legacy';
+      statusLabel: string;
+      message: string;
+      panels: [];
+    }
+  | {
+      state: 'empty';
+      statusLabel: string;
+      message: string;
+      panels: [];
+    }
+  | {
+      state: 'ready';
+      statusLabel: string;
+      message: string;
+      columns: number;
+      panels: DashboardPanelPreviewItem[];
     };
 
 type DashboardPanelsParseResult =
@@ -119,6 +163,65 @@ export function readDashboardPanelsFromConfigText(configText: string): Dashboard
     panels: parsed.panels,
     hasPanels: parsed.hasPanels
   };
+}
+
+export function createDashboardPanelPreviewModel(panelReadResult: DashboardPanelsReadResult): DashboardPanelPreviewModel {
+  if (!panelReadResult.ok) {
+    return {
+      state: 'invalid',
+      statusLabel: '配置错误',
+      message: panelReadResult.message,
+      panels: []
+    };
+  }
+
+  if (panelReadResult.panels.length === 0) {
+    if (!panelReadResult.hasPanels) {
+      return {
+        state: 'legacy',
+        statusLabel: 'Legacy',
+        message: '当前 config 未包含 panels。',
+        panels: []
+      };
+    }
+
+    return {
+      state: 'empty',
+      statusLabel: '0 个 panel',
+      message: '当前 config.panels 数组为空。',
+      panels: []
+    };
+  }
+
+  const panels = panelReadResult.panels
+    .map((panel, index) => createDashboardPanelPreviewItem(panel, index))
+    .sort(compareDashboardPanelPreviewItems);
+
+  return {
+    state: 'ready',
+    statusLabel: `${panels.length} 个 panel`,
+    message: '按 layout 的 y/x 顺序排列，未配置 layout 的 panel 排在末尾。',
+    columns: DASHBOARD_PANEL_PREVIEW_COLUMNS,
+    panels
+  };
+}
+
+export function summarizeDashboardPanelQuery(query: Record<string, unknown>) {
+  const keys = Object.keys(query).sort();
+
+  if (keys.length === 0) {
+    return 'query {}';
+  }
+
+  const parts = keys
+    .slice(0, DASHBOARD_PANEL_QUERY_TOP_LEVEL_LIMIT)
+    .map((key) => `${key}: ${summarizeDashboardPanelQueryValue(query[key], 0)}`);
+
+  if (keys.length > DASHBOARD_PANEL_QUERY_TOP_LEVEL_LIMIT) {
+    parts.push(`+${keys.length - DASHBOARD_PANEL_QUERY_TOP_LEVEL_LIMIT} keys`);
+  }
+
+  return truncateText(`query { ${parts.join(', ')} }`, DASHBOARD_PANEL_QUERY_SUMMARY_MAX_LENGTH);
 }
 
 export function createDefaultDashboardPanelDraft(panels: Array<Pick<DashboardPanel, 'id'>> = []): DashboardPanelDraft {
@@ -280,6 +383,110 @@ function buildConfigWithPanels(config: Record<string, unknown>, rawPanels: unkno
     value: nextConfig,
     configText: formatDashboardPanelJson(nextConfig)
   };
+}
+
+function createDashboardPanelPreviewItem(panel: DashboardPanel, originalIndex: number): DashboardPanelPreviewItem {
+  const layout = panel.layout ?? null;
+
+  return {
+    id: panel.id,
+    title: panel.title,
+    type: panel.type,
+    originalIndex,
+    layout,
+    layoutLabel: layout
+      ? `x ${formatPanelNumber(layout.x)} / y ${formatPanelNumber(layout.y)} / w ${formatPanelNumber(
+          layout.w
+        )} / h ${formatPanelNumber(layout.h)}`
+      : 'no layout',
+    querySummary: summarizeDashboardPanelQuery(panel.query),
+    gridColumn: resolvePreviewGridColumn(layout)
+  };
+}
+
+function compareDashboardPanelPreviewItems(left: DashboardPanelPreviewItem, right: DashboardPanelPreviewItem) {
+  const leftHasLayout = left.layout !== null;
+  const rightHasLayout = right.layout !== null;
+
+  if (leftHasLayout !== rightHasLayout) {
+    return leftHasLayout ? -1 : 1;
+  }
+
+  if (left.layout && right.layout) {
+    const yDiff = left.layout.y - right.layout.y;
+    if (yDiff !== 0) {
+      return yDiff;
+    }
+
+    const xDiff = left.layout.x - right.layout.x;
+    if (xDiff !== 0) {
+      return xDiff;
+    }
+  }
+
+  return left.originalIndex - right.originalIndex;
+}
+
+function resolvePreviewGridColumn(layout: DashboardPanelLayout | null) {
+  if (!layout) {
+    return '1 / -1';
+  }
+
+  const start = clampNumber(Math.floor(layout.x), 0, DASHBOARD_PANEL_PREVIEW_COLUMNS - 1) + 1;
+  const maxSpan = DASHBOARD_PANEL_PREVIEW_COLUMNS - start + 1;
+  const span = clampNumber(Math.ceil(layout.w), 1, maxSpan);
+
+  return `${start} / span ${span}`;
+}
+
+function summarizeDashboardPanelQueryValue(value: unknown, depth: number): string {
+  if (value === null) {
+    return 'null';
+  }
+
+  if (typeof value === 'string') {
+    const compactValue = value.replace(/\s+/g, ' ').trim();
+    const truncatedValue = truncateText(compactValue, DASHBOARD_PANEL_QUERY_VALUE_MAX_LENGTH);
+    const suffix = compactValue.length > DASHBOARD_PANEL_QUERY_VALUE_MAX_LENGTH ? ` (${compactValue.length} chars)` : '';
+
+    return `${JSON.stringify(truncatedValue)}${suffix}`;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return `${value}`;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '[]';
+    }
+
+    if (depth >= 1) {
+      return `[${value.length} items]`;
+    }
+
+    const items = value
+      .slice(0, DASHBOARD_PANEL_QUERY_NESTED_LIMIT)
+      .map((item) => summarizeDashboardPanelQueryValue(item, depth + 1));
+    const suffix = value.length > DASHBOARD_PANEL_QUERY_NESTED_LIMIT ? ', ...' : '';
+
+    return `[${value.length} items: ${items.join(', ')}${suffix}]`;
+  }
+
+  if (isRecord(value)) {
+    const keys = Object.keys(value).sort();
+
+    if (keys.length === 0) {
+      return '{}';
+    }
+
+    const suffix = keys.length > DASHBOARD_PANEL_QUERY_NESTED_LIMIT ? ', ...' : '';
+    const visibleKeys = keys.slice(0, DASHBOARD_PANEL_QUERY_NESTED_LIMIT).join(', ');
+
+    return `{${keys.length} keys: ${visibleKeys}${suffix}}`;
+  }
+
+  return typeof value;
 }
 
 function dashboardPanelDraftToPanel(draft: DashboardPanelDraft): ValidationResult<DashboardPanel> {
@@ -639,6 +846,18 @@ function isDashboardPanelType(value: string): value is DashboardPanelType {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function clampNumber(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
 function formatPanelNumber(value: number) {

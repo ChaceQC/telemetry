@@ -42,12 +42,14 @@ import {
 } from '../features/dashboards/dashboardPayload';
 import {
   DASHBOARD_PANEL_TYPES,
+  createDashboardPanelPreviewModel,
   createDefaultDashboardPanelDraft,
   dashboardPanelToDraft,
   readDashboardPanelsFromConfigText,
   removeDashboardPanelFromConfigText,
   upsertDashboardPanelInConfigText,
   type DashboardPanel,
+  type DashboardPanelPreviewModel,
   type DashboardPanelDraft,
   type DashboardPanelsReadResult
 } from '../features/dashboards/dashboardPanels';
@@ -276,6 +278,7 @@ export function DashboardsPage() {
     ? readDashboardPanelsFromConfigText(visibleEditForm.configText)
     : createEmptyPanelReadResult();
   const visiblePanels = panelReadResult.ok ? panelReadResult.panels : [];
+  const panelPreviewModel = createDashboardPanelPreviewModel(panelReadResult);
   const panelScopeKey = buildDashboardPanelScopeKey(pageScopeKey, visibleEditForm.dashboardId);
   const activePanelDraft =
     selectedDashboard && panelDraftState.scopeKey === panelScopeKey
@@ -718,6 +721,11 @@ export function DashboardsPage() {
               onChange={(configText) => updateEditForm({ ...visibleEditForm, configText })}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
+            <DashboardPanelPreview
+              authReady={authState.shouldRequest}
+              selected={Boolean(selectedDashboard)}
+              model={panelPreviewModel}
+            />
             <DashboardPanelEditor
               disabled={!authState.shouldRequest || !selectedDashboard}
               panelReadResult={panelReadResult}
@@ -941,6 +949,126 @@ function JsonTextarea({
   );
 }
 
+function DashboardPanelPreview({
+  authReady,
+  selected,
+  model
+}: {
+  authReady: boolean;
+  selected: boolean;
+  model: DashboardPanelPreviewModel;
+}) {
+  if (!authReady) {
+    return (
+      <div className="dashboard-panel-preview" aria-label="Panel 预览">
+        <DashboardPanelPreviewHeading statusLabel="待登录" tone="warning" />
+        <div className="resource-state dashboard-panel-preview-state">
+          <ShieldAlert size={18} aria-hidden="true" />
+          <div>
+            <strong>等待登录</strong>
+            <span>登录后选择 dashboard 可查看本地 config.panels 预览。</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selected) {
+    return (
+      <div className="dashboard-panel-preview" aria-label="Panel 预览">
+        <DashboardPanelPreviewHeading statusLabel="未选择" tone="neutral" />
+        <div className="resource-state dashboard-panel-preview-state">
+          <LayoutDashboard size={18} aria-hidden="true" />
+          <div>
+            <strong>未选择 dashboard</strong>
+            <span>从列表中选择一个 dashboard 后，会按当前 config JSON 显示只读 panel 预览。</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard-panel-preview" aria-label="Panel 预览">
+      <DashboardPanelPreviewHeading
+        statusLabel={model.statusLabel}
+        tone={model.state === 'invalid' ? 'danger' : model.state === 'ready' ? 'success' : 'neutral'}
+      />
+
+      {model.state === 'ready' ? (
+        <>
+          <p className="dashboard-panel-preview-help">{model.message}</p>
+          <ol
+            className="dashboard-panel-preview-grid"
+            style={{ gridTemplateColumns: `repeat(${model.columns}, minmax(0, 1fr))` }}
+          >
+            {model.panels.map((panel) => (
+              <li key={`${panel.id}-${panel.originalIndex}`} style={{ gridColumn: panel.gridColumn }}>
+                <div className="dashboard-panel-preview-card">
+                  <div className="dashboard-panel-preview-card-heading">
+                    <div>
+                      <strong>{panel.title}</strong>
+                      <span>
+                        {panel.type} / {panel.id}
+                      </span>
+                    </div>
+                    <code>#{panel.originalIndex + 1}</code>
+                  </div>
+                  <dl className="dashboard-panel-preview-meta">
+                    <div>
+                      <dt>Layout</dt>
+                      <dd>{panel.layoutLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Query</dt>
+                      <dd>{panel.querySummary}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : (
+        <div
+          className={`resource-state dashboard-panel-preview-state${
+            model.state === 'invalid' ? ' resource-state--error' : ''
+          }`}
+          role={model.state === 'invalid' ? 'status' : undefined}
+        >
+          {model.state === 'invalid' ? (
+            <ShieldAlert size={18} aria-hidden="true" />
+          ) : (
+            <LayoutDashboard size={18} aria-hidden="true" />
+          )}
+          <div>
+            <strong>{resolveDashboardPanelPreviewStateTitle(model.state)}</strong>
+            <span>{model.message}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DashboardPanelPreviewHeading({
+  statusLabel,
+  tone
+}: {
+  statusLabel: string;
+  tone: 'success' | 'warning' | 'danger' | 'neutral';
+}) {
+  return (
+    <div className="dashboard-panel-preview-heading">
+      <div>
+        <strong>Panel 预览</strong>
+        <span>只读显示当前 config JSON 中的 panels，不请求图表数据。</span>
+      </div>
+      <StatusBadge tone={tone}>{statusLabel}</StatusBadge>
+    </div>
+  );
+}
+
 function DashboardPanelEditor({
   disabled,
   panelReadResult,
@@ -1132,6 +1260,18 @@ function formatDashboardPageSummary(pageStart: number, pageEnd: number, total: n
   }
 
   return `第 ${pageStart}-${pageEnd} 条，共 ${total} 条，每页 ${limit} 条。`;
+}
+
+function resolveDashboardPanelPreviewStateTitle(state: DashboardPanelPreviewModel['state']) {
+  if (state === 'invalid') {
+    return 'Panel 预览不可用';
+  }
+
+  if (state === 'empty') {
+    return '暂无 panel';
+  }
+
+  return 'Legacy config';
 }
 
 function resolveOffsetAfterDeletingOne(currentOffset: number, currentTotal: number, limit: number) {

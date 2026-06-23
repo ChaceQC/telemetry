@@ -85,7 +85,7 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 - 编辑：调用 `PATCH /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，只提交实际变化字段；描述清空会提交 `description=null`。
 - 删除：调用 `DELETE /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，成功后刷新 dashboard 列表。
 
-`layout` 和 `config` 在前端以 JSON textarea 编辑，提交前会先校验必须是 JSON 对象或数组；`config.panels` 若存在会按后端最小 schema 校验并规范化。编辑区提供最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；操作会写回 `config.panels` 并保留其他顶层 legacy config 字段，最终仍通过既有 Dashboard update API 保存。若选择 panel 后手动改动 `config JSON` 导致当前 index 不再指向原 panel id，更新会提示重新选择，避免覆盖错误 panel。页面展示 loading、error、empty、未登录/会话恢复状态；Dashboard 查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `dashboards` 缓存，避免显示上一 session 数据。当前不做 panel 图表渲染、变量/时间范围高级配置、ClickHouse 图表查询或告警规则。
+`layout` 和 `config` 在前端以 JSON textarea 编辑，提交前会先校验必须是 JSON 对象或数组；`config.panels` 若存在会按后端最小 schema 校验并规范化。编辑区提供最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；操作会写回 `config.panels` 并保留其他顶层 legacy config 字段，最终仍通过既有 Dashboard update API 保存。编辑区同时提供只读 Panel 预览，直接消费当前 `config JSON` textarea 文本，展示 panel 标题、type/id、layout `x/y/w/h` 和稳定 query 摘要，并覆盖 legacy config、空 panels、invalid `config.panels`、未登录和未选择 dashboard 状态；预览不会触发保存 API 或图表数据请求。若选择 panel 后手动改动 `config JSON` 导致当前 index 不再指向原 panel id，更新会提示重新选择，避免覆盖错误 panel。页面展示 loading、error、empty、未登录/会话恢复状态；Dashboard 查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `dashboards` 缓存，避免显示上一 session 数据。当前不做 panel 图表渲染、变量/时间范围高级配置、ClickHouse 图表查询或告警规则。
 
 ## 总览页摄入统计
 
