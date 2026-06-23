@@ -696,6 +696,7 @@
 - T-0055 已完成同步收口：`cd6290b` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28050203922`、`28050218117`、`28050231723` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。
 - T-0056 已登记为阶段 5 下一小步：Dashboard panel 配置前端基础，在现有 `/dashboards` CRUD 页面上读取/编辑后端 `config.panels`，提供最小 panel 列表、添加/编辑/删除、`id/title/type/query` 与基础 layout 字段校验、JSON query 编辑和保存到既有 Dashboard update API；不做真实图表渲染、不接 ClickHouse 查询、不做变量/时间范围高级配置、模板或告警。
 - T-0056 启动记录提交 `2d989c9` 后 `dev` CI run `28050373490` 通过；已提醒前端开发 agent Laplace 在安全时将 `feature/frontend-dev` 快进到最新 `origin/dev` 再开始/继续实现。
+- T-0056 启动 CI 记录提交 `a0e19ba` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 三分支 CI runs `28050478016`、`28050516813`、`28050522107` 均通过；三个 worktree 当前干净并与远端一致。
 
 ### 阻塞与风险
 
@@ -753,6 +754,7 @@
 - T-0055 dev CI 通过：GitHub Actions run `28050085589` 在 `0002728` 上完成，Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解，不阻塞。
 - T-0055 最终同步 CI 通过：GitHub Actions runs `28050203922`、`28050218117`、`28050231723` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `cd6290b`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。随后严格 worktree 体检通过。
 - T-0056 启动记录 CI 通过：GitHub Actions run `28050373490` 在 `2d989c9` 上完成，Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。
+- T-0056 启动 CI 记录同步通过：GitHub Actions runs `28050478016`、`28050516813`、`28050522107` 在 `a0e19ba` 上完成，分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

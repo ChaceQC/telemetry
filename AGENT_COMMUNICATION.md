@@ -583,6 +583,7 @@ closed      已关闭
 | 2026-06-24 | T-0055 | CI | GitHub Actions run `28050085589` | 通过 | `dev` 提交 `0002728` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解，不阻塞 |
 | 2026-06-24 | T-0055-sync | CI | GitHub Actions runs `28050203922`、`28050218117`、`28050231723` | 通过 | `cd6290b` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0056-start | CI | GitHub Actions run `28050373490` | 通过 | T-0056 启动记录提交 `2d989c9` 后 `dev` CI 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
+| 2026-06-24 | T-0056-start-sync | CI | GitHub Actions runs `28050478016`、`28050516813`、`28050522107` | 通过 | T-0056 启动 CI 记录提交 `a0e19ba` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 
 ## 7. 审计记录
 
