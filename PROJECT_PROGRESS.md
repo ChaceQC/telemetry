@@ -676,6 +676,8 @@
 - T-0050 已推送并同步 feature 分支：`dev`、`feature/frontend-dev`、`feature/backend-dev` 均在 `fe572c3` 通过 GitHub Actions；两个 feature 分支已快进到 `fe572c3` 并推送。已启动测试 agent Turing the 2nd 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 做完整 trace/log 互跳联测。
 - T-0050 真实前后端联合测试通过：Turing the 2nd 在 `dev/origin/dev` `186b5a5` 上使用自启动隔离 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，断言 68/68 通过；覆盖 logs -> traces 列表/上下文入口、trace-only 和 trace+span URL、无 trace_id/span-only 不显示入口、traces URL 初始化和查询、首包 Authorization、trace -> logs、logs 深链、metrics/events 参数隔离、缓存隔离和登录 search 保留。证据目录 `agents/runtime/e2e-T-0050-20260623-134651`；测试 agent 已清理自有资源并关闭。T-0050 关闭。
 - T-0051 已登记为阶段 4 下一小步：后端服务拓扑最小 API，基于关系库 trace spans 的 parent/child 与 `source` 推导服务节点和 source-to-source 边，返回调用次数、错误次数和耗时摘要；不接 ClickHouse、不做前端拓扑图、不改 trace ingestion 契约、不引入复杂布局或跨项目聚合。
+- T-0051 后端开发与修复复审通过：Zeno the 2nd 提交 `d3c5796` 新增 `GET /api/v1/query/traces/topology`、nodes/edges 聚合和后端版本 `0.2.8`；Dirac the 2nd 审计发现 P1 无界扫描和 P2 重复 `span_id` parent 归属不稳定，Aristotle the 2nd 提交 `7a63b89` 增加数据库侧 `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT` 并将重复 parent 标记为 ambiguous 后跳过 edge；Hypatia the 2nd 复审未发现 P0/P1/P2/P3。总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，当前同步根、前端、后端版本到 `0.2.8` 并等待本地门禁、推送、CI、feature 分支同步和真实测试。
+- T-0051 dev merge 后本地门禁通过：topology 专项 12 passed/42 deselected、config 13 passed、后端全量 173 passed/2 skipped、ruff、format、mypy、`uv lock --check`、前端 typecheck/build、`git diff --check` 均通过；未启动真实服务或数据库，真实 MySQL/真实后端专项交由测试 agent 执行。
 
 ### 阻塞与风险
 
@@ -701,7 +703,7 @@
 
 ### 下一步
 
-- 启动后端开发 agent 在 `feature/backend-dev` 推进 T-0051 服务拓扑后端基础；开发 agent 可启动测试 agent 做后端专项验证，但不得代跑完整真实前后端联合测试。完成后由总 agent 启动代码审计，并按风险决定是否真实联测。
+- 完成 T-0051 后端/版本门禁后推送 `dev`，读取 CI，同步 feature 分支，并启动测试 agent 使用真实 MySQL 和真实后端专项验证服务拓扑 API 的权限、过滤、scan limit 和重复 `span_id` 边界。
 
 ### 验证
 
@@ -712,6 +714,8 @@
 - T-0050 版本同步门禁通过：`uv run pytest tests/test_config.py` 11 passed、`uv lock --check`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过。
 - T-0050 CI 通过：GitHub Actions runs `28004819590`、`28004851916`、`28004859254` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success。
 - T-0050 真实联测通过：Turing the 2nd 使用自启动隔离 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，断言 68/68 通过，证据目录 `agents/runtime/e2e-T-0050-20260623-134651`。
+- T-0051 后端开发侧验证通过：`uv run pytest tests/test_query_api.py tests/test_config.py -q` 62 passed，修复后 `uv run pytest -q` 173 passed/2 skipped，ruff、format、mypy、uv lock、diff check 均通过；总 agent merge 后将重新执行集成门禁。
+- T-0051 merge 后本地门禁通过：`uv run pytest tests/test_query_api.py -k "topology or hide_missing_project_from_superuser or requires_user_token" -q` 12 passed、`uv run pytest tests/test_config.py -q` 13 passed、`uv run pytest -q` 173 passed/2 skipped、ruff、format、mypy、`uv lock --check`、前端 typecheck/build、`git diff --check` 均通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

@@ -35,7 +35,7 @@ npm.cmd run preview
 
 ```text
 VITE_APP_NAME=遥测平台
-VITE_APP_VERSION=0.2.7
+VITE_APP_VERSION=0.2.8
 VITE_PUBLIC_BASE_PATH=/
 VITE_API_BASE_URL=http://localhost:28117
 VITE_API_BASE_PATH=/api
