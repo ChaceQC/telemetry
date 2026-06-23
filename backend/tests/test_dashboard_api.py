@@ -1,3 +1,4 @@
+import json
 from argparse import Namespace
 from pathlib import Path
 from typing import Any, cast
@@ -19,6 +20,11 @@ from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.dashboard import SqlAlchemyDashboardRepository
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
+from app.schemas.dashboard import (
+    MAX_DASHBOARD_JSON_BYTES,
+    MAX_DASHBOARD_JSON_DEPTH,
+    MAX_DASHBOARD_JSON_NODES,
+)
 from app.schemas.management import ResourceStatus
 from app.schemas.permissions import ProjectRole
 from app.services.auth import AuthService, hash_password
@@ -129,6 +135,25 @@ def create_dashboard(
     )
     assert response.status_code == 201
     return cast(dict[str, Any], response.json())
+
+
+def _json_request_headers(auth_headers: dict[str, str]) -> dict[str, str]:
+    return {**auth_headers, "Content-Type": "application/json"}
+
+
+def _dashboard_content(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False, allow_nan=True)
+
+
+def _too_deep_dashboard_json() -> Any:
+    value: Any = []
+    for _ in range(MAX_DASHBOARD_JSON_DEPTH):
+        value = [value]
+    return value
+
+
+def _too_complex_dashboard_json() -> dict[str, Any]:
+    return {"items": [0] * MAX_DASHBOARD_JSON_NODES}
 
 
 @pytest.mark.parametrize(
@@ -361,6 +386,76 @@ def test_dashboard_validation_errors_are_reported_as_422() -> None:
     assert empty_patch_response.status_code == 422
     assert null_layout_response.status_code == 422
     assert invalid_limit_response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("layout", {"blob": "x" * (MAX_DASHBOARD_JSON_BYTES + 1)}),
+        ("config", _too_deep_dashboard_json()),
+        ("layout", _too_complex_dashboard_json()),
+        ("layout", {"bad": float("nan")}),
+        ("config", {"bad": [float("inf")]}),
+        ("config", {"bad": float("-inf")}),
+    ],
+)
+def test_dashboard_json_payload_limits_are_reported_as_422_for_create_and_update(
+    field_name: str,
+    invalid_value: Any,
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username=f"owner-{field_name}")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard = create_dashboard(client, auth_headers, project_id=project_id)
+    headers = _json_request_headers(auth_headers)
+
+    create_body = {
+        "project_id": project_id,
+        "name": f"非法 {field_name}",
+        field_name: invalid_value,
+    }
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=headers,
+        content=_dashboard_content(create_body),
+    )
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=headers,
+        content=_dashboard_content({field_name: invalid_value}),
+    )
+
+    assert create_response.status_code == 422
+    assert any(field_name in error["loc"] for error in create_response.json()["detail"])
+    assert update_response.status_code == 422
+    assert any(field_name in error["loc"] for error in update_response.json()["detail"])
+
+
+def test_dashboard_update_omits_json_fields_and_accepts_empty_structures() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="partial-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard = create_dashboard(client, auth_headers, project_id=project_id)
+
+    name_only_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"name": "仅改名称"},
+    )
+    empty_json_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"layout": [], "config": {}},
+    )
+
+    assert name_only_response.status_code == 200
+    assert name_only_response.json()["layout"] == dashboard["layout"]
+    assert name_only_response.json()["config"] == dashboard["config"]
+    assert empty_json_response.status_code == 200
+    assert empty_json_response.json()["layout"] == []
+    assert empty_json_response.json()["config"] == {}
 
 
 def test_dashboard_repository_maps_missing_project_to_not_found() -> None:

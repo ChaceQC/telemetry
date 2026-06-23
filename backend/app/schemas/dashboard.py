@@ -8,15 +8,34 @@ from pydantic import (
     ConfigDict,
     Field,
     PositiveInt,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
 
+from app.schemas.json_validation import validate_json_payload
+
 DashboardJson = dict[str, Any] | list[Any]
+MAX_DASHBOARD_JSON_BYTES = 64 * 1024
+MAX_DASHBOARD_JSON_DEPTH = 32
+MAX_DASHBOARD_JSON_NODES = 4096
 
 
 def _default_json_object() -> dict[str, Any]:
     return {}
+
+
+def _validate_dashboard_json(value: DashboardJson, *, field_name: str) -> DashboardJson:
+    if not isinstance(value, dict | list):
+        raise ValueError("必须是 JSON 对象或数组")
+    validate_json_payload(
+        value,
+        field_name=field_name,
+        max_bytes=MAX_DASHBOARD_JSON_BYTES,
+        max_depth=MAX_DASHBOARD_JSON_DEPTH,
+        max_nodes=MAX_DASHBOARD_JSON_NODES,
+    )
+    return value
 
 
 class DashboardSchema(BaseModel):
@@ -32,10 +51,12 @@ class DashboardCreate(DashboardSchema):
 
     @field_validator("layout", "config")
     @classmethod
-    def validate_json_container(cls, value: DashboardJson) -> DashboardJson:
-        if isinstance(value, dict | list):
-            return value
-        raise ValueError("必须是 JSON 对象或数组")
+    def validate_json_container(
+        cls,
+        value: DashboardJson,
+        info: ValidationInfo,
+    ) -> DashboardJson:
+        return _validate_dashboard_json(value, field_name=info.field_name or "dashboard JSON")
 
 
 class DashboardUpdate(DashboardSchema):
@@ -46,10 +67,14 @@ class DashboardUpdate(DashboardSchema):
 
     @field_validator("layout", "config")
     @classmethod
-    def validate_json_container(cls, value: DashboardJson | None) -> DashboardJson | None:
-        if value is None or isinstance(value, dict | list):
+    def validate_json_container(
+        cls,
+        value: DashboardJson | None,
+        info: ValidationInfo,
+    ) -> DashboardJson | None:
+        if value is None:
             return value
-        raise ValueError("必须是 JSON 对象或数组")
+        return _validate_dashboard_json(value, field_name=info.field_name or "dashboard JSON")
 
     @model_validator(mode="after")
     def validate_patch_fields(self) -> Self:

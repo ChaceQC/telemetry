@@ -2,6 +2,32 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0053-fix Dashboard JSON 校验审计修复
+
+### 已完成
+
+- 修复 dashboard `layout` / `config` 审计 P2：在保持顶层仅允许 JSON 对象或数组的契约下，新增单字段 64 KiB 序列化大小上限、32 层嵌套深度上限、4096 节点复杂度上限，并拒绝 `NaN`、`Infinity`、`-Infinity`。
+- 抽取 `app/schemas/json_validation.py` 复用 ingest 既有 UTF-8 JSON size 和非有限数校验风格；ingest 继续暴露并使用原有 `json_size_bytes()` / `reject_non_finite_numbers()` 名称，避免扩大行为变更面。
+- `DashboardCreate` 和 `DashboardUpdate` 均接入校验；partial update 未传 `layout/config` 时保持原值，`null` 仍按现有契约返回 `422`，空对象和空数组仍可用于更新。
+- 扩展 dashboard API 测试覆盖超大 JSON、过深嵌套、过高复杂度、`NaN` / `Infinity` / `-Infinity` 在 create/update 均返回 `422`，以及 name-only patch 和空对象/空数组更新语义。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 dashboard JSON 大小、深度、复杂度和非有限数限制；后端版本保持 `0.2.10`。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；MySQL JSON 列真实写入和执行计划仍留给后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：20 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：33 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_ingest_api.py -k non_finite -q`，结果：11 个测试通过、27 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：通过，87 个文件已格式化。
+- 已运行 `uv run mypy .`，结果：87 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-23 T-0053 Dashboard CRUD 后端基础
 
 ### 已完成
