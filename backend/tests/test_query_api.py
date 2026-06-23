@@ -1541,6 +1541,286 @@ def test_query_traces_status_and_duration_validate_bounds() -> None:
     assert infinite_duration_response.status_code == 422
 
 
+def test_query_trace_topology_builds_nodes_edges_and_aggregates() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-topology-owner",
+        project_key="query-trace-topology-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "topology-a",
+                    "span_id": "api-root",
+                    "name": "GET /orders",
+                    "start_time": "2026-06-20T10:00:00Z",
+                    "duration_ms": 100,
+                    "status_code": "ok",
+                    "source": "api",
+                },
+                {
+                    "trace_id": "topology-a",
+                    "span_id": "worker-child",
+                    "parent_span_id": "api-root",
+                    "name": "publish order",
+                    "start_time": "2026-06-20T10:00:00.010Z",
+                    "duration_ms": 50,
+                    "status_code": "error",
+                    "source": "worker",
+                },
+                {
+                    "trace_id": "topology-a",
+                    "span_id": "db-child",
+                    "parent_span_id": "worker-child",
+                    "name": "insert order",
+                    "start_time": "2026-06-20T10:00:00.020Z",
+                    "duration_ms": 30,
+                    "status_code": "ok",
+                    "source": "db",
+                },
+                {
+                    "trace_id": "topology-a",
+                    "span_id": "same-source-child",
+                    "parent_span_id": "api-root",
+                    "name": "api middleware",
+                    "start_time": "2026-06-20T10:00:00.030Z",
+                    "duration_ms": 20,
+                    "status_code": "error",
+                    "source": "api",
+                },
+                {
+                    "trace_id": "topology-a",
+                    "span_id": "missing-parent-child",
+                    "parent_span_id": "missing-parent",
+                    "name": "orphan work",
+                    "start_time": "2026-06-20T10:00:00.040Z",
+                    "duration_ms": 70,
+                    "status_code": "error",
+                    "source": "orphan",
+                },
+                {
+                    "trace_id": "topology-a",
+                    "span_id": "missing-source-child",
+                    "parent_span_id": "api-root",
+                    "name": "anonymous dependency",
+                    "start_time": "2026-06-20T10:00:00.050Z",
+                    "duration_ms": 40,
+                    "status_code": "error",
+                },
+                {
+                    "trace_id": "topology-b",
+                    "span_id": "api-root-2",
+                    "name": "POST /orders",
+                    "start_time": "2026-06-20T10:01:00Z",
+                    "duration_ms": 200,
+                    "status_code": "error",
+                    "source": "api",
+                },
+                {
+                    "trace_id": "topology-b",
+                    "span_id": "worker-child-2",
+                    "parent_span_id": "api-root-2",
+                    "name": "process order",
+                    "start_time": "2026-06-20T10:01:00.010Z",
+                    "duration_ms": 70,
+                    "status_code": "ok",
+                    "source": "worker",
+                },
+            ]
+        },
+    )
+    response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={"project_id": project["id"]},
+    )
+
+    assert ingest_response.status_code == 202
+    assert response.status_code == 200
+    body = response.json()
+    nodes = {node["source"]: node for node in body["nodes"]}
+    edges = {(edge["from_source"], edge["to_source"]): edge for edge in body["edges"]}
+    assert list(nodes) == ["api", "worker", "db", "orphan"]
+    assert nodes["api"]["span_count"] == 3
+    assert nodes["api"]["trace_count"] == 2
+    assert nodes["api"]["error_span_count"] == 2
+    assert abs(nodes["api"]["avg_duration_ms"] - (320 / 3)) < 0.000001
+    assert nodes["api"]["max_duration_ms"] == 200
+    assert nodes["worker"] == {
+        "source": "worker",
+        "span_count": 2,
+        "trace_count": 2,
+        "error_span_count": 1,
+        "avg_duration_ms": 60,
+        "max_duration_ms": 70,
+    }
+    assert nodes["db"]["span_count"] == 1
+    assert nodes["orphan"]["error_span_count"] == 1
+    assert edges == {
+        ("api", "worker"): {
+            "from_source": "api",
+            "to_source": "worker",
+            "call_count": 2,
+            "error_count": 1,
+            "avg_duration_ms": 60,
+            "max_duration_ms": 70,
+        },
+        ("worker", "db"): {
+            "from_source": "worker",
+            "to_source": "db",
+            "call_count": 1,
+            "error_count": 0,
+            "avg_duration_ms": 30,
+            "max_duration_ms": 30,
+        },
+    }
+
+
+def test_query_trace_topology_filters_time_source_and_limit() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-topology-filter-owner",
+        project_key="query-trace-topology-filter-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "topology-filter-a",
+                    "span_id": "api-root",
+                    "name": "api root",
+                    "start_time": "2026-06-20T10:00:00Z",
+                    "duration_ms": 10,
+                    "source": "api",
+                },
+                {
+                    "trace_id": "topology-filter-a",
+                    "span_id": "worker-child",
+                    "parent_span_id": "api-root",
+                    "name": "worker child",
+                    "start_time": "2026-06-20T10:00:01Z",
+                    "duration_ms": 20,
+                    "source": "worker",
+                },
+                {
+                    "trace_id": "topology-filter-a",
+                    "span_id": "db-child",
+                    "parent_span_id": "worker-child",
+                    "name": "db child",
+                    "start_time": "2026-06-20T10:00:02Z",
+                    "duration_ms": 30,
+                    "source": "db",
+                },
+                {
+                    "trace_id": "topology-filter-b",
+                    "span_id": "worker-root-late",
+                    "name": "late worker",
+                    "start_time": "2026-06-20T11:00:00Z",
+                    "duration_ms": 40,
+                    "source": "worker",
+                },
+                {
+                    "trace_id": "topology-filter-b",
+                    "span_id": "queue-child-late",
+                    "parent_span_id": "worker-root-late",
+                    "name": "late queue",
+                    "start_time": "2026-06-20T11:00:01Z",
+                    "duration_ms": 50,
+                    "source": "queue",
+                },
+            ]
+        },
+    )
+    source_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={
+            "project_id": project["id"],
+            "source": " worker ",
+            "occurred_from": "2026-06-20T09:00:00Z",
+            "occurred_to": "2026-06-20T10:30:00Z",
+        },
+    )
+    limited_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={"project_id": project["id"], "limit": 2},
+    )
+    valid_trimmed_source_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={"project_id": project["id"], "source": f"  {'w' * 128}  "},
+    )
+    long_source_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={"project_id": project["id"], "source": "w" * 129},
+    )
+
+    assert ingest_response.status_code == 202
+    assert source_response.status_code == 200
+    source_body = source_response.json()
+    assert [node["source"] for node in source_body["nodes"]] == ["worker", "api", "db"]
+    assert [
+        (edge["from_source"], edge["to_source"], edge["call_count"])
+        for edge in source_body["edges"]
+    ] == [
+        ("api", "worker", 1),
+        ("worker", "db", 1),
+    ]
+    assert limited_response.status_code == 200
+    limited_body = limited_response.json()
+    assert len(limited_body["nodes"]) == 2
+    assert {node["source"] for node in limited_body["nodes"]} == {"worker", "api"}
+    assert [(edge["from_source"], edge["to_source"]) for edge in limited_body["edges"]] == [
+        ("api", "worker")
+    ]
+    assert valid_trimmed_source_response.status_code == 200
+    assert valid_trimmed_source_response.json() == {"nodes": [], "edges": []}
+    assert long_source_response.status_code == 422
+    assert long_source_response.json()["detail"] == "source 长度不能超过 128"
+
+
+def test_query_trace_topology_empty_and_permissions() -> None:
+    client = build_client()
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-topology-empty-owner",
+        project_key="query-trace-topology-empty-project",
+    )
+    other_headers = create_auth_headers(client, username="query-trace-topology-other")
+
+    empty_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={"project_id": project["id"]},
+    )
+    unauthorized_project_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=other_headers,
+        params={"project_id": project["id"]},
+    )
+    missing_project_id_response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+    )
+
+    assert empty_response.status_code == 200
+    assert empty_response.json() == {"nodes": [], "edges": []}
+    assert unauthorized_project_response.status_code == 404
+    assert unauthorized_project_response.json()["detail"] == "项目不存在"
+    assert missing_project_id_response.status_code == 422
+
+
 def test_query_metrics_lists_ingested_metrics_with_filters() -> None:
     client = build_client()
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -2129,6 +2409,7 @@ def test_query_endpoints_hide_missing_project_from_superuser() -> None:
         "/api/v1/query/logs",
         "/api/v1/query/metrics",
         "/api/v1/query/traces",
+        "/api/v1/query/traces/topology",
         "/api/v1/query/metrics/aggregate",
     ):
         response = client.get(
@@ -3136,6 +3417,11 @@ def test_query_traces_requires_user_token() -> None:
     client = build_client()
 
     response = client.get("/api/v1/query/traces")
+    topology_response = client.get(
+        "/api/v1/query/traces/topology",
+        params={"project_id": 1},
+    )
 
     assert response.status_code == 401
+    assert topology_response.status_code == 401
     assert response.json()["detail"] == "缺少访问令牌"

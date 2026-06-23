@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from math import isfinite
 from typing import Any, Literal
@@ -18,6 +18,9 @@ from app.repositories.query import (
     QueryCursor,
     QueryRepository,
     TraceQueryRecord,
+    TraceTopologyEdgeRecord,
+    TraceTopologyNodeRecord,
+    TraceTopologyRecord,
 )
 from app.services.errors import ResourceNotFoundError
 from app.services.permissions import PermissionService
@@ -60,6 +63,86 @@ class LogContext:
     target: LogQueryRecord
     before: list[LogQueryRecord]
     after: list[LogQueryRecord]
+
+
+@dataclass
+class _TopologyNodeAccumulator:
+    source: str
+    span_count: int = 0
+    trace_ids: set[str] = field(default_factory=set)
+    error_span_count: int = 0
+    duration_sum_ms: float = 0.0
+    duration_count: int = 0
+    max_duration_ms: float | None = None
+
+    def add_span(
+        self,
+        *,
+        trace_id: str,
+        duration_ms: float | None,
+        is_error: bool,
+    ) -> None:
+        self.span_count += 1
+        if trace_id:
+            self.trace_ids.add(trace_id)
+        if is_error:
+            self.error_span_count += 1
+        self.add_duration(duration_ms)
+
+    def add_duration(self, duration_ms: float | None) -> None:
+        if duration_ms is None or not isfinite(duration_ms):
+            return
+        self.duration_sum_ms += duration_ms
+        self.duration_count += 1
+        if self.max_duration_ms is None or duration_ms > self.max_duration_ms:
+            self.max_duration_ms = duration_ms
+
+    def to_record(self) -> TraceTopologyNodeRecord:
+        return TraceTopologyNodeRecord(
+            source=self.source,
+            span_count=self.span_count,
+            trace_count=len(self.trace_ids),
+            error_span_count=self.error_span_count,
+            avg_duration_ms=_average_duration(self.duration_sum_ms, self.duration_count),
+            max_duration_ms=self.max_duration_ms,
+        )
+
+
+@dataclass
+class _TopologyEdgeAccumulator:
+    from_source: str
+    to_source: str
+    call_count: int = 0
+    error_count: int = 0
+    duration_sum_ms: float = 0.0
+    duration_count: int = 0
+    max_duration_ms: float | None = None
+
+    def add_call(
+        self,
+        *,
+        duration_ms: float | None,
+        is_error: bool,
+    ) -> None:
+        self.call_count += 1
+        if is_error:
+            self.error_count += 1
+        if duration_ms is None or not isfinite(duration_ms):
+            return
+        self.duration_sum_ms += duration_ms
+        self.duration_count += 1
+        if self.max_duration_ms is None or duration_ms > self.max_duration_ms:
+            self.max_duration_ms = duration_ms
+
+    def to_record(self) -> TraceTopologyEdgeRecord:
+        return TraceTopologyEdgeRecord(
+            from_source=self.from_source,
+            to_source=self.to_source,
+            call_count=self.call_count,
+            error_count=self.error_count,
+            avg_duration_ms=_average_duration(self.duration_sum_ms, self.duration_count),
+            max_duration_ms=self.max_duration_ms,
+        )
 
 
 class QueryService:
@@ -277,6 +360,30 @@ class QueryService:
             after=self._repository.list_log_context_after(target=target, limit=after),
         )
 
+    def get_trace_topology(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int,
+        source: str | None,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+        limit: int,
+    ) -> TraceTopologyRecord:
+        accessible_project_ids = self._accessible_project_ids(user, project_id)
+        normalized_source = _normalize_optional_text(
+            source,
+            field_name="source",
+            max_length=128,
+        )
+        spans = self._repository.list_trace_spans_for_topology(
+            project_ids=accessible_project_ids,
+            project_id=project_id,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+        )
+        return _build_trace_topology(spans, source=normalized_source, limit=limit)
+
     def list_metrics(
         self,
         *,
@@ -393,6 +500,112 @@ def _normalize_optional_duration_ms(
     if value < 0:
         raise QueryFilterError(f"{field_name} 不能小于 0")
     return value
+
+
+def _average_duration(total_duration_ms: float, count: int) -> float | None:
+    if count == 0:
+        return None
+    return total_duration_ms / count
+
+
+def _normalized_source(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _is_error_status(status_code: str | None) -> bool:
+    return status_code is not None and status_code.strip().lower() == "error"
+
+
+def _build_trace_topology(
+    spans: list[TraceQueryRecord],
+    *,
+    source: str | None,
+    limit: int,
+) -> TraceTopologyRecord:
+    nodes_by_source: dict[str, _TopologyNodeAccumulator] = {}
+    spans_by_trace_and_span: dict[tuple[str, str], TraceQueryRecord] = {}
+
+    for span in spans:
+        span_source = _normalized_source(span.source)
+        if span.trace_id and span.span_id:
+            spans_by_trace_and_span.setdefault((span.trace_id, span.span_id), span)
+        if span_source is None:
+            continue
+
+        node = nodes_by_source.setdefault(
+            span_source,
+            _TopologyNodeAccumulator(source=span_source),
+        )
+        node.add_span(
+            trace_id=span.trace_id,
+            duration_ms=span.duration_ms,
+            is_error=_is_error_status(span.status_code),
+        )
+
+    edges_by_sources: dict[tuple[str, str], _TopologyEdgeAccumulator] = {}
+    for child in spans:
+        if not child.trace_id or not child.parent_span_id:
+            continue
+        parent = spans_by_trace_and_span.get((child.trace_id, child.parent_span_id))
+        if parent is None:
+            continue
+
+        from_source = _normalized_source(parent.source)
+        to_source = _normalized_source(child.source)
+        if from_source is None or to_source is None or from_source == to_source:
+            continue
+
+        edge = edges_by_sources.setdefault(
+            (from_source, to_source),
+            _TopologyEdgeAccumulator(from_source=from_source, to_source=to_source),
+        )
+        edge.add_call(
+            duration_ms=child.duration_ms,
+            is_error=_is_error_status(child.status_code),
+        )
+
+    visible_sources = set(nodes_by_source)
+    if source is not None:
+        visible_sources = set()
+        if source in nodes_by_source:
+            visible_sources.add(source)
+        for edge in edges_by_sources.values():
+            if edge.from_source == source or edge.to_source == source:
+                visible_sources.add(edge.from_source)
+                visible_sources.add(edge.to_source)
+
+    node_records = [
+        node.to_record()
+        for node_source, node in nodes_by_source.items()
+        if node_source in visible_sources
+    ]
+    node_records.sort(
+        key=lambda node: (
+            0 if source is not None and node.source == source else 1,
+            -node.span_count,
+            node.source,
+        )
+    )
+    limited_sources = {node.source for node in node_records[:limit]}
+    edge_records = [
+        edge.to_record()
+        for edge in edges_by_sources.values()
+        if edge.from_source in limited_sources and edge.to_source in limited_sources
+    ]
+    edge_records.sort(
+        key=lambda edge: (
+            -edge.call_count,
+            edge.from_source,
+            edge.to_source,
+        )
+    )
+    return TraceTopologyRecord(
+        nodes=node_records[:limit],
+        edges=edge_records,
+    )
 
 
 def _decode_cursor(

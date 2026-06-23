@@ -106,6 +106,32 @@ class MetricAggregateRecord:
     unit: str | None
 
 
+@dataclass(frozen=True)
+class TraceTopologyNodeRecord:
+    source: str
+    span_count: int
+    trace_count: int
+    error_span_count: int
+    avg_duration_ms: float | None
+    max_duration_ms: float | None
+
+
+@dataclass(frozen=True)
+class TraceTopologyEdgeRecord:
+    from_source: str
+    to_source: str
+    call_count: int
+    error_count: int
+    avg_duration_ms: float | None
+    max_duration_ms: float | None
+
+
+@dataclass(frozen=True)
+class TraceTopologyRecord:
+    nodes: list[TraceTopologyNodeRecord]
+    edges: list[TraceTopologyEdgeRecord]
+
+
 class QueryRepository(Protocol):
     def list_events(
         self,
@@ -154,6 +180,15 @@ class QueryRepository(Protocol):
         occurred_to: datetime | None,
         limit: int,
         cursor: QueryCursor | None,
+    ) -> list[TraceQueryRecord]: ...
+
+    def list_trace_spans_for_topology(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
     ) -> list[TraceQueryRecord]: ...
 
     def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None: ...
@@ -636,6 +671,35 @@ class SqlAlchemyQueryRepository:
             IngestRecordModel.received_at.desc(),
             IngestRecordModel.id.desc(),
         ).limit(limit)
+        return [_trace_query_record(model) for model in self._session.scalars(statement)]
+
+    def list_trace_spans_for_topology(
+        self,
+        *,
+        project_ids: list[int] | None,
+        project_id: int,
+        occurred_from: datetime | None,
+        occurred_to: datetime | None,
+    ) -> list[TraceQueryRecord]:
+        if project_ids is not None and not project_ids:
+            return []
+
+        statement: Select[tuple[IngestRecordModel]] = select(IngestRecordModel).where(
+            IngestRecordModel.kind == IngestKind.trace.value
+        )
+        statement = _apply_common_filters(
+            statement,
+            project_ids=project_ids,
+            project_id=project_id,
+            source=None,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            cursor=None,
+        )
+        statement = statement.order_by(
+            IngestRecordModel.project_id,
+            IngestRecordModel.id,
+        )
         return [_trace_query_record(model) for model in self._session.scalars(statement)]
 
     def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None:

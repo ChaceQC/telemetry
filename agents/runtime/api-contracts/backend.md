@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0045`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events、metrics、logs 和 traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入和关系库 trace span 查询最小基础。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0051`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -719,7 +719,48 @@
 ```
 
 - 分页规则：按 `received_at`、`id` 倒序返回；游标编码包含查询类型、当前筛选条件（含规范化后的 `trace_id`、`span_id`、`status_code` 和 `duration_min_ms` / `duration_max_ms`）、`received_at` 和 `id`，避免同一接收时间记录翻页重复或漏项。Trace 游标只能用于 trace 查询，并且必须匹配当前筛选条件；非法、损坏、不匹配当前查询类型或不匹配当前筛选条件的游标返回 `422 cursor 无效或不匹配当前查询`，不暴露内部解码细节。前端修改筛选条件时应丢弃旧游标并重新查询第一页。
-- 当前查询来源：关系库 `ingest_records` 的 `kind=trace` 记录；响应字段从 T-0044 trace payload 顶层关键字段展开，业务 `payload` 和 `attributes` 保留为对象，不默认展开 `raw`。带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；`status_code` 按 trace payload 顶层字符串精确匹配，`duration_min_ms` / `duration_max_ms` 按 trace payload 顶层 `duration_ms` 数值比较；`occurred_from` / `occurred_to` 用 span `start_time` 入库后的 `occurred_at` 做范围过滤，但列表排序和 cursor 沿用既有查询 API 的 `received_at` + `id` 稳定排序。ClickHouse trace 查询、trace tree/waterfall、服务拓扑、跨信号关联和日志互跳后续补齐。
+- 当前查询来源：关系库 `ingest_records` 的 `kind=trace` 记录；响应字段从 T-0044 trace payload 顶层关键字段展开，业务 `payload` 和 `attributes` 保留为对象，不默认展开 `raw`。带 `project_id` 或项目权限过滤的分页可复用 `(project_id, kind, received_at, id)` 组合索引；`status_code` 按 trace payload 顶层字符串精确匹配，`duration_min_ms` / `duration_max_ms` 按 trace payload 顶层 `duration_ms` 数值比较；`occurred_from` / `occurred_to` 用 span `start_time` 入库后的 `occurred_at` 做范围过滤，但列表排序和 cursor 沿用既有查询 API 的 `received_at` + `id` 稳定排序。ClickHouse trace 查询、跨信号关联和日志互跳后续补齐；服务拓扑最小查询见 API-0022。
+
+## API-0022 Trace 服务拓扑查询
+
+- `GET /api/v1/query/traces/topology`
+- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 查询参数：
+  - `project_id`：必填，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
+  - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按 trace span `occurred_at` 过滤；trace 摄入时该字段来自 span `start_time`。
+  - `source`：可选，来源，长度 `1..128`；后端会去除前后空白，空白字符串按未传处理。传入后返回该 source 及其相邻 source 组成的子图。
+  - `limit`：可选，默认 `100`，范围 `1..500`；限制返回节点数，并且只返回两端节点都在返回节点集合中的边。
+- 响应：`nodes` 为服务节点数组，`edges` 为 source-to-source 调用边数组；本接口不返回 cursor。
+
+```json
+{
+  "nodes": [
+    {
+      "source": "api",
+      "span_count": 12,
+      "trace_count": 4,
+      "error_span_count": 2,
+      "avg_duration_ms": 38.5,
+      "max_duration_ms": 120
+    }
+  ],
+  "edges": [
+    {
+      "from_source": "api",
+      "to_source": "worker",
+      "call_count": 6,
+      "error_count": 1,
+      "avg_duration_ms": 24.5,
+      "max_duration_ms": 70
+    }
+  ]
+}
+```
+
+- 推导规则：查询来源为关系库 `ingest_records.kind=trace`。后端把 trace span 的 `source` 作为服务节点；在同一 `trace_id` 内，若 child span 的 `parent_span_id` 指向 parent span 的 `span_id`，且 parent/child 都有非空 `source` 且不同，则形成 `from_source -> to_source` 边。缺 parent、缺 source 或同 source parent-child 不生成边。
+- 聚合规则：节点按 source 汇总 `span_count`、去重 `trace_count`、`error_span_count`、`avg_duration_ms` 和 `max_duration_ms`；边按 `(from_source, to_source)` 汇总 `call_count`、`error_count`、`avg_duration_ms` 和 `max_duration_ms`。错误计数当前按 trace payload 顶层 `status_code` 规范化后等于 `error` 统计；duration 聚合使用 trace payload 顶层 `duration_ms`，缺失或非有限值不参与平均和最大值。
+- 排序规则：节点默认按 `span_count` 降序、`source` 升序返回；传入 `source` 时目标 source 排在首位。边按 `call_count` 降序、`from_source`、`to_source` 升序返回。
+- 当前边界：不接 ClickHouse，不做前端拓扑图，不做复杂布局，不做跨项目聚合，不做任意标签拓扑。
 
 ## API-0018 日志上下文查询
 
