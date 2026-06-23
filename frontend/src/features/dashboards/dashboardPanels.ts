@@ -1,4 +1,4 @@
-import type { DashboardJson } from '../../api/dashboards';
+import type { DashboardJson, DashboardPanelPreviewResponse } from '../../api/dashboards';
 
 export const DASHBOARD_PANEL_TYPES = ['metrics', 'logs', 'events', 'traces', 'topology'] as const;
 export const DASHBOARD_PANEL_ID_MAX_LENGTH = 64;
@@ -9,6 +9,8 @@ const DASHBOARD_PANEL_QUERY_SUMMARY_MAX_LENGTH = 180;
 const DASHBOARD_PANEL_QUERY_VALUE_MAX_LENGTH = 48;
 const DASHBOARD_PANEL_QUERY_TOP_LEVEL_LIMIT = 4;
 const DASHBOARD_PANEL_QUERY_NESTED_LIMIT = 3;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT = 3;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_TEXT_MAX_LENGTH = 96;
 
 export type DashboardPanelType = (typeof DASHBOARD_PANEL_TYPES)[number];
 
@@ -92,6 +94,18 @@ export type DashboardPanelPreviewModel =
       columns: number;
       panels: DashboardPanelPreviewItem[];
     };
+
+export type DashboardPanelRemotePreviewLine = {
+  label: string;
+  value: string;
+};
+
+export type DashboardPanelRemotePreviewModel = {
+  title: string;
+  summary: string;
+  lines: DashboardPanelRemotePreviewLine[];
+  emptyMessage: string | null;
+};
 
 type DashboardPanelsParseResult =
   | {
@@ -222,6 +236,90 @@ export function summarizeDashboardPanelQuery(query: Record<string, unknown>) {
   }
 
   return truncateText(`query { ${parts.join(', ')} }`, DASHBOARD_PANEL_QUERY_SUMMARY_MAX_LENGTH);
+}
+
+export function createDashboardPanelRemotePreviewModel(
+  response: DashboardPanelPreviewResponse
+): DashboardPanelRemotePreviewModel {
+  const preview = response.preview;
+
+  if (preview.kind === 'metrics') {
+    return {
+      title: '指标聚合',
+      summary: `${preview.items.length} 条聚合结果`,
+      lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
+        label: compactPreviewText(`${item.name} / ${formatPreviewSource(item.source)}`),
+        value: compactPreviewText(
+          `${item.aggregation} ${formatPreviewNumber(item.value)}${item.unit ? ` ${item.unit}` : ''} / 样本 ${
+            item.sample_count
+          } / ${formatPreviewTime(item.window_start)} - ${formatPreviewTime(item.window_end)}`
+        )
+      })),
+      emptyMessage: preview.items.length === 0 ? '没有匹配的指标聚合结果。' : null
+    };
+  }
+
+  if (preview.kind === 'logs') {
+    return {
+      title: '日志样例',
+      summary: `${preview.items.length} 条最近日志`,
+      lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
+        label: compactPreviewText(`${item.level} / ${formatPreviewSource(item.source)} / ${formatPreviewTime(item.received_at)}`),
+        value: compactPreviewText(item.message)
+      })),
+      emptyMessage: preview.items.length === 0 ? '没有匹配的日志样例。' : null
+    };
+  }
+
+  if (preview.kind === 'events') {
+    return {
+      title: '事件样例',
+      summary: `${preview.items.length} 条最近事件`,
+      lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
+        label: compactPreviewText(`${item.type} / ${formatPreviewSource(item.source)} / ${formatPreviewTime(item.received_at)}`),
+        value: compactPreviewText(formatPreviewPayload(item.payload))
+      })),
+      emptyMessage: preview.items.length === 0 ? '没有匹配的事件样例。' : null
+    };
+  }
+
+  if (preview.kind === 'traces') {
+    return {
+      title: 'Trace 样例',
+      summary: `${preview.items.length} 条最近 span`,
+      lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
+        label: compactPreviewText(`${item.trace_id} / ${item.span_id}`),
+        value: compactPreviewText(
+          `${item.name} / ${item.status_code ?? 'unknown'} / ${formatPreviewDuration(item.duration_ms)} / ${formatPreviewSource(
+            item.source
+          )}`
+        )
+      })),
+      emptyMessage: preview.items.length === 0 ? '没有匹配的 trace 样例。' : null
+    };
+  }
+
+  return {
+    title: 'Topology 摘要',
+    summary: `${preview.nodes.length} 个节点 / ${preview.edges.length} 条边`,
+    lines: [
+      ...preview.edges.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((edge) => ({
+        label: compactPreviewText(`${edge.from_source} -> ${edge.to_source}`),
+        value: compactPreviewText(
+          `调用 ${edge.call_count} / 错误 ${edge.error_count} / avg ${formatPreviewDuration(
+            edge.avg_duration_ms
+          )} / max ${formatPreviewDuration(edge.max_duration_ms)}`
+        )
+      })),
+      ...preview.nodes.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((node) => ({
+        label: compactPreviewText(`node ${node.source}`),
+        value: compactPreviewText(
+          `spans ${node.span_count} / traces ${node.trace_count} / errors ${node.error_span_count}`
+        )
+      }))
+    ].slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT),
+    emptyMessage: preview.nodes.length === 0 && preview.edges.length === 0 ? '没有可展示的拓扑节点或边。' : null
+  };
 }
 
 export function createDefaultDashboardPanelDraft(panels: Array<Pick<DashboardPanel, 'id'>> = []): DashboardPanelDraft {
@@ -862,4 +960,49 @@ function truncateText(value: string, maxLength: number) {
 
 function formatPanelNumber(value: number) {
   return Number.isInteger(value) ? `${value}` : `${value}`;
+}
+
+function compactPreviewText(value: string) {
+  return truncateText(value.replace(/\s+/g, ' ').trim() || '-', DASHBOARD_PANEL_REMOTE_PREVIEW_TEXT_MAX_LENGTH);
+}
+
+function formatPreviewSource(value: string | null) {
+  return value?.trim() || 'unknown';
+}
+
+function formatPreviewTime(value: string | null) {
+  if (!value) {
+    return '-';
+  }
+
+  return value.replace('T', ' ').replace(/(\.\d+)?Z$/, 'Z');
+}
+
+function formatPreviewNumber(value: number) {
+  if (!Number.isFinite(value)) {
+    return '-';
+  }
+
+  return Number.isInteger(value) ? `${value}` : `${Math.round(value * 1000) / 1000}`;
+}
+
+function formatPreviewDuration(value: number | null) {
+  if (value === null) {
+    return '-';
+  }
+
+  return `${formatPreviewNumber(value)}ms`;
+}
+
+function formatPreviewPayload(value: Record<string, unknown>) {
+  const keys = Object.keys(value).sort();
+
+  if (keys.length === 0) {
+    return 'payload {}';
+  }
+
+  return `payload { ${keys
+    .slice(0, DASHBOARD_PANEL_QUERY_NESTED_LIMIT)
+    .map((key) => `${key}: ${summarizeDashboardPanelQueryValue(value[key], 1)}`)
+    .join(', ')}${keys.length > DASHBOARD_PANEL_QUERY_NESTED_LIMIT ? ', ...' : ''} }`;
 }

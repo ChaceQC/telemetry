@@ -995,6 +995,21 @@ h2 {
   background: #ffffff;
 }
 
+.dashboard-panel-preview-actions {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.dashboard-panel-preview-actions .text-button {
+  min-height: 32px;
+  padding: 6px 9px;
+}
+
+.dashboard-panel-preview-actions .lucide-loader-circle {
+  animation: spin 900ms linear infinite;
+}
+
 .dashboard-panel-preview-card-heading code {
   flex: 0 0 auto;
   color: var(--accent-strong);
@@ -1028,6 +1043,84 @@ h2 {
   color: #26343a;
   font-size: 12px;
   line-height: 1.45;
+}
+
+.dashboard-panel-remote-preview {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid #e1eaec;
+}
+
+.dashboard-panel-remote-preview--muted,
+.dashboard-panel-remote-preview--error {
+  padding: 10px;
+  border: 1px dashed #d4e1e3;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: #fbfcfc;
+}
+
+.dashboard-panel-remote-preview--error {
+  border-color: #f0c5bf;
+  color: var(--danger);
+  background: #fff4f2;
+}
+
+.dashboard-panel-remote-preview-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dashboard-panel-remote-preview strong,
+.dashboard-panel-remote-preview span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-panel-remote-preview strong {
+  color: #172026;
+  font-size: 12px;
+}
+
+.dashboard-panel-remote-preview span,
+.dashboard-panel-remote-preview-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-panel-remote-preview-list {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+}
+
+.dashboard-panel-remote-preview-list div {
+  min-width: 0;
+}
+
+.dashboard-panel-remote-preview-list dt,
+.dashboard-panel-remote-preview-list dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-panel-remote-preview-list dt {
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.dashboard-panel-remote-preview-list dd {
+  margin: 2px 0 0;
+  color: #26343a;
 }
 
 .dashboard-panel-form {

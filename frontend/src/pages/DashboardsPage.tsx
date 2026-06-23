@@ -22,9 +22,11 @@ import {
   createDashboard,
   deleteDashboard,
   listDashboards,
+  previewDashboardPanel,
   updateDashboard,
   type Dashboard,
-  type DashboardListParams
+  type DashboardListParams,
+  type DashboardPanelPreviewResponse
 } from '../api/dashboards';
 import { formatApiErrorMessage } from '../api/http';
 import { listProjects, type Project } from '../api/settings';
@@ -33,7 +35,8 @@ import { useAuth } from '../features/auth/useAuth';
 import {
   DASHBOARD_JSON_TEXT_MAX_LENGTH,
   createDefaultDashboardForm,
-  dashboardToEditForm
+  dashboardToEditForm,
+  formatDashboardJson
 } from '../features/dashboards/dashboardJson';
 import {
   buildDashboardPatchPayload,
@@ -43,6 +46,7 @@ import {
 import {
   DASHBOARD_PANEL_TYPES,
   createDashboardPanelPreviewModel,
+  createDashboardPanelRemotePreviewModel,
   createDefaultDashboardPanelDraft,
   dashboardPanelToDraft,
   readDashboardPanelsFromConfigText,
@@ -50,6 +54,7 @@ import {
   upsertDashboardPanelInConfigText,
   type DashboardPanel,
   type DashboardPanelPreviewModel,
+  type DashboardPanelPreviewItem,
   type DashboardPanelDraft,
   type DashboardPanelsReadResult
 } from '../features/dashboards/dashboardPanels';
@@ -106,6 +111,10 @@ export function DashboardsPage() {
     scopeKey: '',
     value: null
   });
+  const [selectedPreviewPanelState, setSelectedPreviewPanelState] = useState<ScopedState<string | null>>({
+    scopeKey: '',
+    value: null
+  });
   const [deleteLocked, setDeleteLocked] = useState(false);
   const deleteInFlightRef = useRef(false);
   const [localCreateErrorState, setLocalCreateErrorState] = useState<ScopedState<string | null>>({
@@ -154,40 +163,46 @@ export function DashboardsPage() {
     retry: false
   });
 
-  const unauthorizedError =
+  const baseUnauthorizedError =
     findUnauthorizedApiError([projectsQuery.error, dashboardsQuery.error]) ?? activeFormUnauthorizedError;
-  const authState = resolveSettingsAuthState({
+  const baseAuthState = resolveSettingsAuthState({
     isAuthenticated: auth.isAuthenticated,
     isRestoring: auth.isRestoring,
-    authError: unauthorizedError
+    authError: baseUnauthorizedError
   });
-  const canUseAuthData = authState.shouldRequest;
-  const canUseDashboardData = canUseAuthData && !isProjectIdInputInvalid;
-  const projectIdInput = canUseAuthData ? scopedProjectIdInput : '';
-  const visibleProjectId = canUseAuthData ? normalizedProjectId : null;
-  const projectIdInputInvalidForDisplay = canUseAuthData && isProjectIdInputInvalid;
+  const canUseAuthDataBeforePanelPreview = baseAuthState.shouldRequest;
+  const canUseDashboardData = canUseAuthDataBeforePanelPreview && !isProjectIdInputInvalid;
+  const projectIdInput = canUseAuthDataBeforePanelPreview ? scopedProjectIdInput : '';
+  const visibleProjectId = canUseAuthDataBeforePanelPreview ? normalizedProjectId : null;
+  const projectIdInputInvalidForDisplay = canUseAuthDataBeforePanelPreview && isProjectIdInputInvalid;
   const activeCreateForm =
-    canUseAuthData && createFormState.scopeKey === pageScopeKey
+    canUseAuthDataBeforePanelPreview && createFormState.scopeKey === pageScopeKey
       ? createFormState.value
-      : createDefaultDashboardForm(canUseAuthData && normalizedProjectId ? `${normalizedProjectId}` : '');
+      : createDefaultDashboardForm(
+          canUseAuthDataBeforePanelPreview && normalizedProjectId ? `${normalizedProjectId}` : ''
+        );
   const activeEditForm =
     canUseDashboardData && editFormState.scopeKey === pageScopeKey
       ? editFormState.value
       : dashboardToEditForm(null);
   const localCreateError =
-    canUseAuthData && localCreateErrorState.scopeKey === pageScopeKey ? localCreateErrorState.value : null;
+    canUseAuthDataBeforePanelPreview && localCreateErrorState.scopeKey === pageScopeKey
+      ? localCreateErrorState.value
+      : null;
   const localEditError =
     canUseDashboardData && localEditErrorState.scopeKey === pageScopeKey ? localEditErrorState.value : null;
-  const projects = canUseAuthData ? projectsQuery.data ?? emptyProjects : emptyProjects;
+  const projects = canUseAuthDataBeforePanelPreview ? projectsQuery.data ?? emptyProjects : emptyProjects;
   const dashboards = canUseDashboardData ? dashboardsQuery.data?.items ?? emptyDashboards : emptyDashboards;
   const total = canUseDashboardData ? dashboardsQuery.data?.total ?? dashboards.length : 0;
   const selectedProject = visibleProjectId
     ? projects.find((project) => project.id === visibleProjectId) ?? null
     : null;
   const anyLoading =
-    canUseAuthData && (projectsQuery.isLoading || (!projectIdInputInvalidForDisplay && dashboardsQuery.isLoading));
+    canUseAuthDataBeforePanelPreview &&
+    (projectsQuery.isLoading || (!projectIdInputInvalidForDisplay && dashboardsQuery.isLoading));
   const anyError =
-    canUseAuthData && (projectsQuery.isError || (!projectIdInputInvalidForDisplay && dashboardsQuery.isError));
+    canUseAuthDataBeforePanelPreview &&
+    (projectsQuery.isError || (!projectIdInputInvalidForDisplay && dashboardsQuery.isError));
   const pageStart = total > 0 ? dashboardOffset + 1 : 0;
   const pageEnd = Math.min(dashboardOffset + dashboards.length, total);
   const hasPreviousPage = dashboardOffset > 0;
@@ -208,6 +223,7 @@ export function DashboardsPage() {
       setProjectIdInputState({ scopeKey: authScopeKey, value: nextProjectId });
       setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
       setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
+      setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id), value: null });
       setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
       setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
       setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -227,6 +243,7 @@ export function DashboardsPage() {
       updateDashboard(dashboard.project_id, dashboard.id, payload),
     onSuccess: (dashboard) => {
       setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(dashboard) });
+      setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id), value: null });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
       setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
@@ -284,6 +301,54 @@ export function DashboardsPage() {
     selectedDashboard && panelDraftState.scopeKey === panelScopeKey
       ? panelDraftState.value
       : createDefaultDashboardPanelDraft(visiblePanels);
+  const remotePreviewPanelId =
+    selectedDashboard && selectedPreviewPanelState.scopeKey === panelScopeKey ? selectedPreviewPanelState.value : null;
+  const savedPanelReadResult = selectedDashboard
+    ? readDashboardPanelsFromConfigText(formatDashboardJson(selectedDashboard.config))
+    : createEmptyPanelReadResult();
+  const hasUnsavedDashboardConfig =
+    selectedDashboard !== null && visibleEditForm.configText !== formatDashboardJson(selectedDashboard.config);
+  const remotePreviewPanel =
+    selectedDashboard && panelPreviewModel.state === 'ready' && remotePreviewPanelId
+      ? panelPreviewModel.panels.find((panel) => panel.id === remotePreviewPanelId) ?? null
+      : null;
+  const canRequestRemotePreview =
+    canUseAuthDataBeforePanelPreview &&
+    Boolean(selectedDashboard) &&
+    !hasUnsavedDashboardConfig &&
+    Boolean(remotePreviewPanel) &&
+    Boolean(
+      remotePreviewPanelId &&
+        savedPanelReadResult.ok &&
+        savedPanelReadResult.panels.some((panel) => panel.id === remotePreviewPanelId)
+    );
+  const panelPreviewQuery = useQuery({
+    queryKey:
+      selectedDashboard && remotePreviewPanelId
+        ? dashboardQueryKeys.panelPreview(
+            auth.sessionRevision,
+            selectedDashboard.project_id,
+            selectedDashboard.id,
+            remotePreviewPanelId
+          )
+        : dashboardQueryKeys.panelPreview(auth.sessionRevision, 0, 0, ''),
+    queryFn: () => {
+      if (!selectedDashboard || !remotePreviewPanelId) {
+        throw new Error('请选择要预览的 panel。');
+      }
+
+      return previewDashboardPanel(selectedDashboard.project_id, selectedDashboard.id, remotePreviewPanelId);
+    },
+    enabled: canRequestRemotePreview,
+    retry: false
+  });
+  const unauthorizedError = baseUnauthorizedError;
+  const authState = resolveSettingsAuthState({
+    isAuthenticated: auth.isAuthenticated,
+    isRestoring: auth.isRestoring,
+    authError: unauthorizedError
+  });
+  const canUseAuthData = authState.shouldRequest;
 
   function handleProjectSelect(value: string) {
     const nextProjectId = normalizePositiveInteger(value) ? value : '';
@@ -303,6 +368,7 @@ export function DashboardsPage() {
       scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
       value: createDefaultDashboardPanelDraft()
     });
+    setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null), value: null });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -725,6 +791,19 @@ export function DashboardsPage() {
               authReady={authState.shouldRequest}
               selected={Boolean(selectedDashboard)}
               model={panelPreviewModel}
+              selectedPreviewPanelId={remotePreviewPanelId}
+              canRequestRemotePreview={canRequestRemotePreview}
+              hasUnsavedDashboardConfig={hasUnsavedDashboardConfig}
+              remotePreviewData={canRequestRemotePreview ? panelPreviewQuery.data : undefined}
+              remotePreviewError={canRequestRemotePreview && panelPreviewQuery.isError ? panelPreviewQuery.error : null}
+              remotePreviewLoading={canRequestRemotePreview && panelPreviewQuery.isLoading}
+              remotePreviewFetching={canRequestRemotePreview && panelPreviewQuery.isFetching}
+              onSelectPreview={(panelId) => {
+                setSelectedPreviewPanelState({ scopeKey: panelScopeKey, value: panelId });
+                if (panelId === remotePreviewPanelId && canRequestRemotePreview) {
+                  void panelPreviewQuery.refetch();
+                }
+              }}
             />
             <DashboardPanelEditor
               disabled={!authState.shouldRequest || !selectedDashboard}
@@ -952,11 +1031,27 @@ function JsonTextarea({
 function DashboardPanelPreview({
   authReady,
   selected,
-  model
+  model,
+  selectedPreviewPanelId,
+  canRequestRemotePreview,
+  hasUnsavedDashboardConfig,
+  remotePreviewData,
+  remotePreviewError,
+  remotePreviewLoading,
+  remotePreviewFetching,
+  onSelectPreview
 }: {
   authReady: boolean;
   selected: boolean;
   model: DashboardPanelPreviewModel;
+  selectedPreviewPanelId: string | null;
+  canRequestRemotePreview: boolean;
+  hasUnsavedDashboardConfig: boolean;
+  remotePreviewData?: DashboardPanelPreviewResponse;
+  remotePreviewError: unknown | null;
+  remotePreviewLoading: boolean;
+  remotePreviewFetching: boolean;
+  onSelectPreview: (panelId: string) => void;
 }) {
   if (!authReady) {
     return (
@@ -1004,27 +1099,17 @@ function DashboardPanelPreview({
           >
             {model.panels.map((panel) => (
               <li key={`${panel.id}-${panel.originalIndex}`} style={{ gridColumn: panel.gridColumn }}>
-                <div className="dashboard-panel-preview-card">
-                  <div className="dashboard-panel-preview-card-heading">
-                    <div>
-                      <strong>{panel.title}</strong>
-                      <span>
-                        {panel.type} / {panel.id}
-                      </span>
-                    </div>
-                    <code>#{panel.originalIndex + 1}</code>
-                  </div>
-                  <dl className="dashboard-panel-preview-meta">
-                    <div>
-                      <dt>Layout</dt>
-                      <dd>{panel.layoutLabel}</dd>
-                    </div>
-                    <div>
-                      <dt>Query</dt>
-                      <dd>{panel.querySummary}</dd>
-                    </div>
-                  </dl>
-                </div>
+                <DashboardPanelPreviewCard
+                  panel={panel}
+                  selectedPreviewPanelId={selectedPreviewPanelId}
+                  canRequestRemotePreview={canRequestRemotePreview}
+                  hasUnsavedDashboardConfig={hasUnsavedDashboardConfig}
+                  remotePreviewData={remotePreviewData}
+                  remotePreviewError={remotePreviewError}
+                  remotePreviewLoading={remotePreviewLoading}
+                  remotePreviewFetching={remotePreviewFetching}
+                  onSelectPreview={onSelectPreview}
+                />
               </li>
             ))}
           </ol>
@@ -1065,6 +1150,162 @@ function DashboardPanelPreviewHeading({
         <span>只读显示当前 config JSON 中的 panels，不请求图表数据。</span>
       </div>
       <StatusBadge tone={tone}>{statusLabel}</StatusBadge>
+    </div>
+  );
+}
+
+function DashboardPanelPreviewCard({
+  panel,
+  selectedPreviewPanelId,
+  canRequestRemotePreview,
+  hasUnsavedDashboardConfig,
+  remotePreviewData,
+  remotePreviewError,
+  remotePreviewLoading,
+  remotePreviewFetching,
+  onSelectPreview
+}: {
+  panel: DashboardPanelPreviewItem;
+  selectedPreviewPanelId: string | null;
+  canRequestRemotePreview: boolean;
+  hasUnsavedDashboardConfig: boolean;
+  remotePreviewData?: DashboardPanelPreviewResponse;
+  remotePreviewError: unknown | null;
+  remotePreviewLoading: boolean;
+  remotePreviewFetching: boolean;
+  onSelectPreview: (panelId: string) => void;
+}) {
+  const isSelectedForRemotePreview = selectedPreviewPanelId === panel.id;
+  const canRequestThisPanelPreview = canRequestRemotePreview && isSelectedForRemotePreview;
+
+  return (
+    <div className="dashboard-panel-preview-card">
+      <div className="dashboard-panel-preview-card-heading">
+        <div>
+          <strong>{panel.title}</strong>
+          <span>
+            {panel.type} / {panel.id}
+          </span>
+        </div>
+        <code>#{panel.originalIndex + 1}</code>
+      </div>
+      <div className="dashboard-panel-preview-actions">
+        <button
+          className="text-button"
+          type="button"
+          onClick={() => onSelectPreview(panel.id)}
+          title={
+            hasUnsavedDashboardConfig
+              ? '保存 config 后加载查询预览'
+              : isSelectedForRemotePreview
+                ? '刷新查询预览'
+                : '加载查询预览'
+          }
+        >
+          {isSelectedForRemotePreview && remotePreviewFetching ? (
+            <LoaderCircle size={16} aria-hidden="true" />
+          ) : (
+            <RefreshCw size={16} aria-hidden="true" />
+          )}
+          <span>{isSelectedForRemotePreview ? '刷新预览' : '加载预览'}</span>
+        </button>
+      </div>
+      <dl className="dashboard-panel-preview-meta">
+        <div>
+          <dt>Layout</dt>
+          <dd>{panel.layoutLabel}</dd>
+        </div>
+        <div>
+          <dt>Query</dt>
+          <dd>{panel.querySummary}</dd>
+        </div>
+      </dl>
+      {isSelectedForRemotePreview ? (
+        <DashboardPanelRemotePreview
+          canRequest={canRequestThisPanelPreview}
+          hasUnsavedDashboardConfig={hasUnsavedDashboardConfig}
+          data={remotePreviewData}
+          error={canRequestRemotePreview ? remotePreviewError : null}
+          isLoading={canRequestRemotePreview && remotePreviewLoading}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function DashboardPanelRemotePreview({
+  canRequest,
+  hasUnsavedDashboardConfig,
+  data,
+  error,
+  isLoading
+}: {
+  canRequest: boolean;
+  hasUnsavedDashboardConfig: boolean;
+  data?: DashboardPanelPreviewResponse;
+  error: unknown | null;
+  isLoading: boolean;
+}) {
+  if (hasUnsavedDashboardConfig) {
+    return (
+      <div className="dashboard-panel-remote-preview dashboard-panel-remote-preview--muted" role="status">
+        <strong>保存后可查询</strong>
+        <span>远程预览只读取已保存 dashboard 中的 panel。</span>
+      </div>
+    );
+  }
+
+  if (!canRequest && !data && !error) {
+    return (
+      <div className="dashboard-panel-remote-preview dashboard-panel-remote-preview--muted">
+        <strong>未加载查询预览</strong>
+        <span>选择已保存 panel 后加载后端样例数据。</span>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-panel-remote-preview dashboard-panel-remote-preview--muted" role="status">
+        <strong>正在加载查询预览</strong>
+        <span>从后端读取当前保存 panel 的查询结果样例。</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-panel-remote-preview dashboard-panel-remote-preview--error" role="status">
+        <strong>查询预览失败</strong>
+        <span>{readErrorMessage(error, 'form')}</span>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const preview = createDashboardPanelRemotePreviewModel(data);
+
+  return (
+    <div className="dashboard-panel-remote-preview" aria-label="查询预览结果">
+      <div className="dashboard-panel-remote-preview-heading">
+        <strong>{preview.title}</strong>
+        <span>{preview.summary}</span>
+      </div>
+      {preview.emptyMessage ? (
+        <span className="dashboard-panel-remote-preview-empty">{preview.emptyMessage}</span>
+      ) : (
+        <dl className="dashboard-panel-remote-preview-list">
+          {preview.lines.map((line, index) => (
+            <div key={`${line.label}-${index}`}>
+              <dt>{line.label}</dt>
+              <dd>{line.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createDashboardPanelPreviewModel,
+  createDashboardPanelRemotePreviewModel,
   createDefaultDashboardPanelDraft,
   normalizeDashboardConfigPanels,
   readDashboardPanelsFromConfigText,
@@ -273,5 +274,206 @@ describe('dashboard panel config helpers', () => {
     ).toBe(
       'query { filters: {4 keys: extra, level, nested, ...}, limit: 100, message: "this is a deliberately long query string that..." (104 chars), offset: 0, +1 keys }'
     );
+  });
+
+  it('生成 metrics/logs/events/traces/topology 查询预览摘要', () => {
+    expect(
+      createDashboardPanelRemotePreviewModel({
+        project_id: 12,
+        dashboard_id: 7,
+        panel_id: 'latency',
+        title: 'Latency',
+        panel_type: 'metrics',
+        query: {},
+        preview: {
+          kind: 'metrics',
+          mode: 'aggregate',
+          items: [
+            {
+              project_id: 12,
+              name: 'http.duration',
+              source: 'api',
+              window_start: '2026-06-20T10:00:00Z',
+              window_end: '2026-06-20T10:05:00Z',
+              aggregation: 'avg',
+              value: 15,
+              sample_count: 2,
+              unit: 'ms'
+            }
+          ]
+        }
+      })
+    ).toMatchObject({
+      title: '指标聚合',
+      summary: '1 条聚合结果',
+      lines: [{ label: 'http.duration / api', value: 'avg 15 ms / 样本 2 / 2026-06-20 10:00:00Z - 2026-06-20 10:05:00Z' }],
+      emptyMessage: null
+    });
+
+    expect(
+      createDashboardPanelRemotePreviewModel({
+        project_id: 12,
+        dashboard_id: 7,
+        panel_id: 'logs',
+        title: 'Logs',
+        panel_type: 'logs',
+        query: {},
+        preview: {
+          kind: 'logs',
+          mode: 'recent',
+          items: [
+            {
+              id: 1,
+              project_id: 12,
+              level: 'error',
+              message: 'boom',
+              source: 'api',
+              logger: null,
+              trace_id: null,
+              span_id: null,
+              attributes: {},
+              payload: {},
+              occurred_at: null,
+              received_at: '2026-06-20T10:01:00Z'
+            }
+          ]
+        }
+      })
+    ).toMatchObject({
+      title: '日志样例',
+      summary: '1 条最近日志',
+      lines: [{ label: 'error / api / 2026-06-20 10:01:00Z', value: 'boom' }]
+    });
+
+    expect(
+      createDashboardPanelRemotePreviewModel({
+        project_id: 12,
+        dashboard_id: 7,
+        panel_id: 'events',
+        title: 'Events',
+        panel_type: 'events',
+        query: {},
+        preview: {
+          kind: 'events',
+          mode: 'recent',
+          items: [
+            {
+              id: 2,
+              project_id: 12,
+              type: 'deployment',
+              source: 'ci',
+              payload: { version: '2026.6.20' },
+              occurred_at: null,
+              received_at: '2026-06-20T10:02:00Z'
+            }
+          ]
+        }
+      })
+    ).toMatchObject({
+      title: '事件样例',
+      summary: '1 条最近事件',
+      lines: [{ label: 'deployment / ci / 2026-06-20 10:02:00Z', value: 'payload { version: "2026.6.20" }' }]
+    });
+
+    expect(
+      createDashboardPanelRemotePreviewModel({
+        project_id: 12,
+        dashboard_id: 7,
+        panel_id: 'traces',
+        title: 'Traces',
+        panel_type: 'traces',
+        query: {},
+        preview: {
+          kind: 'traces',
+          mode: 'recent',
+          items: [
+            {
+              id: 3,
+              project_id: 12,
+              trace_id: 'trace-preview',
+              span_id: 'api-root',
+              parent_span_id: null,
+              name: 'GET /orders',
+              start_time: null,
+              end_time: null,
+              duration_ms: 100,
+              status_code: 'ok',
+              source: 'api',
+              attributes: {},
+              payload: {},
+              occurred_at: null,
+              received_at: '2026-06-20T10:03:00Z'
+            }
+          ]
+        }
+      })
+    ).toMatchObject({
+      title: 'Trace 样例',
+      summary: '1 条最近 span',
+      lines: [{ label: 'trace-preview / api-root', value: 'GET /orders / ok / 100ms / api' }]
+    });
+
+    expect(
+      createDashboardPanelRemotePreviewModel({
+        project_id: 12,
+        dashboard_id: 7,
+        panel_id: 'topology',
+        title: 'Topology',
+        panel_type: 'topology',
+        query: {},
+        preview: {
+          kind: 'topology',
+          mode: 'topology',
+          nodes: [
+            {
+              source: 'api',
+              span_count: 2,
+              trace_count: 1,
+              error_span_count: 0,
+              avg_duration_ms: 75,
+              max_duration_ms: 100
+            }
+          ],
+          edges: [
+            {
+              from_source: 'api',
+              to_source: 'worker',
+              call_count: 1,
+              error_count: 1,
+              avg_duration_ms: 50,
+              max_duration_ms: 50
+            }
+          ]
+        }
+      })
+    ).toMatchObject({
+      title: 'Topology 摘要',
+      summary: '1 个节点 / 1 条边',
+      lines: [
+        { label: 'api -> worker', value: '调用 1 / 错误 1 / avg 50ms / max 50ms' },
+        { label: 'node api', value: 'spans 2 / traces 1 / errors 0' }
+      ]
+    });
+  });
+
+  it('生成空查询预览提示', () => {
+    expect(
+      createDashboardPanelRemotePreviewModel({
+        project_id: 12,
+        dashboard_id: 7,
+        panel_id: 'empty',
+        title: 'Empty',
+        panel_type: 'logs',
+        query: {},
+        preview: {
+          kind: 'logs',
+          mode: 'recent',
+          items: []
+        }
+      })
+    ).toMatchObject({
+      lines: [],
+      emptyMessage: '没有匹配的日志样例。'
+    });
   });
 });

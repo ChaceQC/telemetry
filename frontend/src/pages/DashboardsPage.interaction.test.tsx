@@ -6,7 +6,8 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Dashboard, DashboardListParams } from '../api/dashboards';
+import type { Dashboard, DashboardListParams, DashboardPanelPreviewResponse } from '../api/dashboards';
+import { ApiClientError } from '../api/http';
 import type { Project } from '../api/settings';
 import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
@@ -18,6 +19,7 @@ type DashboardListResult = { items: Dashboard[]; limit: number; offset: number; 
 const apiMocks = vi.hoisted(() => ({
   listProjects: vi.fn<() => Promise<Project[]>>(),
   listDashboards: vi.fn<(params?: DashboardListParams) => Promise<DashboardListResult>>(),
+  previewDashboardPanel: vi.fn<(projectId: number, dashboardId: number, panelId: string) => Promise<DashboardPanelPreviewResponse>>(),
   createDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn()
@@ -31,6 +33,7 @@ vi.mock('../api/dashboards', () => ({
   createDashboard: apiMocks.createDashboard,
   deleteDashboard: apiMocks.deleteDashboard,
   listDashboards: apiMocks.listDashboards,
+  previewDashboardPanel: apiMocks.previewDashboardPanel,
   updateDashboard: apiMocks.updateDashboard
 }));
 
@@ -139,6 +142,19 @@ beforeEach(() => {
   vi.clearAllMocks();
   apiMocks.listProjects.mockResolvedValue([project]);
   apiMocks.listDashboards.mockResolvedValue({ items: [dashboard], limit: 50, offset: 0, total: 1 });
+  apiMocks.previewDashboardPanel.mockResolvedValue({
+    project_id: project.id,
+    dashboard_id: dashboard.id,
+    panel_id: 'logs',
+    title: '错误日志',
+    panel_type: 'logs',
+    query: {},
+    preview: {
+      kind: 'logs',
+      mode: 'recent',
+      items: []
+    }
+  });
   apiMocks.createDashboard.mockResolvedValue({ ...dashboard, id: 8, name: '新建看板' });
   apiMocks.updateDashboard.mockResolvedValue({ ...dashboard, name: '服务健康概览', description: null });
   apiMocks.deleteDashboard.mockResolvedValue(null);
@@ -309,6 +325,126 @@ describe('DashboardsPage interactions', () => {
     expect(within(preview).getByText('logs / logs')).toBeTruthy();
     expect(within(preview).getByText('x 6 / y 2 / w 6 / h 3')).toBeTruthy();
     expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it('为已保存 panel 按需加载后端查询预览样例', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: { level: 'error' }, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue({
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'logs',
+      title: '错误日志',
+      panel_type: 'logs',
+      query: { level: 'error' },
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: [
+          {
+            id: 101,
+            project_id: project.id,
+            level: 'error',
+            message: 'boom',
+            source: 'api',
+            logger: null,
+            trace_id: null,
+            span_id: null,
+            attributes: {},
+            payload: {},
+            occurred_at: null,
+            received_at: '2026-06-20T10:01:00Z'
+          }
+        ]
+      }
+    });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledWith(12, 7, 'logs'));
+    expect(await within(preview).findByText('日志样例')).toBeTruthy();
+    expect(within(preview).getByText('1 条最近日志')).toBeTruthy();
+    expect(within(preview).getByText('error / api / 2026-06-20 10:01:00Z')).toBeTruthy();
+    expect(within(preview).getByText('boom')).toBeTruthy();
+  });
+
+  it('未保存 config 草稿不会触发后端 panel 查询预览', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify(
+          {
+            refresh_seconds: 30,
+            panels: [
+              { id: 'logs', title: '错误日志', type: 'logs', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } },
+              { id: 'draft', title: '草稿 panel', type: 'events', query: {}, layout: { x: 6, y: 0, w: 6, h: 3 } }
+            ]
+          },
+          null,
+          2
+        )
+      }
+    });
+
+    await user.click(within(preview).getAllByRole('button', { name: '加载预览' })[0]);
+
+    expect(await within(preview).findByText('保存后可查询')).toBeTruthy();
+    expect(apiMocks.previewDashboardPanel).not.toHaveBeenCalled();
+  });
+
+  it('panel 查询预览 422 错误显示在对应 panel 内', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: { limit: 101 }, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockRejectedValue(
+      new ApiClientError({
+        message: 'panel.query.limit 必须在 1..100 之间',
+        status: 422,
+        details: { detail: 'panel.query.limit 必须在 1..100 之间' }
+      })
+    );
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+
+    expect(await within(preview).findByText('查询预览失败')).toBeTruthy();
+    expect(within(preview).getByText(/panel\.query\.limit 必须在 1\.\.100 之间/)).toBeTruthy();
   });
 
   it('手动重排 config.panels 后更新旧草稿不会覆盖错误 panel', async () => {
