@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.repositories.api_keys import SqlAlchemyApiKeyRepository
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
+from app.repositories.dashboard import SqlAlchemyDashboardRepository
 from app.repositories.ingest import SqlAlchemyIngestRepository
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
@@ -14,6 +15,7 @@ from app.repositories.query import SqlAlchemyQueryRepository
 from app.schemas.ingest import IngestKind
 from app.services.api_keys import ApiKeyService, ApiKeyVerification
 from app.services.auth import AuthConfigurationError, AuthenticationError, AuthService
+from app.services.dashboard import DashboardService
 from app.services.ingest import IngestService
 from app.services.management import ManagementService
 from app.services.permissions import PermissionService
@@ -62,6 +64,18 @@ def get_api_key_service(
     management_repository = SqlAlchemyManagementRepository(session)
     return ApiKeyService(
         SqlAlchemyApiKeyRepository(session),
+        management_repository,
+        permission_service,
+    )
+
+
+def get_dashboard_service(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> DashboardService:
+    permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
+    management_repository = SqlAlchemyManagementRepository(session)
+    return DashboardService(
+        SqlAlchemyDashboardRepository(session),
         management_repository,
         permission_service,
     )

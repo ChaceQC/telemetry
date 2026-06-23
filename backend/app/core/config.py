@@ -24,7 +24,7 @@ def read_backend_version() -> str:
     try:
         return VERSION_FILE.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
-        return "0.2.9"
+        return "0.2.10"
 
 
 def split_csv(value: str) -> list[str]:

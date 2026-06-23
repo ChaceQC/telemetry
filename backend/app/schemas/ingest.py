@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from enum import StrEnum
 from math import isfinite
@@ -8,6 +7,8 @@ from numbers import Real
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.schemas.json_validation import json_size_bytes, reject_non_finite_numbers
 
 MAX_EVENT_PAYLOAD_BYTES = 64 * 1024
 MAX_BATCH_EVENTS = 100
@@ -19,28 +20,6 @@ MAX_LOGS_PAYLOAD_BYTES = 256 * 1024
 MAX_LOG_MESSAGE_LENGTH = 8 * 1024
 MAX_TRACE_SPANS = 100
 MAX_TRACES_PAYLOAD_BYTES = 256 * 1024
-
-
-def json_size_bytes(value: Any) -> int:
-    return len(
-        json.dumps(
-            value,
-            ensure_ascii=False,
-            allow_nan=False,
-            separators=(",", ":"),
-        ).encode("utf-8")
-    )
-
-
-def reject_non_finite_numbers(value: Any) -> None:
-    if isinstance(value, float) and not isfinite(value):
-        raise ValueError("payload 不能包含 NaN 或 Infinity")
-    if isinstance(value, dict):
-        for nested_value in value.values():
-            reject_non_finite_numbers(nested_value)
-    elif isinstance(value, list | tuple):
-        for nested_value in value:
-            reject_non_finite_numbers(nested_value)
 
 
 class IngestKind(StrEnum):
