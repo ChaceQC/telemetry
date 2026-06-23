@@ -81,7 +81,7 @@ closed      已关闭
 | T-0051 | 服务拓扑后端基础 | 总 agent | todo | done | done | done | done |
 | T-0052 | 服务拓扑前端基础 | 总 agent | done | todo | done | done | done |
 | T-0053 | Dashboard CRUD 后端基础 | 总 agent | todo | done | done | done | done |
-| T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | todo | done | doing |
+| T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -474,7 +474,8 @@ closed      已关闭
 | 2026-06-23 | T-0054-fix3 | 代码复审 agent Descartes the 2nd | Dashboard 删除分页复审仍有 P3 | Descartes the 2nd 只读复审 `58a6d9a` 未发现 P0/P1/P2，但发现 P3：delete 请求完成但列表 refetch 未完成时锁在 onSettled 释放，旧列表仍可能触发第二次删除。Descartes the 2nd 已关闭，已启动第四轮极窄修复 | blocked |
 | 2026-06-23 | T-0054-fix4 | 前端修复 agent Halley the 2nd | Dashboard 删除锁穿透刷新修复完成 | Halley the 2nd 提交并推送 `e2ca432` 到 `feature/frontend-dev`：delete success 等待 `invalidateDashboards()` / refetch 完成后才释放删除锁，补“delete 已 resolve、列表刷新未完成前不能触发第二次删除”的回归测试。Dashboard 专项 33 tests、typecheck、lint、build、diff check 通过 | audit |
 | 2026-06-23 | T-0054-fix4 | 代码复审 agent Jason the 2nd | Dashboard CRUD 前端最终复审通过 | Jason the 2nd 只读复审 `e2ca432`，确认 stale-total/refetch P3 已关闭，早前 P1/P2/P3 均保持关闭，未发现新的 P0/P1/P2/P3；确认 Dashboard API contract、既有页面回归和前端版本 `0.2.11` 范围可接受。Jason the 2nd 已关闭，建议真实 merge | done |
-| 2026-06-23 | T-0054 | 总 agent | 真实 merge 集成 Dashboard CRUD 前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7221b90`、`7b4642d`、`d8ba7f0`、`58a6d9a` 和 `e2ca432` 合入 `dev`，merge 提交 `33da4b1`；当前同步根/前端/后端版本到 `0.2.11`，merge 后本地门禁通过，仍待推送、CI、feature 分支同步和真实前后端联合测试 | doing |
+| 2026-06-23 | T-0054 | 总 agent | 真实 merge 集成 Dashboard CRUD 前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `7221b90`、`7b4642d`、`d8ba7f0`、`58a6d9a` 和 `e2ca432` 合入 `dev`，merge 提交 `33da4b1`；同步根/前端/后端版本到 `0.2.11`；merge 后本地门禁、`dev`/feature CI、feature 分支同步和真实前后端联合测试均通过，T-0054 关闭 | done |
+| 2026-06-23 | T-0054 | 测试 agent Maxwell the 2nd | Dashboard CRUD 真实前后端联合测试通过 | Maxwell the 2nd 在 `dev/origin/dev` `8a9be60` 使用真实 MySQL 临时库、真实 FastAPI 后端 `28117`、真实 Vite 前端 `25173` 和 Playwright + Microsoft Edge 验证 `/dashboards`；API 40 项断言通过，覆盖 dashboard CRUD、权限隔离、JSON 校验、分页数据、auth/project/environment/service/API Key/events/metrics/logs/traces/topology/ingest stats 回归；后端 `/health=0.2.11`，前端 `/dashboards` ready，证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`；测试 agent 已清理自有资源 | done |
 
 ## 6. 测试记录
 
@@ -561,6 +562,8 @@ closed      已关闭
 | 2026-06-23 | T-0053 | CI | GitHub Actions runs `28021329309`、`28021408508`、`28021408669` | 通过 | `dev`、`feature/backend-dev`、`feature/frontend-dev` 均在 `6cd2909` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-23 | T-0053 | Dashboard CRUD 真实 MySQL/真实后端专项 | Popper the 2nd；自启动隔离 MySQL 8.0.42、真实 FastAPI 后端 | 通过 | `dev/origin/dev` `6cd2909`；`/health=0.2.10`，断言 133/133、HTTP 场景 55/55 通过。覆盖 migration upgrade/downgrade、dashboard CRUD、权限隔离、JSON 校验和 auth/project/events 快速回归；证据目录 `agents/runtime/e2e-T-0053-20260623-190744`，自有资源已清理 |
 | 2026-06-23 | T-0054 | dev merge 后本地验证 | 前端 Dashboard/Auth/router 专项、typecheck、lint、build、后端 config/uv lock、`git diff --check` | 通过 | 前端 Dashboard/Auth/router 专项 6 files/43 tests passed，typecheck、lint、build 通过；后端 `tests/test_config.py` 13 passed，`uv lock --check` 通过；diff check 通过。首次运行前根 `node_modules` 缺少新 devDependencies，执行 `npm.cmd install` 后复验通过且 lockfile 无业务差异 |
+| 2026-06-23 | T-0054 | CI | GitHub Actions runs `28034441225`、`28034545419`、`28034538393` | 通过 | `dev`、`feature/frontend-dev`、`feature/backend-dev` 均在 `8a9be60` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-23 | T-0054 | Dashboard CRUD 真实前后端联合测试 | Maxwell the 2nd；真实 MySQL 临时库、真实 FastAPI 后端、真实前端、Playwright + Microsoft Edge | 通过 | `dev/origin/dev` `8a9be60`；`/health=0.2.11`，API 40 项断言通过，前端 `/dashboards` ready。覆盖 dashboard CRUD、权限/JSON 校验、分页数据和既有查询/摄入/拓扑回归；证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -655,7 +658,7 @@ closed      已关闭
 | 2026-06-23 | T-0051 | feature/backend-dev | dev | 总 agent | 服务拓扑后端基础 `d3c5796` 与审计修复 `7a63b89` 已通过 Hypatia the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，同步根/前端/后端版本到 `0.2.8`；本地门禁、CI、feature 分支同步和 Hooke the 2nd 真实后端专项均通过 | done |
 | 2026-06-23 | T-0052 | feature/frontend-dev | dev | 总 agent | 服务拓扑前端基础 `f0d0ab4` 与 edge key 修复 `5f3db06` 已通过 Noether the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `d5165b7`，版本同步、本地门禁、CI、feature 分支同步和 Ptolemy the 2nd 真实联测均通过 | done |
 | 2026-06-23 | T-0053 | feature/backend-dev | dev | 总 agent | Dashboard CRUD 后端基础 `f097af8` 与 JSON 校验修复 `2a0403d` 已通过 Darwin the 2nd 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `494d22e`，版本同步、本地门禁、CI、feature 分支同步和 Popper the 2nd 真实 MySQL/真实后端专项均通过 | done |
-| 2026-06-23 | T-0054 | feature/frontend-dev | dev | 总 agent | Dashboard CRUD 前端基础 `7221b90` 与审计修复 `7b4642d`、`d8ba7f0`、`58a6d9a`、`e2ca432` 已通过 Jason the 2nd 最终复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，版本同步和本地门禁已通过，推送 CI、feature 分支同步和真实联测待完成 | doing |
+| 2026-06-23 | T-0054 | feature/frontend-dev | dev | 总 agent | Dashboard CRUD 前端基础 `7221b90` 与审计修复 `7b4642d`、`d8ba7f0`、`58a6d9a`、`e2ca432` 已通过 Jason the 2nd 最终复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，版本同步、本地门禁、CI、feature 分支同步和 Maxwell the 2nd 真实前后端联合测试均通过 | done |
 
 ## 10. 决策记录
 
