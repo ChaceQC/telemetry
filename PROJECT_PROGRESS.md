@@ -683,7 +683,9 @@
 - T-0052 前端开发、审计、修复复审和真实联测均通过：Heisenberg the 2nd 提交 `f0d0ab4` 新增 `/traces/topology` 路由、拓扑 API client/types、筛选、节点/调用边摘要、loading/error/empty/unauth 状态和前端版本 `0.2.9`；Poincare the 2nd 审计未发现 P0/P1/P2，但指出调用边 key 碰撞 P3 和 Playwright/真实联测缺口；Faraday the 2nd 提交 `5f3db06` 将 edge key 改为 `[from_source,to_source]` JSON 编码并补窄测试；Noether the 2nd 复审未发现 P0/P1/P2/P3。总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `d5165b7`，并同步根、前端、后端版本到 `0.2.9`；merge 后本地门禁、`dev`/feature CI、feature 分支同步和 Ptolemy the 2nd 真实前后端联合测试均通过。T-0052 关闭。
 - T-0052 真实前后端联合测试通过：Ptolemy the 2nd 在 `dev/origin/dev` `538b9a5` 使用本机 MySQL80 8.0.42 临时库、真实后端、真实前端和 Playwright + Microsoft Edge 验证 `/health=0.2.9` 与 `/traces/topology`，API/数据断言 17/17、浏览器断言 26/26 通过；覆盖多服务拓扑、短横线 source duplicate key 回归、source/limit/time/error/empty/loading/unauth、traces/logs/events/metrics 回归。证据目录 `agents/runtime/e2e-T-0052-20260623-20260623-172056`；测试 agent 已清理自有资源并关闭。
 - T-0053 已登记为阶段 5 下一小步：Dashboard CRUD 后端基础，先新增 dashboard 持久化模型/迁移/repository/API，支持按项目权限创建、列表、读取、更新、删除 dashboard，保存名称、描述和最小布局/配置 JSON；不做前端页面、不做 panel 图表渲染、不做变量/时间范围高级配置、不接 ClickHouse 查询和告警。
-- T-0053 后端开发、审计修复和复审通过：Feynman the 2nd 提交 `f097af8` 新增 dashboard model/migration/repository/service/API route、测试、README/API contract/后端进度，并将后端版本提升到 `0.2.10`；Newton the 2nd 审计发现 P2：dashboard `layout`/`config` 缺少大小、深度/复杂度和 finite-number 校验；Mendel the 2nd 提交 `2a0403d` 新增/抽取 JSON 校验 helper 并补 dashboard/ingest 回归；Darwin the 2nd 复审未发现 P0/P1/P2/P3。总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `494d22e`，并同步根、前端、后端版本到 `0.2.10`；merge 后本地门禁通过，仍待推送、CI、feature 分支同步和真实 MySQL/真实后端专项测试。
+- T-0053 后端开发、审计修复、复审和真实 MySQL/后端专项均通过：Feynman the 2nd 提交 `f097af8` 新增 dashboard model/migration/repository/service/API route、测试、README/API contract/后端进度，并将后端版本提升到 `0.2.10`；Newton the 2nd 审计发现 P2：dashboard `layout`/`config` 缺少大小、深度/复杂度和 finite-number 校验；Mendel the 2nd 提交 `2a0403d` 新增/抽取 JSON 校验 helper 并补 dashboard/ingest 回归；Darwin the 2nd 复审未发现 P0/P1/P2/P3。总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `494d22e`，并同步根、前端、后端版本到 `0.2.10`；merge 后本地门禁、`dev`/feature CI、feature 分支同步和 Popper the 2nd 真实 MySQL/真实后端专项测试均通过。T-0053 关闭。
+- T-0053 真实 MySQL/真实后端专项通过：Popper the 2nd 在 `dev/origin/dev` `6cd2909` 使用自启动隔离 MySQL 8.0.42、真实 FastAPI 后端验证 `/health=0.2.10`、Dashboard migration 和 API，断言 133/133、HTTP 场景 55/55 通过；覆盖 migration upgrade/downgrade、dashboards 表/JSON 字段/索引/外键、CRUD/分页/partial update、权限隔离、JSON 超大/过深/过复杂/NaN/Infinity 422，以及 auth/project/environment/service/API Key/events ingest/query 回归。证据目录 `agents/runtime/e2e-T-0053-20260623-190744`；测试 agent 已清理自有资源并关闭。
+- T-0054 已登记为阶段 5 下一小步：Dashboard CRUD 前端基础，消费既有后端 Dashboard CRUD API，实现项目选择、dashboard 列表、创建、编辑名称/描述/最小 layout/config JSON、删除和 loading/error/empty/unauth 状态；不改后端契约、不做 panel 图表渲染、不做变量/时间范围高级配置、不接 ClickHouse 查询和告警。
 
 ### 阻塞与风险
 
@@ -709,7 +711,7 @@
 
 ### 下一步
 
-- 推送 T-0053 Dashboard CRUD 后端基础到 `dev`，读取 CI，同步 `feature/frontend-dev` 与 `feature/backend-dev`，随后启动测试 agent 使用真实 MySQL 和真实后端覆盖 Dashboard migration/API CRUD、JSON 校验、权限隔离和核心查询回归。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0054 Dashboard CRUD 前端基础；开发 agent 可启动前端专项测试 agent，但不得代跑完整真实前后端联合测试。完成后由总 agent 启动代码审计，并按风险决定真实前后端联合测试范围。
 
 ### 验证
 
@@ -727,6 +729,8 @@
 - T-0052 CI 通过：GitHub Actions runs `28015518023`、`28015597529`、`28015599075` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。
 - T-0052 真实前后端联合测试通过：Ptolemy the 2nd 使用本机 MySQL80 临时库、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge，API/数据断言 17/17、浏览器断言 26/26 通过；证据目录 `agents/runtime/e2e-T-0052-20260623-20260623-172056`，自有资源已清理。
 - T-0053 merge 后本地门禁通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 33 passed，`uv run pytest tests/test_ingest_api.py -k non_finite -q` 11 passed/27 deselected，ruff、format、mypy、`uv lock --check` 通过；前端 `npm.cmd run typecheck`、`npm.cmd run build` 和 `git diff --check` 通过。未启动真实服务、数据库或浏览器，真实 MySQL/真实后端专项交由测试 agent 执行。
+- T-0053 CI 通过：GitHub Actions runs `28021329309`、`28021408508`、`28021408669` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。
+- T-0053 真实 MySQL/真实后端专项通过：Popper the 2nd 使用自启动隔离 MySQL 8.0.42、真实 FastAPI 后端验证 Dashboard migration/API CRUD、JSON 校验、权限隔离和核心回归，断言 133/133 通过；证据目录 `agents/runtime/e2e-T-0053-20260623-190744`，自有资源已清理。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
