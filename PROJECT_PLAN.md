@@ -1,6 +1,6 @@
 # 遥测应用项目计划书
 
-版本：0.2.8
+版本：0.2.9
 日期：2026-06-20  
 状态：草案  
 目标环境：Windows 11 开发，Debian 部署  
@@ -1042,7 +1042,7 @@ npm run preview -- --host 127.0.0.1 --port 25174
 
 ```text
 APP_ENV=development
-APP_VERSION=0.2.8
+APP_VERSION=0.2.9
 APP_SECRET_KEY=change-me
 
 API_HOST=127.0.0.1
@@ -1248,7 +1248,8 @@ chore: 更新依赖版本
 8. `0.2.6`：增加 `/traces` 到 `/logs` 的跳转入口和 logs URL 筛选初始化基础。
 9. `0.2.7`：增加 `/logs` 到 `/traces` 的反向跳转入口，形成 trace/log 基础互跳闭环。
 10. `0.2.8`：增加关系库 trace 服务拓扑最小后端查询。
-11. `1.0.0`：达到生产可用基线。
+11. `0.2.9`：增加 `/traces/topology` 服务拓扑基础视图。
+12. `1.0.0`：达到生产可用基线。
 
 发布规则：
 

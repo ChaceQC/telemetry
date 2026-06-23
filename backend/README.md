@@ -191,7 +191,7 @@ GET /health
 {
   "status": "ok",
   "service": "telemetry-backend",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "environment": "local",
   "port": 28117
 }
