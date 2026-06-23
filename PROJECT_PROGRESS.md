@@ -666,6 +666,7 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix 合入 `dev`，merge 提交 `bc15a60`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
 - T-0049-fix 真实联测重跑未完全通过：Planck the 2nd 在 `dev/origin/dev` `717dd68` 上确认原 401 首包问题、Settings/Overview 旧缓存闪现和登录回跳 search 均已关闭；但 `/traces?trace_id=<129 chars>` 未将 URL trace_id 传入后端查询，返回 200 而非 422/错误态，证据目录 `agents/runtime/e2e-T-0049-retest-20260623-112712`。已登记 T-0049-fix2，需前端补 `/traces` URL trace_id 初始化。
 - T-0049-fix2 前端修复与审计通过：Socrates the 2nd 提交 `a30e126`，让 `/traces` 从 URL `trace_id` 初始化筛选并传给后端，超长 trace_id 不再被静默忽略；James the 2nd 审计未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix2 合入 `dev`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
 
 ### 阻塞与风险
 
