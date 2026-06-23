@@ -17,6 +17,7 @@ from app.schemas.query import (
     MetricQueryResponse,
     TraceQueryPageResponse,
     TraceQueryResponse,
+    TraceTopologyResponse,
 )
 from app.services.errors import ResourceNotFoundError
 from app.services.query import QueryCursorError, QueryFilterError, QueryService
@@ -148,6 +149,39 @@ def get_log_context(
         before=[LogQueryResponse.model_validate(log) for log in context.before],
         after=[LogQueryResponse.model_validate(log) for log in context.after],
     )
+
+
+@router.get(
+    "/traces/topology",
+    response_model=TraceTopologyResponse,
+    summary="查询 Trace 服务拓扑",
+)
+def get_trace_topology(
+    query_service: Annotated[QueryService, Depends(get_query_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int, Query(gt=0)],
+    source: Annotated[str | None, Query()] = None,
+    occurred_from: datetime | None = None,
+    occurred_to: datetime | None = None,
+    limit: Annotated[int, Query(gt=0, le=500)] = 100,
+) -> TraceTopologyResponse:
+    try:
+        topology = query_service.get_trace_topology(
+            user=current_user,
+            project_id=project_id,
+            source=source,
+            occurred_from=occurred_from,
+            occurred_to=occurred_to,
+            limit=limit,
+        )
+    except ResourceNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except QueryFilterError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    return TraceTopologyResponse.model_validate(topology)
 
 
 @router.get(

@@ -2,6 +2,65 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0051-fix Trace 服务拓扑审计阻断修复
+
+### 已完成
+
+- 修复审计 P1：新增 `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT` 配置，默认 `10000`，通过 `QueryService` 传入 repository；`list_trace_spans_for_topology()` 在数据库侧应用 `.limit()`，避免未传时间范围时读取项目全部 trace span。
+- 明确语义：API `limit` 仍只限制返回节点数和两端可见节点的边；scan limit 是独立的数据库读取窗口，用于控制拓扑构建的最大 span 扫描量。
+- 修复审计 P2：同一 `trace_id` 内重复 `span_id` 被视为 ambiguous parent id；child 指向该 parent id 时跳过 edge，不再使用第一条 span 或任意 span 推导跨 source 边，节点统计仍包含这些 span。
+- 补充 repository/API/config/topology 测试，覆盖数据库侧 scan limit、API `limit` 与 scan limit 分离、重复 parent `span_id` 不误生成边，以及配置读取和非正值拒绝。
+- 更新 `backend/.env.example`、`backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 scan limit 配置、`limit` 语义差异和重复 `span_id` 处理规则；后端版本保持 `0.2.8`。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、后端服务、前端或浏览器；真实 MySQL 拓扑大数据量执行计划仍留给后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "topology or hide_missing_project_from_superuser or requires_user_token" -q`，结果：12 个测试通过、42 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_config.py -q`，结果：13 个测试通过。
+- 已运行 `uv run pytest -q`，结果：173 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：通过，79 个文件已格式化。
+- 已运行 `uv run mypy`，结果：79 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
+## 2026-06-23 T-0051 Trace 服务拓扑后端基础
+
+### 已完成
+
+- 新增 `GET /api/v1/query/traces/topology`，复用 Bearer 用户认证、项目权限过滤和 query service/repository 分层；`project_id` 必填，支持 `occurred_from`、`occurred_to`、`source`、`limit`。
+- 查询来源限定为关系库 `ingest_records.kind=trace`，从 trace span payload 顶层字段展开后在 service 层推导服务拓扑：span `source` 为节点，同一 `trace_id` 内 child `parent_span_id` 指向 parent `span_id` 且两端 source 非空不同则生成 source-to-source edge。
+- 响应稳定为 `{"nodes": [...], "edges": [...]}`；节点包含 `source`、`span_count`、`trace_count`、`error_span_count`、`avg_duration_ms`、`max_duration_ms`，边包含 `from_source`、`to_source`、`call_count`、`error_count`、`avg_duration_ms`、`max_duration_ms`。
+- `source` 筛选返回目标 source 及相邻 source 子图；缺 parent、缺 source 和同 source parent-child 稳定忽略，不生成边；错误计数按 `status_code == error`，duration 聚合按 trace payload 顶层 `duration_ms`。
+- 补充接口测试覆盖权限、必填 `project_id`、时间/source 过滤、limit、parent-child source edge、同 source 不成 edge、缺 parent/缺 source 忽略、空结果、错误计数和 duration 聚合。
+- 更新 `backend/README.md`、`agents/runtime/api-contracts/backend.md`、版本声明和版本测试；后端版本提升到 `0.2.8`，建议总 agent 判断是否同步根/前端版本。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮不接 ClickHouse，不做前端拓扑图，不做复杂布局，不改 trace ingestion 契约，不做跨项目聚合或任意标签拓扑。
+- 开发侧未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL 拓扑查询执行计划和大数据量性能留给后续专项验证。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "topology or hide_missing_project_from_superuser or requires_user_token" -q`，结果：9 个测试通过、42 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_query_api.py tests/test_config.py -q`，结果：62 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/query.py app/repositories/query.py app/schemas/query.py app/services/query.py tests/test_query_api.py`，结果：通过。
+- 已运行 `uv run ruff check app/api/routes/query.py app/repositories/query.py app/schemas/query.py app/services/query.py tests/test_query_api.py app/core/config.py tests/test_config.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/api/routes/query.py app/repositories/query.py app/schemas/query.py app/services/query.py tests/test_query_api.py app/core/config.py tests/test_config.py`，结果：通过，7 个文件已格式化。
+- 已运行 `uv run mypy app/api/routes/query.py app/repositories/query.py app/schemas/query.py app/services/query.py tests/test_query_api.py app/core/config.py tests/test_config.py`，结果：7 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+- 测试 agent `Herschel the 2nd` 完成后端专项复验，结论：通过。其执行 `uv run pytest tests/test_query_api.py -k "topology or query_traces or hide_missing_project_from_superuser or requires_user_token" -q`，结果 16 passed、35 deselected；`uv run pytest tests/test_config.py -q`，结果 11 passed；相关 ruff check、ruff format --check、mypy 均通过。未启动 Docker、真实 MySQL、后端服务、前端、浏览器或临时数据库，无需清理资源。
+
+### 待测试 / 待审计
+
+- 请总 agent 在本后端提交 push 后启动代码审计 agent 审查 T-0051 服务拓扑后端基础、权限/过滤边界和聚合语义。
+
 ## 2026-06-23 T-0047 Trace 查询筛选扩展
 
 ### 已完成

@@ -76,6 +76,35 @@ class TraceQueryPageResponse(BaseModel):
     next_cursor: str | None
 
 
+class TraceTopologyNodeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    source: str
+    span_count: int
+    trace_count: int
+    error_span_count: int
+    avg_duration_ms: float | None
+    max_duration_ms: float | None
+
+
+class TraceTopologyEdgeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    from_source: str
+    to_source: str
+    call_count: int
+    error_count: int
+    avg_duration_ms: float | None
+    max_duration_ms: float | None
+
+
+class TraceTopologyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    nodes: list[TraceTopologyNodeResponse]
+    edges: list[TraceTopologyEdgeResponse]
+
+
 class MetricQueryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

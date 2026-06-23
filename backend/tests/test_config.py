@@ -46,8 +46,8 @@ def test_version_file_declares_current_backend_version(monkeypatch) -> None:
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
     settings = Settings()
 
-    assert version_file.read_text(encoding="utf-8").strip() == "0.2.7"
-    assert settings.app_version == "0.2.7"
+    assert version_file.read_text(encoding="utf-8").strip() == "0.2.8"
+    assert settings.app_version == "0.2.8"
 
 
 def test_local_environment_allows_project_frontend_origins_by_default(monkeypatch) -> None:
@@ -107,6 +107,21 @@ def test_ingest_rate_limit_reads_from_environment(monkeypatch) -> None:
     assert settings.ingest_rate_limit_backend == "redis"
     assert settings.ingest_rate_limit_key_prefix == "telemetry-test"
     assert settings.redis_url == "redis://127.0.0.1:26380/2"
+
+
+def test_query_trace_topology_scan_limit_reads_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT", "250")
+
+    settings = Settings()
+
+    assert settings.query_trace_topology_span_scan_limit == 250
+
+
+def test_query_trace_topology_scan_limit_rejects_non_positive(monkeypatch) -> None:
+    monkeypatch.setenv("QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT", "0")
+
+    with pytest.raises(ValidationError, match="QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT"):
+        Settings()
 
 
 def test_ingest_rate_limit_rejects_unknown_backend(monkeypatch) -> None:
