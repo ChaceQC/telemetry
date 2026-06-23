@@ -697,6 +697,10 @@
 - T-0056 已登记为阶段 5 下一小步：Dashboard panel 配置前端基础，在现有 `/dashboards` CRUD 页面上读取/编辑后端 `config.panels`，提供最小 panel 列表、添加/编辑/删除、`id/title/type/query` 与基础 layout 字段校验、JSON query 编辑和保存到既有 Dashboard update API；不做真实图表渲染、不接 ClickHouse 查询、不做变量/时间范围高级配置、模板或告警。
 - T-0056 启动记录提交 `2d989c9` 后 `dev` CI run `28050373490` 通过；已提醒前端开发 agent Laplace 在安全时将 `feature/frontend-dev` 快进到最新 `origin/dev` 再开始/继续实现。
 - T-0056 启动 CI 记录提交 `a0e19ba` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 三分支 CI runs `28050478016`、`28050516813`、`28050522107` 均通过；三个 worktree 当前干净并与远端一致。
+- T-0056a 前端开发 agent Laplace 已提交并推送 `861094e`：新增 dashboard panel config 纯函数工具和测试，`/dashboards` 编辑区新增最小 panel 列表及添加/编辑/删除表单，操作写回 `config JSON` 并通过既有 Dashboard update API 保存；前端 README 和进度已同步。
+- T-0056a 代码审计 agent Carver 审计未通过：发现 1 个 P2，panel 编辑草稿只保存 `editIndex`，选中 panel 后如果手动修改 `config JSON` 并重排/删除 `panels`，再点击“更新 panel”可能按旧 index 覆盖错误 panel。已启动前端修复 agent Sartre 做极窄修复和回归测试。
+- T-0056a-fix 由总 agent 接手 Sartre 异常退出后留下的修复，提交并推送 `f6156c6` 到 `feature/frontend-dev`：panel 编辑草稿新增 `originalPanelId`，更新时校验当前 `editIndex` 仍指向同一 panel id；用户手动重排或删除 `config.panels` 后旧草稿会提示重新选择，不再覆盖错误 panel。新增纯函数与页面交互回归测试，前端 README/进度已同步。
+- T-0056a-fix 代码复审 agent Halley 只读复审通过：确认原 P2 已关闭，未发现新的 P0/P1/P2/P3；`feature/frontend-dev` CI run `28054244416` 已通过，下一步执行真实 merge 到 `dev` 并跑集成门禁。
 
 ### 阻塞与风险
 
@@ -723,7 +727,7 @@
 
 ### 下一步
 
-- 前端开发 agent 在 `feature/frontend-dev` 推进 T-0056 Dashboard panel 配置前端基础；完成后由总 agent 启动代码审计 agent，审计通过后再按真实 merge 集成到 `dev` 并安排必要验证。
+- 总 agent 将按真实 `git merge --no-ff origin/feature/frontend-dev` 集成 T-0056 Dashboard panel 配置前端基础到 `dev`，随后执行前端专项、typecheck/lint/build、必要后端配置检查、diff check 和 CI/feature 分支同步。
 
 ### 验证
 
@@ -755,6 +759,9 @@
 - T-0055 最终同步 CI 通过：GitHub Actions runs `28050203922`、`28050218117`、`28050231723` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `cd6290b`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。随后严格 worktree 体检通过。
 - T-0056 启动记录 CI 通过：GitHub Actions run `28050373490` 在 `2d989c9` 上完成，Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。
 - T-0056 启动 CI 记录同步通过：GitHub Actions runs `28050478016`、`28050516813`、`28050522107` 在 `a0e19ba` 上完成，分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。
+- T-0056 启动同步 CI 记录后 `dev` CI 通过：GitHub Actions run `28050618359` 在 `8125c96` 上完成，Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解。该结果将随下一次实质节点记录提交，避免纯 CI 记录反复触发文档回声。
+- T-0056a 开发侧与总 agent 窄门禁通过：`feature/frontend-dev` CI run `28052217957` 在 `861094e` 上通过；本地专项 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files/36 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check a0e19ba..861094e` 均通过；Playwright CLI + Microsoft Edge 访问 `/dashboards` 桌面与 390px 宽度快照正常，panel 编辑区未登录态禁用且无运行时错误，console 仅有既有 React Router future warning 和 favicon 404，自启 Vite/Edge 已清理。
+- T-0056a-fix 前端 P2 修复门禁通过：`feature/frontend-dev` CI run `28054244416` 在 `f6156c6` 上通过；本地专项 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files/38 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。该结果不替代真实 merge 后的 `dev` 集成门禁。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

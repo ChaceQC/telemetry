@@ -83,7 +83,7 @@ closed      已关闭
 | T-0053 | Dashboard CRUD 后端基础 | 总 agent | todo | done | done | done | done |
 | T-0054 | Dashboard CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 | T-0055 | Dashboard panel 配置后端基础 | 总 agent | todo | done | done | done | done |
-| T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | todo | todo | doing |
+| T-0056 | Dashboard panel 配置前端基础 | 总 agent | done | todo | done | done | doing |
 
 ## 4. API 契约登记
 
@@ -487,6 +487,11 @@ closed      已关闭
 | 2026-06-24 | T-0055 | 总 agent | 真实 merge 集成 Dashboard panel 配置后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `e8b1d37` 与 `f3df26c` 合入 `dev`，merge 提交 `d11b298`；本地 merge 后门禁和 `dev` CI 已通过，后续同步 feature 分支后 T-0055 关闭 | done |
 | 2026-06-24 | T-0055 | 总 agent | CI 与 worktree 同步完成 | `cd6290b` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28050203922`、`28050218117`、`28050231723` 均通过；严格 worktree 体检通过，三棵 worktree 干净且本地/远端一致。T-0055 关闭 | done |
 | 2026-06-24 | T-0056 | 总 agent | 登记 Dashboard panel 配置前端基础 | 阶段 5 下一小步限定为前端 panel 配置/布局基础：在现有 `/dashboards` CRUD 页面上读取/编辑后端 `config.panels`，提供最小 panel 列表、添加/编辑/删除 panel、`id/title/type/query` 与基础 layout 字段校验、JSON query 编辑、保存到既有 Dashboard update API、loading/error/empty/unauth 状态和本地表单保护；不做真实图表渲染、不接 ClickHouse 查询、不做变量/时间范围高级配置、模板或告警。将以 `xhigh` 思考强度启动前端开发 agent，在 `feature/frontend-dev` 工作，使用 Playwright + Microsoft Edge 做必要冒烟，不启动 Docker，只清理自有资源 | doing |
+| 2026-06-24 | T-0056a | 前端开发 agent Laplace | Dashboard panel 配置前端小步完成 | Laplace 提交并推送 `861094e` 到 `feature/frontend-dev`：新增 dashboard panel config 纯函数工具和测试，支持读取、校验、规范化 `config.panels` 并保留 legacy 顶层 config 字段；`/dashboards` 编辑区新增最小 panel 列表和添加/编辑/删除表单，字段包含 `id/title/type/query` JSON 与 layout `x/y/w/h`，操作写回原 `config JSON` 并继续通过既有 Dashboard update API 保存；同步前端 README 和进度。开发侧专项 36 tests、typecheck、lint、build、diff check 通过，未跑 Playwright 冒烟 | audit |
+| 2026-06-24 | T-0056a | 代码审计 agent Carver | Dashboard panel 配置前端审计未通过 | Carver 只读审计 `861094e` 未发现 P0/P1，但发现 1 个 P2：panel 编辑草稿只保存 `editIndex`，用户选中 panel 后若手动修改 `config JSON` 并重排/删除 `panels`，再点击“更新 panel”可能按旧 index 覆盖另一个 panel 或误报；需在 configText 变化时重置草稿，或校验当前 index 仍指向同一 panel id。Carver 已关闭，已启动前端修复 agent Sartre | blocked |
+| 2026-06-24 | T-0056a-fix | 总 agent | 启动 panel 编辑索引失效修复 | 已启动前端修复 agent Sartre，在 `feature/frontend-dev` 极窄修复审计 P2，补“选中 panel 后手动重排/删除 config.panels 再更新不会覆盖错误 panel”的回归测试；修复完成后复审再决定是否合并 | done |
+| 2026-06-24 | T-0056a-fix | 总 agent | panel 编辑索引失效修复完成 | Sartre 异常退出后总 agent 接手未提交修复，提交并推送 `f6156c6` 到 `feature/frontend-dev`：panel 编辑草稿新增 `originalPanelId`，更新时校验当前 `editIndex` 仍指向原 panel id；用户手动重排或删除 `config.panels` 后旧草稿会提示重新选择，不再覆盖错误 panel。同步前端 README/进度，并补纯函数与页面交互回归测试 | audit |
+| 2026-06-24 | T-0056a-fix | 代码复审 agent Halley | Dashboard panel 编辑索引失效复审通过 | Halley 只读复审 `f6156c6`，确认原 P2 已关闭：重排/删除 `config.panels` 后旧编辑草稿会被拒绝并保留 textarea 内容；工具函数和页面交互测试覆盖到位。未发现新的 P0/P1/P2/P3，建议真实 merge 到 `dev` | done |
 
 ## 6. 测试记录
 
@@ -584,6 +589,9 @@ closed      已关闭
 | 2026-06-24 | T-0055-sync | CI | GitHub Actions runs `28050203922`、`28050218117`、`28050231723` | 通过 | `cd6290b` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0056-start | CI | GitHub Actions run `28050373490` | 通过 | T-0056 启动记录提交 `2d989c9` 后 `dev` CI 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0056-start-sync | CI | GitHub Actions runs `28050478016`、`28050516813`、`28050522107` | 通过 | T-0056 启动 CI 记录提交 `a0e19ba` 后，`dev`、`feature/frontend-dev`、`feature/backend-dev` 均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
+| 2026-06-24 | T-0056-start-sync2 | CI | GitHub Actions run `28050618359` | 通过 | T-0056 启动同步 CI 记录提交 `8125c96` 后 `dev` CI 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解 |
+| 2026-06-24 | T-0056a | 前端开发/总 agent 窄门禁 | feature CI run `28052217957`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check a0e19ba..861094e`；Playwright CLI + Microsoft Edge 冒烟 | 通过 | `861094e` 上 feature/frontend-dev CI 通过；本地专项 4 files/36 tests passed，typecheck、lint、build、diff check 通过；Edge 访问 `/dashboards` 桌面与 390px 宽度快照正常，panel 编辑区未登录态禁用且无运行时错误。console 仅有既有 React Router future warning 和 favicon 404；自启 Vite/Edge 已清理 |
+| 2026-06-24 | T-0056a-fix | 前端 P2 修复门禁 | feature CI run `28054244416`；本地 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` | 通过 | `f6156c6` 上 feature/frontend-dev CI 通过；本地专项 4 files/38 tests passed，typecheck、lint、build、diff check 通过。该结果不替代真实 merge 后的 `dev` 集成门禁 |
 
 ## 7. 审计记录
 
@@ -591,6 +599,8 @@ closed      已关闭
 | --- | --- | --- | --- | --- | --- |
 | 2026-06-24 | T-0055 | Dashboard panel `config.panels` 最小后端 schema（`e8b1d37`） | 未通过 | P2：panel `id/title/type` 校验使用 trim 后值，但持久化仍保留原始带空白字符串，可能让 `" metrics "` 这类非枚举 `type` 入库/返回，违反契约并影响后续 panel 分发；需修复后复审 | blocked |
 | 2026-06-24 | T-0055-fix | Dashboard panel 字符串规范化修复（`f3df26c`） | 通过 | 原 P2 已关闭：panel `id/title/type` 规范化值写回保存，重复 id 按规范化值判断；未发现新 P0/P1/P2/P3。残余风险为未做真实 MySQL JSON 列回归，且历史已保存的带空白 panel 字段不会自动迁移 | done |
+| 2026-06-24 | T-0056a | Dashboard panel 配置前端小步（`861094e`） | 未通过 | P2：panel 编辑草稿只保存 `editIndex`，手动修改 `config JSON` 重排/删除 panels 后再更新可能覆盖错误 panel；需修复后复审 | blocked |
+| 2026-06-24 | T-0056a-fix | Dashboard panel 编辑索引失效修复（`f6156c6`） | 通过 | 原 P2 已关闭：panel 编辑草稿保存原始 panel id，更新时确认当前 index 仍指向同一 id；手动重排/删除 `config.panels` 后提示重新选择，未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
