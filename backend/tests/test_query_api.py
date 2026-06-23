@@ -5,6 +5,7 @@ from typing import cast
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.dialects import mysql, sqlite
 from sqlalchemy.dialects.mysql import mariadb
 
@@ -14,6 +15,7 @@ from app.db.base import Base
 from app.models.ingest import IngestRecordModel
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.query import (
+    SqlAlchemyQueryRepository,
     _log_attribute_string_equals,
     _metric_window_epoch,
     _payload_duration_ms,
@@ -25,12 +27,16 @@ from app.services.auth import AuthService, hash_password
 TEST_AUTH_SECRET = "test-auth-secret-key-with-at-least-thirty-two-bytes"
 
 
-def build_client() -> TestClient:
+def build_client(
+    *,
+    query_trace_topology_span_scan_limit: int = 10000,
+) -> TestClient:
     settings = Settings(
         app_name="telemetry-backend-test",
         app_version="0.1.0",
         database_url="sqlite:///:memory:",
         auth_secret_key=TEST_AUTH_SECRET,
+        query_trace_topology_span_scan_limit=query_trace_topology_span_scan_limit,
     )
     app = create_app(settings)
     Base.metadata.create_all(app.state.db_engine)
@@ -1788,6 +1794,176 @@ def test_query_trace_topology_filters_time_source_and_limit() -> None:
     assert valid_trimmed_source_response.json() == {"nodes": [], "edges": []}
     assert long_source_response.status_code == 422
     assert long_source_response.json()["detail"] == "source 长度不能超过 128"
+
+
+def test_query_trace_topology_applies_repository_scan_limit() -> None:
+    client = build_client()
+    project, raw_key, _admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-topology-scan-repository-owner",
+        project_key="query-trace-topology-scan-repository-project",
+    )
+    app = _tested_app(client)
+    project_id = cast(int, project["id"])
+    for index in range(3):
+        response = client.post(
+            "/api/v1/ingest/traces",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={
+                "spans": [
+                    {
+                        "trace_id": "repository-scan-limit",
+                        "span_id": f"span-{index}",
+                        "name": f"span {index}",
+                        "start_time": f"2026-06-20T10:00:0{index}Z",
+                        "source": f"service-{index}",
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 202
+
+    captured_limits: list[object] = []
+
+    def capture_limit(
+        _conn,
+        _cursor,
+        statement,
+        parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        if "ingest_records.kind" in statement and "LIMIT" in statement:
+            captured_limits.append(parameters[-2])
+
+    event.listen(app.state.db_engine, "before_cursor_execute", capture_limit)
+    try:
+        with app.state.db_session_factory() as session:
+            spans = SqlAlchemyQueryRepository(session).list_trace_spans_for_topology(
+                project_ids=None,
+                project_id=project_id,
+                occurred_from=None,
+                occurred_to=None,
+                limit=2,
+            )
+    finally:
+        event.remove(app.state.db_engine, "before_cursor_execute", capture_limit)
+
+    assert len(spans) == 2
+    assert [span.source for span in spans] == ["service-0", "service-1"]
+    assert captured_limits == [2]
+
+
+def test_query_trace_topology_scan_limit_is_separate_from_return_limit() -> None:
+    client = build_client(query_trace_topology_span_scan_limit=2)
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-topology-scan-api-owner",
+        project_key="query-trace-topology-scan-api-project",
+    )
+    app = _tested_app(client)
+    for index in range(3):
+        response = client.post(
+            "/api/v1/ingest/traces",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={
+                "spans": [
+                    {
+                        "trace_id": "api-scan-limit",
+                        "span_id": f"span-{index}",
+                        "name": f"span {index}",
+                        "start_time": f"2026-06-20T10:00:0{index}Z",
+                        "source": f"service-{index}",
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 202
+
+    captured_limits: list[object] = []
+
+    def capture_limit(
+        _conn,
+        _cursor,
+        statement,
+        parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        if "ingest_records.kind" in statement and "ORDER BY ingest_records.project_id" in statement:
+            captured_limits.append(parameters[-2])
+
+    event.listen(app.state.db_engine, "before_cursor_execute", capture_limit)
+    try:
+        response = client.get(
+            "/api/v1/query/traces/topology",
+            headers=admin_headers,
+            params={"project_id": project["id"], "limit": 1},
+        )
+    finally:
+        event.remove(app.state.db_engine, "before_cursor_execute", capture_limit)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [node["source"] for node in body["nodes"]] == ["service-0"]
+    assert body["edges"] == []
+    assert captured_limits == [2]
+
+
+def test_query_trace_topology_skips_ambiguous_duplicate_parent_span_id() -> None:
+    client = build_client()
+    project, raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="query-trace-topology-duplicate-parent-owner",
+        project_key="query-trace-topology-duplicate-parent-project",
+    )
+
+    ingest_response = client.post(
+        "/api/v1/ingest/traces",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "spans": [
+                {
+                    "trace_id": "duplicate-parent-trace",
+                    "span_id": "shared-parent",
+                    "name": "parent from api",
+                    "start_time": "2026-06-20T10:00:00Z",
+                    "source": "api",
+                },
+                {
+                    "trace_id": "duplicate-parent-trace",
+                    "span_id": "shared-parent",
+                    "name": "parent from worker",
+                    "start_time": "2026-06-20T10:00:01Z",
+                    "source": "worker",
+                },
+                {
+                    "trace_id": "duplicate-parent-trace",
+                    "span_id": "child",
+                    "parent_span_id": "shared-parent",
+                    "name": "child points to ambiguous parent",
+                    "start_time": "2026-06-20T10:00:02Z",
+                    "duration_ms": 25,
+                    "source": "db",
+                },
+            ]
+        },
+    )
+    response = client.get(
+        "/api/v1/query/traces/topology",
+        headers=admin_headers,
+        params={"project_id": project["id"]},
+    )
+
+    assert ingest_response.status_code == 202
+    assert response.status_code == 200
+    body = response.json()
+    assert {node["source"]: node["span_count"] for node in body["nodes"]} == {
+        "api": 1,
+        "worker": 1,
+        "db": 1,
+    }
+    assert body["edges"] == []
 
 
 def test_query_trace_topology_empty_and_permissions() -> None:

@@ -42,6 +42,8 @@
   - `INGEST_RATE_LIMIT_KEY_PREFIX`：默认 `telemetry`，Redis 限流 key 前缀。
   - `REDIS_URL`：默认 `redis://127.0.0.1:26380/0`；启用 Redis 限流后端时使用。
   - Redis 限流后端不可用时返回 `503 Service Unavailable`、`detail=摄入限流服务不可用`。
+- 查询保护配置：
+  - `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT`：默认 `10000`；限制 `GET /api/v1/query/traces/topology` 在数据库侧读取的匹配 trace span 数。该配置用于控制拓扑扫描窗口，不等同于接口 `limit`。
 
 ## API-0005 用户登录
 
@@ -729,7 +731,7 @@
   - `project_id`：必填，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按 trace span `occurred_at` 过滤；trace 摄入时该字段来自 span `start_time`。
   - `source`：可选，来源，长度 `1..128`；后端会去除前后空白，空白字符串按未传处理。传入后返回该 source 及其相邻 source 组成的子图。
-  - `limit`：可选，默认 `100`，范围 `1..500`；限制返回节点数，并且只返回两端节点都在返回节点集合中的边。
+  - `limit`：可选，默认 `100`，范围 `1..500`；限制返回节点数，并且只返回两端节点都在返回节点集合中的边。该参数不控制数据库读取条数；数据库侧扫描窗口由 `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT` 控制，默认最多读取 `10000` 条匹配 span。
 - 响应：`nodes` 为服务节点数组，`edges` 为 source-to-source 调用边数组；本接口不返回 cursor。
 
 ```json
@@ -757,7 +759,7 @@
 }
 ```
 
-- 推导规则：查询来源为关系库 `ingest_records.kind=trace`。后端把 trace span 的 `source` 作为服务节点；在同一 `trace_id` 内，若 child span 的 `parent_span_id` 指向 parent span 的 `span_id`，且 parent/child 都有非空 `source` 且不同，则形成 `from_source -> to_source` 边。缺 parent、缺 source 或同 source parent-child 不生成边。
+- 推导规则：查询来源为关系库 `ingest_records.kind=trace`，repository 查询会按 `project_id`、权限项目集合和时间范围过滤、按 `project_id,id` 升序排序，并应用 `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT` 数据库侧 `LIMIT`。后端把 trace span 的 `source` 作为服务节点；在同一 `trace_id` 内，若 child span 的 `parent_span_id` 指向 parent span 的 `span_id`，且 parent/child 都有非空 `source` 且不同，则形成 `from_source -> to_source` 边。缺 parent、缺 source 或同 source parent-child 不生成边。同一 `trace_id` 内若多个 span 共享同一个 `span_id`，该 parent id 视为 ambiguous；child 指向该 parent id 时跳过 edge，不用第一条或任意一条 span 推导边，避免因摄入顺序造成误归属。节点统计仍包含这些 span 本身。
 - 聚合规则：节点按 source 汇总 `span_count`、去重 `trace_count`、`error_span_count`、`avg_duration_ms` 和 `max_duration_ms`；边按 `(from_source, to_source)` 汇总 `call_count`、`error_count`、`avg_duration_ms` 和 `max_duration_ms`。错误计数当前按 trace payload 顶层 `status_code` 规范化后等于 `error` 统计；duration 聚合使用 trace payload 顶层 `duration_ms`，缺失或非有限值不参与平均和最大值。
 - 排序规则：节点默认按 `span_count` 降序、`source` 升序返回；传入 `source` 时目标 source 排在首位。边按 `call_count` 降序、`from_source`、`to_source` 升序返回。
 - 当前边界：不接 ClickHouse，不做前端拓扑图，不做复杂布局，不做跨项目聚合，不做任意标签拓扑。

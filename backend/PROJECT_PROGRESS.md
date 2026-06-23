@@ -2,6 +2,32 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0051-fix Trace 服务拓扑审计阻断修复
+
+### 已完成
+
+- 修复审计 P1：新增 `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT` 配置，默认 `10000`，通过 `QueryService` 传入 repository；`list_trace_spans_for_topology()` 在数据库侧应用 `.limit()`，避免未传时间范围时读取项目全部 trace span。
+- 明确语义：API `limit` 仍只限制返回节点数和两端可见节点的边；scan limit 是独立的数据库读取窗口，用于控制拓扑构建的最大 span 扫描量。
+- 修复审计 P2：同一 `trace_id` 内重复 `span_id` 被视为 ambiguous parent id；child 指向该 parent id 时跳过 edge，不再使用第一条 span 或任意 span 推导跨 source 边，节点统计仍包含这些 span。
+- 补充 repository/API/config/topology 测试，覆盖数据库侧 scan limit、API `limit` 与 scan limit 分离、重复 parent `span_id` 不误生成边，以及配置读取和非正值拒绝。
+- 更新 `backend/.env.example`、`backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 scan limit 配置、`limit` 语义差异和重复 `span_id` 处理规则；后端版本保持 `0.2.8`。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、后端服务、前端或浏览器；真实 MySQL 拓扑大数据量执行计划仍留给后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_query_api.py -k "topology or hide_missing_project_from_superuser or requires_user_token" -q`，结果：12 个测试通过、42 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_config.py -q`，结果：13 个测试通过。
+- 已运行 `uv run pytest -q`，结果：173 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：通过，79 个文件已格式化。
+- 已运行 `uv run mypy`，结果：79 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-23 T-0051 Trace 服务拓扑后端基础
 
 ### 已完成

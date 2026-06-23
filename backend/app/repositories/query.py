@@ -189,6 +189,7 @@ class QueryRepository(Protocol):
         project_id: int,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
+        limit: int,
     ) -> list[TraceQueryRecord]: ...
 
     def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None: ...
@@ -680,6 +681,7 @@ class SqlAlchemyQueryRepository:
         project_id: int,
         occurred_from: datetime | None,
         occurred_to: datetime | None,
+        limit: int,
     ) -> list[TraceQueryRecord]:
         if project_ids is not None and not project_ids:
             return []
@@ -699,7 +701,7 @@ class SqlAlchemyQueryRepository:
         statement = statement.order_by(
             IngestRecordModel.project_id,
             IngestRecordModel.id,
-        )
+        ).limit(limit)
         return [_trace_query_record(model) for model in self._session.scalars(statement)]
 
     def get_log_by_id(self, *, log_id: int) -> LogQueryRecord | None:

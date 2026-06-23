@@ -109,6 +109,21 @@ def test_ingest_rate_limit_reads_from_environment(monkeypatch) -> None:
     assert settings.redis_url == "redis://127.0.0.1:26380/2"
 
 
+def test_query_trace_topology_scan_limit_reads_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT", "250")
+
+    settings = Settings()
+
+    assert settings.query_trace_topology_span_scan_limit == 250
+
+
+def test_query_trace_topology_scan_limit_rejects_non_positive(monkeypatch) -> None:
+    monkeypatch.setenv("QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT", "0")
+
+    with pytest.raises(ValidationError, match="QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT"):
+        Settings()
+
+
 def test_ingest_rate_limit_rejects_unknown_backend(monkeypatch) -> None:
     monkeypatch.setenv("INGEST_RATE_LIMIT_BACKEND", "unknown")
 

@@ -106,6 +106,11 @@ class Settings(BaseSettings):
         validation_alias="INGEST_RATE_LIMIT_KEY_PREFIX",
     )
     redis_url: str = Field(default="redis://127.0.0.1:26380/0", validation_alias="REDIS_URL")
+    query_trace_topology_span_scan_limit: int = Field(
+        default=10000,
+        ge=1,
+        validation_alias="QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT",
+    )
 
     @field_validator("ingest_rate_limit_backend")
     @classmethod

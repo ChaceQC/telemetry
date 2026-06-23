@@ -75,6 +75,7 @@ def get_ingest_service(
 
 
 def get_query_service(
+    request: Request,
     session: Annotated[Session, Depends(get_db_session)],
 ) -> QueryService:
     permission_service = PermissionService(SqlAlchemyPermissionRepository(session))
@@ -83,6 +84,9 @@ def get_query_service(
         SqlAlchemyQueryRepository(session),
         permission_service,
         management_repository,
+        trace_topology_span_scan_limit=(
+            request.app.state.settings.query_trace_topology_span_scan_limit
+        ),
     )
 
 

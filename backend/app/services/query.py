@@ -151,10 +151,13 @@ class QueryService:
         repository: QueryRepository,
         permission_service: PermissionService,
         management_repository: ManagementRepository,
+        *,
+        trace_topology_span_scan_limit: int,
     ) -> None:
         self._repository = repository
         self._permission_service = permission_service
         self._management_repository = management_repository
+        self._trace_topology_span_scan_limit = trace_topology_span_scan_limit
 
     def list_events(
         self,
@@ -381,6 +384,7 @@ class QueryService:
             project_id=project_id,
             occurred_from=occurred_from,
             occurred_to=occurred_to,
+            limit=self._trace_topology_span_scan_limit,
         )
         return _build_trace_topology(spans, source=normalized_source, limit=limit)
 
@@ -527,11 +531,18 @@ def _build_trace_topology(
 ) -> TraceTopologyRecord:
     nodes_by_source: dict[str, _TopologyNodeAccumulator] = {}
     spans_by_trace_and_span: dict[tuple[str, str], TraceQueryRecord] = {}
+    ambiguous_span_keys: set[tuple[str, str]] = set()
 
     for span in spans:
         span_source = _normalized_source(span.source)
         if span.trace_id and span.span_id:
-            spans_by_trace_and_span.setdefault((span.trace_id, span.span_id), span)
+            span_key = (span.trace_id, span.span_id)
+            if span_key not in ambiguous_span_keys:
+                if span_key in spans_by_trace_and_span:
+                    del spans_by_trace_and_span[span_key]
+                    ambiguous_span_keys.add(span_key)
+                else:
+                    spans_by_trace_and_span[span_key] = span
         if span_source is None:
             continue
 
@@ -549,7 +560,10 @@ def _build_trace_topology(
     for child in spans:
         if not child.trace_id or not child.parent_span_id:
             continue
-        parent = spans_by_trace_and_span.get((child.trace_id, child.parent_span_id))
+        parent_key = (child.trace_id, child.parent_span_id)
+        if parent_key in ambiguous_span_keys:
+            continue
+        parent = spans_by_trace_and_span.get(parent_key)
         if parent is None:
             continue
 
