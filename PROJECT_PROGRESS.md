@@ -663,6 +663,7 @@
 - T-0049 真实前后端联合测试未通过：Helmholtz the 2nd 在 `dev/origin/dev` `d9c85f0` 上验证 API 层与 SPA 内部 trace 到 logs 跳转均通过，但已登录后硬导航/刷新 `/traces?trace_id=...` 或 `/logs?trace_id=...&span_id=...` 时，首个查询请求未带 Authorization 并返回 401；证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。已登记 T-0049-fix，需前端修复会话恢复期间的查询触发竞态。
 - T-0049-fix 初审未通过：Wegener the 2nd 的 `3ed47cb` 已修复首包 Authorization 方向问题，但 Ramanujan the 2nd 发现 2 个 P2：Settings/Overview 在登出、恢复中或切换账号时可能继续显示上一 session 的缓存数据；已启动 Sartre the 2nd 继续修复，当前不得 merge。
 - T-0049-fix 前端修复与复审通过：Sartre the 2nd 提交 `a86f559`，按 sessionRevision 隔离 Overview/Settings 缓存、不可请求认证 API 时隐藏旧数据，并保留登录回跳 search；Euclid the 2nd 复审未发现 P0/P1/P2/P3，建议 merge 后重跑真实联测。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0049-fix 合入 `dev`，merge 提交 `bc15a60`；等待收窄门禁、推送、CI 读取、feature 分支同步和真实联合测试重跑。
 
 ### 阻塞与风险
 

@@ -426,6 +426,7 @@ closed      已关闭
 | 2026-06-23 | T-0049-fix | 代码审计 agent Ramanujan the 2nd | Auth 恢复竞态修复初审未通过 | Wegener the 2nd 提交并推送 `3ed47cb` 到 `feature/frontend-dev`，同步恢复 token 并用 `canRequestAuthenticatedApi` gate 认证查询；Ramanujan the 2nd 只读审计确认 Helmholtz 首包 Authorization 阻断方向已关闭，未发现 P0/P1，但发现 2 个 P2：Settings 在登出/切换账号/恢复中可能继续显示旧 session 项目/环境/服务缓存，Overview 在未登录/恢复中可能继续显示旧 session 摄入统计。Ramanujan the 2nd 已关闭，当前不得 merge，已启动前端修复 agent Sartre the 2nd 继续关闭 P2 | blocked |
 | 2026-06-23 | T-0049-fix | 前端修复 agent Sartre the 2nd | Auth 缓存隔离修复完成 | Sartre the 2nd 提交并推送 `a86f559` 到 `feature/frontend-dev`：按 sessionRevision 隔离 Overview 与 Settings 查询缓存，在不可请求认证 API 时隐藏旧统计/旧项目环境服务数据，Auth 边界清理 query/settings/overview 缓存；新增 `loginReturnPath` 保留 `pathname + search`，关闭未登录用户从 `/logs?trace_id=...&span_id=...` 登录后丢失查询串的 P3。专项 40 tests、前端全量 101 tests、typecheck、lint、build、diff check 均通过；未启动浏览器、Docker 或真实联测。Sartre the 2nd 已关闭，已启动复审 | audit |
 | 2026-06-23 | T-0049-fix | 代码复审 agent Euclid the 2nd | Auth 缓存隔离复审通过 | Euclid the 2nd 只读复审 `a86f559`，确认 Ramanujan 两个 P2 已关闭，未发现新的 P0/P1/P2/P3；Settings 与 Overview 已按 sessionRevision 隔离并在恢复中/未登录状态不展示上一 session 缓存，原 Helmholtz 首包 Authorization blocker 仍由同步 token 恢复和 `canRequestAuthenticatedApi` gating 关闭，登录回跳保留 search。Euclid the 2nd 已关闭，建议 merge 后重跑真实联测 | done |
+| 2026-06-23 | T-0049-fix | 总 agent | 真实 merge 集成 auth 修复 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `3ed47cb` 与 `a86f559` 合入 `dev`，merge 提交 `bc15a60`；后续执行收窄门禁、推送、读取 CI、同步 feature 分支，并启动测试 agent 重跑真实 MySQL、真实前后端和 Playwright + Microsoft Edge 联测 | testing |
 
 ## 6. 测试记录
 
