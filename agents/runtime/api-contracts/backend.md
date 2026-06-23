@@ -411,7 +411,7 @@
   - `name`：必填，1 到 100 字符，首尾空白会裁剪。
   - `description`：可选，最多 500 字符。
   - `layout`：可选，必须是 JSON 对象或数组，默认 `{}`；序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。
-  - `config`：可选，必须是 JSON 对象或数组，默认 `{}`；序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。当 `config` 是对象且包含顶层 `panels` 时，`panels` 必须是数组；每个 panel 必须是对象，包含 `id`（1 到 64 字符）、`title`（1 到 120 字符）、`type`（`metrics`、`logs`、`events`、`traces`、`topology` 之一）和对象类型的 `query`；同一数组内 `id` 不可重复；可选 `layout` 必须是对象，包含非负 `x/y` 和正数 `w/h`。旧版 `{}`、`{"refresh_seconds": 30}` 和未使用顶层 `panels` 的 config 结构保持兼容。
+  - `config`：可选，必须是 JSON 对象或数组，默认 `{}`；序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。当 `config` 是对象且包含顶层 `panels` 时，`panels` 必须是数组；每个 panel 必须是对象，包含 `id`（1 到 64 字符）、`title`（1 到 120 字符）、`type`（`metrics`、`logs`、`events`、`traces`、`topology` 之一）和对象类型的 `query`；`id/title/type` 会先裁剪首尾空白再校验和保存，同一数组内重复 `id` 也按裁剪后值判断；可选 `layout` 必须是对象，包含非负 `x/y` 和正数 `w/h`。旧版 `{}`、`{"refresh_seconds": 30}` 和未使用顶层 `panels` 的 config 结构保持兼容。
 - 响应：`201 Created`，返回 dashboard 对象。
 
 ### 读取 / 更新 / 删除 dashboard

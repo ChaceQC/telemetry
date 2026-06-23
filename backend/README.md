@@ -400,7 +400,7 @@ GET /health
 }
 ```
 
-列表响应为对象 envelope：`{"items": [...], "limit": 50, "offset": 0, "total": 1}`。字段规则：`name` 为 1 到 100 字符，`description` 最多 500 字符；`layout` 和 `config` 必须是 JSON 对象或数组，创建时默认 `{}`，单字段序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。当 `config` 是对象且包含 `panels` 时，`panels` 必须是数组；每个 panel 必须是对象，包含 `id`（1 到 64 字符）、`title`（1 到 120 字符）、`type`（`metrics`、`logs`、`events`、`traces`、`topology` 之一）和对象类型的 `query`；同一 `panels` 内 `id` 不可重复；可选 `layout` 必须是对象，包含非负 `x/y` 和正数 `w/h`。旧版 `{"refresh_seconds": 30}`、空 `{}` 和未使用顶层 `panels` 的 JSON 结构仍保持兼容。更新至少提供一个字段；未传 `layout/config` 时保持原值，传入空对象/空数组有效，`description=null` 表示清空描述，`name/layout/config=null` 返回 `422`。错误边界：缺少或无效 token 返回 `401`；项目不存在、无项目成员关系或 dashboard 不在指定项目下返回 `404`；角色不足返回 `403`；数据库完整性冲突返回 `409`；字段、路径参数、分页参数和非法 panel config 返回 `422`。
+列表响应为对象 envelope：`{"items": [...], "limit": 50, "offset": 0, "total": 1}`。字段规则：`name` 为 1 到 100 字符，`description` 最多 500 字符；`layout` 和 `config` 必须是 JSON 对象或数组，创建时默认 `{}`，单字段序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。当 `config` 是对象且包含 `panels` 时，`panels` 必须是数组；每个 panel 必须是对象，包含 `id`（1 到 64 字符）、`title`（1 到 120 字符）、`type`（`metrics`、`logs`、`events`、`traces`、`topology` 之一）和对象类型的 `query`；`id/title/type` 会先裁剪首尾空白再校验和保存，同一 `panels` 内重复 `id` 也按裁剪后值判断；可选 `layout` 必须是对象，包含非负 `x/y` 和正数 `w/h`。旧版 `{"refresh_seconds": 30}`、空 `{}` 和未使用顶层 `panels` 的 JSON 结构仍保持兼容。更新至少提供一个字段；未传 `layout/config` 时保持原值，传入空对象/空数组有效，`description=null` 表示清空描述，`name/layout/config=null` 返回 `422`。错误边界：缺少或无效 token 返回 `401`；项目不存在、无项目成员关系或 dashboard 不在指定项目下返回 `404`；角色不足返回 `403`；数据库完整性冲突返回 `409`；字段、路径参数、分页参数和非法 panel config 返回 `422`。
 
 ## 数据摄入 API
 

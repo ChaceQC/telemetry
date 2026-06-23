@@ -2,6 +2,29 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0055a-code-audit-P2 Dashboard panel 字符串规范化修复
+
+### 已完成
+
+- 修复 dashboard `config.panels` 审计 P2：`id/title/type` 在通过非空、长度和 `type` enum 校验后写回裁剪首尾空白后的规范化值，避免 `" metrics "` 以 `metrics` 通过校验却按原始值保存/返回。
+- 重复 panel `id` 继续使用规范化值判断，覆盖 `" cpu "` 与 `"cpu"` 这类边界。
+- 扩展 `backend/tests/test_dashboard_api.py`，覆盖 create/update 时带首尾空白的 panel `id/title/type` 会持久化为裁剪后的值，并覆盖带空白 `type` 仍按 enum 契约返回规范化值。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 panel `id/title/type` 的规范化保存和重复 `id` 判断规则。
+- 后端版本保持 `0.2.11`：本轮仅修复 dashboard panel schema 规范化边界，不新增 API 路径、不变更存储结构或部署依赖。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard JSON 列读写仍留给后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：36 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：通过，2 个文件已格式化。
+- 已运行 `uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：2 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0055a Dashboard panel 配置 schema 最小后端小步
 
 ### 已完成

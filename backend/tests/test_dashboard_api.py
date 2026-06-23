@@ -422,6 +422,78 @@ def test_dashboard_create_and_update_accept_panel_config() -> None:
     assert update_response.json()["config"] == updated_config
 
 
+def test_dashboard_panel_config_normalizes_string_fields_for_create_and_update() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="normalized-panel-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+
+    create_config = {
+        "panels": [
+            {
+                "id": " latency-p95 ",
+                "title": " P95 latency ",
+                "type": " metrics ",
+                "query": {"name": "http.server.duration"},
+            }
+        ]
+    }
+    expected_create_config = {
+        "panels": [
+            {
+                "id": "latency-p95",
+                "title": "P95 latency",
+                "type": "metrics",
+                "query": {"name": "http.server.duration"},
+            }
+        ]
+    }
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Normalized panel dashboard",
+            "config": create_config,
+        },
+    )
+
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+    assert dashboard["config"] == expected_create_config
+    assert dashboard["config"]["panels"][0]["type"] == "metrics"
+
+    update_config = {
+        "panels": [
+            {
+                "id": "\terror-logs\n",
+                "title": "\tError logs\n",
+                "type": "\tlogs\n",
+                "query": {"level": "error"},
+            }
+        ]
+    }
+    expected_update_config = {
+        "panels": [
+            {
+                "id": "error-logs",
+                "title": "Error logs",
+                "type": "logs",
+                "query": {"level": "error"},
+            }
+        ]
+    }
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": update_config},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["config"] == expected_update_config
+    assert update_response.json()["config"]["panels"][0]["type"] == "logs"
+
+
 def test_dashboard_panel_config_keeps_legacy_config_compatible() -> None:
     client = build_client()
     _, auth_headers = create_auth_headers(client, username="legacy-config-owner")
@@ -501,6 +573,12 @@ def test_dashboard_validation_errors_are_reported_as_422() -> None:
         {
             "panels": [
                 {"id": "cpu", "title": "CPU", "type": "metrics", "query": {}},
+                {"id": "cpu", "title": "CPU duplicate", "type": "logs", "query": {}},
+            ]
+        },
+        {
+            "panels": [
+                {"id": " cpu ", "title": "CPU", "type": "metrics", "query": {}},
                 {"id": "cpu", "title": "CPU duplicate", "type": "logs", "query": {}},
             ]
         },

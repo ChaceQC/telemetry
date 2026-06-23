@@ -136,6 +136,7 @@ def _require_non_empty_string(
         raise ValueError(f"{field_path}.{key} 不能为空")
     if len(stripped_value) > max_length:
         raise ValueError(f"{field_path}.{key} 不能超过 {max_length} 字符")
+    mapping[key] = stripped_value
     return stripped_value
 
 
