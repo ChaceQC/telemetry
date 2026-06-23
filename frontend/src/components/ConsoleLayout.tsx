@@ -1,4 +1,4 @@
-import { Activity, Bell, Boxes, Gauge, LayoutDashboard, LogIn, LogOut, Search, Settings } from 'lucide-react';
+import { Activity, Bell, Boxes, Gauge, LayoutDashboard, LogIn, LogOut, Search, Settings, SlidersHorizontal } from 'lucide-react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { appConfig } from '../api/config';
 import { useAuth } from '../features/auth/useAuth';
@@ -9,6 +9,7 @@ const navigationItems = [
   { label: '日志', to: '/logs', icon: Search },
   { label: '链路', to: '/traces', icon: Activity },
   { label: '事件', to: '/events', icon: Boxes },
+  { label: '仪表盘', to: '/dashboards', icon: SlidersHorizontal },
   { label: '告警', to: '/alerts', icon: Bell },
   { label: '设置', to: '/settings', icon: Settings }
 ];

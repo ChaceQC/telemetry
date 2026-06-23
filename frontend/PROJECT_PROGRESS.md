@@ -2,6 +2,32 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-23 T-0054 Dashboard CRUD 前端基础
+
+### 已完成
+
+- 新增 Dashboard CRUD 前端 API client 与 TypeScript 类型，按后端契约消费 `GET/POST /api/v1/dashboards` 和 `GET/PATCH/DELETE /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，列表参数只包含 `project_id`、`limit`、`offset`。
+- 新增 `/dashboards` 路由和侧边导航入口，支持项目下拉/手动项目 ID、dashboard 列表、创建、选择编辑、保存名称/描述/layout/config JSON 和删除；未把 dashboard 项目筛选写入 metrics/logs/events/traces 查询参数。
+- Dashboard 页面复用现有 auth gating、Bearer API client、项目列表体验和错误文案风格，覆盖未登录、会话恢复、loading、error、empty、无项目和权限/校验错误展示；Dashboard 查询缓存按 `sessionRevision` 隔离，并在登录、登出、切换账号时清理 `dashboards` 缓存。
+- `layout` 和 `config` 使用 JSON textarea 编辑，提交前前端校验必须是 JSON 对象或数组；后端仍负责大小、深度、复杂度和非有限数限制。
+- 补充 API client、JSON helper、页面状态、创建/更新/删除交互和路由导航回归测试；为交互测试新增 `jsdom`、`@testing-library/react`、`@testing-library/user-event` devDependencies 并同步 lock。
+- 前端版本提升到 `0.2.11`，同步 `frontend/VERSION`、`frontend/package.json`、`frontend/package-lock.json`、`frontend/.env.example`、`frontend/src/api/config.ts` 和 `frontend/README.md`。
+
+### 阻塞与风险
+
+- 本轮不改后端契约、不改后端代码、不启动 Docker、不接 ClickHouse、不做 panel 图表渲染、不做变量/时间范围高级配置、不做告警。
+- 未代跑完整真实前后端联合测试；Dashboard CRUD 真实后端/MySQL/权限矩阵仍需由总 agent 或测试 agent 后续联测覆盖。
+- 未启动前端专项测试 agent；由当前前端开发 agent 完成实现和本地前端验证。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test` 通过（28 个测试文件、140 个测试通过）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已执行 `git diff --check` 通过。
+
 ## 2026-06-23 版本同步 0.2.10
 
 ### 已完成
