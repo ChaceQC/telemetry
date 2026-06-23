@@ -688,6 +688,11 @@
 - T-0054 已登记为阶段 5 下一小步：Dashboard CRUD 前端基础，消费既有后端 Dashboard CRUD API，实现项目选择、dashboard 列表、创建、编辑名称/描述/最小 layout/config JSON、删除和 loading/error/empty/unauth 状态；不改后端契约、不做 panel 图表渲染、不做变量/时间范围高级配置、不接 ClickHouse 查询和告警。
 - T-0054 前端开发、审计修复、最终复审、CI 和真实联测均通过：Dalton the 2nd 提交 `7221b90` 新增 Dashboard CRUD API client/types、`/dashboards` 页面、导航入口、项目选择、列表、创建、编辑、删除和状态处理，并将前端版本提升到 `0.2.11`；Avicenna the 2nd 审计发现 2 个 P1 和 2 个 P2，Gauss the 2nd 提交 `7b4642d` 修复编辑初态、状态隔离、分页和 JSON 本地保护；Hubble the 2nd 复审仍发现项目草稿残留 P1 和删除末页 P3，Pauli the 2nd 提交 `d8ba7f0` 修复；Cicero the 2nd 与 Descartes the 2nd 继续发现删除并发/刷新窗口 P3，Kepler the 2nd `58a6d9a` 和 Halley the 2nd `e2ca432` 关闭；Jason the 2nd 最终复审未发现 P0/P1/P2/P3。总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `33da4b1`，并同步根、前端、后端版本到 `0.2.11`；`dev`/feature CI、feature 分支同步和 Maxwell the 2nd 真实前后端联合测试均通过。T-0054 关闭。
 - T-0055 已登记为阶段 5 下一小步：Dashboard panel 配置后端基础，先在现有 Dashboard CRUD 的 `layout`/`config` JSON 校验之上新增最小 panel 配置 schema 与后端校验/测试，支持保存 metrics/logs/events/traces/topology 等 panel 的 `id`、`title`、`type`、`query`、基础布局坐标和基础查询参数；不改前端页面、不做 panel 图表渲染、不接 ClickHouse 图表查询、不做变量/时间范围高级配置或告警。
+- T-0055 后端开发 agent Franklin 已提交并推送 `e8b1d37` 到 `feature/backend-dev`：新增最小 `config.panels` 校验，覆盖 panels 数组、panel 对象、必填 `id/title/type/query`、`type` 枚举、`query` 对象、重复 id、layout 数值边界和 legacy config 兼容；后端版本继续保持 `0.2.11`，因为本小步不新增 API 路径、不改响应模型或部署依赖。
+- T-0055 代码审计 agent Chandrasekhar 审计未通过：发现 1 个 P2，panel `id/title/type` 使用 trim 后值做校验但未写回，可能让 `" metrics "` 这类非枚举原始 `type` 通过并入库/返回。已关闭 Chandrasekhar，并启动后端修复 agent Newton 在 `feature/backend-dev` 做极窄规范化/拒绝修复和回归测试。
+- T-0055-fix 后端修复 agent Newton 已提交并推送 `f3df26c`：panel `id/title/type` 通过校验后写回裁剪首尾空白后的规范化值，重复 `id` 按规范化值判断；新增 create/update 规范化和重复 id 规范化回归测试，并同步后端 README、后端进度和 API 契约。
+- T-0055-fix 代码复审 agent Kant 复审通过：确认原 P2 已关闭，legacy config、数组 config、query/layout 与 update 语义未受破坏，新增测试和文档覆盖到位；未发现 P0/P1/P2/P3，可合并到 `dev`。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0055 合入 `dev`，merge 提交 `d11b298`；merge 后本地门禁通过，待推送后读取 GitHub Actions 并同步 feature 分支。
 
 ### 阻塞与风险
 
@@ -710,10 +715,11 @@
 - T-0049-fix 阻断问题已由 `3ed47cb`/`a86f559` 关闭：已登录 URL 直达或刷新查询页首个业务请求带 Authorization，无 401。
 - T-0049-fix 新增 P2 已由 `a86f559` 关闭并经 Planck 重测观察通过：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据。
 - T-0049-fix2 阻断问题已由 `a30e126` 关闭并经 Godel 最终联测确认：`/traces?trace_id=...` 会初始化 Trace ID 筛选并传给后端，valid 深链与 129 字符 trace_id 422/错误态均通过。
+- T-0055 残余风险：本轮尚未做真实 MySQL/真实后端服务/前端浏览器联测，`query` 内部语义仍按本小步只校验为对象，不校验查询 DSL；若历史 dashboard 已在旧逻辑下保存带空白 panel 字段，本次不会自动迁移历史数据，需要后续通过更新或专项迁移清理。
 
 ### 下一步
 
-- 后端开发 agent 在 `feature/backend-dev` 推进 T-0055 Dashboard panel 配置后端基础；完成后由总 agent 启动代码审计 agent，审计通过后再按真实 merge 集成到 `dev` 并安排必要验证。
+- 推送 T-0055 merge 与记录到 `dev`，读取 GitHub Actions；通过后将 `feature/backend-dev` 与 `feature/frontend-dev` 快进到最新 `dev` 并推送，然后复查三棵 worktree。
 
 ### 验证
 
@@ -738,6 +744,9 @@
 - T-0054 真实前后端联合测试通过：Maxwell the 2nd 使用真实 MySQL 临时库、真实 FastAPI 后端 `28117`、真实 Vite 前端 `25173` 和 Playwright + Microsoft Edge 验证 Dashboard CRUD 前端集成；API 40 项断言通过，后端 `/health=0.2.11`，前端 `/dashboards` ready，覆盖 dashboard CRUD、权限/JSON 校验、分页数据和既有摄入/查询/拓扑回归；证据目录 `agents/runtime/e2e-T-0054-20260623-20260623-225414`，自有资源已清理。
 - T-0054 文档收口 CI 通过：GitHub Actions runs `28044232620`、`28044259701`、`28044259979` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。
 - T-0054 文档收口 CI 记录提交后 CI 通过：GitHub Actions runs `28044411641`、`28044433265`、`28044432365` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev`，均为 success；仅有既有 Node.js runtime 弃用注解。该结果与 T-0055 启动记录合并记录，避免纯 CI 记录反复触发文档回声。
+- T-0055 审计前窄门禁通过：在后端 worktree `e8b1d37` 上运行 `uv run pytest tests/test_dashboard_api.py -q` 得到 34 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`git diff --check origin/dev..origin/feature/backend-dev` 均通过。该结果不替代 P2 修复后的复审和 merge 后门禁。
+- T-0055-fix 修复后窄门禁通过：在后端 worktree `f3df26c` 上运行 `uv run pytest tests/test_dashboard_api.py -q` 得到 36 passed、1 条既有 Starlette/TestClient 弃用警告；ruff、format check、mypy、`git diff --check origin/dev..origin/feature/backend-dev` 和 worktree 体检均通过。
+- T-0055 merge 后本地门禁通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 49 passed，1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 通过；前端 `npm.cmd run typecheck`、`npm.cmd run build` 通过；`git diff --check` 通过。worktree 体检仅因 `dev` 本地领先远端且根文档待提交而失败，推送后复查。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
