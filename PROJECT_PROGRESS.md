@@ -765,6 +765,7 @@
 - T-0068 启动记录 CI 通过：`2c4bb58` 已推送到 `dev`，GitHub Actions run `28096373574` 成功，Backend checks 与 Frontend checks 均为 success；已启动后端开发 agent Linnaeus 在 `feature/backend-dev` 推进实现。
 - T-0068 启动 CI 结果记录提交 `213aaac` 的 GitHub Actions run `28096506979` 也已通过，Backend checks 与 Frontend checks 均为 success；该结果将随下一次实质节点提交，避免纯 CI 记录回声。
 - T-0068 后端实现、feature CI 和代码审计通过：Linnaeus 提交并推送 `92ec4e5` 到 `feature/backend-dev`，新增 preview 执行前变量 default 替换，只处理 panel query 顶层字段完整 `${变量名}`，text/select default 保持字符串、number default 保持数值，响应仍返回原始保存 query；未知变量、缺 default、非法模板和替换后类型非法均返回 `422`。Linnaeus 本地 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check`、diff check 通过；feature CI run `28097176361` 成功。Carson 只读复审未发现 P0/P1/P2/P3，并复验 dashboard/config、ruff、format、mypy 和 diff check 通过。
+- T-0068 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `92ec4e5` 合入，merge 提交 `ac7b3fc`。merge 后本地门禁通过：后端 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 
 ### 阻塞与风险
 
@@ -863,6 +864,7 @@
 - T-0068 启动记录 CI 通过：GitHub Actions run `28096373574` 在 `2c4bb58` 上成功，Backend checks 与 Frontend checks 均为 success。
 - T-0068 启动 CI 结果记录提交 `213aaac` 的 GitHub Actions run `28096506979` 成功，Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解。
 - T-0068 后端开发/审计门禁通过：`feature/backend-dev` 提交 `92ec4e5` 上 GitHub Actions run `28097176361` 成功；Linnaeus 本地 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check`、diff check 均通过。Carson 审计侧 `uv run --no-sync pytest tests/test_dashboard_api.py tests/test_config.py -q -p no:cacheprovider` 100 passed，并复验 ruff、format、mypy、diff check 通过。
+- T-0068 merge 后本地门禁通过：merge 提交 `ac7b3fc` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；`git diff --check` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

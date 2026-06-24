@@ -567,6 +567,7 @@ closed      已关闭
 | 2026-06-24 | T-0068 | 总 agent | 启动后端开发 agent Linnaeus | 已启动后端开发 agent Linnaeus（`019ef978-1c38-7402-8fc2-a36ced5548ce`），限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 实现 T-0068；要求不读 `auth.txt`、不启动 Docker/真实服务/浏览器/MySQL，完成本地后端验证后提交并 push | doing |
 | 2026-06-24 | T-0068 | 后端开发 agent Linnaeus | Dashboard panel preview 变量默认值替换后端完成 | `feature/backend-dev` 提交 `92ec4e5` 已实现 preview 执行前变量 default 替换：只处理 panel query 顶层字段完整 `${变量名}`，text/select default 保持字符串、number default 保持数值，响应继续返回原始保存 query；未知变量、缺 default、非法模板、替换后类型非法均返回 `422`。本地 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check`、diff check 通过；feature CI run `28097176361` 通过 | audit |
 | 2026-06-24 | T-0068 | 代码审计 agent Carson | Dashboard preview 变量默认值替换复审通过 | Carson 只读复审 `92ec4e5` 未发现 P0/P1/P2/P3；确认变量替换只作用于 preview 路由执行前的 `resolved_panel_query`，响应仍返回原始 `panel_query`；测试覆盖 text/select/number default、原始 query 不变、时间覆盖、未知变量/缺 default/非法模板/替换后类型非法 `422`、深层模板不替换、权限隐藏和 legacy 行为。审计侧 dashboard/config 100 passed、ruff、format、mypy、diff check 通过 | done |
+| 2026-06-24 | T-0068 | 总 agent | 真实 merge 集成 Dashboard preview 变量默认值替换 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `92ec4e5` 合入 `dev`，merge 提交 `ac7b3fc`。merge 后本地门禁通过：后端 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 6. 测试记录
 
@@ -717,6 +718,7 @@ closed      已关闭
 | 2026-06-24 | T-0068-start | dev CI | GitHub Actions run `28096373574` | 通过 | T-0067 收口与 T-0068 启动记录 `2c4bb58` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success |
 | 2026-06-24 | T-0068-start-docs | dev CI | GitHub Actions run `28096506979` | 通过 | T-0068 启动 CI 结果记录 `213aaac` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。本条将随下一次实质节点提交，避免纯 CI 记录回声 |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端门禁 | `feature/backend-dev` run `28097176361`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `92ec4e5` 上 feature/backend-dev CI 通过，Backend checks 与 Frontend checks 均为 success；Linnaeus 本地 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、uv lock、diff check 均通过；Carson 审计侧 `--no-sync` 复验同样通过 |
+| 2026-06-24 | T-0068 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `ac7b3fc` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；diff check 通过 |
 
 ## 7. 审计记录
 
