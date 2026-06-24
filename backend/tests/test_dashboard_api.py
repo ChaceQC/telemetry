@@ -1166,6 +1166,322 @@ def test_dashboard_panel_preview_resolves_variable_defaults_before_query_executi
     ]
 
 
+def test_dashboard_panel_preview_variable_overrides_take_precedence_over_defaults() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-variable-override-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "matched variable defaults",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "matched variable overrides",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Variable override preview dashboard",
+            "config": {
+                "variables": [
+                    {"name": "service_source", "type": "text", "default": "api"},
+                    {
+                        "name": "log_level",
+                        "type": "select",
+                        "options": ["error", "info"],
+                        "default": "error",
+                    },
+                    {"name": "row_limit", "type": "number", "default": 5},
+                ],
+                "panels": [
+                    {
+                        "id": "logs",
+                        "title": "Logs",
+                        "type": "logs",
+                        "query": {
+                            "source": "${service_source}",
+                            "level": "${log_level}",
+                            "limit": "${row_limit}",
+                        },
+                    }
+                ],
+            },
+        },
+    )
+    dashboard_id = dashboard_response.json()["id"]
+    variables = {"service_source": "worker", "log_level": "info", "row_limit": 1}
+
+    preview_response = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/logs/preview",
+        headers=auth_headers,
+        params={"variables": json.dumps(variables)},
+    )
+    dashboard_after_preview = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard_id}",
+        headers=auth_headers,
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 200
+    preview_body = preview_response.json()
+    assert preview_body["query"] == {
+        "source": "${service_source}",
+        "level": "${log_level}",
+        "limit": "${row_limit}",
+    }
+    assert [log["message"] for log in preview_body["preview"]["items"]] == [
+        "matched variable overrides"
+    ]
+    assert dashboard_after_preview.status_code == 200
+    assert dashboard_after_preview.json()["config"] == dashboard_response.json()["config"]
+
+
+def test_dashboard_panel_preview_variable_override_supplies_missing_default() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(
+        client,
+        username="preview-variable-missing-default-override-owner",
+    )
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "matched missing default override",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                }
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Missing default override preview dashboard",
+            "config": {
+                "variables": [{"name": "service_source", "type": "text"}],
+                "panels": [
+                    {
+                        "id": "logs",
+                        "title": "Logs",
+                        "type": "logs",
+                        "query": {"source": "${service_source}", "limit": 5},
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/logs/preview"
+        ),
+        headers=auth_headers,
+        params={"variables": json.dumps({"service_source": "api"})},
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 200
+    assert [log["message"] for log in preview_response.json()["preview"]["items"]] == [
+        "matched missing default override"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("variables", "expected_detail"),
+    [
+        ({"log_level": "debug"}, "panel.query 变量 log_level.override 必须匹配 options"),
+        ({"log_level": 1}, "panel.query 变量 log_level.override 必须是字符串"),
+        ({"row_limit": True}, "panel.query 变量 row_limit.override 必须是有限数值"),
+        ({"row_limit": "1"}, "panel.query 变量 row_limit.override 必须是有限数值"),
+        ({"row_limit": 101}, "panel.query.limit 必须在 1..100 之间"),
+        ({"row_limit": int("9" * 400)}, "panel.query.limit 必须在 1..100 之间"),
+    ],
+)
+def test_dashboard_panel_preview_rejects_invalid_select_and_number_overrides(
+    variables: dict[str, Any],
+    expected_detail: str,
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username=f"preview-bad-override-{len(variables)}")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Invalid override preview dashboard",
+            "config": {
+                "variables": [
+                    {
+                        "name": "log_level",
+                        "type": "select",
+                        "options": ["error", "info"],
+                        "default": "error",
+                    },
+                    {"name": "row_limit", "type": "number", "default": 5},
+                ],
+                "panels": [
+                    {
+                        "id": "logs",
+                        "title": "Logs",
+                        "type": "logs",
+                        "query": {
+                            "level": "${log_level}",
+                            "limit": "${row_limit}",
+                        },
+                    }
+                ],
+            },
+        },
+    )
+
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/logs/preview"
+        ),
+        headers=auth_headers,
+        params={"variables": json.dumps(variables)},
+    )
+
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 422
+    assert preview_response.json()["detail"] == expected_detail
+
+
+@pytest.mark.parametrize(
+    ("raw_variables", "expected_detail"),
+    [
+        ("not-json", "variables 必须是合法 JSON 对象"),
+        ("[]", "variables 必须是 JSON 对象"),
+        ('{"row_limit": NaN}', "variables 必须是合法 JSON 对象"),
+        (json.dumps({"unknown": "api"}), "variables.unknown 未定义"),
+        (
+            json.dumps({"service_source": 1}),
+            "panel.query 变量 service_source.override 必须是字符串",
+        ),
+    ],
+)
+def test_dashboard_panel_preview_reports_variable_override_request_errors_as_422(
+    raw_variables: str,
+    expected_detail: str,
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-override-error-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Override error preview dashboard",
+            "config": {
+                "variables": [
+                    {"name": "service_source", "type": "text", "default": "api"},
+                    {"name": "row_limit", "type": "number", "default": 5},
+                ],
+                "panels": [
+                    {
+                        "id": "logs",
+                        "title": "Logs",
+                        "type": "logs",
+                        "query": {"source": "${service_source}", "limit": "${row_limit}"},
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/logs/preview"
+        ),
+        headers=auth_headers,
+        params={"variables": raw_variables},
+    )
+
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 422
+    assert preview_response.json()["detail"] == expected_detail
+
+
+def test_dashboard_panel_preview_reports_large_number_float_override_as_422() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-large-float-override-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Large float override preview dashboard",
+            "config": {
+                "variables": [
+                    {
+                        "name": "min_duration",
+                        "type": "number",
+                        "default": 1,
+                    }
+                ],
+                "panels": [
+                    {
+                        "id": "slow-traces",
+                        "title": "Slow traces",
+                        "type": "traces",
+                        "query": {
+                            "duration_min_ms": "${min_duration}",
+                            "limit": 5,
+                        },
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/slow-traces/preview"
+        ),
+        headers=auth_headers,
+        params={"variables": json.dumps({"min_duration": int("9" * 400)})},
+    )
+
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 422
+    assert preview_response.json()["detail"] == "panel.query.duration_min_ms 必须是有限数值"
+
+
 def test_dashboard_panel_preview_inherits_relative_time_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1444,6 +1760,106 @@ def test_dashboard_panel_preview_variable_time_defaults_override_dashboard_time_
     assert explicit_to_response.status_code == 200
     assert [log["message"] for log in explicit_to_response.json()["preview"]["items"]] == [
         "dashboard range"
+    ]
+
+
+def test_dashboard_panel_preview_variable_time_overrides_override_dashboard_time_range() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(
+        client,
+        username="preview-variable-time-request-override-owner",
+    )
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "dashboard range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "request variable range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:05:00Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Variable time override preview dashboard",
+            "config": {
+                "time_range": {
+                    "mode": "absolute",
+                    "from": "2026-06-20T10:00:00Z",
+                    "to": "2026-06-20T10:04:00Z",
+                },
+                "variables": [
+                    {
+                        "name": "range_from",
+                        "type": "text",
+                        "default": "2026-06-20T10:00:00Z",
+                    },
+                    {
+                        "name": "range_to",
+                        "type": "text",
+                        "default": "2026-06-20T10:04:00Z",
+                    },
+                ],
+                "panels": [
+                    {
+                        "id": "explicit-range-variable",
+                        "title": "Explicit range variable",
+                        "type": "logs",
+                        "query": {
+                            "level": "error",
+                            "occurred_from": "${range_from}",
+                            "occurred_to": "${range_to}",
+                            "limit": 5,
+                        },
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/explicit-range-variable/preview"
+        ),
+        headers=auth_headers,
+        params={
+            "variables": json.dumps(
+                {
+                    "range_from": "2026-06-20T10:04:30Z",
+                    "range_to": "2026-06-20T10:06:00Z",
+                }
+            )
+        },
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 200
+    assert preview_response.json()["query"] == {
+        "level": "error",
+        "occurred_from": "${range_from}",
+        "occurred_to": "${range_to}",
+        "limit": 5,
+    }
+    assert [log["message"] for log in preview_response.json()["preview"]["items"]] == [
+        "request variable range"
     ]
 
 

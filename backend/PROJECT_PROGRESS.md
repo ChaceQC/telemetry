@@ -2,6 +2,33 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0070 Dashboard panel preview 请求时变量覆盖后端基础
+
+### 已完成
+
+- `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` 新增可选 query 参数 `variables`，使用 JSON 对象字符串承载本次 preview 的一次性变量覆盖值；保持 GET 接口兼容，不引入请求体。
+- preview 执行前会先读取已保存 dashboard/panel，再解析 `variables`；覆盖值只用于本次执行，优先级高于已保存 `config.variables[].default`，响应体 `query` 仍返回已保存 panel 的原始模板 query，不回写 dashboard config。
+- 覆盖值按已保存 `config.variables` 校验：`text/select` 必须是字符串，`select` 必须匹配 options；`number` 必须是有限数字且不能是 bool；未知覆盖变量、非法 JSON、非对象覆盖、缺 default 且无覆盖、模板语法非法、覆盖值类型不符或替换后不满足既有 query 白名单校验均返回 `422`。
+- 变量替换边界保持保守：仅支持 panel query 顶层字段值完整匹配 `${变量名}`；不支持部分字符串拼接、数组/对象深层模板、表达式、用户会话级变量状态或保存覆盖值。
+- 保持 panel 显式 `occurred_from` / `occurred_to` 与 dashboard `config.time_range` 的优先级：请求时变量覆盖解析出的显式时间边界仍优先于 dashboard 全局时间范围。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖覆盖值优先于 default、无 default 但有覆盖、select/number 类型边界、未知变量/非法 JSON/非法类型 `422`、替换后 query 校验 `422`、响应 query 保持原始模板，以及 time range 显式变量覆盖优先于 dashboard time range。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 GET `variables` 参数、变量替换优先级、错误语义和当前边界；本轮不新增 API 路径、不变更响应模型、存储结构或部署依赖。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard panel preview 执行计划和前端变量控件联调仍需后续专项补验。
+- 当前只支持 GET query 参数里的 JSON 对象覆盖；URL 长度、复杂变量状态、未保存草稿 config、深层模板、表达式、模板 dashboard、导入导出、自动刷新、告警和 ClickHouse 查询均不在本轮范围内。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：113 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`，结果：2 个文件已符合格式。
+- 已运行 `uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`，结果：2 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0068 Dashboard panel preview 变量默认值替换后端基础
 
 ### 已完成
