@@ -91,6 +91,7 @@ closed      已关闭
 | T-0061 | Dashboard panel 基础图表渲染前端能力 | 总 agent | done | todo | done | done | done |
 | T-0062 | Dashboard 全局时间范围后端基础 | 总 agent | todo | done | done | done | done |
 | T-0063 | Dashboard 全局时间范围前端基础 | 总 agent | done | todo | done | done | done |
+| T-0064 | Dashboard panel preview 继承全局时间范围后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -547,6 +548,8 @@ closed      已关闭
 | 2026-06-24 | T-0063-fix2 | 代码复审 agent Feynman | absolute 草稿写回复审通过 | Feynman 只读复审 `eb2c97b` 未发现 P0/P1/P2/P3；确认非法 `2026-02-31T00:00:00Z` 不会生成污染后的 `configText`，页面保留非法草稿并显示错误，保存路径先拦截非法草稿且不会调用 update API；手动 JSON 非法 `config.time_range` 仍由保存前 parser 阻止；panel preview 仍只调用 `previewDashboardPanel(projectId, dashboardId, panelId)`，未继承或传递 `time_range`。复审侧专项 2 files/38 tests 和 Dashboard 专项 5 files/73 tests 通过，diff check 与入库扫描通过 | done |
 | 2026-06-24 | T-0063 | 总 agent | 真实 merge 集成 Dashboard 全局时间范围前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `adbe06c`、`a611c4a`、`eb2c97b` 合入 `dev`，merge 提交 `896dd1d`。merge 后本地门禁通过：前端 Dashboard 专项 5 files/73 tests passed、typecheck、lint、build 通过；后端 dashboard/config 70 tests passed、`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0063 | 总 agent | dev CI 通过 | `e84c349` 已推送到 `dev`，GitHub Actions run `28081170664` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。下一步将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev` 并等待三分支 CI/体检 | testing |
+| 2026-06-24 | T-0063 | 总 agent | CI 与 worktree 同步完成 | `8625d0c` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28081348965`、`28081382099`、`28081382153` 均通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0063 关闭 | done |
+| 2026-06-24 | T-0064 | 总 agent | 登记 Dashboard panel preview 继承全局时间范围后端基础 | 阶段 5 下一小步限定为后端预览查询默认时间范围：在已保存 dashboard panel preview 中读取 dashboard `config.time_range`，当 panel query 未显式设置 `occurred_from`/`occurred_to` 时，将全局 relative/absolute 范围转换为查询服务使用的 `occurred_from/to`；panel query 显式时间优先。不改前端请求或响应模型，不新增 API，不接 ClickHouse，不做变量、模板、自动刷新或告警；保留 legacy/no time_range 行为。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
 
 ## 6. 测试记录
 
@@ -677,6 +680,7 @@ closed      已关闭
 | 2026-06-24 | T-0063-fix2 | absolute 草稿写回修复门禁 | `feature/frontend-dev` run `28080485867`；前端 time range 单测、DashboardsPage interaction、Dashboard 专项、typecheck、lint、build、`git diff --check` | 通过 | `eb2c97b` 上 feature/frontend-dev CI 通过，Frontend checks 与 Backend checks 均为 success；Raman 本地 time range 11 tests、DashboardsPage interaction 27 tests、Dashboard 专项 5 files/73 tests、typecheck、lint、build、diff check 通过。未跑 Playwright；本修复限定为前端本地编辑与保存拦截 |
 | 2026-06-24 | T-0063 | dev merge 后本地验证 | 前端 Dashboard 专项 test、typecheck、lint、build；后端 dashboard/config 专项；`git diff --check` | 通过 | merge 提交 `896dd1d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 5 files/73 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 70 passed、1 条既有 Starlette/TestClient 弃用警告；diff check 通过 |
 | 2026-06-24 | T-0063 | dev CI | GitHub Actions run `28081170664` | 通过 | `e84c349` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-24 | T-0063-sync | CI 与 worktree 同步 | GitHub Actions runs `28081348965`、`28081382099`、`28081382153`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `8625d0c` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -797,7 +801,8 @@ closed      已关闭
 | 2026-06-24 | T-0060 | dev | dev | 总 agent | Dashboard panel 查询预览真实前后端联测已通过；本任务为测试收口，不产生 feature merge | done |
 | 2026-06-24 | T-0061 | feature/frontend-dev | dev | 总 agent | Dashboard panel 基础图表预览 `0c56e29` 与审计修复 `6f54d95` 已通过 Goodall 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ab44017`；`5c5ceb9` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0062 | feature/backend-dev | dev | 总 agent | Dashboard 全局时间范围后端基础 `ecf0c5b` 已通过 Avicenna 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`；`1201f83` 已同步到三分支且 CI/体检通过 | done |
-| 2026-06-24 | T-0063 | feature/frontend-dev | dev | 总 agent | Dashboard 全局时间范围前端基础 `adbe06c`、absolute 严格校验修复 `a611c4a` 与草稿写回修复 `eb2c97b` 已通过 feature CI 和 Feynman 复审；总 agent 准备使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev` | done |
+| 2026-06-24 | T-0063 | feature/frontend-dev | dev | 总 agent | Dashboard 全局时间范围前端基础 `adbe06c`、absolute 严格校验修复 `a611c4a` 与草稿写回修复 `eb2c97b` 已通过 feature CI 和 Feynman 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `896dd1d`；`8625d0c` 已同步到三分支且 CI/体检通过 | done |
+| 2026-06-24 | T-0064 | feature/backend-dev | dev | 总 agent | 已登记 Dashboard panel preview 继承全局时间范围后端基础；后续由后端开发 agent 在 `feature/backend-dev` 实现、验证、提交和推送，通过审计后再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 

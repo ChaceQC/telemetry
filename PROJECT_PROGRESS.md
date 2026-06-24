@@ -741,6 +741,8 @@
 - T-0063-fix2 复审通过：Feynman 复审 `eb2c97b` 未发现 P0/P1/P2/P3，确认非法 `2026-02-31T00:00:00Z` 不会生成污染后的 `configText`，页面保留非法草稿并显示错误，保存路径先拦截非法草稿且不会调用 update API；手动 JSON 非法 `config.time_range` 仍由保存前 parser 阻止；panel preview 仍只调用 `previewDashboardPanel(projectId, dashboardId, panelId)`，未继承或传递 `time_range`。复审侧 2 files/38 tests、Dashboard 专项 5 files/73 tests、diff check 和入库扫描通过。T-0063 可进入真实 merge。
 - T-0063 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `adbe06c`、`a611c4a`、`eb2c97b` 合入，merge 提交 `896dd1d`。merge 后本地门禁通过：前端 Dashboard 专项 5 files/73 tests passed、typecheck、lint、build 通过；后端 dashboard/config 70 tests passed、`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 - T-0063 dev CI 通过：`e84c349` 已推送到 `dev`，GitHub Actions run `28081170664` 成功，Frontend checks 与 Backend checks 均为 success；下一步同步两个 feature 分支到最新 `dev` 并等待三分支 CI/体检。
+- T-0063 已完成同步收口：`8625d0c` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28081348965`、`28081382099`、`28081382153` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0063 关闭。
+- T-0064 已登记为阶段 5 下一小步：Dashboard panel preview 继承全局时间范围后端基础。边界为在已保存 dashboard panel preview 中读取 dashboard `config.time_range`，当 panel query 未显式设置 `occurred_from`/`occurred_to` 时，将全局 relative/absolute 范围转换为查询服务使用的 `occurred_from/to`；panel query 显式时间优先。不改前端请求或响应模型，不新增 API，不接 ClickHouse，不做变量、模板、自动刷新或告警，并保持 legacy/no time_range 行为。
 
 ### 阻塞与风险
 
@@ -767,11 +769,12 @@
 - T-0062 只定义 Dashboard `config.time_range` 的保存层结构，不改变当前预览查询行为；前端时间选择器、panel query 继承、刷新策略和真实预览联测需后续小步覆盖。
 - T-0062 后端审计残余风险：未覆盖真实 MySQL JSON 列读写；绝对时间解析当前依赖 Python `datetime.fromisoformat` 的接受范围，若后续产品要求严格 RFC3339 或强制 timezone-aware，需要另行收紧。
 - T-0063 只做前端保存层体验，不改变远端预览查询的时间范围来源；用户保存 `config.time_range` 后，panel preview 仍按现有 panel query 字段请求，继承全局时间范围需后续小步显式实现和联测。
-- T-0063 的前端保存层和两个审计 P2 已关闭；剩余风险为未做真实后端/MySQL 联调，且 panel preview 继承全局时间范围仍是后续小步，不在当前 merge 边界内。
+- T-0063 的前端保存层和两个审计 P2 已关闭；剩余风险为未做真实后端/MySQL 联调。
+- T-0064 只做已保存 panel preview 的默认时间范围继承，不改变 API 请求/响应；relative 时间会依赖服务端当前时间计算，测试需使用可稳定断言的时间窗口或注入/封装当前时间，避免 flaky。
 
 ### 下一步
 
-- 同步 `feature/frontend-dev` 与 `feature/backend-dev` 到最新 `dev`，读取三分支 CI，运行严格 worktree 体检，并登记 T-0063 收口状态。
+- 启动后端开发 agent 在 `feature/backend-dev` 实现 T-0064 Dashboard panel preview 继承全局时间范围后端基础，完成后执行后端门禁、feature CI、代码审计和真实 merge 流程。
 
 ### 验证
 
