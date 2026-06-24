@@ -553,6 +553,7 @@ closed      已关闭
 | 2026-06-24 | T-0064 | 后端开发 agent Kant | Dashboard panel preview 继承全局时间范围完成 | `feature/backend-dev` 提交 `2da1cca` 已实现已保存 panel preview 继承 dashboard `config.time_range`：relative `15m/1h/6h/24h/7d` 基于服务端 UTC now 转换查询窗口，absolute 使用 `from/to`，panel 显式 `occurred_from/to` 单边优先覆盖；legacy/no time_range 行为保持。Kant 本地 `tests/test_dashboard_api.py` 59 passed、ruff、format、mypy、`git diff --check` 均通过；feature CI run `28083567233` 通过 | audit |
 | 2026-06-24 | T-0064 | 总 agent | 启动代码审计 agent Socrates | 已启动代码审计 agent Socrates（`019ef89d-e54b-7692-9c76-b92aaf580e8a`）只读审计 `2da1cca`，重点检查全局时间范围继承、panel 显式时间优先、relative now 稳定性、legacy 行为、API 契约不变、测试覆盖与入库文件 | audit |
 | 2026-06-24 | T-0064 | 代码审计 agent Socrates | Dashboard panel preview 全局时间范围复审通过 | Socrates 只读审计 `2da1cca` 未发现 P0/P1/P2/P3；确认 preview 可继承 dashboard `config.time_range`，panel 显式 `occurred_from/to` 优先，legacy/no time_range 行为保持，未改前端请求和 `DashboardPanelPreviewResponse`。审计侧相关 3 项 preview 时间范围测试、完整 `test_dashboard_api.py` 59 passed、ruff 和 whitespace check 通过；未发现运行日志、构建产物或真实 env 入库 | done |
+| 2026-06-24 | T-0064 | 总 agent | 真实 merge 集成 Dashboard panel preview 全局时间范围 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `2da1cca` 合入 `dev`，merge 提交 `666d9ea`。merge 后本地门禁通过：后端 dashboard/config 72 tests passed、ruff、format、mypy、`uv lock --check` 通过，前端 typecheck 和 `git diff --check` 通过；未启动真实服务、数据库、Docker 或浏览器。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 6. 测试记录
 
@@ -685,6 +686,7 @@ closed      已关闭
 | 2026-06-24 | T-0063 | dev CI | GitHub Actions run `28081170664` | 通过 | `e84c349` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-24 | T-0063-sync | CI 与 worktree 同步 | GitHub Actions runs `28081348965`、`28081382099`、`28081382153`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `8625d0c` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0064 | Dashboard panel preview 全局时间范围后端门禁 | `feature/backend-dev` run `28083567233`；后端 dashboard API 专项、ruff、format、mypy、`git diff --check` | 通过 | `2da1cca` 上 feature/backend-dev CI 通过，Frontend checks 与 Backend checks 均为 success；Kant 本地 `uv run pytest tests/test_dashboard_api.py -q` 59 passed、1 条既有 TestClient 上游弃用 warning，ruff、format check、mypy、diff check 通过。未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器 |
+| 2026-06-24 | T-0064 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck；`git diff --check` | 通过 | merge 提交 `666d9ea` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 72 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、diff check 通过 |
 
 ## 7. 审计记录
 
