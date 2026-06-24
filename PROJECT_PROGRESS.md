@@ -740,6 +740,7 @@
 - T-0063-fix2 实现与 feature CI 通过：前端修复 agent Raman 提交并推送 `eb2c97b` 到 `feature/frontend-dev`，非法 absolute draft 不再写入 `config.time_range` 或污染 config JSON，UI 保留非法输入和错误提示，保存由本地错误拦截；手动 JSON 非法 `time_range` 仍由保存前 parser 阻止。time range 11 tests、DashboardsPage interaction 27 tests、Dashboard 专项 5 files/73 tests、typecheck、lint、build、`git diff --check` 通过。feature CI run `28080485867` 成功，Frontend checks 与 Backend checks 均为 success；当前已启动 Feynman 只读复审 fix2。
 - T-0063-fix2 复审通过：Feynman 复审 `eb2c97b` 未发现 P0/P1/P2/P3，确认非法 `2026-02-31T00:00:00Z` 不会生成污染后的 `configText`，页面保留非法草稿并显示错误，保存路径先拦截非法草稿且不会调用 update API；手动 JSON 非法 `config.time_range` 仍由保存前 parser 阻止；panel preview 仍只调用 `previewDashboardPanel(projectId, dashboardId, panelId)`，未继承或传递 `time_range`。复审侧 2 files/38 tests、Dashboard 专项 5 files/73 tests、diff check 和入库扫描通过。T-0063 可进入真实 merge。
 - T-0063 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `adbe06c`、`a611c4a`、`eb2c97b` 合入，merge 提交 `896dd1d`。merge 后本地门禁通过：前端 Dashboard 专项 5 files/73 tests passed、typecheck、lint、build 通过；后端 dashboard/config 70 tests passed、`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0063 dev CI 通过：`e84c349` 已推送到 `dev`，GitHub Actions run `28081170664` 成功，Frontend checks 与 Backend checks 均为 success；下一步同步两个 feature 分支到最新 `dev` 并等待三分支 CI/体检。
 
 ### 阻塞与风险
 
@@ -770,7 +771,7 @@
 
 ### 下一步
 
-- 推送 T-0063 dev merge，读取 GitHub Actions CI；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到最新 `dev`，运行严格 worktree 体检，并登记 T-0063 收口状态。
+- 同步 `feature/frontend-dev` 与 `feature/backend-dev` 到最新 `dev`，读取三分支 CI，运行严格 worktree 体检，并登记 T-0063 收口状态。
 
 ### 验证
 

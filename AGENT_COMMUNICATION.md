@@ -546,6 +546,7 @@ closed      已关闭
 | 2026-06-24 | T-0063-fix2 | 总 agent | 启动代码复审 agent Feynman | 已启动代码复审 agent Feynman（`019ef862-06c9-7422-9ad6-736da662eed1`）只读复审 `eb2c97b`，重点确认非法 absolute draft 不写回 `config.time_range`、合法 relative/absolute 仍可写回、手动 JSON 非法值保存前被阻止、panel preview 不传递 `time_range`、无运行日志或构建产物入库 | audit |
 | 2026-06-24 | T-0063-fix2 | 代码复审 agent Feynman | absolute 草稿写回复审通过 | Feynman 只读复审 `eb2c97b` 未发现 P0/P1/P2/P3；确认非法 `2026-02-31T00:00:00Z` 不会生成污染后的 `configText`，页面保留非法草稿并显示错误，保存路径先拦截非法草稿且不会调用 update API；手动 JSON 非法 `config.time_range` 仍由保存前 parser 阻止；panel preview 仍只调用 `previewDashboardPanel(projectId, dashboardId, panelId)`，未继承或传递 `time_range`。复审侧专项 2 files/38 tests 和 Dashboard 专项 5 files/73 tests 通过，diff check 与入库扫描通过 | done |
 | 2026-06-24 | T-0063 | 总 agent | 真实 merge 集成 Dashboard 全局时间范围前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `adbe06c`、`a611c4a`、`eb2c97b` 合入 `dev`，merge 提交 `896dd1d`。merge 后本地门禁通过：前端 Dashboard 专项 5 files/73 tests passed、typecheck、lint、build 通过；后端 dashboard/config 70 tests passed、`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
+| 2026-06-24 | T-0063 | 总 agent | dev CI 通过 | `e84c349` 已推送到 `dev`，GitHub Actions run `28081170664` 通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。下一步将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev` 并等待三分支 CI/体检 | testing |
 
 ## 6. 测试记录
 
@@ -675,6 +676,7 @@ closed      已关闭
 | 2026-06-24 | T-0063-fix | absolute 时间严格校验修复门禁 | `feature/frontend-dev` run `28079423160`；前端 time range 单测、保存层交互测试、Dashboard 专项、typecheck、lint、build、`git diff --check` | 通过 | `a611c4a` 上 feature/frontend-dev CI 通过，Frontend checks 与 Backend checks 均为 success；Euler 本地 time range 9 tests、保存层交互 25 tests、Dashboard 专项 5 files/69 tests、typecheck、lint、build、diff check 通过。未跑 Playwright；本修复限定为 pure function 与保存层本地拦截 |
 | 2026-06-24 | T-0063-fix2 | absolute 草稿写回修复门禁 | `feature/frontend-dev` run `28080485867`；前端 time range 单测、DashboardsPage interaction、Dashboard 专项、typecheck、lint、build、`git diff --check` | 通过 | `eb2c97b` 上 feature/frontend-dev CI 通过，Frontend checks 与 Backend checks 均为 success；Raman 本地 time range 11 tests、DashboardsPage interaction 27 tests、Dashboard 专项 5 files/73 tests、typecheck、lint、build、diff check 通过。未跑 Playwright；本修复限定为前端本地编辑与保存拦截 |
 | 2026-06-24 | T-0063 | dev merge 后本地验证 | 前端 Dashboard 专项 test、typecheck、lint、build；后端 dashboard/config 专项；`git diff --check` | 通过 | merge 提交 `896dd1d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 5 files/73 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 70 passed、1 条既有 Starlette/TestClient 弃用警告；diff check 通过 |
+| 2026-06-24 | T-0063 | dev CI | GitHub Actions run `28081170664` | 通过 | `e84c349` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
