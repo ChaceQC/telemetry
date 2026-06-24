@@ -743,6 +743,8 @@
 - T-0063 dev CI 通过：`e84c349` 已推送到 `dev`，GitHub Actions run `28081170664` 成功，Frontend checks 与 Backend checks 均为 success；下一步同步两个 feature 分支到最新 `dev` 并等待三分支 CI/体检。
 - T-0063 已完成同步收口：`8625d0c` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28081348965`、`28081382099`、`28081382153` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0063 关闭。
 - T-0064 已登记为阶段 5 下一小步：Dashboard panel preview 继承全局时间范围后端基础。边界为在已保存 dashboard panel preview 中读取 dashboard `config.time_range`，当 panel query 未显式设置 `occurred_from`/`occurred_to` 时，将全局 relative/absolute 范围转换为查询服务使用的 `occurred_from/to`；panel query 显式时间优先。不改前端请求或响应模型，不新增 API，不接 ClickHouse，不做变量、模板、自动刷新或告警，并保持 legacy/no time_range 行为。
+- T-0064 后端实现和 feature CI 通过：后端开发 agent Kant 提交并推送 `2da1cca` 到 `feature/backend-dev`，已保存 panel preview 会继承 dashboard `config.time_range`，relative `15m/1h/6h/24h/7d` 基于服务端 UTC now 生成查询窗口，absolute 使用 `from/to`，panel 显式 `occurred_from/to` 单边优先覆盖，legacy/no time_range 行为保持。Kant 本地 `tests/test_dashboard_api.py` 59 passed、ruff、format、mypy、`git diff --check` 均通过；feature CI run `28083567233` 成功，Frontend checks 与 Backend checks 均为 success。已启动 Socrates 只读代码审计。
+- T-0064 代码审计通过：Socrates 复审 `2da1cca` 未发现 P0/P1/P2/P3，确认全局 `config.time_range` 继承、panel 显式时间优先、legacy/no time_range 行为、API 契约不变和测试覆盖均符合当前边界；审计侧相关 3 项 preview 时间范围测试、完整 `test_dashboard_api.py` 59 passed、ruff 和 whitespace check 通过。T-0064 可进入真实 merge。
 
 ### 阻塞与风险
 
@@ -774,7 +776,7 @@
 
 ### 下一步
 
-- 启动后端开发 agent 在 `feature/backend-dev` 实现 T-0064 Dashboard panel preview 继承全局时间范围后端基础，完成后执行后端门禁、feature CI、代码审计和真实 merge 流程。
+- 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 T-0064 合入 `dev`，随后执行本地门禁、推送、读取 CI、同步 feature 分支并运行严格 worktree 体检。
 
 ### 验证
 
