@@ -89,7 +89,7 @@ closed      已关闭
 | T-0059 | Dashboard panel 查询预览前端接入基础 | 总 agent | done | todo | done | done | done |
 | T-0060 | Dashboard panel 查询预览真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0061 | Dashboard panel 基础图表渲染前端能力 | 总 agent | done | todo | done | done | done |
-| T-0062 | Dashboard 全局时间范围后端基础 | 总 agent | todo | done | done | done | audit |
+| T-0062 | Dashboard 全局时间范围后端基础 | 总 agent | todo | done | done | done | testing |
 
 ## 4. API 契约登记
 
@@ -528,6 +528,7 @@ closed      已关闭
 | 2026-06-24 | T-0062 | 总 agent | 登记 Dashboard 全局时间范围后端基础 | 阶段 5 下一小步限定为后端保存层：在 Dashboard 已保存 `config` 中增加全局 `time_range` 最小 schema 校验与规范化，支持相对时间范围和绝对时间范围的可保存结构，为后续前端时间选择与 panel preview 继承做准备。不改现有 panel preview API 行为，不做前端 UI，不接 ClickHouse，不做变量、模板、自动刷新或告警；保留 legacy config 兼容。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
 | 2026-06-24 | T-0062 | 后端开发 agent Fermat | Dashboard 全局时间范围后端基础完成 | `feature/backend-dev` 提交 `ecf0c5b` 已实现 `config.time_range` 保存层校验与规范化：relative 支持 `15m/1h/6h/24h/7d`，absolute 支持 ISO 8601 `from/to` 且要求 `from < to`，字符串裁剪后保存；legacy config 兼容，不改 panel preview API 行为。开发侧 dashboard API 57 tests、ruff、format、mypy、`git diff --check` 均通过；feature CI run `28071016797` 通过 | audit |
 | 2026-06-24 | T-0062 | 代码审计 agent Avicenna | Dashboard 全局时间范围后端基础复审通过 | Avicenna 只读复审 `ecf0c5b` 未发现 P0/P1/P2/P3；确认 create/update 路径校验和规范化符合边界，aware/naive 不可比较会返回 `422`，legacy config 与 panel preview 行为未被改变。只读复验 dashboard API 57 tests、ruff、format、mypy、`git diff --check` 均通过；残余风险为未覆盖真实 MySQL JSON 列读写，后续产品若要求严格 RFC3339 或强制 timezone-aware 需另行收紧 | done |
+| 2026-06-24 | T-0062 | 总 agent | 真实 merge 集成 Dashboard 全局时间范围后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `ecf0c5b` 合入 `dev`，merge 提交 `120e6b5`。merge 后本地门禁通过：后端 dashboard/config 70 tests passed、ruff、format、mypy、`uv lock --check` 通过，前端 typecheck 和 `git diff --check` 通过；未启动真实服务、数据库、Docker 或浏览器。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 6. 测试记录
 
@@ -651,6 +652,7 @@ closed      已关闭
 | 2026-06-24 | T-0061 | dev merge 后本地验证 | 前端 Dashboard 专项 test、typecheck、lint、build；后端 config/uv lock；`git diff --check` | 通过 | merge 提交 `ab44017` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 3 files / 48 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check`、diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-24 | T-0061-sync | CI 与 worktree 同步 | GitHub Actions runs `28070194318`、`28070259569`、`28070259541`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `5c5ceb9` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0062 | Dashboard 全局时间范围后端门禁 | `feature/backend-dev` run `28071016797`；开发侧与审计侧 dashboard API 专项、ruff、format、mypy、`git diff --check` | 通过 | `ecf0c5b` 上 feature/backend-dev CI 通过；Fermat 与 Avicenna 均运行 `uv run pytest tests/test_dashboard_api.py -q` 57 passed、ruff check、ruff format check、mypy 和 diff check 通过。仅有既有 FastAPI/Starlette TestClient 上游弃用警告；未启动 Docker、真实服务、浏览器或真实 MySQL |
+| 2026-06-24 | T-0062 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck；`git diff --check` | 通过 | merge 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 70 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、diff check 通过 |
 
 ## 7. 审计记录
 
@@ -767,7 +769,7 @@ closed      已关闭
 | 2026-06-24 | T-0059-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `ce5cca2` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0060 | dev | dev | 总 agent | Dashboard panel 查询预览真实前后端联测已通过；本任务为测试收口，不产生 feature merge | done |
 | 2026-06-24 | T-0061 | feature/frontend-dev | dev | 总 agent | Dashboard panel 基础图表预览 `0c56e29` 与审计修复 `6f54d95` 已通过 Goodall 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ab44017`；`5c5ceb9` 已同步到三分支且 CI/体检通过 | done |
-| 2026-06-24 | T-0062 | feature/backend-dev | dev | 总 agent | Dashboard 全局时间范围后端基础 `ecf0c5b` 已通过 Avicenna 复审和 feature CI；待使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev` 并执行 merge 后门禁 | audit |
+| 2026-06-24 | T-0062 | feature/backend-dev | dev | 总 agent | Dashboard 全局时间范围后端基础 `ecf0c5b` 已通过 Avicenna 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 
 ## 10. 决策记录
 

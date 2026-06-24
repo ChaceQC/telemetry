@@ -729,6 +729,7 @@
 - T-0061 已完成同步收口：`5c5ceb9` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28070194318`、`28070259569`、`28070259541` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0061 关闭。
 - T-0062 已登记为阶段 5 下一小步：Dashboard 全局时间范围后端基础。边界为只在后端保存层给已保存 Dashboard `config` 增加全局 `time_range` 最小 schema 校验与规范化，支持相对时间范围和绝对时间范围的可保存结构，为后续前端时间选择与 panel preview 继承做准备；不改现有 panel preview API 行为、不做前端 UI、不接 ClickHouse、不做变量、模板、自动刷新或告警，并保持 legacy config 兼容。
 - T-0062 后端实现、feature CI 和代码审计通过：后端开发 agent Fermat 提交并推送 `ecf0c5b` 到 `feature/backend-dev`，新增 `config.time_range` 保存层校验与规范化；relative 支持 `15m/1h/6h/24h/7d`，absolute 支持 ISO 8601 `from/to` 且要求 `from < to`，字符串裁剪后保存；legacy config 兼容，不改变 panel preview API 行为。Fermat 与审计 agent Avicenna 均运行 dashboard API 57 tests、ruff、format、mypy、`git diff --check` 通过；feature CI run `28071016797` 成功。Avicenna 未发现 P0/P1/P2/P3；T-0062 可进入真实 merge。
+- T-0062 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `ecf0c5b` 合入，merge 提交 `120e6b5`。merge 后本地门禁通过：后端 dashboard/config 70 tests passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 
 ### 阻塞与风险
 
@@ -757,7 +758,7 @@
 
 ### 下一步
 
-- 真实 merge `origin/feature/backend-dev` 到 `dev`，随后执行后端门禁、推送 `dev`、读取 CI，并同步两个 feature 分支。
+- 推送 `dev`，等待 GitHub Actions；CI 通过后 fast-forward 同步 `feature/backend-dev` 与 `feature/frontend-dev`，再执行严格 worktree 体检并关闭 T-0062。
 
 ### 验证
 
@@ -812,6 +813,7 @@
 - T-0061 merge 后本地门禁通过：merge 提交 `ab44017` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 3 files / 48 tests passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check`、`git diff --check` 通过。
 - T-0061 同步 CI 与 worktree 体检通过：GitHub Actions runs `28070194318`、`28070259569`、`28070259541` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `5c5ceb9`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0062 后端开发/审计门禁通过：`feature/backend-dev` 提交 `ecf0c5b` 上 GitHub Actions run `28071016797` 成功；Fermat 与 Avicenna 均运行 `uv run pytest tests/test_dashboard_api.py -q` 57 passed、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py` 和 `git diff --check` 通过。仅有既有 FastAPI/Starlette TestClient 上游弃用警告。
+- T-0062 merge 后本地门禁通过：merge 提交 `120e6b5` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 70 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
