@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   createDashboard,
@@ -93,6 +93,12 @@ import { settingsQueryKeys } from '../features/settings/queryKeys';
 import { readErrorMessage } from '../features/settings/utils';
 
 const DASHBOARD_PAGE_LIMIT = 50;
+const DASHBOARD_PANEL_AUTO_REFRESH_OPTIONS = [
+  { value: 0, label: '关闭' },
+  { value: 15, label: '15s' },
+  { value: 30, label: '30s' },
+  { value: 60, label: '60s' }
+] as const;
 const emptyDashboards: Dashboard[] = [];
 const emptyProjects: Project[] = [];
 
@@ -104,6 +110,10 @@ type VariableRuntimeDraftState = DashboardVariableRuntimeDraftValues;
 type PreviewVariablesState = {
   values: DashboardPanelPreviewVariables;
   signature: string | null;
+};
+type PanelAutoRefreshState = {
+  panelId: string | null;
+  seconds: number;
 };
 type TimeRangeDraftState = {
   configText: string;
@@ -170,8 +180,13 @@ export function DashboardsPage() {
     scopeKey: '',
     value: createEmptyPreviewVariablesState()
   });
+  const [panelAutoRefreshState, setPanelAutoRefreshState] = useState<ScopedState<PanelAutoRefreshState>>({
+    scopeKey: '',
+    value: createInactivePanelAutoRefreshState()
+  });
   const [deleteLocked, setDeleteLocked] = useState(false);
   const deleteInFlightRef = useRef(false);
+  const autoRefreshInFlightRef = useRef(false);
   const [localCreateErrorState, setLocalCreateErrorState] = useState<ScopedState<string | null>>({
     scopeKey: '',
     value: null
@@ -285,6 +300,10 @@ export function DashboardsPage() {
         scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id),
         value: createEmptyPreviewVariablesState()
       });
+      setPanelAutoRefreshState({
+        scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id),
+        value: createInactivePanelAutoRefreshState()
+      });
       setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
       setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
       setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -311,6 +330,10 @@ export function DashboardsPage() {
         scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
         value: createEmptyPreviewVariablesState()
       });
+      setPanelAutoRefreshState({
+        scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
+        value: createInactivePanelAutoRefreshState()
+      });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
       setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
@@ -333,6 +356,7 @@ export function DashboardsPage() {
         setTimeRangeDraftState({ scopeKey: '', value: null });
         setVariableRuntimeDraftState({ scopeKey: '', value: {} });
         setPreviewVariablesState({ scopeKey: panelScopeKey, value: createEmptyPreviewVariablesState() });
+        setPanelAutoRefreshState({ scopeKey: panelScopeKey, value: createInactivePanelAutoRefreshState() });
       }
       if (nextOffset !== dashboardOffset) {
         setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
@@ -418,6 +442,18 @@ export function DashboardsPage() {
         savedPanelReadResult.ok &&
         savedPanelReadResult.panels.some((panel) => panel.id === remotePreviewPanelId)
     );
+  const runtimeOverridesForPreview = buildDashboardVariableRuntimeOverrides(visibleVariables, activeVariableRuntimeDraft);
+  const activePanelAutoRefresh =
+    selectedDashboard && panelAutoRefreshState.scopeKey === panelScopeKey
+      ? panelAutoRefreshState.value
+      : createInactivePanelAutoRefreshState();
+  const activePanelAutoRefreshSeconds =
+    activePanelAutoRefresh.panelId === remotePreviewPanelId ? activePanelAutoRefresh.seconds : 0;
+  const canConfigurePanelAutoRefresh =
+    canRequestRemotePreview &&
+    runtimeOverridesForPreview.ok &&
+    activePreviewVariables.signature === runtimeOverridesForPreview.signature;
+  const canRunPanelAutoRefresh = activePanelAutoRefreshSeconds > 0 && canConfigurePanelAutoRefresh;
   const panelPreviewQuery = useQuery({
     queryKey:
       selectedDashboard && remotePreviewPanelId
@@ -448,6 +484,29 @@ export function DashboardsPage() {
     enabled: canRequestRemotePreview,
     retry: false
   });
+  const refetchPanelPreview = panelPreviewQuery.refetch;
+  useEffect(() => {
+    if (!canRunPanelAutoRefresh) {
+      autoRefreshInFlightRef.current = false;
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (autoRefreshInFlightRef.current) {
+        return;
+      }
+
+      autoRefreshInFlightRef.current = true;
+      void refetchPanelPreview().finally(() => {
+        autoRefreshInFlightRef.current = false;
+      });
+    }, activePanelAutoRefreshSeconds * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+      autoRefreshInFlightRef.current = false;
+    };
+  }, [activePanelAutoRefreshSeconds, canRunPanelAutoRefresh, refetchPanelPreview]);
   const unauthorizedError = baseUnauthorizedError;
   const authState = resolveSettingsAuthState({
     isAuthenticated: auth.isAuthenticated,
@@ -485,6 +544,10 @@ export function DashboardsPage() {
       scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
       value: createEmptyPreviewVariablesState()
     });
+    setPanelAutoRefreshState({
+      scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
+      value: createInactivePanelAutoRefreshState()
+    });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -513,6 +576,7 @@ export function DashboardsPage() {
   }
 
   function updateVariableRuntimeDraft(variableName: string, value: string) {
+    stopPanelAutoRefresh();
     setVariableRuntimeDraftState({
       scopeKey: panelScopeKey,
       value: {
@@ -596,6 +660,7 @@ export function DashboardsPage() {
 
     clearLocalEditError();
     setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+    stopPanelAutoRefresh();
     updateMutation.mutate({ dashboard: selectedDashboard, payload: payload.value });
   }
 
@@ -607,6 +672,7 @@ export function DashboardsPage() {
     deleteInFlightRef.current = true;
     setDeleteLocked(true);
     setDeleteRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+    stopPanelAutoRefresh();
     deleteMutation.mutate(dashboard);
   }
 
@@ -622,6 +688,7 @@ export function DashboardsPage() {
     }
 
     updateEditForm({ ...visibleEditForm, configText: result.configText });
+    stopPanelAutoRefresh();
     clearLocalEditError();
     resetPanelDraft(result.configText);
   }
@@ -638,6 +705,7 @@ export function DashboardsPage() {
     }
 
     updateEditForm({ ...visibleEditForm, configText: result.configText });
+    stopPanelAutoRefresh();
     clearLocalEditError();
     resetVariableDraft(result.configText);
   }
@@ -662,6 +730,7 @@ export function DashboardsPage() {
 
     updateEditForm({ ...visibleEditForm, configText: result.configText });
     setTimeRangeDraftState({ scopeKey: timeRangeScopeKey, value: null });
+    stopPanelAutoRefresh();
     clearLocalEditError();
   }
 
@@ -677,6 +746,7 @@ export function DashboardsPage() {
     }
 
     updateEditForm({ ...visibleEditForm, configText: result.configText });
+    stopPanelAutoRefresh();
     clearLocalEditError();
     resetPanelDraft(result.configText);
   }
@@ -693,6 +763,7 @@ export function DashboardsPage() {
     }
 
     updateEditForm({ ...visibleEditForm, configText: result.configText });
+    stopPanelAutoRefresh();
     clearLocalEditError();
     resetVariableDraft(result.configText);
   }
@@ -713,6 +784,9 @@ export function DashboardsPage() {
       activePreviewVariables.signature === nextPreviewVariables.signature &&
       canRequestRemotePreview;
 
+    if (panelId !== remotePreviewPanelId || activePreviewVariables.signature !== nextPreviewVariables.signature) {
+      stopPanelAutoRefresh();
+    }
     setSelectedPreviewPanelState({ scopeKey: panelScopeKey, value: panelId });
     setPreviewVariablesState({ scopeKey: panelScopeKey, value: nextPreviewVariables });
     clearLocalEditError();
@@ -720,6 +794,23 @@ export function DashboardsPage() {
     if (shouldRefetchSelectedPreview) {
       void panelPreviewQuery.refetch();
     }
+  }
+
+  function handlePanelAutoRefreshChange(panelId: string, seconds: number) {
+    if (seconds <= 0) {
+      setPanelAutoRefreshState({ scopeKey: panelScopeKey, value: createInactivePanelAutoRefreshState() });
+      return;
+    }
+
+    if (panelId !== remotePreviewPanelId || !canConfigurePanelAutoRefresh) {
+      return;
+    }
+
+    setPanelAutoRefreshState({ scopeKey: panelScopeKey, value: { panelId, seconds } });
+  }
+
+  function stopPanelAutoRefresh() {
+    setPanelAutoRefreshState({ scopeKey: panelScopeKey, value: createInactivePanelAutoRefreshState() });
   }
 
   const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
@@ -884,6 +975,10 @@ export function DashboardsPage() {
                 scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
                 value: createEmptyPreviewVariablesState()
               });
+              setPanelAutoRefreshState({
+                scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
+                value: createInactivePanelAutoRefreshState()
+              });
               clearLocalEditError();
             }}
             onDelete={handleDelete}
@@ -905,6 +1000,10 @@ export function DashboardsPage() {
                 scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
                 value: createEmptyPreviewVariablesState()
               });
+              setPanelAutoRefreshState({
+                scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
+                value: createInactivePanelAutoRefreshState()
+              });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: Math.max(0, dashboardOffset - DASHBOARD_PAGE_LIMIT)
@@ -917,6 +1016,10 @@ export function DashboardsPage() {
               setPreviewVariablesState({
                 scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
                 value: createEmptyPreviewVariablesState()
+              });
+              setPanelAutoRefreshState({
+                scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
+                value: createInactivePanelAutoRefreshState()
               });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
@@ -1030,6 +1133,7 @@ export function DashboardsPage() {
               onChange={(configText) => {
                 updateEditForm({ ...visibleEditForm, configText });
                 setTimeRangeDraftState({ scopeKey: '', value: null });
+                stopPanelAutoRefresh();
               }}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
@@ -1063,8 +1167,12 @@ export function DashboardsPage() {
               remotePreviewError={canRequestRemotePreview && panelPreviewQuery.isError ? panelPreviewQuery.error : null}
               remotePreviewLoading={canRequestRemotePreview && panelPreviewQuery.isLoading}
               remotePreviewFetching={canRequestRemotePreview && panelPreviewQuery.isFetching}
+              autoRefreshSeconds={activePanelAutoRefreshSeconds}
+              canConfigureAutoRefresh={canConfigurePanelAutoRefresh}
+              isAutoRefreshing={canRunPanelAutoRefresh}
               onRuntimeDraftChange={updateVariableRuntimeDraft}
               onSelectPreview={handlePreviewPanelSelect}
+              onAutoRefreshChange={handlePanelAutoRefreshChange}
             />
             <DashboardPanelEditor
               disabled={!authState.shouldRequest || !selectedDashboard}
@@ -1434,8 +1542,12 @@ function DashboardPanelPreview({
   remotePreviewError,
   remotePreviewLoading,
   remotePreviewFetching,
+  autoRefreshSeconds,
+  canConfigureAutoRefresh,
+  isAutoRefreshing,
   onRuntimeDraftChange,
-  onSelectPreview
+  onSelectPreview,
+  onAutoRefreshChange
 }: {
   authReady: boolean;
   selected: boolean;
@@ -1449,8 +1561,12 @@ function DashboardPanelPreview({
   remotePreviewError: unknown | null;
   remotePreviewLoading: boolean;
   remotePreviewFetching: boolean;
+  autoRefreshSeconds: number;
+  canConfigureAutoRefresh: boolean;
+  isAutoRefreshing: boolean;
   onRuntimeDraftChange: (variableName: string, value: string) => void;
   onSelectPreview: (panelId: string) => void;
+  onAutoRefreshChange: (panelId: string, seconds: number) => void;
 }) {
   if (!authReady) {
     return (
@@ -1515,7 +1631,11 @@ function DashboardPanelPreview({
                   remotePreviewError={remotePreviewError}
                   remotePreviewLoading={remotePreviewLoading}
                   remotePreviewFetching={remotePreviewFetching}
+                  autoRefreshSeconds={autoRefreshSeconds}
+                  canConfigureAutoRefresh={canConfigureAutoRefresh}
+                  isAutoRefreshing={isAutoRefreshing}
                   onSelectPreview={onSelectPreview}
+                  onAutoRefreshChange={onAutoRefreshChange}
                 />
               </li>
             ))}
@@ -1570,7 +1690,11 @@ function DashboardPanelPreviewCard({
   remotePreviewError,
   remotePreviewLoading,
   remotePreviewFetching,
-  onSelectPreview
+  autoRefreshSeconds,
+  canConfigureAutoRefresh,
+  isAutoRefreshing,
+  onSelectPreview,
+  onAutoRefreshChange
 }: {
   panel: DashboardPanelPreviewItem;
   selectedPreviewPanelId: string | null;
@@ -1580,7 +1704,11 @@ function DashboardPanelPreviewCard({
   remotePreviewError: unknown | null;
   remotePreviewLoading: boolean;
   remotePreviewFetching: boolean;
+  autoRefreshSeconds: number;
+  canConfigureAutoRefresh: boolean;
+  isAutoRefreshing: boolean;
   onSelectPreview: (panelId: string) => void;
+  onAutoRefreshChange: (panelId: string, seconds: number) => void;
 }) {
   const isSelectedForRemotePreview = selectedPreviewPanelId === panel.id;
   const canRequestThisPanelPreview = canRequestRemotePreview && isSelectedForRemotePreview;
@@ -1618,6 +1746,25 @@ function DashboardPanelPreviewCard({
           )}
           <span>{isSelectedForRemotePreview ? '刷新预览' : '加载预览'}</span>
         </button>
+        {isSelectedForRemotePreview ? (
+          <label className="dashboard-panel-auto-refresh">
+            <Clock size={15} aria-hidden="true" />
+            <span>自动</span>
+            <select
+              aria-label="自动刷新"
+              value={autoRefreshSeconds}
+              onChange={(event) => onAutoRefreshChange(panel.id, Number(event.target.value))}
+              disabled={!canConfigureAutoRefresh}
+            >
+              {DASHBOARD_PANEL_AUTO_REFRESH_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {isSelectedForRemotePreview && isAutoRefreshing ? <StatusBadge tone="success">{`每 ${autoRefreshSeconds}s`}</StatusBadge> : null}
       </div>
       <dl className="dashboard-panel-preview-meta">
         <div>
@@ -2346,6 +2493,13 @@ function createEmptyPreviewVariablesState(): PreviewVariablesState {
   return {
     values: {},
     signature: null
+  };
+}
+
+function createInactivePanelAutoRefreshState(): PanelAutoRefreshState {
+  return {
+    panelId: null,
+    seconds: 0
   };
 }
 

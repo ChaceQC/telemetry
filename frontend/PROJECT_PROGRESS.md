@@ -2,6 +2,31 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-25 T-0073 Dashboard 自动刷新前端基础
+
+### 已完成
+
+- `/dashboards` 已保存 dashboard 的 Panel 查询预览区新增本地自动刷新控制，选项为关闭、15s、30s、60s，默认关闭且不写入 dashboard config。
+- 自动刷新复用既有 `panelPreviewQuery.refetch()`、`dashboardQueryKeys.panelPreview(...)` 和运行时变量覆盖签名；不开后端新契约，不新增 API 参数。
+- 自动刷新只在已保存 dashboard/panel、当前 config 未改动、运行时变量覆盖合法且与已加载 preview 签名一致、手动预览同等可请求条件满足时启用。
+- 切换 project/dashboard/panel/page、修改 config/panel/variable/time range/runtime 变量、保存或删除 dashboard、关闭自动刷新以及组件卸载时都会停止旧 interval，避免串旧数据。
+- UI 保持现有 operational dashboard 风格：在选中 panel 的加载/刷新预览按钮旁增加紧凑 select 和短状态 badge，不增加解释性大段文案或重量抽象。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（1 个测试文件、36 个测试）。
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/features/dashboards/dashboardTimeRange.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（6 个测试文件、94 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 未做真实后端/MySQL/浏览器联调；本轮以既有 mock API 交互测试、类型检查、lint 和构建验证为主。
+- 自动刷新仅为当前 React 组件内本地状态，不跨会话持久化；不覆盖分享/只读、模板仪表盘、JSON 导入导出或告警场景。
+- 测试输出仍包含项目既有 React Router SSR/future flag warning。
+
 ## 2026-06-24 T-0071 Dashboard preview 请求时变量覆盖前端接入基础
 
 ### 已完成

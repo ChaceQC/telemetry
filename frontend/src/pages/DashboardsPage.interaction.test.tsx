@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -165,6 +165,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
 });
 
 describe('DashboardsPage interactions', () => {
@@ -831,6 +832,126 @@ describe('DashboardsPage interactions', () => {
     expect(within(preview).getByLabelText('日志级别 error，来源 api')).toBeTruthy();
     expect(within(preview).getByText('error / api / 2026-06-20 10:01:00Z')).toBeTruthy();
     expect(within(preview).getByText('boom')).toBeTruthy();
+  });
+
+  it('可为已保存 panel 开启和关闭本地自动刷新且不写入 dashboard config', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: { level: 'error' }, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue({
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'logs',
+      title: '错误日志',
+      panel_type: 'logs',
+      query: { level: 'error' },
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(1));
+    const autoRefreshSelect = within(preview).getByRole('combobox', { name: '自动刷新' }) as HTMLSelectElement;
+    expect(autoRefreshSelect.value).toBe('0');
+
+    vi.useFakeTimers();
+    fireEvent.change(autoRefreshSelect, { target: { value: '15' } });
+    expect(within(preview).getByText('每 15s')).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+    expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(2);
+    expect(apiMocks.previewDashboardPanel.mock.calls[1]).toEqual([12, 7, 'logs']);
+
+    fireEvent.change(autoRefreshSelect, { target: { value: '0' } });
+    expect(within(preview).queryByText('每 15s')).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('名称'), { target: { value: 'SLO 值班看板 v2' } });
+    fireEvent.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    await waitFor(() => expect(apiMocks.updateDashboard).toHaveBeenCalled());
+    expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
+      12,
+      7,
+      {
+        name: 'SLO 值班看板 v2'
+      }
+    ]);
+  });
+
+  it('config 草稿变更会停止旧 panel 自动刷新', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue({
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'logs',
+      title: '错误日志',
+      panel_type: 'logs',
+      query: {},
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(1));
+    vi.useFakeTimers();
+    fireEvent.change(within(preview).getByRole('combobox', { name: '自动刷新' }), { target: { value: '15' } });
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify(
+          {
+            refresh_seconds: 30,
+            panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: { level: 'warn' }, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+          },
+          null,
+          2
+        )
+      }
+    });
+
+    expect(within(preview).queryByText('每 15s')).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(1);
   });
 
   it('panel 查询预览可携带运行时变量覆盖且不会写回 dashboard config', async () => {
