@@ -725,6 +725,7 @@
 - T-0061 前端基础图表预览已提交到 feature 分支：Banach 与 Boyle 均超时未返回 final，总 agent按异常路径接管已存在前端半成品并提交 `0c56e29` 到 `feature/frontend-dev`。本次在 `/dashboards` 已保存 panel 查询预览区新增 metrics 轻量 SVG bar/sparkline/summary、topology 节点/边 SVG 摘要，以及 logs/events/traces 状态 marker；不改后端契约、不接 ClickHouse、不保存草稿、不新增重量图表库。前端专项 3 files/46 tests、typecheck、lint、build、`git diff --check` 均通过，Playwright CLI + Microsoft Edge mock 数据态桌面 1280px 与移动 390px 视觉复核通过；自有 Vite/Edge 资源已清理。等待 feature CI 和代码审计结论。
 - T-0061 初审未通过后已完成修复：Archimedes 审计 `0c56e29` 发现 2 个 P2 与 1 个 P3，分别为 metrics 正负混合 sparkline 负值点贴零轴、窄 panel 固定两列布局可能裁剪 SVG、5 节点 topology 标签可能越出 viewBox。总 agent提交 `6f54d95` 修复：metric bar 增加真实 `pointY`、sparkline 使用 valueY；remote visual 改为自适应 grid 且不隐藏 overflow；5 节点底部位置上移；新增正负混合和 5 节点回归测试。复验：dashboardPanels 17 tests、Dashboard 专项 3 files/48 tests、typecheck、lint、build、`git diff --check`、Edge mock 视觉复验均通过。等待 feature CI 与复审。
 - T-0061 修复复审与 feature CI 通过：Goodall 只读复审 `6f54d95` 未发现新的 P0/P1/P2/P3，确认原 2 个 P2 和 1 个 P3 均关闭；`feature/frontend-dev` GitHub Actions run `28069615737` 成功，Frontend checks 与 Backend checks 均通过。T-0061 可进入真实 merge 到 `dev`。
+- T-0061 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `0c56e29` 与 `6f54d95` 合入，merge 提交 `ab44017`。merge 后本地门禁通过：前端 Dashboard 专项 3 files / 48 tests passed、typecheck、lint、build 通过；后端 config 13 passed、`uv lock --check` 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 
 ### 阻塞与风险
 
@@ -751,7 +752,7 @@
 
 ### 下一步
 
-- 真实 merge `origin/feature/frontend-dev` 到 `dev`，随后执行本地门禁、推送 dev、读取 CI，并同步两个 feature 分支。
+- 推送 `dev`，等待 GitHub Actions；CI 通过后 fast-forward 同步 `feature/frontend-dev` 与 `feature/backend-dev`，再执行严格 worktree 体检并关闭 T-0061。
 
 ### 验证
 
@@ -803,6 +804,7 @@
 - T-0059 同步 CI 与 worktree 体检通过：GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `ce5cca2`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。
 - T-0060 启动记录 CI 与 worktree 体检通过：GitHub Actions runs `28065373335`、`28065444035`、`28065444183` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `ede0c24`，均为 success；随后严格 worktree 体检通过。
 - T-0060 真实前后端联测通过：Poincare 使用自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge；UI 30 条断言、API 边界 16 条断言全过，证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，自有资源已清理。
+- T-0061 merge 后本地门禁通过：merge 提交 `ab44017` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 3 files / 48 tests passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check`、`git diff --check` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
