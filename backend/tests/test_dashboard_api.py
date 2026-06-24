@@ -510,6 +510,55 @@ def test_dashboard_panel_config_normalizes_string_fields_for_create_and_update()
     assert update_response.json()["config"]["panels"][0]["type"] == "logs"
 
 
+def test_dashboard_time_range_config_normalizes_for_create_and_update() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="time-range-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Time range dashboard",
+            "config": {
+                "refresh_seconds": 30,
+                "time_range": {"mode": " relative ", "relative": " 15m "},
+            },
+        },
+    )
+
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+    assert dashboard["config"] == {
+        "refresh_seconds": 30,
+        "time_range": {"mode": "relative", "relative": "15m"},
+    }
+
+    update_config = {
+        "time_range": {
+            "mode": "\tabsolute\n",
+            "from": " 2026-06-24T00:00:00Z ",
+            "to": "\t2026-06-24T01:00:00+00:00\n",
+        }
+    }
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": update_config},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["config"] == {
+        "time_range": {
+            "mode": "absolute",
+            "from": "2026-06-24T00:00:00Z",
+            "to": "2026-06-24T01:00:00+00:00",
+        }
+    }
+
+
 def test_dashboard_panel_config_keeps_legacy_config_compatible() -> None:
     client = build_client()
     _, auth_headers = create_auth_headers(client, username="legacy-config-owner")
@@ -539,6 +588,81 @@ def test_dashboard_panel_config_keeps_legacy_config_compatible() -> None:
     assert legacy_config_response.json()["config"] == {"refresh_seconds": 30}
     assert arbitrary_config_response.status_code == 201
     assert arbitrary_config_response.json()["config"] == [{"query": "legacy raw query"}]
+
+
+@pytest.mark.parametrize(
+    "invalid_time_range",
+    [
+        "24h",
+        [],
+        None,
+        {"mode": "last", "relative": "15m"},
+        {"mode": "relative"},
+        {"mode": "relative", "relative": "10m"},
+        {"mode": "relative", "relative": ""},
+        {"mode": "relative", "relative": 15},
+        {"mode": "absolute", "from": "2026-06-24T00:00:00Z"},
+        {
+            "mode": "absolute",
+            "from": 1,
+            "to": "2026-06-24T01:00:00Z",
+        },
+        {
+            "mode": "absolute",
+            "from": "",
+            "to": "2026-06-24T01:00:00Z",
+        },
+        {
+            "mode": "absolute",
+            "from": "not-a-time",
+            "to": "2026-06-24T01:00:00Z",
+        },
+        {
+            "mode": "absolute",
+            "from": "2026-06-24T01:00:00Z",
+            "to": "2026-06-24T01:00:00Z",
+        },
+        {
+            "mode": "absolute",
+            "from": "2026-06-24T02:00:00Z",
+            "to": "2026-06-24T01:00:00Z",
+        },
+        {
+            "mode": "absolute",
+            "from": "2026-06-24T00:00:00Z",
+            "to": "2026-06-24T01:00:00",
+        },
+    ],
+)
+def test_dashboard_invalid_time_range_config_is_reported_as_422(
+    invalid_time_range: Any,
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="invalid-time-range-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard = create_dashboard(client, auth_headers, project_id=project_id)
+    invalid_config = {"time_range": invalid_time_range}
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Invalid time range config",
+            "config": invalid_config,
+        },
+    )
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": invalid_config},
+    )
+
+    assert create_response.status_code == 422
+    assert any("config" in error["loc"] for error in create_response.json()["detail"])
+    assert update_response.status_code == 422
+    assert any("config" in error["loc"] for error in update_response.json()["detail"])
 
 
 def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
