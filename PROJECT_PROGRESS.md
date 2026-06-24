@@ -786,6 +786,9 @@
 - T-0074 已登记为阶段 5 测试收口小步：Dashboard 自动刷新真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖自动刷新实际重复触发 panel preview、关闭后停止请求、手动刷新与自动刷新不产生可观察重复并发请求、运行时变量覆盖值随自动刷新保留、未保存 config/panel/变量/time range/runtime 草稿停止或不请求、切换 dashboard/panel/session 停止旧 timer、390px 移动端无横向溢出。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
 - T-0074 启动同步 CI 与 worktree 体检通过：T-0073 收口与 T-0074 启动记录 `fc0cb46` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28116999523`、`28117095511`、`28117094567` 均成功，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。
 - 已启动测试 agent Harvey（`019efaaf-8468-77c1-84ac-c8e437b8cf60`）执行 T-0074：要求使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新真实链路；不改业务代码、不提交/不 push、不修改根正式文档、不读 `auth.txt`、不启动 Docker，只在 ignored 的 `agents/runtime/` 下写测试日志和证据并清理自有资源。
+- T-0074 启动记录同步后的三分支 CI 与 worktree 体检通过：`a97b361` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28117494421`、`28117620846`、`28117620650` 均成功，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
+- T-0074 真实前后端联测通过：Harvey 在 `dev/origin/dev` `a97b361` 使用自启动 MySQL 8.0.42 临时实例 `127.0.0.1:33374`、库 `telemetry_t0074_20260625_0138`、真实 FastAPI `28117`、真实 Vite `25173` 和 Playwright + Microsoft Edge。覆盖 15s 自动刷新触发 2 次真实 panel preview，请求间隔约 `14989ms`；关闭自动刷新后超过 15s 无新增请求；手动刷新 pending 与自动 tick 最大并发重叠 `1`；运行时变量 `service=api-b` 参与 preview 并返回 `source=api-b` 日志，保存 payload 仍保留 `${service}` 和 default `api-a`；未保存 panel/config、运行时变量草稿、time range 草稿停止或不发起 preview；切换 panel、dashboard、logout/session 停止旧 timer；390px 移动端 `scrollWidth=390` 且自动刷新控件可用。登录、Dashboard 创建/删除、panel 保存、logs preview、401/404/422 均通过。证据目录 `agents/runtime/e2e-T-0074-evidence`；cleanup 确认 `33374/28117/25173` 无监听残留，临时 MySQL datadir 已删除，系统 `3306` 未触碰；未改业务代码、未读 `auth.txt`、未启动 Docker。T-0074 关闭。
+- T-0075 已登记为阶段 5 下一小步：Dashboard 内置模板后端基础。边界为提供最小 Dashboard template 列表/读取/从模板创建 dashboard 能力，内置至少“服务总览”模板，模板 config 使用现有 panels、time_range、variables schema 并复用 Dashboard CRUD/RBAC 校验；创建出的 dashboard 归属目标项目并走现有权限与 JSON 保护。不做前端模板 UI、不做 JSON 导入导出、不做分享/只读模式、不接 ClickHouse、不做告警态势真实数据或模板市场。
 
 ### 阻塞与风险
 
@@ -821,11 +824,12 @@
 - T-0071 只做前端运行时变量值接入 preview，不改变保存层变量 schema 或后端契约；运行时值不做跨会话持久化。实现、feature CI、dev merge、本地门禁和 dev CI 已通过。
 - T-0072 真实联测已通过并关闭；仍不覆盖 URL 长度极限、跨会话运行时变量持久化、自动刷新、模板仪表盘、导入导出或告警。
 - T-0073 只做前端本地自动刷新基础，不改后端契约、不保存刷新设置、不做后台调度或跨会话持久化；实现、P3 修复、feature CI、dev merge、本地门禁、三分支 CI 和严格 worktree 体检已通过。真实 MySQL/真实后端/真实前端/Edge 自动刷新链路留给 T-0074 覆盖。
-- T-0074 只做真实前后端联测收口，不改业务代码；需重点观察真实浏览器定时器、手动刷新 pending、运行时变量覆盖和未保存草稿停止刷新在真实网络/后端响应时间下是否仍满足预期，并确认移动端控制区无横向溢出。
+- T-0074 真实联测已通过并关闭；仍不覆盖更短刷新间隔、跨浏览器节流、后台标签页定时器降频、模板仪表盘、JSON 导入导出、分享/只读或告警态势。
+- T-0075 只做后端内置模板基础，不实现前端模板选择入口；模板创建出的 dashboard 仍沿用现有 Dashboard CRUD 存储和权限，不新增独立模板持久化表、不做用户自定义模板市场。
 
 ### 下一步
 
-- 等待测试 agent Harvey 交付 T-0074 真实 MySQL/后端/前端/Edge 自动刷新联测结论；若通过则汇总证据、关闭 T-0074 并登记下一小步，若发现问题则按 P 级别启动对应修复 agent。
+- 提交并推送 T-0074 收口与 T-0075 启动记录，读取对应 `dev` CI；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev`、等待三分支 CI 并运行严格 worktree 体检，再启动后端开发 agent 推进 T-0075。
 
 ### 验证
 
@@ -839,6 +843,8 @@
 - T-0073 merge 后本地门禁通过：merge 提交 `dfd8044` 后，前端 dashboard suite 6 files / 95 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。
 - T-0073 同步 CI 与 worktree 体检通过：`dfd8044` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28116264125`、`28116374294`、`28116372695` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0074 启动同步 CI 与 worktree 体检通过：`fc0cb46` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28116999523`、`28117095511`、`28117094567` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
+- T-0074 启动记录同步 CI 与 worktree 体检通过：`a97b361` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28117494421`、`28117620846`、`28117620650` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
+- T-0074 真实前后端联测通过：Harvey 使用临时 MySQL `127.0.0.1:33374`、真实后端 `28117`、真实前端 `25173` 与 Playwright + Microsoft Edge，`summary.json` 记录 `passed=true`、`failures=[]`、`previewRequestCount=12`，覆盖自动刷新重复请求、关闭停止、最大并发重叠 `1`、运行时变量保留且不写回、未保存草稿停止请求、切换 timer、390px 无横向溢出和 401/404/422；证据目录 `agents/runtime/e2e-T-0074-evidence`，自有资源已清理。
 - T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
 - T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。

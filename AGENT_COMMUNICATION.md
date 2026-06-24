@@ -101,7 +101,8 @@ closed      已关闭
 | T-0071 | Dashboard panel preview 请求时变量覆盖前端接入基础 | 总 agent | done | done | done | done | done |
 | T-0072 | Dashboard panel preview 请求时变量覆盖真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0073 | Dashboard 自动刷新前端基础 | 总 agent | done | todo | done | done | done |
-| T-0074 | Dashboard 自动刷新真实前后端联测 | 总 agent | done | done | doing | todo | testing |
+| T-0074 | Dashboard 自动刷新真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0075 | Dashboard 内置模板后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -594,6 +595,9 @@ closed      已关闭
 | 2026-06-24 | T-0074 | 总 agent | 登记 Dashboard 自动刷新真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖自动刷新实际重复触发 panel preview、关闭后停止请求、手动刷新与自动刷新不产生可观察重复并发请求、运行时变量覆盖值随自动刷新保留、未保存 config/panel/变量/time range/runtime 草稿停止或不请求、切换 dashboard/panel/session 停止旧 timer、390px 移动端无横向溢出。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
 | 2026-06-24 | T-0074-start-sync | 总 agent | CI 与 worktree 同步完成 | T-0073 收口与 T-0074 启动记录 `fc0cb46` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28116999523`、`28117095511`、`28117094567` 均通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交 | done |
 | 2026-06-24 | T-0074 | 总 agent | 启动测试 agent Harvey | 已启动测试 agent Harvey（`019efaaf-8468-77c1-84ac-c8e437b8cf60`）执行 T-0074，要求使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新真实链路；不改业务代码、不提交/不 push、不修改根正式文档、不读 `auth.txt`、不启动 Docker，只在 ignored 的 `agents/runtime/` 下写测试日志和证据并清理自有资源 | testing |
+| 2026-06-24 | T-0074-doc-sync | 总 agent | CI 与 worktree 同步完成 | T-0074 启动同步记录 `a97b361` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28117494421`、`28117620846`、`28117620650` 均通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致 | done |
+| 2026-06-24 | T-0074 | 测试 agent Harvey / 总 agent | Dashboard 自动刷新真实前后端联测通过 | Harvey 在 `dev/origin/dev` `a97b361` 使用自启动 MySQL 8.0.42 临时实例 `127.0.0.1:33374`（库 `telemetry_t0074_20260625_0138`）、真实 FastAPI `28117`、真实 Vite `25173` 与 Playwright + Microsoft Edge 完成联测。覆盖 15s 自动刷新重复触发 preview（2 次，请求间隔约 `14989ms`）、关闭后停止、手动刷新 pending 与自动 tick 最大并发 `1`、运行时变量 `service=api-b` 参与自动刷新且不写回保存 payload、未保存 panel/config/变量/time range/runtime 草稿停止请求、切换 panel/dashboard/session 停止旧 timer、390px 移动端无横向溢出；登录、Dashboard 创建/删除、panel 保存、logs preview、401/404/422 均通过。证据目录 `agents/runtime/e2e-T-0074-evidence`；cleanup 确认 `33374/28117/25173` 无监听残留，临时 MySQL datadir 已删除，系统 `3306` 未触碰；未改业务代码、未读 `auth.txt`、未启动 Docker。T-0074 关闭 | done |
+| 2026-06-24 | T-0075 | 总 agent | 登记 Dashboard 内置模板后端基础 | 阶段 5 下一小步限定为后端内置模板基础：提供最小 Dashboard template 列表/读取/从模板创建 dashboard 能力，内置至少“服务总览”模板，模板 config 使用现有 panels、time_range、variables schema 并复用 Dashboard CRUD/RBAC 校验；创建出的 dashboard 仍归属目标项目并走现有权限与 JSON 保护。不做前端模板 UI、不做 JSON 导入导出、不做分享/只读模式、不接 ClickHouse、不做告警态势真实数据或模板市场 | doing |
 
 ## 6. 测试记录
 
@@ -761,6 +765,8 @@ closed      已关闭
 | 2026-06-24 | T-0073 | dev merge 后本地验证 | 前端 dashboard suite、typecheck、lint、build；后端 dashboard/config 专项；`git diff --check` | 通过 | merge 提交 `dfd8044` 后，前端 dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；diff check 通过 |
 | 2026-06-24 | T-0073-sync | CI 与 worktree 同步 | GitHub Actions runs `28116264125`、`28116374294`、`28116372695`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `dfd8044` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0074-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28116999523`、`28117095511`、`28117094567`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `fc0cb46` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success；仅有既有 Actions Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
+| 2026-06-24 | T-0074-doc-sync | CI 与 worktree 同步 | GitHub Actions runs `28117494421`、`28117620846`、`28117620650`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `a97b361` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success；仅有既有 Actions Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
+| 2026-06-24 | T-0074 | Dashboard 自动刷新真实前后端联测 | 测试 agent Harvey；临时 MySQL `127.0.0.1:33374`、库 `telemetry_t0074_20260625_0138`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge；后端/前端快速回归 | 通过 | `summary.json` 记录 `passed=true`、`failures=[]`、`previewRequestCount=12`。覆盖 15s 自动刷新重复请求、关闭后停止、最大并发重叠 `1`、运行时变量保留且不写回、未保存草稿停止请求、切换 panel/dashboard/session 停止旧 timer、390px 无横向溢出和 401/404/422 基础错误态；证据目录 `agents/runtime/e2e-T-0074-evidence`，自有资源已清理 |
 
 ## 7. 审计记录
 
@@ -905,6 +911,8 @@ closed      已关闭
 | 2026-06-24 | T-0073-sync | dev | feature/frontend-dev / feature/backend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `dfd8044` 并推送；三分支 CI runs `28116264125`、`28116374294`、`28116372695` 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已登记；本任务为测试收口，不产生 feature merge，下一步启动测试 agent 在最新 `dev/origin/dev` 上使用真实 MySQL/后端/前端/Edge 验证自动刷新链路 | testing |
 | 2026-06-24 | T-0074-start-sync | dev | feature/frontend-dev / feature/backend-dev | 总 agent | T-0073 收口与 T-0074 启动记录 `fc0cb46` 已同步到三分支；CI runs `28116999523`、`28117095511`、`28117094567` 均通过，严格 worktree 体检通过。测试 agent Harvey 已启动执行真实联测 | testing |
+| 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Harvey 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新重复请求、停止、并发保护、运行时变量、未保存草稿、切换 timer 和移动端 UI；资源已清理 | done |
+| 2026-06-24 | T-0075 | feature/backend-dev | dev | 总 agent | Dashboard 内置模板后端基础已登记；后续在 `feature/backend-dev` 实现模板列表/读取/从模板创建 dashboard，完成后经后端门禁、审计和 feature CI 再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
