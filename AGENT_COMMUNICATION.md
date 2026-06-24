@@ -518,6 +518,7 @@ closed      已关闭
 | 2026-06-24 | T-0060 | 测试 agent Poincare | Dashboard panel 查询预览真实前后端联测通过 | Poincare 未返回主线程 final，但已按测试 agent 规范追加 `agents/runtime/test-agent.log.md` 记录，结论为通过。使用自启动临时 MySQL 8.0.42 `127.0.0.1:3307`/库 `telemetry_t0060_20260624_080520`、真实后端 `28117`、真实前端 `25173`、Playwright + Microsoft Edge；UI 30 条断言与 API 边界 16 条断言均通过，覆盖 5 类 panel preview、未保存 config 不请求、422/error、未认证/无权限和基础查询/拓扑回归。证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，自有资源已清理 | done |
 | 2026-06-24 | T-0061 | 总 agent | 登记 Dashboard panel 基础图表渲染前端能力 | 阶段 5 下一小步限定为前端在 `/dashboards` 查询预览区增加基础可视化：基于 T-0058/T-0059 已有 preview payload，本地无新增后端契约；metrics 聚合用轻量 SVG/条形或趋势摘要展示，topology 用简洁节点/边摘要可视化，logs/events/traces 仍以可扫描样例列表为主并可增加状态/严重度视觉标记。不得接 ClickHouse、变量/模板/告警、后台刷新或保存草稿；优先复用已有 `.metric-trend`/全局样式和 lucide 图标，不新增重量图表库；使用 restrained operational UI，不做 hero/营销布局。将启动前端开发 agent 在 `feature/frontend-dev` 工作 | doing |
 | 2026-06-24 | T-0061 | 总 agent | 前端实现接手安排 | 前端开发 agent Banach 超时未返回 final，关闭前在 `feature/frontend-dev` 留下 5 个未提交前端改动，范围为 dashboard panel preview 模型、页面渲染、交互测试和 CSS。总 agent 已启动前端开发 agent Boyle 接手这些未提交改动，要求审阅并补完实现、更新 `frontend/PROJECT_PROGRESS.md` 和运行时日志、完成前端验证、提交并推送到 `feature/frontend-dev`；总 agent不直接代写前端功能 | doing |
+| 2026-06-24 | T-0061 | 总 agent | 前端接手记录 CI 通过 | `cf5b904` 已推送到 `dev`，GitHub Actions run `28067865538` 通过；Backend checks 与 Frontend checks 均为 success。该提交仅记录 Banach 超时关闭与 Boyle 接手安排，不包含业务实现；前端实现仍等待 `feature/frontend-dev` 提交 | done |
 
 ## 6. 测试记录
 

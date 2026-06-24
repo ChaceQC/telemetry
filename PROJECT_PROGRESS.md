@@ -721,6 +721,7 @@
 - T-0060 真实前后端联测通过：测试 agent Poincare 未返回主线程 final，但已按测试 agent 规范追加 `agents/runtime/test-agent.log.md` 记录，结论为通过。使用自启动临时 MySQL 8.0.42 `127.0.0.1:3307`/库 `telemetry_t0060_20260624_080520`、真实后端 `28117`、真实前端 `25173`、Playwright + Microsoft Edge 和临时 Node API 边界脚本；UI 30 条断言和 API 边界 16 条断言全过。覆盖 5 类 panel preview、未保存 config 不请求、非法 query 422 panel 内展示、encoded panel id、401/404/422、无权限边界和 metrics/logs/events/traces/topology 快速回归；证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，`25173/28117/3307` 已释放。
 - T-0061 已登记为阶段 5 下一小步：Dashboard panel 基础图表渲染前端能力。边界为只在 `/dashboards` 查询预览区基于已有 preview payload 增加最小可视化，不改后端契约、不新增重量图表库、不接 ClickHouse、不做变量/模板/告警或后台刷新。metrics 聚合优先用轻量 SVG/条形或趋势摘要展示，topology 用简洁节点/边摘要可视化，logs/events/traces 保持可扫描样例列表并可加入状态/严重度视觉标记；UI 遵循 restrained operational surface。
 - T-0061 前端实现接手中：前端开发 agent Banach 超时未返回 final，关闭前在 `feature/frontend-dev` 留下 5 个未提交前端改动，涉及 `dashboardPanels.ts`、Dashboard 页面、交互测试和全局样式。总 agent 已启动前端开发 agent Boyle 接手这些改动，要求完成审阅、修正、前端验证、`frontend/PROJECT_PROGRESS.md` 同步、提交并推送到 `feature/frontend-dev`；总 agent等待其交付后再进入审计和真实 merge。
+- T-0061 前端接手记录 CI 通过：`cf5b904` 已推送到 `dev`，GitHub Actions run `28067865538` 成功，Backend checks 与 Frontend checks 均通过。该提交仅记录 Banach 超时关闭与 Boyle 接手安排，不包含业务实现；前端实现仍等待 `feature/frontend-dev` 提交。
 
 ### 阻塞与风险
 
