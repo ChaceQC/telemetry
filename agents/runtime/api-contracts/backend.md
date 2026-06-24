@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0062`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，并新增已保存 dashboard panel 的只读查询预览 API。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0064`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，并新增已保存 dashboard panel 的只读查询预览 API；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -442,7 +442,7 @@ PATCH 请求体示例：
   - `404 Not Found`：项目不存在、普通用户不在项目权限范围内，或 dashboard 不属于指定项目/不存在。
   - `409 Conflict`：dashboard 数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段、路径参数或分页参数格式错误，包括 `layout/config` 超过大小、深度、复杂度限制、包含非有限数，`config.time_range` 非对象、未知 `mode`、缺少必填字段、非字符串或空字符串、未知相对范围、绝对范围时间不可解析或 `from >= to`，或 `config.panels` 非数组、panel 非对象、缺少必填字段、未知 `type`、重复 `id`、`query` 非对象、`layout` 数值非法。
-- 当前边界：不做前端 dashboard 页面，不做 panel 图表渲染，不接 ClickHouse 查询，不做变量、模板、自动刷新、告警规则，也不让 panel preview 自动继承 `config.time_range`。
+- 当前边界：不做前端 dashboard 页面，不做 panel 图表渲染，不接 ClickHouse 查询，不做变量、模板、自动刷新或告警规则。
 
 ## API-0024 Dashboard panel 查询预览
 
@@ -497,12 +497,13 @@ PATCH 请求体示例：
   - `events`：`type` 或 `event_type`。
   - `traces`：`trace_id`、`span_id`、`name`、`status_code`、`duration_min_ms`、`duration_max_ms`。
   - `topology`：使用通用 `source`、时间范围和 `limit`。
+- 时间范围继承：当 dashboard 保存了对象类型 `config.time_range` 时，preview 会在 panel query 未显式设置对应时间边界时转换为 query service 使用的 `occurred_from` / `occurred_to`。相对范围 `{"mode":"relative","relative":"15m|1h|6h|24h|7d"}` 基于服务端当前 UTC 时间生成 `[now-relative, now]`；绝对范围 `{"mode":"absolute","from":"ISO 8601","to":"ISO 8601"}` 使用保存的 `from/to`。panel query 显式 `occurred_from` / `occurred_to` 分别优先于 dashboard 全局范围，支持单边覆盖；没有 `time_range`、非对象 config、legacy config 或历史非法 `time_range` 形状按旧行为不继承时间过滤。
 - 字段规则：未知 query 字段忽略；`limit` 默认为 `20`，范围 `1..100`；时间字段必须是 ISO 8601 字符串；`metrics` 的 `window/aggregation` 必须是字符串枚举值；字符串字段类型错误、过长、非法 `window/aggregation`、非有限 duration 或 duration 下界大于上界返回 `422`。
 - 错误：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `404 Not Found`：项目不存在、普通用户不在项目权限范围内、dashboard 不属于该项目/不存在、`config` 非对象或未保存 `panels`、`panel_id` 不存在。
   - `422 Unprocessable Entity`：路径参数或已保存 panel query 中参与预览的白名单字段非法。
-- 当前边界：只读已保存 dashboard `config.panels`；不支持未保存草稿 config，不写 dashboard，不接 ClickHouse，不自动继承 `config.time_range`，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警。
+- 当前边界：只读已保存 dashboard `config.panels`；不支持未保存草稿 config，不写 dashboard，不接 ClickHouse，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警。
 
 ## API-0008 数据摄入
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from math import isfinite
 from typing import Annotated, Any, Literal, cast
 
@@ -33,6 +33,14 @@ router = APIRouter(
     tags=["dashboards"],
     dependencies=[Depends(get_current_user)],
 )
+
+DASHBOARD_RELATIVE_TIME_DELTAS = {
+    "15m": timedelta(minutes=15),
+    "1h": timedelta(hours=1),
+    "6h": timedelta(hours=6),
+    "24h": timedelta(hours=24),
+    "7d": timedelta(days=7),
+}
 
 
 def _map_dashboard_error(error: Exception) -> HTTPException:
@@ -87,6 +95,51 @@ def _panel_query_datetime(query: dict[str, Any], key: str) -> datetime | None:
         raise QueryFilterError(f"panel.query.{key} 必须是 ISO 8601 时间字符串") from error
 
 
+def _preview_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _parse_dashboard_time_range_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _dashboard_time_range_query(config: Any) -> dict[str, datetime | None]:
+    if not isinstance(config, dict):
+        return {}
+    time_range = config.get("time_range")
+    if not isinstance(time_range, dict):
+        return {}
+
+    mode = time_range.get("mode")
+    if mode == "relative":
+        relative = time_range.get("relative")
+        if not isinstance(relative, str):
+            return {}
+        delta = DASHBOARD_RELATIVE_TIME_DELTAS.get(relative)
+        if delta is None:
+            return {}
+        occurred_to = _preview_now()
+        return {"occurred_from": occurred_to - delta, "occurred_to": occurred_to}
+    if mode != "absolute":
+        return {}
+
+    occurred_from = _parse_dashboard_time_range_datetime(time_range.get("from"))
+    absolute_occurred_to = _parse_dashboard_time_range_datetime(time_range.get("to"))
+    if occurred_from is None or absolute_occurred_to is None:
+        return {}
+    try:
+        if occurred_from >= absolute_occurred_to:
+            return {}
+    except TypeError:
+        return {}
+    return {"occurred_from": occurred_from, "occurred_to": absolute_occurred_to}
+
+
 def _panel_query_limit(query: dict[str, Any], *, default: int = 20, maximum: int = 100) -> int:
     value = query.get("limit", default)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -132,11 +185,21 @@ def _panel_query_type(query: dict[str, Any]) -> str | None:
     return event_type
 
 
-def _preview_common_query(query: dict[str, Any]) -> dict[str, Any]:
+def _preview_common_query(
+    query: dict[str, Any],
+    *,
+    dashboard_time_range: dict[str, datetime | None],
+) -> dict[str, Any]:
+    occurred_from = _panel_query_datetime(query, "occurred_from")
+    occurred_to = _panel_query_datetime(query, "occurred_to")
     return {
         "source": _panel_query_string(query, "source", max_length=128),
-        "occurred_from": _panel_query_datetime(query, "occurred_from"),
-        "occurred_to": _panel_query_datetime(query, "occurred_to"),
+        "occurred_from": occurred_from
+        if occurred_from is not None
+        else dashboard_time_range.get("occurred_from"),
+        "occurred_to": occurred_to
+        if occurred_to is not None
+        else dashboard_time_range.get("occurred_to"),
         "limit": _panel_query_limit(query),
     }
 
@@ -152,8 +215,9 @@ def _build_panel_preview(
     project_id: int,
     panel_type: str,
     query: dict[str, Any],
+    dashboard_time_range: dict[str, datetime | None],
 ) -> dict[str, Any]:
-    common_query = _preview_common_query(query)
+    common_query = _preview_common_query(query, dashboard_time_range=dashboard_time_range)
     if panel_type == "metrics":
         items = query_service.aggregate_metrics(
             user=current_user,
@@ -352,6 +416,7 @@ def preview_project_dashboard_panel(
             project_id=project_id,
             panel_type=panel_type,
             query=panel_query,
+            dashboard_time_range=_dashboard_time_range_query(dashboard.config),
         )
     except (ResourceForbiddenError, ResourceNotFoundError) as error:
         raise _map_dashboard_error(error) from error
