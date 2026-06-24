@@ -3,8 +3,13 @@ from __future__ import annotations
 from app.repositories.auth import UserRecord
 from app.repositories.dashboard import DashboardPage, DashboardRecord, DashboardRepository
 from app.repositories.management import ManagementRepository
-from app.schemas.dashboard import DashboardCreate, DashboardUpdate
+from app.schemas.dashboard import DashboardCreate, DashboardCreateFromTemplate, DashboardUpdate
 from app.schemas.permissions import ProjectRole, role_includes
+from app.services.dashboard_templates import (
+    DashboardTemplateRecord,
+    get_builtin_dashboard_template,
+    list_builtin_dashboard_templates,
+)
 from app.services.errors import ResourceForbiddenError, ResourceNotFoundError
 from app.services.permissions import PermissionService
 
@@ -83,6 +88,37 @@ class DashboardService:
             config=payload.config,
             created_by_user_id=user.id,
         )
+
+    def list_dashboard_templates(self) -> list[DashboardTemplateRecord]:
+        return list_builtin_dashboard_templates()
+
+    def get_dashboard_template(self, *, template_id: str) -> DashboardTemplateRecord:
+        return get_builtin_dashboard_template(template_id)
+
+    def create_dashboard_from_template(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int,
+        template_id: str,
+        payload: DashboardCreateFromTemplate,
+    ) -> DashboardRecord:
+        self._ensure_project_role_hidden(
+            user=user,
+            project_id=project_id,
+            minimum_role=ProjectRole.editor,
+        )
+        template = get_builtin_dashboard_template(template_id)
+        create_payload = DashboardCreate(
+            project_id=project_id,
+            name=payload.name or template.name,
+            description=payload.description
+            if payload.description is not None
+            else template.description,
+            layout=template.layout,
+            config=template.config,
+        )
+        return self.create_dashboard(payload=create_payload, user=user)
 
     def update_dashboard(
         self,

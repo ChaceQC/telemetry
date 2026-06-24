@@ -449,6 +449,13 @@ class DashboardUpdate(DashboardSchema):
         return self
 
 
+class DashboardCreateFromTemplate(DashboardSchema):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+
+
 class DashboardResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -469,6 +476,20 @@ class DashboardListResponse(BaseModel):
     limit: int
     offset: int
     total: int
+
+
+class DashboardTemplateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    description: str | None
+    layout: DashboardJson
+    config: DashboardJson
+
+
+class DashboardTemplateListResponse(BaseModel):
+    items: list[DashboardTemplateResponse]
 
 
 class DashboardPanelPreviewResponse(BaseModel):

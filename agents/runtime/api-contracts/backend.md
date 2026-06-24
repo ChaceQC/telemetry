@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0070`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0075`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -414,6 +414,48 @@
   - `config`：可选，必须是 JSON 对象或数组，默认 `{}`；序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。当 `config` 是对象且包含顶层 `time_range` 时，`time_range` 必须是对象；相对范围为 `{"mode":"relative","relative":"15m|1h|6h|24h|7d"}`，绝对范围为 `{"mode":"absolute","from":"ISO 8601","to":"ISO 8601"}`；`mode/relative/from/to` 会裁剪首尾空白并按裁剪后字符串保存，绝对范围要求 `from/to` 可解析并可比较为 ISO 8601 时间且 `from < to`。当 `config` 是对象且包含顶层 `panels` 时，`panels` 必须是数组；每个 panel 必须是对象，包含 `id`（1 到 64 字符）、`title`（1 到 120 字符）、`type`（`metrics`、`logs`、`events`、`traces`、`topology` 之一）和对象类型的 `query`；`id/title/type` 会先裁剪首尾空白再校验和保存，同一数组内重复 `id` 也按裁剪后值判断；可选 `layout` 必须是对象，包含非负 `x/y` 和正数 `w/h`。当 `config` 是对象且包含顶层 `variables` 时，`variables` 必须是数组；每个变量必须是对象，包含 `name`（1 到 64 字符，仅字母、数字、下划线，且不能以数字开头）和 `type`（`text`、`number`、`select` 之一），可选 `label` 最多 120 字符；`name/label/type/default/options` 字符串值会裁剪首尾空白后保存，同一数组内重复 `name` 也按裁剪后值判断。`text` 变量可选字符串 `default` 且不接受 `options`；`number` 变量可选有限数字 `default` 且不接受 `options`；`select` 变量必须提供非空字符串数组 `options`，选项裁剪后不能为空且不能重复，可选 `default` 必须匹配某个 option。旧版 `{}`、`{"refresh_seconds": 30}`、没有 `time_range`、未使用顶层 `panels` 或未使用顶层 `variables` 的 config 结构保持兼容。
 - 响应：`201 Created`，返回 dashboard 对象。
 
+### 列出 / 读取 dashboard template
+
+- 方法：`GET`
+- 路径：
+  - `/api/v1/dashboard-templates`
+  - `/api/v1/dashboard-templates/{template_id}`
+- 权限：需要有效 Bearer token 和启用用户；内置模板读取不依赖项目角色。
+- 响应：列表返回 `{"items":[...]}`；读取返回单个模板对象。模板对象包含 `id`、`name`、`description`、`layout`、`config`。
+- 当前内置模板：
+  - `service-overview` / `服务总览`：内置服务健康总览，`config.time_range` 默认为 `relative: 1h`，包含 `service_source`、`log_level`、`row_limit` 变量，以及 metrics/logs/traces/topology 四个最小 panel。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `404 Not Found`：`template_id` 不存在时返回 `仪表盘模板不存在`。
+  - `422 Unprocessable Entity`：路径参数格式错误。
+
+### 从 template 创建 dashboard
+
+- 方法：`POST`
+- 路径：`/api/v1/projects/{project_id}/dashboard-templates/{template_id}/dashboards`
+- 路径参数：
+  - `project_id`：正整数，作为权限边界和创建后 dashboard 归属边界。
+  - `template_id`：1 到 64 字符，当前支持 `service-overview`。
+- 权限：复用现有 dashboard 创建语义，目标项目至少 `editor`；`viewer` 返回 `403 无项目权限`；普通用户无项目成员关系或项目不存在返回 `404 项目不存在`；超级用户仍要求项目存在。
+- 请求体：可为空对象；仅允许可选 `name` 和 `description` 覆盖模板默认值。
+
+```json
+{
+  "name": "支付服务总览",
+  "description": "支付团队值班入口"
+}
+```
+
+- 行为：服务端使用路径 `project_id` 和内置模板 `layout/config` 构造 `DashboardCreate`，复用现有 JSON 大小/深度/复杂度/非有限数、`panels`、`time_range`、`variables` schema 校验；创建出的记录是普通 dashboard，后续复用现有读取、更新、删除、preview 和 RBAC。
+- 防注入边界：请求体未声明字段使用 `extra=forbid`，`project_id`、`layout`、`config` 等字段返回 `422`，不能覆盖路径项目或注入模板外 config。
+- 可变引用边界：内置模板读取时会深拷贝 `layout/config` 并通过保存层 schema 校验；多次读取或多次创建不会共享可变 config 引用。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `403 Forbidden`：已认证且处于目标项目权限范围内，但缺少 `editor`。
+  - `404 Not Found`：项目不存在、普通用户不在项目权限范围内，或权限通过后 `template_id` 不存在。
+  - `409 Conflict`：dashboard 数据库完整性约束错误。
+  - `422 Unprocessable Entity`：请求体字段或路径参数格式错误，包括请求体试图传入未声明字段。
+
 ### 读取 / 更新 / 删除 dashboard
 
 - 路径：`/api/v1/projects/{project_id}/dashboards/{dashboard_id}`
@@ -439,10 +481,10 @@ PATCH 请求体示例：
 - 错误：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `403 Forbidden`：已认证且处于目标项目权限范围内，但缺少本动作要求的角色。
-  - `404 Not Found`：项目不存在、普通用户不在项目权限范围内，或 dashboard 不属于指定项目/不存在。
+  - `404 Not Found`：项目不存在、普通用户不在项目权限范围内、dashboard 不属于指定项目/不存在，或 template 不存在。
   - `409 Conflict`：dashboard 数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段、路径参数或分页参数格式错误，包括 `layout/config` 超过大小、深度、复杂度限制、包含非有限数，`config.time_range` 非对象、未知 `mode`、缺少必填字段、非字符串或空字符串、未知相对范围、绝对范围时间不可解析或 `from >= to`，`config.panels` 非数组、panel 非对象、缺少必填字段、未知 `type`、重复 `id`、`query` 非对象、`layout` 数值非法，或 `config.variables` 非数组、variable 非对象、缺少必填字段、非法 `name/type/options/default`、重复 `name`。
-- 当前边界：不做前端 dashboard 页面，不做 panel 图表渲染，不接 ClickHouse 查询，不做保存时用户会话级变量状态、模板 dashboard、自动刷新或告警规则。
+- 当前边界：不做前端 dashboard 页面，不做 panel 图表渲染，不接 ClickHouse 查询，不做保存时用户会话级变量状态、模板市场、导入导出、分享/只读模式、自动刷新或告警规则。
 
 ## API-0024 Dashboard panel 查询预览
 
