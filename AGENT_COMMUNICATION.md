@@ -95,6 +95,7 @@ closed      已关闭
 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0067 | Dashboard 变量配置前端基础 | 总 agent | done | todo | done | done | done |
+| T-0068 | Dashboard panel preview 变量默认值替换后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -561,6 +562,8 @@ closed      已关闭
 | 2026-06-24 | T-0067-fix | 前端开发 agent / 总 agent | 变量空默认值审计修复完成 | Beauvoir 审计发现 1 个 P3：编辑显式 `default: ""` 的合法 text 变量时会丢失 `default` key。修复提交 `81ebdc9` 增加 `hasDefault` 草稿状态与 UI 选项，区分缺省 default 和空字符串 default；feature CI run `28095280129` 通过 | done |
 | 2026-06-24 | T-0067 | 总 agent | 真实 merge 集成 Dashboard 变量配置前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `34f2b39` 与 `81ebdc9` 合入 `dev`，merge 提交 `f83660d`。merge 后本地门禁通过：前端变量/Dashboard 专项 49 tests、typecheck、lint、build 通过；后端 dashboard/config 96 passed、ruff、format、mypy、`uv lock --check` 通过；`git diff --check` 通过。待推送 `dev`、读取 CI 并同步两个 feature 分支 | testing |
 | 2026-06-24 | T-0067 | 总 agent | dev CI 通过 | `6cf7d0c` 已推送到 `dev`，GitHub Actions run `28095878349` 通过；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。下一步将两个 feature 分支 fast-forward 到最新 `dev` 并等待三分支 CI/体检 | testing |
+| 2026-06-24 | T-0067-sync | 总 agent | CI 与 worktree 同步完成 | `9fcf5d1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28096048491`、`28096067196`、`28096080892` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0067 关闭 | done |
+| 2026-06-24 | T-0068 | 总 agent | 登记 Dashboard panel preview 变量默认值替换后端基础 | 阶段 5 下一小步限定为后端 preview 查询前的保存配置变量默认值替换：在已保存 dashboard `config.variables` 中读取变量 default，并在已保存 panel `query` 顶层字段值完全匹配 `${变量名}` 时替换为该 default 后再进入现有 query 白名单校验和 preview 执行。未知变量、变量无 default、模板语法非法或替换后类型不满足现有 query 校验应返回 `422`。不新增前端 UI、不接受请求时变量覆盖、不做部分字符串拼接替换、不改 Dashboard 保存契约、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
 
 ## 6. 测试记录
 
@@ -707,6 +710,7 @@ closed      已关闭
 | 2026-06-24 | T-0067-fix | 变量空默认值修复门禁 | `feature/frontend-dev` run `28095280129`；前端变量/Dashboard 专项、typecheck、lint、build、`git diff --check`、Playwright + Microsoft Edge mock 冒烟 | 通过 | `81ebdc9` 上 feature/frontend-dev CI 通过；修复侧专项 49 tests passed，typecheck、lint、build、diff check 通过。Edge mock 覆盖编辑既有 `default: ""` text 变量后 JSON 与 PATCH payload 仍保留空字符串 default，桌面/移动无横向溢出、无非预期 console error，自启端口已释放 |
 | 2026-06-24 | T-0067 | dev merge 后本地验证 | 前端变量/Dashboard 专项、typecheck、lint、build；后端 dashboard/config 专项、ruff、format、mypy、uv lock；`git diff --check` | 通过 | merge 提交 `f83660d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 49 passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check` 均通过；diff check 通过 |
 | 2026-06-24 | T-0067 | dev CI | GitHub Actions run `28095878349` | 通过 | `6cf7d0c` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-24 | T-0067-sync | CI 与 worktree 同步 | GitHub Actions runs `28096048491`、`28096067196`、`28096080892`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `9fcf5d1` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -835,7 +839,9 @@ closed      已关闭
 | 2026-06-24 | T-0064 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 继承全局时间范围后端基础 `2da1cca` 已通过 Socrates 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `666d9ea`；`b28492c` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0065 | dev | dev | 总 agent | Dashboard preview 继承全局时间范围真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hooke 原始失败经总 agent 复核为验证数据/断言问题，总 agent rerun 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 relative/absolute 继承、panel 显式时间覆盖、legacy/empty/invalid/权限边界和移动端 UI；资源已清理 | done |
 | 2026-06-24 | T-0066 | feature/backend-dev | dev | 总 agent | Dashboard 变量配置后端基础 `6d51ded` 已通过 Heisenberg 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `264a026`；merge 后本地门禁通过，待推送 `dev` 并读取 CI 后同步两个 feature 分支 | done |
-| 2026-06-24 | T-0067 | feature/frontend-dev | dev | 总 agent | Dashboard 变量配置前端基础 `34f2b39` 与空默认值修复 `81ebdc9` 已通过 Beauvoir 审计/复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f83660d`；merge 后本地门禁通过，待推送 `dev` 并读取 CI 后同步两个 feature 分支 | done |
+| 2026-06-24 | T-0067 | feature/frontend-dev | dev | 总 agent | Dashboard 变量配置前端基础 `34f2b39` 与空默认值修复 `81ebdc9` 已通过 Beauvoir 审计/复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f83660d`；`9fcf5d1` 已同步到三分支且 CI/体检通过 | done |
+| 2026-06-24 | T-0067-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `9fcf5d1` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
+| 2026-06-24 | T-0068 | feature/backend-dev | dev | 总 agent | 已登记 Dashboard panel preview 变量默认值替换后端基础；后续由后端开发 agent 在 `feature/backend-dev` 推进 `${变量名}` 完整字段值替换为已保存变量 default，完成后经代码审计再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
