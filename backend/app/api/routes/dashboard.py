@@ -216,7 +216,11 @@ def _dashboard_variable_typed_value(
             )
         return value
     if variable_type == "number":
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or (isinstance(value, float) and not isfinite(value))
+        ):
             raise QueryFilterError(f"panel.query 变量 {variable_name}.{value_label} 必须是有限数值")
         return value
     raise QueryFilterError(f"panel.query 变量 {variable_name}.type 必须是 text/number/select 之一")

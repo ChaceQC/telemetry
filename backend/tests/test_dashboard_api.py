@@ -1322,6 +1322,7 @@ def test_dashboard_panel_preview_variable_override_supplies_missing_default() ->
         ({"row_limit": True}, "panel.query 变量 row_limit.override 必须是有限数值"),
         ({"row_limit": "1"}, "panel.query 变量 row_limit.override 必须是有限数值"),
         ({"row_limit": 101}, "panel.query.limit 必须在 1..100 之间"),
+        ({"row_limit": int("9" * 400)}, "panel.query.limit 必须在 1..100 之间"),
     ],
 )
 def test_dashboard_panel_preview_rejects_invalid_select_and_number_overrides(
