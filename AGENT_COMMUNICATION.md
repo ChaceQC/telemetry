@@ -565,6 +565,8 @@ closed      已关闭
 | 2026-06-24 | T-0067-sync | 总 agent | CI 与 worktree 同步完成 | `9fcf5d1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28096048491`、`28096067196`、`28096080892` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0067 关闭 | done |
 | 2026-06-24 | T-0068 | 总 agent | 登记 Dashboard panel preview 变量默认值替换后端基础 | 阶段 5 下一小步限定为后端 preview 查询前的保存配置变量默认值替换：在已保存 dashboard `config.variables` 中读取变量 default，并在已保存 panel `query` 顶层字段值完全匹配 `${变量名}` 时替换为该 default 后再进入现有 query 白名单校验和 preview 执行。未知变量、变量无 default、模板语法非法或替换后类型不满足现有 query 校验应返回 `422`。不新增前端 UI、不接受请求时变量覆盖、不做部分字符串拼接替换、不改 Dashboard 保存契约、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
 | 2026-06-24 | T-0068 | 总 agent | 启动后端开发 agent Linnaeus | 已启动后端开发 agent Linnaeus（`019ef978-1c38-7402-8fc2-a36ced5548ce`），限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 实现 T-0068；要求不读 `auth.txt`、不启动 Docker/真实服务/浏览器/MySQL，完成本地后端验证后提交并 push | doing |
+| 2026-06-24 | T-0068 | 后端开发 agent Linnaeus | Dashboard panel preview 变量默认值替换后端完成 | `feature/backend-dev` 提交 `92ec4e5` 已实现 preview 执行前变量 default 替换：只处理 panel query 顶层字段完整 `${变量名}`，text/select default 保持字符串、number default 保持数值，响应继续返回原始保存 query；未知变量、缺 default、非法模板、替换后类型非法均返回 `422`。本地 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check`、diff check 通过；feature CI run `28097176361` 通过 | audit |
+| 2026-06-24 | T-0068 | 代码审计 agent Carson | Dashboard preview 变量默认值替换复审通过 | Carson 只读复审 `92ec4e5` 未发现 P0/P1/P2/P3；确认变量替换只作用于 preview 路由执行前的 `resolved_panel_query`，响应仍返回原始 `panel_query`；测试覆盖 text/select/number default、原始 query 不变、时间覆盖、未知变量/缺 default/非法模板/替换后类型非法 `422`、深层模板不替换、权限隐藏和 legacy 行为。审计侧 dashboard/config 100 passed、ruff、format、mypy、diff check 通过 | done |
 
 ## 6. 测试记录
 
@@ -713,6 +715,8 @@ closed      已关闭
 | 2026-06-24 | T-0067 | dev CI | GitHub Actions run `28095878349` | 通过 | `6cf7d0c` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-24 | T-0067-sync | CI 与 worktree 同步 | GitHub Actions runs `28096048491`、`28096067196`、`28096080892`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `9fcf5d1` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0068-start | dev CI | GitHub Actions run `28096373574` | 通过 | T-0067 收口与 T-0068 启动记录 `2c4bb58` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success |
+| 2026-06-24 | T-0068-start-docs | dev CI | GitHub Actions run `28096506979` | 通过 | T-0068 启动 CI 结果记录 `213aaac` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。本条将随下一次实质节点提交，避免纯 CI 记录回声 |
+| 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端门禁 | `feature/backend-dev` run `28097176361`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `92ec4e5` 上 feature/backend-dev CI 通过，Backend checks 与 Frontend checks 均为 success；Linnaeus 本地 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、uv lock、diff check 均通过；Carson 审计侧 `--no-sync` 复验同样通过 |
 
 ## 7. 审计记录
 
@@ -736,6 +740,7 @@ closed      已关闭
 | 2026-06-24 | T-0066 | Dashboard 变量配置后端基础（`6d51ded`） | 通过 | Heisenberg 审计未发现 P0/P1/P2/P3；确认 `config.variables` 保存层 schema 与规范化贴合任务边界，legacy config 和 panel preview 语义未被扩展或改写。假设 `variables: []`、`text.default` 空字符串和变量对象保留未知扩展字段为可接受策略；残余风险为未做真实 MySQL JSON 列读写和前端变量控件消费路径 | done |
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端基础（`34f2b39`） | 未通过 | Beauvoir 审计发现 1 个 P3：编辑合法 text 变量且显式 `default: ""` 时，前端 draft 会把空字符串 default 与缺省 default 混同，保存后丢失 `default` key。未发现 P0/P1/P2 | blocked |
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
+| 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
