@@ -3,6 +3,7 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Clock,
   FileJson,
   LayoutDashboard,
   LoaderCircle,
@@ -59,6 +60,16 @@ import {
   type DashboardPanelRemotePreviewVisualizationModel,
   type DashboardPanelsReadResult
 } from '../features/dashboards/dashboardPanels';
+import {
+  DASHBOARD_TIME_RANGE_RELATIVES,
+  DEFAULT_DASHBOARD_TIME_RANGE_RELATIVE,
+  createDefaultDashboardTimeRangeDraft,
+  isDashboardRelativeTimeRange,
+  readDashboardTimeRangeFromConfigText,
+  writeDashboardTimeRangeToConfigText,
+  type DashboardTimeRangeDraft,
+  type DashboardTimeRangeReadResult
+} from '../features/dashboards/dashboardTimeRange';
 import { dashboardQueryKeys, dashboardQueryRootKey } from '../features/dashboards/queryKeys';
 import { findUnauthorizedApiError, resolveSettingsAuthState } from '../features/settings/authState';
 import { settingsQueryKeys } from '../features/settings/queryKeys';
@@ -71,6 +82,10 @@ const emptyProjects: Project[] = [];
 type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
 type PanelDraftState = DashboardPanelDraft;
+type TimeRangeDraftState = {
+  configText: string;
+  result: DashboardTimeRangeReadResult;
+};
 type ScopedState<TValue> = {
   scopeKey: string;
   value: TValue;
@@ -95,6 +110,10 @@ export function DashboardsPage() {
     scopeKey: '',
     value: createDefaultDashboardPanelDraft()
   }));
+  const [timeRangeDraftState, setTimeRangeDraftState] = useState<ScopedState<TimeRangeDraftState | null>>({
+    scopeKey: '',
+    value: null
+  });
   const [dashboardOffsetState, setDashboardOffsetState] = useState<ScopedState<number>>({ scopeKey: '', value: 0 });
   const [formUnauthorizedErrorState, setFormUnauthorizedErrorState] = useState<ScopedState<unknown | null>>({
     scopeKey: '',
@@ -224,6 +243,7 @@ export function DashboardsPage() {
       setProjectIdInputState({ scopeKey: authScopeKey, value: nextProjectId });
       setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
       setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
+      setTimeRangeDraftState({ scopeKey: '', value: null });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id), value: null });
       setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
       setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -244,6 +264,7 @@ export function DashboardsPage() {
       updateDashboard(dashboard.project_id, dashboard.id, payload),
     onSuccess: (dashboard) => {
       setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(dashboard) });
+      setTimeRangeDraftState({ scopeKey: '', value: null });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id), value: null });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
       setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
@@ -264,6 +285,7 @@ export function DashboardsPage() {
       const nextOffset = resolveOffsetAfterDeletingOne(dashboardOffset, total, DASHBOARD_PAGE_LIMIT);
       if (activeEditForm.dashboardId === dashboard.id) {
         setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
+        setTimeRangeDraftState({ scopeKey: '', value: null });
       }
       if (nextOffset !== dashboardOffset) {
         setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
@@ -295,6 +317,17 @@ export function DashboardsPage() {
   const panelReadResult = selectedDashboard
     ? readDashboardPanelsFromConfigText(visibleEditForm.configText)
     : createEmptyPanelReadResult();
+  const timeRangeScopeKey = buildDashboardTimeRangeScopeKey(pageScopeKey, visibleEditForm.dashboardId);
+  const configTimeRangeReadResult = selectedDashboard
+    ? readDashboardTimeRangeFromConfigText(visibleEditForm.configText)
+    : createEmptyTimeRangeReadResult();
+  const activeTimeRangeDraft =
+    selectedDashboard &&
+    timeRangeDraftState.scopeKey === timeRangeScopeKey &&
+    timeRangeDraftState.value?.configText === visibleEditForm.configText
+      ? timeRangeDraftState.value
+      : null;
+  const timeRangeReadResult = activeTimeRangeDraft?.result ?? configTimeRangeReadResult;
   const visiblePanels = panelReadResult.ok ? panelReadResult.panels : [];
   const panelPreviewModel = createDashboardPanelPreviewModel(panelReadResult);
   const panelScopeKey = buildDashboardPanelScopeKey(pageScopeKey, visibleEditForm.dashboardId);
@@ -369,6 +402,7 @@ export function DashboardsPage() {
       scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
       value: createDefaultDashboardPanelDraft()
     });
+    setTimeRangeDraftState({ scopeKey: '', value: null });
     setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null), value: null });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -441,6 +475,13 @@ export function DashboardsPage() {
       return;
     }
 
+    if (activeTimeRangeDraft && !activeTimeRangeDraft.result.ok) {
+      updateMutation.reset();
+      setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: activeTimeRangeDraft.result.message });
+      return;
+    }
+
     const payload = buildDashboardPatchPayload(selectedDashboard, visibleEditForm);
 
     if (!payload.ok) {
@@ -480,6 +521,29 @@ export function DashboardsPage() {
     updateEditForm({ ...visibleEditForm, configText: result.configText });
     clearLocalEditError();
     resetPanelDraft(result.configText);
+  }
+
+  function handleTimeRangeDraftChange(draft: DashboardTimeRangeDraft) {
+    if (!selectedDashboard) {
+      return;
+    }
+
+    const result = writeDashboardTimeRangeToConfigText(visibleEditForm.configText, draft);
+    if (!result.ok) {
+      setTimeRangeDraftState({
+        scopeKey: timeRangeScopeKey,
+        value: {
+          configText: visibleEditForm.configText,
+          result: createInvalidTimeRangeDraftResult(draft, result.message)
+        }
+      });
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
+      return;
+    }
+
+    updateEditForm({ ...visibleEditForm, configText: result.configText });
+    setTimeRangeDraftState({ scopeKey: timeRangeScopeKey, value: null });
+    clearLocalEditError();
   }
 
   function handlePanelDelete(index: number) {
@@ -654,6 +718,7 @@ export function DashboardsPage() {
             isDeleting={isDeleteLocked}
             onSelect={(dashboard) => {
               updateEditForm(dashboardToEditForm(dashboard));
+              setTimeRangeDraftState({ scopeKey: '', value: null });
               clearLocalEditError();
             }}
             onDelete={handleDelete}
@@ -669,6 +734,7 @@ export function DashboardsPage() {
             hasNextPage={hasNextPage}
             onPrevious={() => {
               updateEditForm(dashboardToEditForm(null));
+              setTimeRangeDraftState({ scopeKey: '', value: null });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: Math.max(0, dashboardOffset - DASHBOARD_PAGE_LIMIT)
@@ -676,6 +742,7 @@ export function DashboardsPage() {
             }}
             onNext={() => {
               updateEditForm(dashboardToEditForm(null));
+              setTimeRangeDraftState({ scopeKey: '', value: null });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: dashboardOffset + DASHBOARD_PAGE_LIMIT
@@ -785,8 +852,17 @@ export function DashboardsPage() {
             <JsonTextarea
               label="config JSON"
               value={visibleEditForm.configText}
-              onChange={(configText) => updateEditForm({ ...visibleEditForm, configText })}
+              onChange={(configText) => {
+                updateEditForm({ ...visibleEditForm, configText });
+                setTimeRangeDraftState({ scopeKey: '', value: null });
+              }}
               disabled={!authState.shouldRequest || !selectedDashboard}
+            />
+            <DashboardTimeRangeEditor
+              disabled={!authState.shouldRequest || !selectedDashboard}
+              selected={Boolean(selectedDashboard)}
+              result={timeRangeReadResult}
+              onDraftChange={handleTimeRangeDraftChange}
             />
             <DashboardPanelPreview
               authReady={authState.shouldRequest}
@@ -998,6 +1074,138 @@ function DashboardSummaryItem({ icon: Icon, label, value }: { icon: LucideIcon; 
       <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DashboardTimeRangeEditor({
+  disabled,
+  selected,
+  result,
+  onDraftChange
+}: {
+  disabled: boolean;
+  selected: boolean;
+  result: DashboardTimeRangeReadResult;
+  onDraftChange: (draft: DashboardTimeRangeDraft) => void;
+}) {
+  const controlsDisabled = disabled || !selected || !result.editable;
+  const draft = result.draft;
+  const mode = draft.mode;
+  const relative = isDashboardRelativeTimeRange(draft.relative) ? draft.relative : DEFAULT_DASHBOARD_TIME_RANGE_RELATIVE;
+
+  return (
+    <div className="dashboard-time-range-editor" aria-label="全局时间范围">
+      <div className="dashboard-time-range-heading">
+        <div>
+          <strong>全局时间范围</strong>
+          <span>{selected ? result.message : '从列表中选择一个 dashboard 后，可编辑 config.time_range。'}</span>
+        </div>
+        <StatusBadge tone={resolveDashboardTimeRangeTone(selected, result)}>
+          {selected ? result.statusLabel : '未选择'}
+        </StatusBadge>
+      </div>
+
+      {!selected ? (
+        <div className="resource-state dashboard-time-range-state">
+          <Clock size={18} aria-hidden="true" />
+          <div>
+            <strong>未选择 dashboard</strong>
+            <span>选择已保存 dashboard 后，可读取和写回 config.time_range。</span>
+          </div>
+        </div>
+      ) : !result.editable ? (
+        <div className="resource-state resource-state--error dashboard-time-range-state" role="status">
+          <ShieldAlert size={18} aria-hidden="true" />
+          <div>
+            <strong>时间范围不可编辑</strong>
+            <span>{result.message}</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          {!result.ok ? (
+            <div className="resource-state resource-state--error dashboard-time-range-state" role="status">
+              <ShieldAlert size={18} aria-hidden="true" />
+              <div>
+                <strong>time_range 配置错误</strong>
+                <span>{result.message}</span>
+              </div>
+            </div>
+          ) : null}
+
+          <fieldset className="dashboard-time-range-modes" disabled={controlsDisabled}>
+            <legend>模式</legend>
+            <div className="dashboard-time-range-mode-list">
+              {(['none', 'relative', 'absolute'] as const).map((nextMode) => (
+                <label key={nextMode} className={mode === nextMode ? 'is-selected' : undefined}>
+                  <input
+                    type="radio"
+                    name="dashboard-time-range-mode"
+                    value={nextMode}
+                    checked={mode === nextMode}
+                    onChange={() => onDraftChange(createDashboardTimeRangeModeDraft(draft, nextMode))}
+                  />
+                  <span>{formatDashboardTimeRangeModeLabel(nextMode)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="dashboard-time-range-fields">
+            <label className="field">
+              <span>Relative</span>
+              <select
+                value={relative}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    mode: 'relative',
+                    relative: event.target.value
+                  })
+                }
+                disabled={controlsDisabled || mode !== 'relative'}
+              >
+                {DASHBOARD_TIME_RANGE_RELATIVES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>From ISO</span>
+              <input
+                value={draft.from}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    mode: 'absolute',
+                    from: event.target.value
+                  })
+                }
+                placeholder="2026-06-24T00:00:00Z"
+                disabled={controlsDisabled || mode !== 'absolute'}
+              />
+            </label>
+            <label className="field">
+              <span>To ISO</span>
+              <input
+                value={draft.to}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    mode: 'absolute',
+                    to: event.target.value
+                  })
+                }
+                placeholder="2026-06-24T01:00:00Z"
+                disabled={controlsDisabled || mode !== 'absolute'}
+              />
+            </label>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1635,6 +1843,10 @@ function buildDashboardPanelScopeKey(pageScopeKey: string, dashboardId: number |
   return JSON.stringify({ pageScopeKey, dashboardId });
 }
 
+function buildDashboardTimeRangeScopeKey(pageScopeKey: string, dashboardId: number | null) {
+  return JSON.stringify({ pageScopeKey, dashboardId });
+}
+
 function createEmptyPanelReadResult(): DashboardPanelsReadResult {
   return {
     ok: true,
@@ -1642,6 +1854,70 @@ function createEmptyPanelReadResult(): DashboardPanelsReadResult {
     panels: [],
     hasPanels: false
   };
+}
+
+function createEmptyTimeRangeReadResult(): DashboardTimeRangeReadResult {
+  return {
+    ok: true,
+    editable: true,
+    state: 'missing',
+    statusLabel: '未配置',
+    message: '当前 config 未包含全局时间范围。',
+    draft: createDefaultDashboardTimeRangeDraft()
+  };
+}
+
+function createInvalidTimeRangeDraftResult(draft: DashboardTimeRangeDraft, message: string): DashboardTimeRangeReadResult {
+  return {
+    ok: false,
+    editable: true,
+    state: 'invalid-time-range',
+    statusLabel: '配置错误',
+    message,
+    draft
+  };
+}
+
+function createDashboardTimeRangeModeDraft(
+  draft: DashboardTimeRangeDraft,
+  mode: DashboardTimeRangeDraft['mode']
+): DashboardTimeRangeDraft {
+  if (mode === 'relative') {
+    return {
+      ...draft,
+      mode,
+      relative: isDashboardRelativeTimeRange(draft.relative) ? draft.relative : DEFAULT_DASHBOARD_TIME_RANGE_RELATIVE
+    };
+  }
+
+  return {
+    ...draft,
+    mode
+  };
+}
+
+function formatDashboardTimeRangeModeLabel(mode: DashboardTimeRangeDraft['mode']) {
+  if (mode === 'relative') {
+    return 'Relative';
+  }
+
+  if (mode === 'absolute') {
+    return 'Absolute';
+  }
+
+  return '未配置';
+}
+
+function resolveDashboardTimeRangeTone(selected: boolean, result: DashboardTimeRangeReadResult) {
+  if (!selected) {
+    return 'neutral' as const;
+  }
+
+  if (!result.ok) {
+    return result.editable ? ('danger' as const) : ('warning' as const);
+  }
+
+  return result.state === 'missing' ? ('neutral' as const) : ('success' as const);
 }
 
 function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {

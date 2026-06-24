@@ -825,6 +825,102 @@ h2 {
   line-height: 1.4;
 }
 
+.dashboard-time-range-editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.dashboard-time-range-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-time-range-heading > div,
+.dashboard-time-range-heading strong,
+.dashboard-time-range-heading span {
+  display: block;
+  min-width: 0;
+}
+
+.dashboard-time-range-heading strong {
+  color: #172026;
+}
+
+.dashboard-time-range-heading span {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-time-range-state {
+  margin: 0;
+}
+
+.dashboard-time-range-modes {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dashboard-time-range-modes legend {
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-time-range-mode-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard-time-range-mode-list label {
+  display: flex;
+  min-width: 0;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #26343a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dashboard-time-range-mode-list label.is-selected {
+  border-color: var(--accent);
+  background: #f0faf8;
+  color: #0f5f5a;
+}
+
+.dashboard-time-range-mode-list input {
+  flex: 0 0 auto;
+}
+
+.dashboard-time-range-mode-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-time-range-fields {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) repeat(2, minmax(150px, 1fr));
+  gap: 10px;
+}
+
 .dashboard-panel-editor {
   display: grid;
   gap: 12px;
@@ -2725,6 +2821,11 @@ h2 {
   .dashboard-pagination-actions {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+
+  .dashboard-time-range-mode-list,
+  .dashboard-time-range-fields {
+    grid-template-columns: 1fr;
   }
 
   .trace-span-content {

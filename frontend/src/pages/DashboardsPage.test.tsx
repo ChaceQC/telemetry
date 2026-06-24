@@ -216,6 +216,8 @@ describe('DashboardsPage states', () => {
     expect(html).toContain('核心服务面板');
     expect(html).toContain('创建仪表盘');
     expect(html).toContain('保存修改');
+    expect(html).toContain('全局时间范围');
+    expect(html).toContain('未选择 dashboard');
     expect(html).not.toContain('Trace ID');
     expect(html).not.toContain('Span ID');
   });
