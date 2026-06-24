@@ -2,6 +2,34 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0066 Dashboard 变量配置后端基础
+
+### 已完成
+
+- 在 dashboard 保存层 `config` 校验中新增顶层 `variables` 最小 schema：仅当 `config` 是对象且包含 `variables` 时生效，数组 config 和没有 `variables` 的 legacy config 仍保持兼容。
+- 支持变量对象基础字段 `name`、`label`、`type`、`default`、`options`；`name` 要求 1 到 64 字符，只能包含字母、数字、下划线且不能以数字开头，按裁剪后值保存并用于重复判断。
+- `type` 限定为 `text`、`number`、`select`：`text` 可选字符串 `default` 且不接受 `options`；`number` 可选有限数字 `default` 且不接受 `options`；`select` 必须提供非空字符串数组 `options`，选项裁剪后不能为空且不能重复，可选 `default` 必须命中一个 option。
+- 变量相关字符串字段会裁剪首尾空白后写回保存结果，包括 `name/label/type/default/options`；重复 `name` 和重复 option 均按规范化值判断。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖合法变量 create/update、字符串规范化、legacy 缺省兼容、重复 name、非法 name/type/options/default 等 create/update `422` 边界。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 `config.variables` 保存契约和当前边界；后端版本保持 `0.2.12`，本轮不新增 API 路径、不变更响应模型、存储结构或部署依赖。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮只做已保存 dashboard `config.variables` 的后端保存校验与规范化；不改前端 UI，不执行变量替换，不改 panel preview 查询语义，不新增 panel preview 请求参数，不接 ClickHouse，不做模板、自动刷新或告警。
+- 未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实数据库 JSON 列读写和后续前端变量控件消费仍需后续专项补验。
+- 本轮未启动测试子 agent；开发侧按任务期望完成相关后端自测和全量静态门禁，例外原因是当前改动集中在保存层 schema 与 API 单元测试，未涉及真实服务/数据库进程。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：83 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：96 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check`，结果：通过。
+- 已运行 `uv run ruff format --check`，结果：87 个文件已符合格式。
+- 已运行 `uv run mypy`，结果：87 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0064 Dashboard panel preview 继承全局时间范围
 
 ### 已完成

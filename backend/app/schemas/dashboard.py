@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from math import isfinite
 from typing import Any, Self
@@ -22,9 +23,15 @@ MAX_DASHBOARD_JSON_DEPTH = 32
 MAX_DASHBOARD_JSON_NODES = 4096
 MAX_DASHBOARD_PANEL_ID_LENGTH = 64
 MAX_DASHBOARD_PANEL_TITLE_LENGTH = 120
+MAX_DASHBOARD_VARIABLE_NAME_LENGTH = 64
+MAX_DASHBOARD_VARIABLE_LABEL_LENGTH = 120
+MAX_DASHBOARD_VARIABLE_TYPE_LENGTH = 32
+MAX_DASHBOARD_VARIABLE_VALUE_LENGTH = 256
 
 PANEL_TYPES = frozenset({"metrics", "logs", "events", "traces", "topology"})
 DASHBOARD_TIME_RANGE_RELATIVES = frozenset({"15m", "1h", "6h", "24h", "7d"})
+DASHBOARD_VARIABLE_TYPES = frozenset({"text", "number", "select"})
+DASHBOARD_VARIABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _default_json_object() -> dict[str, Any]:
@@ -56,6 +63,11 @@ def _validate_dashboard_config(value: DashboardJson) -> None:
         if not isinstance(panels, list):
             raise ValueError("config.panels 必须是数组")
         _validate_panel_collection(panels, field_path="config.panels")
+    if "variables" in value:
+        variables = value["variables"]
+        if not isinstance(variables, list):
+            raise ValueError("config.variables 必须是数组")
+        _validate_variable_collection(variables, field_path="config.variables")
 
 
 def _validate_dashboard_time_range(time_range: Any) -> None:
@@ -188,6 +200,111 @@ def _validate_panel_layout(panel: dict[str, Any], *, field_path: str) -> None:
         )
 
 
+def _validate_variable_collection(variables: list[Any], *, field_path: str) -> None:
+    seen_names: set[str] = set()
+    for index, variable in enumerate(variables):
+        variable_path = f"{field_path}[{index}]"
+        if not isinstance(variable, dict):
+            raise ValueError(f"{variable_path} 必须是 JSON 对象")
+        variable_name = _validate_variable(variable, field_path=variable_path)
+        if variable_name in seen_names:
+            raise ValueError(f"{variable_path}.name 不能重复")
+        seen_names.add(variable_name)
+
+
+def _validate_variable(variable: dict[str, Any], *, field_path: str) -> str:
+    variable_name = _require_non_empty_string(
+        variable,
+        key="name",
+        field_path=field_path,
+        max_length=MAX_DASHBOARD_VARIABLE_NAME_LENGTH,
+    )
+    if DASHBOARD_VARIABLE_NAME_PATTERN.fullmatch(variable_name) is None:
+        raise ValueError(f"{field_path}.name 只能包含字母、数字和下划线，且不能以数字开头")
+
+    _optional_non_empty_string(
+        variable,
+        key="label",
+        field_path=field_path,
+        max_length=MAX_DASHBOARD_VARIABLE_LABEL_LENGTH,
+    )
+    variable_type = _require_non_empty_string(
+        variable,
+        key="type",
+        field_path=field_path,
+        max_length=MAX_DASHBOARD_VARIABLE_TYPE_LENGTH,
+    )
+    if variable_type not in DASHBOARD_VARIABLE_TYPES:
+        raise ValueError(f"{field_path}.type 必须是 text/number/select 之一")
+
+    if variable_type == "text":
+        _validate_text_variable(variable, field_path=field_path)
+    elif variable_type == "number":
+        _validate_number_variable(variable, field_path=field_path)
+    else:
+        _validate_select_variable(variable, field_path=field_path)
+    return variable_name
+
+
+def _validate_text_variable(variable: dict[str, Any], *, field_path: str) -> None:
+    if "options" in variable:
+        raise ValueError(f"{field_path}.options 仅支持 select 类型变量")
+    _optional_trimmed_string(
+        variable,
+        key="default",
+        field_path=field_path,
+        max_length=MAX_DASHBOARD_VARIABLE_VALUE_LENGTH,
+    )
+
+
+def _validate_number_variable(variable: dict[str, Any], *, field_path: str) -> None:
+    if "options" in variable:
+        raise ValueError(f"{field_path}.options 仅支持 select 类型变量")
+    if "default" not in variable:
+        return
+    default_value = variable["default"]
+    if isinstance(default_value, bool) or not isinstance(default_value, (int, float)):
+        raise ValueError(f"{field_path}.default 必须是有限数字")
+    if isinstance(default_value, float) and not isfinite(default_value):
+        raise ValueError(f"{field_path}.default 必须是有限数字")
+
+
+def _validate_select_variable(variable: dict[str, Any], *, field_path: str) -> None:
+    if "options" not in variable:
+        raise ValueError(f"{field_path}.options 为必填字段")
+    raw_options = variable["options"]
+    if not isinstance(raw_options, list):
+        raise ValueError(f"{field_path}.options 必须是数组")
+    if not raw_options:
+        raise ValueError(f"{field_path}.options 不能为空")
+
+    options: list[str] = []
+    seen_options: set[str] = set()
+    for index, raw_option in enumerate(raw_options):
+        option_path = f"{field_path}.options[{index}]"
+        if not isinstance(raw_option, str):
+            raise ValueError(f"{option_path} 必须是字符串")
+        option = raw_option.strip()
+        if not option:
+            raise ValueError(f"{option_path} 不能为空")
+        if len(option) > MAX_DASHBOARD_VARIABLE_VALUE_LENGTH:
+            raise ValueError(f"{option_path} 不能超过 {MAX_DASHBOARD_VARIABLE_VALUE_LENGTH} 字符")
+        if option in seen_options:
+            raise ValueError(f"{option_path} 不能重复")
+        seen_options.add(option)
+        options.append(option)
+    variable["options"] = options
+
+    default_value = _optional_trimmed_string(
+        variable,
+        key="default",
+        field_path=field_path,
+        max_length=MAX_DASHBOARD_VARIABLE_VALUE_LENGTH,
+    )
+    if default_value is not None and default_value not in seen_options:
+        raise ValueError(f"{field_path}.default 必须匹配 options 中的一个值")
+
+
 def _require_non_empty_string(
     mapping: dict[str, Any],
     *,
@@ -203,6 +320,42 @@ def _require_non_empty_string(
     stripped_value = value.strip()
     if not stripped_value:
         raise ValueError(f"{field_path}.{key} 不能为空")
+    if len(stripped_value) > max_length:
+        raise ValueError(f"{field_path}.{key} 不能超过 {max_length} 字符")
+    mapping[key] = stripped_value
+    return stripped_value
+
+
+def _optional_non_empty_string(
+    mapping: dict[str, Any],
+    *,
+    key: str,
+    field_path: str,
+    max_length: int,
+) -> str | None:
+    if key not in mapping:
+        return None
+    return _require_non_empty_string(
+        mapping,
+        key=key,
+        field_path=field_path,
+        max_length=max_length,
+    )
+
+
+def _optional_trimmed_string(
+    mapping: dict[str, Any],
+    *,
+    key: str,
+    field_path: str,
+    max_length: int,
+) -> str | None:
+    if key not in mapping:
+        return None
+    value = mapping[key]
+    if not isinstance(value, str):
+        raise ValueError(f"{field_path}.{key} 必须是字符串")
+    stripped_value = value.strip()
     if len(stripped_value) > max_length:
         raise ValueError(f"{field_path}.{key} 不能超过 {max_length} 字符")
     mapping[key] = stripped_value
