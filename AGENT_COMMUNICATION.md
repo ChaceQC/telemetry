@@ -100,7 +100,8 @@ closed      已关闭
 | T-0070 | Dashboard panel preview 请求时变量覆盖后端基础 | 总 agent | todo | done | done | done | done |
 | T-0071 | Dashboard panel preview 请求时变量覆盖前端接入基础 | 总 agent | done | done | done | done | done |
 | T-0072 | Dashboard panel preview 请求时变量覆盖真实前后端联测 | 总 agent | done | done | done | done | done |
-| T-0073 | Dashboard 自动刷新前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0073 | Dashboard 自动刷新前端基础 | 总 agent | done | todo | done | done | done |
+| T-0074 | Dashboard 自动刷新真实前后端联测 | 总 agent | done | done | doing | todo | testing |
 
 ## 4. API 契约登记
 
@@ -586,6 +587,11 @@ closed      已关闭
 | 2026-06-24 | T-0072-sync | 总 agent | CI 与 worktree 同步完成 | T-0071 收口与 T-0072 启动记录 `24b0e60` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28109722630`、`28109841083`、`28109843241` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交 | done |
 | 2026-06-24 | T-0072 | 测试 agent Hume / 总 agent | Dashboard preview 请求时变量覆盖真实前后端联测通过 | Hume 在 `dev/origin/dev` `24b0e60` 使用临时 MySQL `127.0.0.1:23317`（库 `telemetry_t0072_20260624_233604`）、真实 FastAPI `28117`、真实 Vite `25173` 与 Playwright + Microsoft Edge 完成联测。覆盖 API/UI 运行时 text/number/select 覆盖、无 default 由运行时值补齐、清空 text 显式发送空字符串、空 number/select fallback、响应/UI 保留原始 query、运行时值不保存、422/401/404/viewer preview 和 390px 移动端无横向溢出；快速回归覆盖 health、dashboard list/read、logs/events/metrics aggregate、ingest stats、logs 5/events 2/metrics 2。证据目录 `agents/runtime/e2e-T-0072-20260624-233604`；最终 cleanup 确认 `25173/28117/23317` 无监听残留，临时库和 datadir 已清理，系统 MySQL `3306` 未触碰；未改业务代码、未读 `auth.txt`、未启动 Docker。T-0072 关闭 | done |
 | 2026-06-24 | T-0073 | 总 agent | 登记 Dashboard 自动刷新前端基础 | 阶段 5 下一小步限定为前端自动刷新：在 `/dashboards` 已保存 dashboard 的 Panel 查询预览区增加本地自动刷新控制，复用现有 preview API 与运行时变量覆盖值，支持关闭和有限固定间隔，只有已保存 dashboard/panel、config 未改动且 preview query 可用时才自动刷新；切换项目/dashboard/panel/session、保存/删除或关闭后必须停止旧定时器并避免串旧数据。不改后端契约、不保存刷新设置到 dashboard config、不做跨会话持久化、不做分享/只读、模板仪表盘、JSON 导入导出或告警 | doing |
+| 2026-06-24 | T-0073 | 前端开发 agent Zeno / 总 agent | Dashboard 自动刷新前端基础完成 | Zeno 在 `feature/frontend-dev` 提交并推送 `9517117`：为已保存 dashboard 的选中 panel preview 增加本地自动刷新控制，支持关闭、15s、30s、60s，默认关闭；复用现有 `panelPreviewQuery.refetch()`、preview API、query key 和运行时变量覆盖签名；切换项目/dashboard/panel/page、编辑 config/panel/变量/time range/runtime、保存、删除、关闭或卸载时停止并重置。feature CI run `28114472192` 通过 | audit |
+| 2026-06-24 | T-0073 | 代码审计 agent Bacon / 总 agent | Dashboard 自动刷新审计修复完成 | Bacon 初审发现 1 个 P3：自动刷新只检查 `autoRefreshInFlightRef`，手动刷新已在飞行中时 interval tick 可能发起重复请求。总 agent 在 `feature/frontend-dev` 提交 `039f352`，新增 `panelPreviewFetchingRef` 同步 `panelPreviewQuery.isFetching`，interval tick 会跳过任何 preview query 正在 fetching 的窗口，并补充手动刷新 pending 时自动刷新不重复请求的交互测试。feature CI run `28115655056` 通过，Bacon 复审未发现新的 P0/P1/P2/P3 | done |
+| 2026-06-24 | T-0073 | 总 agent | 真实 merge 集成 Dashboard 自动刷新前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `9517117` 与 `039f352` 合入 `dev`，merge 提交 `dfd8044`。merge 后本地门禁通过：前端 dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过 | done |
+| 2026-06-24 | T-0073-sync | 总 agent | CI 与 worktree 同步完成 | `dfd8044` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28116264125`、`28116374294`、`28116372695` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0073 关闭 | done |
+| 2026-06-24 | T-0074 | 总 agent | 登记 Dashboard 自动刷新真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖自动刷新实际重复触发 panel preview、关闭后停止请求、手动刷新与自动刷新不产生可观察重复并发请求、运行时变量覆盖值随自动刷新保留、未保存 config/panel/变量/time range/runtime 草稿停止或不请求、切换 dashboard/panel/session 停止旧 timer、390px 移动端无横向溢出。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
 
 ## 6. 测试记录
 
@@ -749,6 +755,9 @@ closed      已关闭
 | 2026-06-24 | T-0071 | dev CI | GitHub Actions run `28109362140` | 通过 | `917c667` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test |
 | 2026-06-24 | T-0072-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28109722630`、`28109841083`、`28109843241`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `24b0e60` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success。严格体检确认 root、frontend、backend 三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0072 | Dashboard preview 请求时变量覆盖真实前后端联测 | 测试 agent Hume；临时 MySQL `127.0.0.1:23317`、库 `telemetry_t0072_20260624_233604`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge；后端/前端快速回归 | 通过 | `e2e-summary.json` 记录 `failures=0`、`previewCount=6`、`blankTextSent=true`、`emptyNumberOmitted=true`、`patchCount=1`、`patchContainsRuntimeValues=false`；覆盖运行时 text/number/select 覆盖、无 default runtime 补齐、空 override fallback、原始 query 展示、非法 number/select `422`、`401/404/viewer` preview、390px 移动端无横向溢出且 runtime controls 可见。Cleanup 确认临时 DB、frontend/backend/temp MySQL 监听和 datadir 均已清理，系统 MySQL `3306` 未触碰；证据目录 `agents/runtime/e2e-T-0072-20260624-233604` |
+| 2026-06-24 | T-0073 | Dashboard 自动刷新前端门禁 | `feature/frontend-dev` runs `28114472192`、`28115655056`；前端 dashboard 专项、typecheck、lint、build、`git diff --check` | 通过 | 实现提交 `9517117` 与 P3 修复 `039f352` 均通过 feature CI，Backend checks 与 Frontend checks 均为 success。修复后本地 `npm.cmd run test -- src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 37 passed；dashboard suite 6 files / 95 tests passed；`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过 |
+| 2026-06-24 | T-0073 | dev merge 后本地验证 | 前端 dashboard suite、typecheck、lint、build；后端 dashboard/config 专项；`git diff --check` | 通过 | merge 提交 `dfd8044` 后，前端 dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；diff check 通过 |
+| 2026-06-24 | T-0073-sync | CI 与 worktree 同步 | GitHub Actions runs `28116264125`、`28116374294`、`28116372695`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `dfd8044` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -774,6 +783,8 @@ closed      已关闭
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
 | 2026-06-24 | T-0071 | Dashboard preview 请求时变量覆盖前端接入（`67f9ef4`） | 通过 | 总 agent 本地审阅未发现 P0/P1/P2/P3；确认 `variables` 仅在非空 override 时发送，运行时覆盖值不进入保存 payload，number/select/text 边界与 query key signature 隔离符合后端契约。残余风险为真实 MySQL/真实后端/真实前端联调与 URL 长度边界，已登记 T-0072 覆盖 | done |
+| 2026-06-24 | T-0073 | Dashboard 自动刷新前端基础（`9517117`） | 未通过 | Bacon 审计发现 1 个 P3：自动刷新 interval tick 只检查自动刷新自身 in-flight 标记，未感知手动 preview query 已在 fetching，可能在手动刷新 pending 时发起重复 preview 请求。需修复后复审 | blocked |
+| 2026-06-24 | T-0073-fix | Dashboard 自动刷新并发请求保护（`039f352`） | 通过 | Bacon 复审确认原 P3 已关闭：interval tick 同时检查自动刷新 in-flight 和任何 `panelPreviewQuery.isFetching`，手动刷新 pending 时自动刷新不会重复请求；新增交互测试覆盖该场景。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
@@ -887,7 +898,9 @@ closed      已关闭
 | 2026-06-24 | T-0070 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖后端基础 `11674c0` 与 P1 修复 `f631cdc`、`5c7797c` 已通过 Lagrange 最终复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`；`8a55f7e` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0071 | feature/frontend-dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖前端接入 `67f9ef4` 已通过 feature CI 和总 agent 本地审阅；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `917c667`；本地门禁和 `dev` CI run `28109362140` 均通过 | done |
 | 2026-06-24 | T-0072 | dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hume 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖运行时变量覆盖、错误/权限边界、保存不回写和移动端 UI；资源已清理 | done |
-| 2026-06-24 | T-0073 | feature/frontend-dev | dev | 总 agent | Dashboard 自动刷新前端基础已登记；后续在 `feature/frontend-dev` 实现并经前端门禁、审计和 feature CI 后再真实 merge 到 `dev` | doing |
+| 2026-06-24 | T-0073 | feature/frontend-dev | dev | 总 agent | Dashboard 自动刷新前端基础 `9517117` 与 P3 修复 `039f352` 已通过 Bacon 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `dfd8044`；本地门禁、`dev` CI run `28116264125`、feature 同步 CI 和严格 worktree 体检均通过 | done |
+| 2026-06-24 | T-0073-sync | dev | feature/frontend-dev / feature/backend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `dfd8044` 并推送；三分支 CI runs `28116264125`、`28116374294`、`28116372695` 均通过，严格 worktree 体检通过 | done |
+| 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已登记；本任务为测试收口，不产生 feature merge，下一步启动测试 agent 在最新 `dev/origin/dev` 上使用真实 MySQL/后端/前端/Edge 验证自动刷新链路 | testing |
 
 ## 10. 决策记录
 

@@ -781,6 +781,9 @@
 - T-0072 启动同步 CI 与 worktree 体检通过：T-0071 收口与 T-0072 启动记录 `24b0e60` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28109722630`、`28109841083`、`28109843241` 均成功，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，root、frontend、backend 三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。
 - T-0072 真实前后端联测通过：测试 agent Hume 在 `dev/origin/dev` `24b0e60` 使用临时 MySQL `127.0.0.1:23317`、库 `telemetry_t0072_20260624_233604`、真实 FastAPI `28117`、真实 Vite `25173` 和 Playwright + Microsoft Edge。覆盖 API/UI 运行时 text/number/select 覆盖、无 default 变量由运行时值补齐、清空 text 显式发送空字符串、空 number/select override 使用 default fallback、响应/UI 保留原始 query、保存不回写运行时值、非法 number/select `422`、未认证 `401`、无权限 `404`、viewer preview 和 390px 移动端 UI。快速回归覆盖 health、dashboard list/read、logs/events/metrics aggregate、ingest stats、logs 5/events 2/metrics 2。证据目录 `agents/runtime/e2e-T-0072-20260624-233604`；`e2e-summary.json` 记录 `failures=0`、`previewCount=6`、`blankTextSent=true`、`emptyNumberOmitted=true`、`patchCount=1`、`patchContainsRuntimeValues=false`；cleanup 确认临时 DB、frontend/backend/temp MySQL 监听和 datadir 已清理，系统 MySQL `3306` 未触碰；未改业务代码、未读 `auth.txt`、未启动 Docker。T-0072 关闭。
 - T-0073 已登记为阶段 5 下一小步：Dashboard 自动刷新前端基础。边界为在 `/dashboards` 已保存 dashboard 的 Panel 查询预览区增加本地自动刷新控制，复用现有 preview API 与运行时变量覆盖值，支持关闭和有限固定间隔；只有已保存 dashboard/panel、config 未改动且 preview query 可用时才自动刷新；切换项目/dashboard/panel/session、保存/删除或关闭后必须停止旧定时器并避免串旧数据。不改后端契约、不保存刷新设置到 dashboard config、不做跨会话持久化、不做分享/只读、模板仪表盘、JSON 导入导出或告警。
+- T-0073 前端实现、审计修复和 feature CI 通过：Zeno 在 `feature/frontend-dev` 提交并推送 `9517117`，为已保存 dashboard 的选中 panel preview 增加本地自动刷新控制，支持关闭、15s、30s、60s，默认关闭；复用既有 preview API、query key 和运行时变量覆盖签名；切换项目/dashboard/panel/page、编辑 config/panel/变量/time range/runtime、保存、删除、关闭或卸载时停止并重置。Bacon 审计发现 1 个 P3：手动刷新 pending 时 interval 可能重复发起请求；总 agent 提交 `039f352`，通过 `panelPreviewFetchingRef` 避免任何 preview query fetching 期间自动刷新重入，并补交互测试。Feature CI runs `28114472192`、`28115655056` 均成功，Bacon 复审未发现新的 P0/P1/P2/P3。
+- T-0073 已真实 merge 并完成同步收口：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `9517117` 与 `039f352` 合入 `dev`，merge 提交 `dfd8044`。merge 后本地门禁通过：前端 dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。`dfd8044` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28116264125`、`28116374294`、`28116372695` 均成功；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0073 关闭。
+- T-0074 已登记为阶段 5 测试收口小步：Dashboard 自动刷新真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖自动刷新实际重复触发 panel preview、关闭后停止请求、手动刷新与自动刷新不产生可观察重复并发请求、运行时变量覆盖值随自动刷新保留、未保存 config/panel/变量/time range/runtime 草稿停止或不请求、切换 dashboard/panel/session 停止旧 timer、390px 移动端无横向溢出。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
 
 ### 阻塞与风险
 
@@ -815,11 +818,12 @@
 - T-0070 只做后端 preview 请求时变量覆盖基础，不改前端 UI；请求覆盖值必须一次性参与 preview 执行且不得写入 Dashboard `config`。本次已通过单元/静态/feature CI、审计复审、dev CI、三分支同步 CI 和严格 worktree 体检；真实 MySQL/真实前后端联调、URL 长度边界和前端变量控件消费路径留给后续小步。
 - T-0071 只做前端运行时变量值接入 preview，不改变保存层变量 schema 或后端契约；运行时值不做跨会话持久化。实现、feature CI、dev merge、本地门禁和 dev CI 已通过。
 - T-0072 真实联测已通过并关闭；仍不覆盖 URL 长度极限、跨会话运行时变量持久化、自动刷新、模板仪表盘、导入导出或告警。
-- T-0073 只做前端本地自动刷新基础，不改后端契约、不保存刷新设置、不做后台调度或跨会话持久化；需要重点防止切换 dashboard/panel/session 后旧定时器继续刷新、未保存 config 草稿触发远端 preview、运行时变量覆盖 query key 与 timer 状态错配。
+- T-0073 只做前端本地自动刷新基础，不改后端契约、不保存刷新设置、不做后台调度或跨会话持久化；实现、P3 修复、feature CI、dev merge、本地门禁、三分支 CI 和严格 worktree 体检已通过。真实 MySQL/真实后端/真实前端/Edge 自动刷新链路留给 T-0074 覆盖。
+- T-0074 只做真实前后端联测收口，不改业务代码；需重点观察真实浏览器定时器、手动刷新 pending、运行时变量覆盖和未保存草稿停止刷新在真实网络/后端响应时间下是否仍满足预期，并确认移动端控制区无横向溢出。
 
 ### 下一步
 
-- 提交并推送 T-0072 收口与 T-0073 启动记录，读取对应 `dev` CI；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev`、等待三分支 CI 并运行严格 worktree 体检，再按前端 UI 规范启动 T-0073 前端实现。
+- 提交并推送 T-0073 收口与 T-0074 启动记录，读取对应 `dev` CI；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev`、等待三分支 CI 并运行严格 worktree 体检，再启动 T-0074 测试 agent 做真实 MySQL/后端/前端/Edge 自动刷新联测。
 
 ### 验证
 
@@ -829,6 +833,9 @@
 - T-0071 dev CI 通过：GitHub Actions run `28109362140` 在 `917c667` 上成功，Backend checks 与 Frontend checks 均为 success。
 - T-0072 启动同步 CI 与 worktree 体检通过：`24b0e60` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28109722630`、`28109841083`、`28109843241` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0072 真实前后端联测通过：Hume 使用临时 MySQL `127.0.0.1:23317`、真实后端 `28117`、真实前端 `25173` 与 Playwright + Microsoft Edge，`e2e-summary.json` 记录 `failures=0`、`previewCount=6`、`patchContainsRuntimeValues=false`，覆盖运行时变量覆盖、错误/权限边界、保存不回写和 390px 移动端无横向溢出；证据目录 `agents/runtime/e2e-T-0072-20260624-233604`，cleanup 确认自有资源清理且系统 MySQL `3306` 未触碰。
+- T-0073 feature 分支门禁通过：`feature/frontend-dev` runs `28114472192`、`28115655056` 均为 success；修复后本地 `DashboardsPage.interaction` 37 passed，dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
+- T-0073 merge 后本地门禁通过：merge 提交 `dfd8044` 后，前端 dashboard suite 6 files / 95 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。
+- T-0073 同步 CI 与 worktree 体检通过：`dfd8044` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28116264125`、`28116374294`、`28116372695` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
 - T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
