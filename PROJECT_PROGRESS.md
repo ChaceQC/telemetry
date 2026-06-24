@@ -772,7 +772,8 @@
 - T-0069 真实前后端联测通过：测试 agent Dirac 在 `dev/origin/dev` `465ec9c` 使用临时 MySQL 8 `33316`、真实 FastAPI `28117`、真实 Vite `25173` 和 Playwright + Microsoft Edge。覆盖 Alembic 迁移、浏览器登录与 Dashboard 创建/编辑/保存、`config.variables` 保存、panel query 顶层 `${service_source}`/`${log_level}`/`${row_limit}` 默认值替换执行、preview 返回匹配日志、响应/UI 保留原始模板 query、未知变量/缺 default/非法模板/替换后类型错误 `422`、未认证 `401`、无权限 `404`、390px 移动端无横向溢出；后端 28 selected tests 与前端 62 selected tests 通过。证据目录 `agents/runtime/e2e-t0069-20260624-204037`；最终 cleanup 确认 `33316/28117/25173` 已释放，未改业务代码、未读 `auth.txt`、未启动 Docker。T-0069 关闭。
 - T-0070 已登记为阶段 5 下一小步：Dashboard panel preview 请求时变量覆盖后端基础。边界为在已保存 dashboard panel preview 中允许请求携带一次性变量覆盖值，覆盖值只用于本次 preview 执行且优先级高于 `config.variables[].default`，响应仍返回原始保存 query；未知变量、无 default 且无覆盖、模板语法非法、覆盖值类型不符合变量定义或替换后不满足现有 query 校验返回 `422`。不改前端 UI、不保存覆盖值、不做用户会话级变量状态、不做部分字符串拼接/深层模板、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。
 - T-0070 后端实现、审计修复、feature CI 和最终复审通过：Locke 提交并推送 `11674c0`，为已保存 panel preview GET 新增 `variables` JSON 对象 query 参数，覆盖值只参与本次 preview 执行并优先于 default，响应继续返回原始保存 query，契约、后端 README 和后端进度同步更新。Lagrange 审计发现 2 个 P1：超大 JSON int 可分别经 `limit` 与 `duration_min_ms/duration_max_ms` 路径触发 `OverflowError` 形成 500；总 agent 提交 `f631cdc` 与 `5c7797c` 修复 number override 与 float query 字段超大整数路径，补充回归。Feature CI runs `28102353642`、`28103133358`、`28103595845` 均成功；最终复审确认 `limit/duration_min_ms/duration_max_ms` 超大 int 均返回 `422`，未发现新 P0/P1/P2/P3。
-- T-0070 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `11674c0`、`f631cdc`、`5c7797c` 合入。merge 后本地门禁通过：后端 dashboard/config 115 passed、ruff、format、mypy、`uv lock --check` 通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0070 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `11674c0`、`f631cdc`、`5c7797c` 合入。merge 后本地门禁通过：后端 dashboard/config 115 passed、ruff、format、mypy、`uv lock --check` 通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；`dev` CI 已通过。
+- T-0070 已完成同步收口：`8a55f7e` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28104177879`、`28104289799`、`28104289434` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 重跑通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0070 关闭。
 - T-0071 已登记为阶段 5 下一小步：Dashboard panel preview 请求时变量覆盖前端接入基础。边界为在 `/dashboards` 已保存 dashboard 的变量配置与 panel 查询预览之间建立最小运行时变量值草稿，调用 panel preview API 时通过 `variables` query 参数传递覆盖值；覆盖值不写回 dashboard config，保存变量配置仍走既有保存路径。覆盖 text/select/number 输入、默认值 fallback、无 default 但有运行时值、loading/error/422/unauth 状态和响应原始 query 展示；不改后端契约、不做用户会话持久化、不做部分字符串/深层模板、模板仪表盘、自动刷新、导入导出或告警。
 
 ### 阻塞与风险
@@ -805,12 +806,12 @@
 - T-0067 只做 Dashboard 变量配置的保存层前端体验，不执行 panel query 模板变量替换，也不改变 preview 查询语义；真实前后端联调、变量替换执行、模板仪表盘、自动刷新、导入导出和告警均留给后续小步。
 - T-0068 将只支持 panel query 顶层字段“完整值”为 `${变量名}` 的默认值替换，不支持字符串片段拼接、表达式、数组/对象深层模板、URL 请求覆盖变量值、用户会话级变量值或模板仪表盘；替换后仍受现有 query 白名单和类型校验约束。
 - T-0068/T-0069 的真实 MySQL/真实后端/前端变量控件联调风险已由 T-0069 覆盖并通过；剩余产品边界是不支持请求时变量覆盖、字符串片段拼接、表达式、数组/对象深层模板、用户会话级变量值、模板仪表盘、自动刷新、导入导出或告警。
-- T-0070 只做后端 preview 请求时变量覆盖基础，不改前端 UI；请求覆盖值必须一次性参与 preview 执行且不得写入 Dashboard `config`。本次已通过单元/静态/feature CI 和审计复审；真实 MySQL/真实前后端联调、URL 长度边界和前端变量控件消费路径留给后续小步。
+- T-0070 只做后端 preview 请求时变量覆盖基础，不改前端 UI；请求覆盖值必须一次性参与 preview 执行且不得写入 Dashboard `config`。本次已通过单元/静态/feature CI、审计复审、dev CI、三分支同步 CI 和严格 worktree 体检；真实 MySQL/真实前后端联调、URL 长度边界和前端变量控件消费路径留给后续小步。
 - T-0071 只做前端运行时变量值接入 preview，不改变保存层变量 schema 或后端契约；运行时值不做跨会话持久化。
 
 ### 下一步
 
-- T-0070 推送 `dev` 后读取 CI、同步两个 feature 分支并运行严格 worktree 体检；随后启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0071 Dashboard panel preview 请求时变量覆盖前端接入基础。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0071 Dashboard panel preview 请求时变量覆盖前端接入基础；完成后进行前端审计/验证、真实 merge 到 `dev`、读取 CI 并同步两个 feature 分支。
 
 ### 验证
 
