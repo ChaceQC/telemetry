@@ -88,7 +88,7 @@ closed      已关闭
 | T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | done |
 | T-0059 | Dashboard panel 查询预览前端接入基础 | 总 agent | done | todo | done | done | done |
 | T-0060 | Dashboard panel 查询预览真实前后端联测 | 总 agent | done | done | done | done | done |
-| T-0061 | Dashboard panel 基础图表渲染前端能力 | 总 agent | doing | todo | todo | todo | doing |
+| T-0061 | Dashboard panel 基础图表渲染前端能力 | 总 agent | done | todo | done | done | audit |
 
 ## 4. API 契约登记
 
@@ -519,6 +519,9 @@ closed      已关闭
 | 2026-06-24 | T-0061 | 总 agent | 登记 Dashboard panel 基础图表渲染前端能力 | 阶段 5 下一小步限定为前端在 `/dashboards` 查询预览区增加基础可视化：基于 T-0058/T-0059 已有 preview payload，本地无新增后端契约；metrics 聚合用轻量 SVG/条形或趋势摘要展示，topology 用简洁节点/边摘要可视化，logs/events/traces 仍以可扫描样例列表为主并可增加状态/严重度视觉标记。不得接 ClickHouse、变量/模板/告警、后台刷新或保存草稿；优先复用已有 `.metric-trend`/全局样式和 lucide 图标，不新增重量图表库；使用 restrained operational UI，不做 hero/营销布局。将启动前端开发 agent 在 `feature/frontend-dev` 工作 | doing |
 | 2026-06-24 | T-0061 | 总 agent | 前端实现接手安排 | 前端开发 agent Banach 超时未返回 final，关闭前在 `feature/frontend-dev` 留下 5 个未提交前端改动，范围为 dashboard panel preview 模型、页面渲染、交互测试和 CSS。总 agent 已启动前端开发 agent Boyle 接手这些未提交改动，要求审阅并补完实现、更新 `frontend/PROJECT_PROGRESS.md` 和运行时日志、完成前端验证、提交并推送到 `feature/frontend-dev`；总 agent不直接代写前端功能 | doing |
 | 2026-06-24 | T-0061 | 总 agent | 前端接手记录 CI 通过 | `cf5b904` 已推送到 `dev`，GitHub Actions run `28067865538` 通过；Backend checks 与 Frontend checks 均为 success。该提交仅记录 Banach 超时关闭与 Boyle 接手安排，不包含业务实现；前端实现仍等待 `feature/frontend-dev` 提交 | done |
+| 2026-06-24 | T-0061 | 总 agent | Dashboard panel 基础图表预览前端完成 | Banach 与 Boyle 均超时未返回 final，总 agent按异常路径接管已存在前端半成品并提交 `0c56e29` 到 `feature/frontend-dev`：新增 metrics 轻量 SVG bar/sparkline/summary、topology 节点/边 SVG 摘要、logs/events/traces 状态 marker；不改后端契约、不接 ClickHouse、不保存草稿、不新增重量图表库。前端专项 3 files/46 tests、typecheck、lint、build、`git diff --check` 均通过，Playwright CLI + Microsoft Edge mock 数据态桌面 1280px 与移动 390px 视觉复核通过；自有 Vite/Edge 资源已清理。等待 feature CI 与代码审计 | audit |
+| 2026-06-24 | T-0061-fix | 总 agent | Dashboard panel 图表预览审计修复完成 | Archimedes 审计 `0c56e29` 发现 2 个 P2 与 1 个 P3：正负混合 metrics sparkline 负值点贴零轴、窄 panel 固定两列布局可能裁剪 SVG、5 节点 topology 标签可能越出 viewBox。总 agent提交 `6f54d95` 修复：metric bar 增加真实 `pointY`、sparkline 使用 valueY；remote visual 改为自适应 grid 且不隐藏 overflow；5 节点底部位置上移；新增正负混合和 5 节点回归测试。复验：dashboardPanels 17 tests、Dashboard 专项 3 files/48 tests、typecheck、lint、build、`git diff --check`、Edge mock 视觉复验均通过；等待 feature CI 与复审 | audit |
+| 2026-06-24 | T-0061-fix | 代码复审 agent Goodall | Dashboard panel 图表预览审计修复复审通过 | Goodall 只读复审 `6f54d95` 未发现新的 P0/P1/P2/P3；确认 metrics sparkline 负值点、窄 panel 图表裁剪、5 节点 topology 标签越界均已关闭，进度记录真实且未见 runtime logs/build outputs 入库。`feature/frontend-dev` CI run `28069615737` 也通过；T-0061 可进入真实 merge 到 `dev` | done |
 
 ## 6. 测试记录
 
@@ -636,6 +639,9 @@ closed      已关闭
 | 2026-06-24 | T-0059-sync | CI 与 worktree 同步 | GitHub Actions runs `28064903792`、`28064966565`、`28064966669`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | `ce5cca2` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。两个 feature 分支已同步到 `dev`；严格体检确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0060-start | CI 与 worktree 同步 | GitHub Actions runs `28065373335`、`28065444035`、`28065444183`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | T-0060 启动记录 `ede0c24` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过 |
 | 2026-06-24 | T-0060 | Dashboard panel 查询预览真实前后端联测 | 测试 agent Poincare；自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实 Vite 前端、Playwright + Microsoft Edge、临时 Node API 边界脚本 | 通过 | UI 30 条断言全过，API 边界 16 条断言全过。覆盖登录、项目/环境/服务/API Key、metrics/logs/events/traces 摄入、已保存 5 类 panel preview、未保存 config 不请求后端、非法 query 422 panel 内展示、encoded panel id、401/404/422、无权限边界和 metrics/logs/events/traces/topology 快速回归；证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，`25173/28117/3307` 已释放 |
+| 2026-06-24 | T-0061 | Dashboard panel 基础图表预览前端门禁 | `feature/frontend-dev` run `28069033319`；本地前端专项、typecheck、lint、build、`git diff --check`、Playwright CLI + Microsoft Edge mock 视觉复核 | 通过 | `0c56e29` 上 feature/frontend-dev CI 通过；本地专项 3 files/46 tests passed，typecheck、lint、build、diff check 通过；Edge mock 数据态桌面 1280px 与移动 390px 均渲染非空 metrics SVG，2 个 bar 和 sparkline 可见，无横向溢出；审计随后发现 2 个 P2 和 1 个 P3，已由 `6f54d95` 修复 |
+| 2026-06-24 | T-0061-fix | Dashboard panel 图表预览审计修复门禁 | 本地 `dashboardPanels.test.ts`、Dashboard 专项、typecheck、lint、build、`git diff --check`、Playwright CLI + Microsoft Edge mock 视觉复核 | 通过 | `6f54d95` 上 dashboardPanels 17 tests passed，Dashboard 专项 3 files/48 tests passed，typecheck、lint、build、diff check 通过；Edge mock 视觉复核确认 metrics visual box `scrollWidth=clientWidth=264`、2 个 bar 可见；自有 Vite/Edge 已清理，`25173` 无监听；feature CI run `28069615737` 正在等待 |
+| 2026-06-24 | T-0061-fix | feature/frontend-dev CI | GitHub Actions run `28069615737` | 通过 | `6f54d95` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
@@ -649,6 +655,8 @@ closed      已关闭
 | 2026-06-24 | T-0058 | Dashboard panel 查询预览后端基础（`51ff277`） | 未通过 | P2：`metrics` panel 的 `query.window`/`query.aggregation` 若为数组或对象，会在枚举集合判断时触发 `TypeError`，绕过 `QueryFilterError` 并返回 500；已由 `cc36468` 修复 | blocked |
 | 2026-06-24 | T-0058-fix | Dashboard panel 查询预览非法枚举修复（`cc36468`） | 通过 | 原 P2 已关闭：`window/aggregation` 先校验字符串类型，再做枚举判断；历史保存配置中的数组/对象非法值返回 `422`，新增回归覆盖 list/object `window` 与 list `aggregation`。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0059 | Dashboard panel 查询预览前端接入（`5b28d5b`） | 通过 | 代码审计 agent Parfit 因超时关闭且未返回可用结论；总 agent 本地审计未发现 P0/P1/P2/P3。重点复核了已保存 dashboard/panel 才请求远端预览、未保存草稿不请求、panel path 编码、query key 隔离、422/error 安全展示和 dashboard/project/session 切换不串旧预览；残余风险为未做真实后端/数据库/浏览器联测 | done |
+| 2026-06-24 | T-0061 | Dashboard panel 基础图表预览前端能力（`0c56e29`） | 未通过 | Archimedes 审计发现 2 个 P2：metrics 正负混合 sparkline 负值点错误贴零轴；窄 panel 内 remote visual 固定两列可能裁剪 SVG。另有 P3：5 节点 topology 标签可能越出 viewBox。已由 `6f54d95` 修复并等待复审 | audit |
+| 2026-06-24 | T-0061-fix | Dashboard panel 图表预览审计修复（`6f54d95`） | 通过 | Goodall 复审未发现新的 P0/P1/P2/P3，原 2 个 P2 与 1 个 P3 均关闭；残余风险为真实后端/数据库链路不在本次图表预览修复范围内 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |

@@ -722,6 +722,9 @@
 - T-0061 已登记为阶段 5 下一小步：Dashboard panel 基础图表渲染前端能力。边界为只在 `/dashboards` 查询预览区基于已有 preview payload 增加最小可视化，不改后端契约、不新增重量图表库、不接 ClickHouse、不做变量/模板/告警或后台刷新。metrics 聚合优先用轻量 SVG/条形或趋势摘要展示，topology 用简洁节点/边摘要可视化，logs/events/traces 保持可扫描样例列表并可加入状态/严重度视觉标记；UI 遵循 restrained operational surface。
 - T-0061 前端实现接手中：前端开发 agent Banach 超时未返回 final，关闭前在 `feature/frontend-dev` 留下 5 个未提交前端改动，涉及 `dashboardPanels.ts`、Dashboard 页面、交互测试和全局样式。总 agent 已启动前端开发 agent Boyle 接手这些改动，要求完成审阅、修正、前端验证、`frontend/PROJECT_PROGRESS.md` 同步、提交并推送到 `feature/frontend-dev`；总 agent等待其交付后再进入审计和真实 merge。
 - T-0061 前端接手记录 CI 通过：`cf5b904` 已推送到 `dev`，GitHub Actions run `28067865538` 成功，Backend checks 与 Frontend checks 均通过。该提交仅记录 Banach 超时关闭与 Boyle 接手安排，不包含业务实现；前端实现仍等待 `feature/frontend-dev` 提交。
+- T-0061 前端基础图表预览已提交到 feature 分支：Banach 与 Boyle 均超时未返回 final，总 agent按异常路径接管已存在前端半成品并提交 `0c56e29` 到 `feature/frontend-dev`。本次在 `/dashboards` 已保存 panel 查询预览区新增 metrics 轻量 SVG bar/sparkline/summary、topology 节点/边 SVG 摘要，以及 logs/events/traces 状态 marker；不改后端契约、不接 ClickHouse、不保存草稿、不新增重量图表库。前端专项 3 files/46 tests、typecheck、lint、build、`git diff --check` 均通过，Playwright CLI + Microsoft Edge mock 数据态桌面 1280px 与移动 390px 视觉复核通过；自有 Vite/Edge 资源已清理。等待 feature CI 和代码审计结论。
+- T-0061 初审未通过后已完成修复：Archimedes 审计 `0c56e29` 发现 2 个 P2 与 1 个 P3，分别为 metrics 正负混合 sparkline 负值点贴零轴、窄 panel 固定两列布局可能裁剪 SVG、5 节点 topology 标签可能越出 viewBox。总 agent提交 `6f54d95` 修复：metric bar 增加真实 `pointY`、sparkline 使用 valueY；remote visual 改为自适应 grid 且不隐藏 overflow；5 节点底部位置上移；新增正负混合和 5 节点回归测试。复验：dashboardPanels 17 tests、Dashboard 专项 3 files/48 tests、typecheck、lint、build、`git diff --check`、Edge mock 视觉复验均通过。等待 feature CI 与复审。
+- T-0061 修复复审与 feature CI 通过：Goodall 只读复审 `6f54d95` 未发现新的 P0/P1/P2/P3，确认原 2 个 P2 和 1 个 P3 均关闭；`feature/frontend-dev` GitHub Actions run `28069615737` 成功，Frontend checks 与 Backend checks 均通过。T-0061 可进入真实 merge 到 `dev`。
 
 ### 阻塞与风险
 
@@ -748,7 +751,7 @@
 
 ### 下一步
 
-- 等待前端开发 agent Boyle 完成 T-0061 接手、验证、提交和推送；随后总 agent 启动代码审计，审计通过后真实 merge 到 `dev` 并执行 CI/worktree 同步。
+- 真实 merge `origin/feature/frontend-dev` 到 `dev`，随后执行本地门禁、推送 dev、读取 CI，并同步两个 feature 分支。
 
 ### 验证
 
