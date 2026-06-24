@@ -730,6 +730,8 @@
 - T-0062 已登记为阶段 5 下一小步：Dashboard 全局时间范围后端基础。边界为只在后端保存层给已保存 Dashboard `config` 增加全局 `time_range` 最小 schema 校验与规范化，支持相对时间范围和绝对时间范围的可保存结构，为后续前端时间选择与 panel preview 继承做准备；不改现有 panel preview API 行为、不做前端 UI、不接 ClickHouse、不做变量、模板、自动刷新或告警，并保持 legacy config 兼容。
 - T-0062 后端实现、feature CI 和代码审计通过：后端开发 agent Fermat 提交并推送 `ecf0c5b` 到 `feature/backend-dev`，新增 `config.time_range` 保存层校验与规范化；relative 支持 `15m/1h/6h/24h/7d`，absolute 支持 ISO 8601 `from/to` 且要求 `from < to`，字符串裁剪后保存；legacy config 兼容，不改变 panel preview API 行为。Fermat 与审计 agent Avicenna 均运行 dashboard API 57 tests、ruff、format、mypy、`git diff --check` 通过；feature CI run `28071016797` 成功。Avicenna 未发现 P0/P1/P2/P3；T-0062 可进入真实 merge。
 - T-0062 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `ecf0c5b` 合入，merge 提交 `120e6b5`。merge 后本地门禁通过：后端 dashboard/config 70 tests passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0062 已完成同步收口：`1201f83` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28071436834`、`28071498132`、`28071498454` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0062 关闭。
+- T-0063 已登记为阶段 5 下一小步：Dashboard 全局时间范围前端基础。边界为在 `/dashboards` 已保存 dashboard 编辑区读取/编辑 `config.time_range`，支持 relative `15m/1h/6h/24h/7d` 与 absolute `from/to` ISO 字符串，保存时写回既有 Dashboard update API，并覆盖 invalid/legacy/unsaved 状态；不改后端契约、不让 panel preview 自动继承全局时间范围、不接 ClickHouse、不做变量、模板、自动刷新或告警，UI 继续遵循 restrained operational surface。
 
 ### 阻塞与风险
 
@@ -755,10 +757,11 @@
 - T-0058/T-0059 的真实 MySQL/真实后端/真实前端/Edge 联测风险已由 T-0060 覆盖并通过；剩余产品边界仍是不接 ClickHouse、不做真实图表渲染、变量替换、模板、缓存、后台刷新或告警。历史 dashboard config 中更多非法 query 形态仍按参与预览的白名单字段运行时返回 `422` 或沿现有 query service 语义处理。
 - T-0062 只定义 Dashboard `config.time_range` 的保存层结构，不改变当前预览查询行为；前端时间选择器、panel query 继承、刷新策略和真实预览联测需后续小步覆盖。
 - T-0062 后端审计残余风险：未覆盖真实 MySQL JSON 列读写；绝对时间解析当前依赖 Python `datetime.fromisoformat` 的接受范围，若后续产品要求严格 RFC3339 或强制 timezone-aware，需要另行收紧。
+- T-0063 只做前端保存层体验，不改变远端预览查询的时间范围来源；用户保存 `config.time_range` 后，panel preview 仍按现有 panel query 字段请求，继承全局时间范围需后续小步显式实现和联测。
 
 ### 下一步
 
-- 推送 `dev`，等待 GitHub Actions；CI 通过后 fast-forward 同步 `feature/backend-dev` 与 `feature/frontend-dev`，再执行严格 worktree 体检并关闭 T-0062。
+- 启动前端开发 agent 在 `feature/frontend-dev` 实现 T-0063 Dashboard 全局时间范围前端基础，完成后执行前端门禁、feature CI、代码审计和真实 merge 流程。
 
 ### 验证
 
@@ -814,6 +817,7 @@
 - T-0061 同步 CI 与 worktree 体检通过：GitHub Actions runs `28070194318`、`28070259569`、`28070259541` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `5c5ceb9`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0062 后端开发/审计门禁通过：`feature/backend-dev` 提交 `ecf0c5b` 上 GitHub Actions run `28071016797` 成功；Fermat 与 Avicenna 均运行 `uv run pytest tests/test_dashboard_api.py -q` 57 passed、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py` 和 `git diff --check` 通过。仅有既有 FastAPI/Starlette TestClient 上游弃用警告。
 - T-0062 merge 后本地门禁通过：merge 提交 `120e6b5` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 70 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。
+- T-0062 同步 CI 与 worktree 体检通过：GitHub Actions runs `28071436834`、`28071498132`、`28071498454` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `1201f83`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
