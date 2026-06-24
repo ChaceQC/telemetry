@@ -376,8 +376,174 @@ describe('DashboardsPage interactions', () => {
     await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledWith(12, 7, 'logs'));
     expect(await within(preview).findByText('日志样例')).toBeTruthy();
     expect(within(preview).getByText('1 条最近日志')).toBeTruthy();
+    expect(within(preview).getByLabelText('日志级别 error，来源 api')).toBeTruthy();
     expect(within(preview).getByText('error / api / 2026-06-20 10:01:00Z')).toBeTruthy();
     expect(within(preview).getByText('boom')).toBeTruthy();
+  });
+
+  it('为 metrics panel 渲染轻量聚合可视化', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [
+          { id: 'latency', title: '接口延迟', type: 'metrics', query: { name: 'http.duration' }, layout: { x: 0, y: 0, w: 6, h: 3 } }
+        ]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue({
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'latency',
+      title: '接口延迟',
+      panel_type: 'metrics',
+      query: { name: 'http.duration' },
+      preview: {
+        kind: 'metrics',
+        mode: 'aggregate',
+        items: [
+          {
+            project_id: project.id,
+            name: 'http.duration',
+            source: 'api',
+            window_start: '2026-06-20T10:00:00Z',
+            window_end: '2026-06-20T10:05:00Z',
+            aggregation: 'avg',
+            value: 18,
+            sample_count: 2,
+            unit: 'ms'
+          },
+          {
+            project_id: project.id,
+            name: 'http.duration',
+            source: 'worker',
+            window_start: '2026-06-20T10:05:00Z',
+            window_end: '2026-06-20T10:10:00Z',
+            aggregation: 'avg',
+            value: 22,
+            sample_count: 3,
+            unit: 'ms'
+          }
+        ]
+      }
+    });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+
+    expect(await within(preview).findByText('指标聚合')).toBeTruthy();
+    const visual = within(preview).getByLabelText('指标聚合可视化');
+    expect(within(visual).getByRole('img', { name: '指标聚合柱状预览' })).toBeTruthy();
+    expect(within(visual).getByText('avg 22 ms')).toBeTruthy();
+    expect(within(visual).getByText('样本 5')).toBeTruthy();
+    expect(within(preview).getByText('http.duration / worker')).toBeTruthy();
+  });
+
+  it('为 topology panel 渲染节点边可视摘要', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'topology', title: '服务拓扑', type: 'topology', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue({
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'topology',
+      title: '服务拓扑',
+      panel_type: 'topology',
+      query: {},
+      preview: {
+        kind: 'topology',
+        mode: 'topology',
+        nodes: [
+          {
+            source: 'api',
+            span_count: 8,
+            trace_count: 4,
+            error_span_count: 1,
+            avg_duration_ms: 70,
+            max_duration_ms: 120
+          },
+          {
+            source: 'worker',
+            span_count: 5,
+            trace_count: 3,
+            error_span_count: 0,
+            avg_duration_ms: 55,
+            max_duration_ms: 90
+          }
+        ],
+        edges: [
+          {
+            from_source: 'api',
+            to_source: 'worker',
+            call_count: 6,
+            error_count: 1,
+            avg_duration_ms: 50,
+            max_duration_ms: 80
+          }
+        ]
+      }
+    });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+
+    expect(await within(preview).findByText('Topology 摘要')).toBeTruthy();
+    const visual = within(preview).getByLabelText('Topology 可视化');
+    expect(within(visual).getByRole('img', { name: 'Topology 节点边预览' })).toBeTruthy();
+    expect(within(visual).getByText('2 个节点')).toBeTruthy();
+    expect(within(visual).getByText('1 条边')).toBeTruthy();
+    expect(within(preview).getByText('api -> worker')).toBeTruthy();
+  });
+
+  it('空查询预览保留 empty 状态且不渲染图表', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: { level: 'error' }, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue({
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'logs',
+      title: '错误日志',
+      panel_type: 'logs',
+      query: { level: 'error' },
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+
+    expect(await within(preview).findByText('没有匹配的日志样例。')).toBeTruthy();
+    expect(within(preview).queryByRole('img')).toBeNull();
   });
 
   it('未保存 config 草稿不会触发后端 panel 查询预览', async () => {
@@ -445,6 +611,8 @@ describe('DashboardsPage interactions', () => {
 
     expect(await within(preview).findByText('查询预览失败')).toBeTruthy();
     expect(within(preview).getByText(/panel\.query\.limit 必须在 1\.\.100 之间/)).toBeTruthy();
+    expect(within(preview).queryByLabelText('查询预览结果')).toBeNull();
+    expect(within(preview).queryByRole('img')).toBeNull();
   });
 
   it('手动重排 config.panels 后更新旧草稿不会覆盖错误 panel', async () => {

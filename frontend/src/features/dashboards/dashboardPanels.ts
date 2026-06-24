@@ -11,6 +11,14 @@ const DASHBOARD_PANEL_QUERY_TOP_LEVEL_LIMIT = 4;
 const DASHBOARD_PANEL_QUERY_NESTED_LIMIT = 3;
 const DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT = 3;
 const DASHBOARD_PANEL_REMOTE_PREVIEW_TEXT_MAX_LENGTH = 96;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_MARKER_MAX_LENGTH = 18;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_METRIC_BAR_LIMIT = 8;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_TOPOLOGY_NODE_LIMIT = 5;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_TOPOLOGY_EDGE_LIMIT = 6;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_WIDTH = 240;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_TOP = 8;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_HEIGHT = 68;
+const DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_LABEL_MAX_LENGTH = 10;
 
 export type DashboardPanelType = (typeof DASHBOARD_PANEL_TYPES)[number];
 
@@ -95,17 +103,89 @@ export type DashboardPanelPreviewModel =
       panels: DashboardPanelPreviewItem[];
     };
 
+export type DashboardPanelRemotePreviewTone = 'danger' | 'warning' | 'success' | 'neutral' | 'info';
+
+export type DashboardPanelRemotePreviewLineMarker = {
+  label: string;
+  ariaLabel: string;
+  tone: DashboardPanelRemotePreviewTone;
+};
+
 export type DashboardPanelRemotePreviewLine = {
   label: string;
   value: string;
+  marker?: DashboardPanelRemotePreviewLineMarker;
 };
+
+export type DashboardPanelRemotePreviewMetricBar = {
+  id: string;
+  label: string;
+  valueLabel: string;
+  sampleCountLabel: string;
+  windowLabel: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  tone: DashboardPanelRemotePreviewTone;
+};
+
+export type DashboardPanelRemotePreviewTopologyNode = {
+  id: string;
+  label: string;
+  chartLabel: string;
+  spanCountLabel: string;
+  traceCountLabel: string;
+  errorCountLabel: string;
+  x: number;
+  y: number;
+  radius: number;
+  tone: DashboardPanelRemotePreviewTone;
+};
+
+export type DashboardPanelRemotePreviewTopologyEdge = {
+  id: string;
+  label: string;
+  callCountLabel: string;
+  errorCountLabel: string;
+  durationLabel: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  strokeWidth: number;
+  tone: DashboardPanelRemotePreviewTone;
+};
+
+export type DashboardPanelRemotePreviewVisualizationModel =
+  | {
+      kind: 'metrics';
+      valueLabel: string;
+      sampleCountLabel: string;
+      windowLabel: string;
+      axisY: number;
+      sparklinePath: string | null;
+      bars: DashboardPanelRemotePreviewMetricBar[];
+    }
+  | {
+      kind: 'topology';
+      nodeLabel: string;
+      edgeLabel: string;
+      nodes: DashboardPanelRemotePreviewTopologyNode[];
+      edges: DashboardPanelRemotePreviewTopologyEdge[];
+    };
 
 export type DashboardPanelRemotePreviewModel = {
   title: string;
   summary: string;
   lines: DashboardPanelRemotePreviewLine[];
   emptyMessage: string | null;
+  visualization: DashboardPanelRemotePreviewVisualizationModel | null;
 };
+
+type MetricPreviewItem = Extract<DashboardPanelPreviewResponse['preview'], { kind: 'metrics' }>['items'][number];
+type TopologyPreviewNode = Extract<DashboardPanelPreviewResponse['preview'], { kind: 'topology' }>['nodes'][number];
+type TopologyPreviewEdge = Extract<DashboardPanelPreviewResponse['preview'], { kind: 'topology' }>['edges'][number];
 
 type DashboardPanelsParseResult =
   | {
@@ -250,12 +330,13 @@ export function createDashboardPanelRemotePreviewModel(
       lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
         label: compactPreviewText(`${item.name} / ${formatPreviewSource(item.source)}`),
         value: compactPreviewText(
-          `${item.aggregation} ${formatPreviewNumber(item.value)}${item.unit ? ` ${item.unit}` : ''} / 样本 ${
-            item.sample_count
-          } / ${formatPreviewTime(item.window_start)} - ${formatPreviewTime(item.window_end)}`
+          `${formatMetricAggregateValue(item)} / 样本 ${item.sample_count} / ${formatPreviewTime(
+            item.window_start
+          )} - ${formatPreviewTime(item.window_end)}`
         )
       })),
-      emptyMessage: preview.items.length === 0 ? '没有匹配的指标聚合结果。' : null
+      emptyMessage: preview.items.length === 0 ? '没有匹配的指标聚合结果。' : null,
+      visualization: createMetricAggregateVisualization(preview.items)
     };
   }
 
@@ -265,9 +346,15 @@ export function createDashboardPanelRemotePreviewModel(
       summary: `${preview.items.length} 条最近日志`,
       lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
         label: compactPreviewText(`${item.level} / ${formatPreviewSource(item.source)} / ${formatPreviewTime(item.received_at)}`),
-        value: compactPreviewText(item.message)
+        value: compactPreviewText(item.message),
+        marker: createPreviewMarker(
+          item.level,
+          `日志级别 ${item.level}，来源 ${formatPreviewSource(item.source)}`,
+          resolveLogLevelTone(item.level)
+        )
       })),
-      emptyMessage: preview.items.length === 0 ? '没有匹配的日志样例。' : null
+      emptyMessage: preview.items.length === 0 ? '没有匹配的日志样例。' : null,
+      visualization: null
     };
   }
 
@@ -277,9 +364,11 @@ export function createDashboardPanelRemotePreviewModel(
       summary: `${preview.items.length} 条最近事件`,
       lines: preview.items.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((item) => ({
         label: compactPreviewText(`${item.type} / ${formatPreviewSource(item.source)} / ${formatPreviewTime(item.received_at)}`),
-        value: compactPreviewText(formatPreviewPayload(item.payload))
+        value: compactPreviewText(formatPreviewPayload(item.payload)),
+        marker: createPreviewMarker(item.type, `事件类型 ${item.type}，来源 ${formatPreviewSource(item.source)}`, 'neutral')
       })),
-      emptyMessage: preview.items.length === 0 ? '没有匹配的事件样例。' : null
+      emptyMessage: preview.items.length === 0 ? '没有匹配的事件样例。' : null,
+      visualization: null
     };
   }
 
@@ -293,15 +382,24 @@ export function createDashboardPanelRemotePreviewModel(
           `${item.name} / ${item.status_code ?? 'unknown'} / ${formatPreviewDuration(item.duration_ms)} / ${formatPreviewSource(
             item.source
           )}`
+        ),
+        marker: createPreviewMarker(
+          item.status_code ?? 'unknown',
+          `Trace 状态 ${item.status_code ?? 'unknown'}，来源 ${formatPreviewSource(item.source)}`,
+          resolveTraceStatusTone(item.status_code)
         )
       })),
-      emptyMessage: preview.items.length === 0 ? '没有匹配的 trace 样例。' : null
+      emptyMessage: preview.items.length === 0 ? '没有匹配的 trace 样例。' : null,
+      visualization: null
     };
   }
 
+  const topologyVisualization = createTopologyVisualization(preview.nodes, preview.edges);
+  const topologyNodeCount = countTopologyPreviewSources(preview.nodes, preview.edges);
+
   return {
     title: 'Topology 摘要',
-    summary: `${preview.nodes.length} 个节点 / ${preview.edges.length} 条边`,
+    summary: `${topologyNodeCount} 个节点 / ${preview.edges.length} 条边`,
     lines: [
       ...preview.edges.slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT).map((edge) => ({
         label: compactPreviewText(`${edge.from_source} -> ${edge.to_source}`),
@@ -318,7 +416,8 @@ export function createDashboardPanelRemotePreviewModel(
         )
       }))
     ].slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_SAMPLE_LIMIT),
-    emptyMessage: preview.nodes.length === 0 && preview.edges.length === 0 ? '没有可展示的拓扑节点或边。' : null
+    emptyMessage: preview.nodes.length === 0 && preview.edges.length === 0 ? '没有可展示的拓扑节点或边。' : null,
+    visualization: topologyVisualization
   };
 }
 
@@ -966,6 +1065,160 @@ function compactPreviewText(value: string) {
   return truncateText(value.replace(/\s+/g, ' ').trim() || '-', DASHBOARD_PANEL_REMOTE_PREVIEW_TEXT_MAX_LENGTH);
 }
 
+function compactPreviewMarker(value: string) {
+  return truncateText(value.replace(/\s+/g, ' ').trim() || 'unknown', DASHBOARD_PANEL_REMOTE_PREVIEW_MARKER_MAX_LENGTH);
+}
+
+function compactPreviewChartLabel(value: string) {
+  return truncateText(value.replace(/\s+/g, ' ').trim() || 'unknown', DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_LABEL_MAX_LENGTH);
+}
+
+function createPreviewMarker(
+  label: string,
+  ariaLabel: string,
+  tone: DashboardPanelRemotePreviewTone
+): DashboardPanelRemotePreviewLineMarker {
+  return {
+    label: compactPreviewMarker(label),
+    ariaLabel,
+    tone
+  };
+}
+
+function createMetricAggregateVisualization(items: MetricPreviewItem[]): DashboardPanelRemotePreviewVisualizationModel | null {
+  if (items.length === 0) {
+    return null;
+  }
+
+  const visualItems = [...items].sort(compareMetricPreviewItems).slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_METRIC_BAR_LIMIT);
+  const values = visualItems.map((item) => safePreviewNumber(item.value));
+  const minValue = Math.min(0, ...values);
+  const maxValue = Math.max(0, ...values);
+  const valueRange = maxValue === minValue ? 1 : maxValue - minValue;
+  const axisY = normalizeMetricChartY(0, minValue, valueRange);
+  const gap = visualItems.length > 1 ? 8 : 0;
+  const availableWidth = DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_WIDTH - 20;
+  const barWidth = Math.max(
+    8,
+    Math.min(24, (availableWidth - gap * Math.max(0, visualItems.length - 1)) / visualItems.length)
+  );
+  const totalBarWidth = barWidth * visualItems.length + gap * Math.max(0, visualItems.length - 1);
+  const firstBarX = (DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_WIDTH - totalBarWidth) / 2;
+
+  const bars = visualItems.map((item, index) => {
+    const numericValue = safePreviewNumber(item.value);
+    const valueY = normalizeMetricChartY(numericValue, minValue, valueRange);
+    const barHeight = Math.max(3, Math.abs(axisY - valueY));
+
+    return {
+      id: `${index}-${item.name}-${formatPreviewSource(item.source)}-${item.window_start}`,
+      label: compactPreviewText(`${item.name} / ${formatPreviewSource(item.source)}`),
+      valueLabel: formatMetricAggregateValue(item),
+      sampleCountLabel: `样本 ${item.sample_count}`,
+      windowLabel: `${formatPreviewTime(item.window_start)} - ${formatPreviewTime(item.window_end)}`,
+      x: roundChartNumber(firstBarX + index * (barWidth + gap)),
+      y: roundChartNumber(Math.min(axisY, valueY)),
+      width: roundChartNumber(barWidth),
+      height: roundChartNumber(barHeight),
+      tone: numericValue < 0 ? ('warning' as const) : ('info' as const)
+    };
+  });
+  const sparklinePoints = bars.map((bar) => `${roundChartNumber(bar.x + bar.width / 2)} ${roundChartNumber(bar.y)}`);
+  const primaryItem = visualItems[visualItems.length - 1];
+
+  return {
+    kind: 'metrics',
+    valueLabel: formatMetricAggregateValue(primaryItem),
+    sampleCountLabel: `样本 ${items.reduce((total, item) => total + Math.max(0, item.sample_count), 0)}`,
+    windowLabel: createMetricWindowLabel(items),
+    axisY: roundChartNumber(axisY),
+    sparklinePath: sparklinePoints.length > 1 ? `M ${sparklinePoints.join(' L ')}` : null,
+    bars
+  };
+}
+
+function createTopologyVisualization(
+  nodes: TopologyPreviewNode[],
+  edges: TopologyPreviewEdge[]
+): DashboardPanelRemotePreviewVisualizationModel | null {
+  if (nodes.length === 0 && edges.length === 0) {
+    return null;
+  }
+
+  const nodeBySource = createTopologyNodeMap(nodes, edges);
+  const visibleNodes = [...nodeBySource.values()]
+    .sort(compareTopologyPreviewNodes)
+    .slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_TOPOLOGY_NODE_LIMIT);
+  const positions = resolveTopologyNodePositions(visibleNodes.length);
+  const maxSpanCount = Math.max(1, ...visibleNodes.map((node) => node.span_count));
+  const visualNodes = visibleNodes.map((node, index) => ({
+    id: node.source,
+    label: compactPreviewText(node.source),
+    chartLabel: compactPreviewChartLabel(node.source),
+    spanCountLabel: `spans ${node.span_count}`,
+    traceCountLabel: `traces ${node.trace_count}`,
+    errorCountLabel: `errors ${node.error_span_count}`,
+    x: positions[index].x,
+    y: positions[index].y,
+    radius: roundChartNumber(8 + (node.span_count / maxSpanCount) * 5),
+    tone: node.error_span_count > 0 ? ('danger' as const) : node.span_count === 0 ? ('neutral' as const) : ('info' as const)
+  }));
+  const visualNodeBySource = new Map(visualNodes.map((node) => [node.id, node]));
+  const visibleEdges = edges
+    .filter((edge) => visualNodeBySource.has(edge.from_source) && visualNodeBySource.has(edge.to_source))
+    .sort(compareTopologyPreviewEdges)
+    .slice(0, DASHBOARD_PANEL_REMOTE_PREVIEW_TOPOLOGY_EDGE_LIMIT);
+  const maxCallCount = Math.max(1, ...visibleEdges.map((edge) => edge.call_count));
+  const visualEdges = visibleEdges.map((edge, index) => {
+    const fromNode = visualNodeBySource.get(edge.from_source);
+    const toNode = visualNodeBySource.get(edge.to_source);
+    const edgeTone: DashboardPanelRemotePreviewTone = edge.error_count > 0 ? 'danger' : 'info';
+
+    return {
+      id: `${index}-${edge.from_source}-${edge.to_source}`,
+      label: compactPreviewText(`${edge.from_source} -> ${edge.to_source}`),
+      callCountLabel: `调用 ${edge.call_count}`,
+      errorCountLabel: `错误 ${edge.error_count}`,
+      durationLabel: `avg ${formatPreviewDuration(edge.avg_duration_ms)} / max ${formatPreviewDuration(edge.max_duration_ms)}`,
+      x1: fromNode?.x ?? 0,
+      y1: fromNode?.y ?? 0,
+      x2: toNode?.x ?? 0,
+      y2: toNode?.y ?? 0,
+      strokeWidth: roundChartNumber(1.6 + (edge.call_count / maxCallCount) * 3.2),
+      tone: edgeTone
+    };
+  });
+
+  return {
+    kind: 'topology',
+    nodeLabel: createTopologyCountLabel(visualNodes.length, nodeBySource.size, '个节点'),
+    edgeLabel: createTopologyCountLabel(visualEdges.length, edges.length, '条边'),
+    nodes: visualNodes,
+    edges: visualEdges
+  };
+}
+
+function createTopologyNodeMap(nodes: TopologyPreviewNode[], edges: TopologyPreviewEdge[]) {
+  const nodeBySource = new Map<string, TopologyPreviewNode>();
+  for (const node of nodes) {
+    nodeBySource.set(node.source, node);
+  }
+  for (const edge of edges) {
+    if (!nodeBySource.has(edge.from_source)) {
+      nodeBySource.set(edge.from_source, createSyntheticTopologyNode(edge.from_source));
+    }
+    if (!nodeBySource.has(edge.to_source)) {
+      nodeBySource.set(edge.to_source, createSyntheticTopologyNode(edge.to_source));
+    }
+  }
+
+  return nodeBySource;
+}
+
+function countTopologyPreviewSources(nodes: TopologyPreviewNode[], edges: TopologyPreviewEdge[]) {
+  return createTopologyNodeMap(nodes, edges).size;
+}
+
 function formatPreviewSource(value: string | null) {
   return value?.trim() || 'unknown';
 }
@@ -1005,4 +1258,168 @@ function formatPreviewPayload(value: Record<string, unknown>) {
     .slice(0, DASHBOARD_PANEL_QUERY_NESTED_LIMIT)
     .map((key) => `${key}: ${summarizeDashboardPanelQueryValue(value[key], 1)}`)
     .join(', ')}${keys.length > DASHBOARD_PANEL_QUERY_NESTED_LIMIT ? ', ...' : ''} }`;
+}
+
+function formatMetricAggregateValue(item: MetricPreviewItem) {
+  return `${item.aggregation} ${formatPreviewNumber(item.value)}${item.unit ? ` ${item.unit}` : ''}`;
+}
+
+function createMetricWindowLabel(items: MetricPreviewItem[]) {
+  const orderedItems = [...items].sort(compareMetricPreviewItems);
+  const firstItem = orderedItems[0];
+  const lastItem = orderedItems[orderedItems.length - 1];
+
+  return `${formatPreviewTime(firstItem.window_start)} - ${formatPreviewTime(lastItem.window_end)}`;
+}
+
+function compareMetricPreviewItems(left: MetricPreviewItem, right: MetricPreviewItem) {
+  const startDiff = left.window_start.localeCompare(right.window_start);
+  if (startDiff !== 0) {
+    return startDiff;
+  }
+
+  const endDiff = left.window_end.localeCompare(right.window_end);
+  if (endDiff !== 0) {
+    return endDiff;
+  }
+
+  const nameDiff = left.name.localeCompare(right.name);
+  if (nameDiff !== 0) {
+    return nameDiff;
+  }
+
+  return formatPreviewSource(left.source).localeCompare(formatPreviewSource(right.source));
+}
+
+function compareTopologyPreviewNodes(left: TopologyPreviewNode, right: TopologyPreviewNode) {
+  const spanDiff = right.span_count - left.span_count;
+  if (spanDiff !== 0) {
+    return spanDiff;
+  }
+
+  const errorDiff = right.error_span_count - left.error_span_count;
+  if (errorDiff !== 0) {
+    return errorDiff;
+  }
+
+  return left.source.localeCompare(right.source);
+}
+
+function compareTopologyPreviewEdges(left: TopologyPreviewEdge, right: TopologyPreviewEdge) {
+  const callDiff = right.call_count - left.call_count;
+  if (callDiff !== 0) {
+    return callDiff;
+  }
+
+  const errorDiff = right.error_count - left.error_count;
+  if (errorDiff !== 0) {
+    return errorDiff;
+  }
+
+  const fromDiff = left.from_source.localeCompare(right.from_source);
+  return fromDiff !== 0 ? fromDiff : left.to_source.localeCompare(right.to_source);
+}
+
+function createTopologyCountLabel(visibleCount: number, totalCount: number, unit: string) {
+  return visibleCount === totalCount ? `${visibleCount} ${unit}` : `显示 ${visibleCount}/${totalCount} ${unit}`;
+}
+
+function normalizeMetricChartY(value: number, minValue: number, valueRange: number) {
+  return (
+    DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_TOP +
+    ((minValue + valueRange - value) / valueRange) * DASHBOARD_PANEL_REMOTE_PREVIEW_CHART_HEIGHT
+  );
+}
+
+function safePreviewNumber(value: number) {
+  return Number.isFinite(value) ? value : 0;
+}
+
+function roundChartNumber(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function resolveLogLevelTone(level: string): DashboardPanelRemotePreviewTone {
+  const normalizedLevel = level.trim().toLowerCase();
+
+  if (['fatal', 'panic', 'critical', 'crit', 'error', 'err'].includes(normalizedLevel)) {
+    return 'danger';
+  }
+  if (['warn', 'warning'].includes(normalizedLevel)) {
+    return 'warning';
+  }
+  if (['info', 'notice'].includes(normalizedLevel)) {
+    return 'info';
+  }
+
+  return 'neutral';
+}
+
+function resolveTraceStatusTone(statusCode: string | null): DashboardPanelRemotePreviewTone {
+  const normalizedStatus = statusCode?.trim().toLowerCase();
+
+  if (!normalizedStatus || normalizedStatus === 'unknown') {
+    return 'neutral';
+  }
+  if (['ok', 'success', '2xx'].includes(normalizedStatus)) {
+    return 'success';
+  }
+  if (normalizedStatus.includes('error') || normalizedStatus.includes('fail')) {
+    return 'danger';
+  }
+
+  return 'warning';
+}
+
+function createSyntheticTopologyNode(source: string): TopologyPreviewNode {
+  return {
+    source,
+    span_count: 0,
+    trace_count: 0,
+    error_span_count: 0,
+    avg_duration_ms: null,
+    max_duration_ms: null
+  };
+}
+
+function resolveTopologyNodePositions(count: number) {
+  const positionsByCount = new Map<number, Array<{ x: number; y: number }>>([
+    [1, [{ x: 120, y: 56 }]],
+    [
+      2,
+      [
+        { x: 66, y: 56 },
+        { x: 174, y: 56 }
+      ]
+    ],
+    [
+      3,
+      [
+        { x: 120, y: 26 },
+        { x: 68, y: 84 },
+        { x: 172, y: 84 }
+      ]
+    ],
+    [
+      4,
+      [
+        { x: 66, y: 34 },
+        { x: 174, y: 34 },
+        { x: 66, y: 82 },
+        { x: 174, y: 82 }
+      ]
+    ],
+    [
+      5,
+      [
+        { x: 120, y: 22 },
+        { x: 54, y: 48 },
+        { x: 78, y: 92 },
+        { x: 162, y: 92 },
+        { x: 186, y: 48 }
+      ]
+    ]
+  ]);
+
+  return positionsByCount.get(count) ?? positionsByCount.get(DASHBOARD_PANEL_REMOTE_PREVIEW_TOPOLOGY_NODE_LIMIT)!;
 }

@@ -56,6 +56,7 @@ import {
   type DashboardPanelPreviewModel,
   type DashboardPanelPreviewItem,
   type DashboardPanelDraft,
+  type DashboardPanelRemotePreviewVisualizationModel,
   type DashboardPanelsReadResult
 } from '../features/dashboards/dashboardPanels';
 import { dashboardQueryKeys, dashboardQueryRootKey } from '../features/dashboards/queryKeys';
@@ -1294,18 +1295,106 @@ function DashboardPanelRemotePreview({
         <strong>{preview.title}</strong>
         <span>{preview.summary}</span>
       </div>
+      {preview.visualization ? <DashboardPanelRemotePreviewVisualization visualization={preview.visualization} /> : null}
       {preview.emptyMessage ? (
         <span className="dashboard-panel-remote-preview-empty">{preview.emptyMessage}</span>
       ) : (
         <dl className="dashboard-panel-remote-preview-list">
           {preview.lines.map((line, index) => (
             <div key={`${line.label}-${index}`}>
-              <dt>{line.label}</dt>
+              <dt>
+                {line.marker ? (
+                  <span
+                    className={`dashboard-panel-remote-preview-marker dashboard-panel-remote-preview-marker--${line.marker.tone}`}
+                    aria-label={line.marker.ariaLabel}
+                  >
+                    {line.marker.label}
+                  </span>
+                ) : null}
+                <span>{line.label}</span>
+              </dt>
               <dd>{line.value}</dd>
             </div>
           ))}
         </dl>
       )}
+    </div>
+  );
+}
+
+function DashboardPanelRemotePreviewVisualization({
+  visualization
+}: {
+  visualization: DashboardPanelRemotePreviewVisualizationModel;
+}) {
+  if (visualization.kind === 'metrics') {
+    return (
+      <div className="dashboard-panel-remote-visual dashboard-panel-remote-visual--metrics" aria-label="指标聚合可视化">
+        <div className="dashboard-panel-remote-visual-summary">
+          <strong>{visualization.valueLabel}</strong>
+          <span>{visualization.sampleCountLabel}</span>
+          <span>{visualization.windowLabel}</span>
+        </div>
+        <svg className="dashboard-panel-remote-chart" viewBox="0 0 240 96" role="img" aria-label="指标聚合柱状预览">
+          <line className="dashboard-panel-remote-chart-axis" x1="10" x2="230" y1={visualization.axisY} y2={visualization.axisY} />
+          {visualization.bars.map((bar) => (
+            <rect
+              key={bar.id}
+              className={`dashboard-panel-remote-metric-bar dashboard-panel-remote-metric-bar--${bar.tone}`}
+              x={bar.x}
+              y={bar.y}
+              width={bar.width}
+              height={bar.height}
+              rx="2"
+            >
+              <title>
+                {bar.label} / {bar.valueLabel} / {bar.sampleCountLabel} / {bar.windowLabel}
+              </title>
+            </rect>
+          ))}
+          {visualization.sparklinePath ? (
+            <path className="dashboard-panel-remote-sparkline" d={visualization.sparklinePath} />
+          ) : null}
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard-panel-remote-visual dashboard-panel-remote-visual--topology" aria-label="Topology 可视化">
+      <div className="dashboard-panel-remote-visual-summary">
+        <strong>{visualization.nodeLabel}</strong>
+        <span>{visualization.edgeLabel}</span>
+      </div>
+      <svg className="dashboard-panel-remote-chart" viewBox="0 0 240 112" role="img" aria-label="Topology 节点边预览">
+        {visualization.edges.map((edge) => (
+          <line
+            key={edge.id}
+            className={`dashboard-panel-remote-topology-edge dashboard-panel-remote-topology-edge--${edge.tone}`}
+            x1={edge.x1}
+            y1={edge.y1}
+            x2={edge.x2}
+            y2={edge.y2}
+            strokeWidth={edge.strokeWidth}
+          >
+            <title>
+              {edge.label} / {edge.callCountLabel} / {edge.errorCountLabel} / {edge.durationLabel}
+            </title>
+          </line>
+        ))}
+        {visualization.nodes.map((node) => (
+          <g key={node.id} className={`dashboard-panel-remote-topology-node dashboard-panel-remote-topology-node--${node.tone}`}>
+            <circle cx={node.x} cy={node.y} r={node.radius}>
+              <title>
+                {node.label} / {node.spanCountLabel} / {node.traceCountLabel} / {node.errorCountLabel}
+              </title>
+            </circle>
+            <text x={node.x} y={node.y + node.radius + 12}>
+              {node.chartLabel}
+            </text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }
