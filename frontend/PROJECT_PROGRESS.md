@@ -2,6 +2,34 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0061 Dashboard panel 基础图表渲染前端能力
+
+### 已完成
+
+- 接手并审阅 Banach 留在前端 worktree 的 5 个未提交改动，保留其按 `DashboardPanelPreviewResponse.preview` 生成轻量预览模型的方向，在其上补齐边界与可维护性修正。
+- 为已保存 dashboard panel 的远程查询预览新增轻量可视化模型：metrics aggregate 渲染 SVG 柱状预览、零轴和多点 sparkline；topology 渲染节点/边 SVG 摘要；logs/events/traces 保留样例列表并新增状态/严重度 marker。
+- metrics 处理空数据、单点、负值、多窗口和稳定排序；柱状图最多显示前 8 个窗口点，summary 汇总当前 preview 返回的样本数。
+- topology 处理空数据、节点和边、边引用缺失节点的情况；缺失节点会合成只读可视节点，summary 与图形摘要保持同一节点口径，长节点名在 SVG 中压短但保留完整 tooltip。
+- `/dashboards` 查询预览区域保持已保存 panel 按需加载语义，不保存草稿、不新增后端 API、不改后端契约、不引入重量级图表库。
+- 补充模型层和页面交互测试，覆盖 metrics 可视化、负值/单点、topology 缺失节点、logs marker、empty/error 状态不渲染图表。
+
+### 验证
+
+- Banach 和 Boyle 两个前端 worker 均超时未返回 final；当前由总 agent 异常接管已存在半成品并补齐验证，未额外启动测试子 agent。例外原因为连续两个前端 worker 未能收口且同一批前端改动已长期悬挂。
+- 当前前端 agent 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 通过（3 个测试文件、46 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+- 已用 Playwright CLI + Microsoft Edge 在自启动 Vite `127.0.0.1:25173` 上对 `/dashboards` 做 mock 数据态视觉复核：桌面 1280px 与移动 390px 均渲染出非空 metrics SVG（2 个 bar 与 sparkline），`avg 22 ms`/`样本 5` 可见，页面和 Panel 预览无横向溢出。已关闭 Edge session，停止自有 Vite 进程链并确认 `25173` 无监听。
+- 审计修复后已补充复验：修复 metrics 正负混合 sparkline 误用柱形顶点、窄 panel 图表固定两列被裁剪、5 节点 topology 标签可能越出 viewBox；新增回归测试后 `dashboardPanels.test.ts` 17 tests passed，Dashboard 专项 3 files / 48 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。Playwright CLI + Microsoft Edge 复验显示 metrics 图表盒 `scrollWidth=clientWidth=264`、2 个 bar 可见，`25173` 已释放。
+
+### 风险
+
+- 本轮只实现前端轻量 SVG 渲染与样例状态扫描能力，不做真实后端/MySQL/ClickHouse 联测，不新增后台刷新、变量、模板、告警或草稿保存。
+- 当前未做真实后端/MySQL 联测；Edge 视觉复核使用前端 mock API 数据态，不代表真实权限和数据库链路。
+- metrics 超过 8 个窗口点时图形只展示排序后的前 8 个点，summary 样本数仍汇总本次 preview 返回的所有 items；若后续需要更强一致性，可在产品层明确“显示前 N 点”的文案。
+
 ## 2026-06-24 T-0057 Dashboard panel 只读预览前端基础
 
 ### 已完成
