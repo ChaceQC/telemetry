@@ -102,8 +102,8 @@ closed      已关闭
 | T-0072 | Dashboard panel preview 请求时变量覆盖真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0073 | Dashboard 自动刷新前端基础 | 总 agent | done | todo | done | done | done |
 | T-0074 | Dashboard 自动刷新真实前后端联测 | 总 agent | done | done | done | done | done |
-| T-0075 | Dashboard 内置模板后端基础 | 总 agent | todo | done | done | done | testing |
-| T-0076 | Dashboard 内置模板前端基础 | 总 agent | todo | todo | todo | todo | todo |
+| T-0075 | Dashboard 内置模板后端基础 | 总 agent | todo | done | done | done | done |
+| T-0076 | Dashboard 内置模板前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -603,6 +603,8 @@ closed      已关闭
 | 2026-06-24 | T-0075 | 代码审计 agent Newton | Dashboard 内置模板后端基础审计通过 | Newton 只读审计 `9f530c6` 未发现 P0/P1/P2/P3；确认从模板创建先校验目标项目 `editor` 权限并沿用无权限 `404 项目不存在` 隐藏语义，模板读取深拷贝 layout/config 后经 `DashboardCreate` 复用 JSON/panel/time_range/variables 校验，请求体仅允许 `name/description`，文档未误承诺前端 UI、导入导出、分享/只读、模板市场或真实 ClickHouse 能力。审计侧 dashboard 专项 110 passed，ruff、format、mypy、diff check 均通过 | done |
 | 2026-06-24 | T-0075 | 总 agent | 真实 merge 集成 Dashboard 内置模板后端基础 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `9f530c6` 合入 `dev`，merge 提交 `41e1743`。merge 后本地门禁通过：后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 123 passed、1 条既有 Starlette/TestClient warning；后端 ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。待推送 `dev`、读取 CI 并同步 feature 分支 | testing |
 | 2026-06-24 | T-0076 | 总 agent | 登记 Dashboard 内置模板前端基础 | 阶段 5 下一小步限定为前端消费 T-0075 模板 API：在 `/dashboards` 页面提供内置模板列表/详情和“从模板创建 dashboard”的最小入口，支持选择项目、模板预览摘要、创建名称/描述、loading/error/401/404/422 状态，创建成功后进入普通 dashboard 编辑/预览流程。不改后端契约，不做 JSON 导入导出、分享/只读、模板市场、告警态势真实数据或复杂模板编辑 | todo |
+| 2026-06-25 | T-0075-sync | 总 agent | CI 与 worktree 同步完成 | T-0075 merge 与 T-0076 启动记录 `46fb5b3` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28122471295`、`28127248601`、`28127248664` 均通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0075 关闭 | done |
+| 2026-06-25 | T-0076 | 总 agent | 启动前端开发 agent Pasteur | 已启动前端开发 agent Pasteur（`019efb50-2ba4-7623-9c87-c19a100438d1`）在 `feature/frontend-dev` 推进 T-0076，要求先遵守 `frontend-skill`，在 `/dashboards` 消费 T-0075 模板 API，实现模板列表/详情/从模板创建入口、项目选择、名称/描述、loading/error/401/404/422 和创建成功进入普通 dashboard 流程；不改后端契约、不读 `auth.txt`、不启动 Docker，验证后提交并 push | doing |
 
 ## 6. 测试记录
 
@@ -774,6 +776,7 @@ closed      已关闭
 | 2026-06-24 | T-0074 | Dashboard 自动刷新真实前后端联测 | 测试 agent Harvey；临时 MySQL `127.0.0.1:33374`、库 `telemetry_t0074_20260625_0138`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge；后端/前端快速回归 | 通过 | `summary.json` 记录 `passed=true`、`failures=[]`、`previewRequestCount=12`。覆盖 15s 自动刷新重复请求、关闭后停止、最大并发重叠 `1`、运行时变量保留且不写回、未保存草稿停止请求、切换 panel/dashboard/session 停止旧 timer、390px 无横向溢出和 401/404/422 基础错误态；证据目录 `agents/runtime/e2e-T-0074-evidence`，自有资源已清理 |
 | 2026-06-24 | T-0075 | Dashboard 内置模板后端门禁 | `feature/backend-dev` run `28121599570`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `9f530c6` 上 feature/backend-dev CI 通过，Backend checks 与 Frontend checks 均为 success；Dewey 本地 dashboard/config 123 passed、ruff、format、mypy、uv lock、diff check 通过；Newton 审计侧 dashboard 专项 110 passed、ruff、format、mypy、diff check 通过 |
 | 2026-06-24 | T-0075 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `41e1743` 后，后端 dashboard/config 123 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py app/services/dashboard_templates.py tests/test_dashboard_api.py`、`uv run ruff format --check ...`、`uv run mypy ...`、`uv lock --check` 均通过；前端 typecheck、lint、build 通过；diff check 通过 |
+| 2026-06-25 | T-0075-sync | CI 与 worktree 同步 | GitHub Actions runs `28122471295`、`28127248601`、`28127248664`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `46fb5b3` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -919,8 +922,8 @@ closed      已关闭
 | 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已登记；本任务为测试收口，不产生 feature merge，下一步启动测试 agent 在最新 `dev/origin/dev` 上使用真实 MySQL/后端/前端/Edge 验证自动刷新链路 | testing |
 | 2026-06-24 | T-0074-start-sync | dev | feature/frontend-dev / feature/backend-dev | 总 agent | T-0073 收口与 T-0074 启动记录 `fc0cb46` 已同步到三分支；CI runs `28116999523`、`28117095511`、`28117094567` 均通过，严格 worktree 体检通过。测试 agent Harvey 已启动执行真实联测 | testing |
 | 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Harvey 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新重复请求、停止、并发保护、运行时变量、未保存草稿、切换 timer 和移动端 UI；资源已清理 | done |
-| 2026-06-24 | T-0075 | feature/backend-dev | dev | 总 agent | Dashboard 内置模板后端基础 `9f530c6` 已通过 Newton 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `41e1743`；本地门禁通过，待推送 `dev` 并读取 CI 后同步两个 feature 分支 | testing |
-| 2026-06-24 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础已登记；待 T-0075 merge 后的 dev/feature CI 与严格 worktree 体检通过后，在 `feature/frontend-dev` 启动前端开发 agent 实现模板列表/详情/从模板创建入口 | todo |
+| 2026-06-24 | T-0075 | feature/backend-dev | dev | 总 agent | Dashboard 内置模板后端基础 `9f530c6` 已通过 Newton 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `41e1743`；本地门禁、`dev` CI run `28122471295`、feature 同步 CI runs `28127248601`、`28127248664` 和严格 worktree 体检均通过 | done |
+| 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础已启动；前端开发 agent Pasteur（`019efb50-2ba4-7623-9c87-c19a100438d1`）正在 `feature/frontend-dev` 实现模板列表/详情/从模板创建入口，完成后需读取 feature CI、代码审计并由总 agent 真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
