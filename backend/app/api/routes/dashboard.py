@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import UTC, datetime, timedelta
 from math import isfinite
@@ -43,6 +44,10 @@ DASHBOARD_RELATIVE_TIME_DELTAS = {
     "7d": timedelta(days=7),
 }
 PANEL_QUERY_VARIABLE_TEMPLATE_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+
+
+def _reject_json_constant(value: str) -> Any:
+    raise ValueError(f"invalid JSON constant: {value}")
 
 
 def _map_dashboard_error(error: Exception) -> HTTPException:
@@ -159,31 +164,104 @@ def _dashboard_variable_definitions(config: Any) -> dict[str, dict[str, Any]]:
     return definitions
 
 
-def _dashboard_variable_default(
+def _parse_panel_preview_variable_overrides(raw_variables: str | None) -> dict[str, Any]:
+    if raw_variables is None:
+        return {}
+    if not raw_variables.strip():
+        raise QueryFilterError("variables 必须是 JSON 对象")
+    try:
+        parsed_variables = json.loads(
+            raw_variables,
+            parse_constant=_reject_json_constant,
+        )
+    except ValueError as error:
+        raise QueryFilterError("variables 必须是合法 JSON 对象") from error
+    if not isinstance(parsed_variables, dict):
+        raise QueryFilterError("variables 必须是 JSON 对象")
+    return parsed_variables
+
+
+def _dashboard_variable_select_options(
+    variable: dict[str, Any],
+    variable_name: str,
+) -> set[str]:
+    raw_options = variable.get("options")
+    if not isinstance(raw_options, list) or not raw_options:
+        raise QueryFilterError(f"panel.query 变量 {variable_name}.options 必须是非空字符串数组")
+    options: set[str] = set()
+    for option in raw_options:
+        if not isinstance(option, str):
+            raise QueryFilterError(f"panel.query 变量 {variable_name}.options 必须是非空字符串数组")
+        options.add(option)
+    return options
+
+
+def _dashboard_variable_typed_value(
+    variable: dict[str, Any],
+    variable_name: str,
+    value: Any,
+    *,
+    value_label: str,
+) -> str | int | float:
+    variable_type = variable.get("type")
+    if variable_type in {"text", "select"}:
+        if not isinstance(value, str):
+            raise QueryFilterError(f"panel.query 变量 {variable_name}.{value_label} 必须是字符串")
+        if variable_type == "select" and value not in _dashboard_variable_select_options(
+            variable,
+            variable_name,
+        ):
+            raise QueryFilterError(
+                f"panel.query 变量 {variable_name}.{value_label} 必须匹配 options"
+            )
+        return value
+    if variable_type == "number":
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
+            raise QueryFilterError(f"panel.query 变量 {variable_name}.{value_label} 必须是有限数值")
+        return value
+    raise QueryFilterError(f"panel.query 变量 {variable_name}.type 必须是 text/number/select 之一")
+
+
+def _validate_panel_preview_variable_overrides(
+    definitions: dict[str, dict[str, Any]],
+    variable_overrides: dict[str, Any],
+) -> None:
+    for variable_name, override_value in variable_overrides.items():
+        variable = definitions.get(variable_name)
+        if variable is None:
+            raise QueryFilterError(f"variables.{variable_name} 未定义")
+        _dashboard_variable_typed_value(
+            variable,
+            variable_name,
+            override_value,
+            value_label="override",
+        )
+
+
+def _dashboard_variable_value(
     definitions: dict[str, dict[str, Any]],
     variable_name: str,
+    *,
+    variable_overrides: dict[str, Any],
 ) -> str | int | float:
     variable = definitions.get(variable_name)
     if variable is None:
         raise QueryFilterError(f"panel.query 变量 {variable_name} 未定义")
+    if variable_name in variable_overrides:
+        return _dashboard_variable_typed_value(
+            variable,
+            variable_name,
+            variable_overrides[variable_name],
+            value_label="override",
+        )
     if "default" not in variable:
         raise QueryFilterError(f"panel.query 变量 {variable_name} 缺少 default")
-
-    variable_type = variable.get("type")
-    default = variable["default"]
-    if variable_type in {"text", "select"}:
-        if not isinstance(default, str):
-            raise QueryFilterError(f"panel.query 变量 {variable_name}.default 必须是字符串")
-        return default
-    if variable_type == "number":
-        if (
-            isinstance(default, bool)
-            or not isinstance(default, (int, float))
-            or not isfinite(default)
-        ):
-            raise QueryFilterError(f"panel.query 变量 {variable_name}.default 必须是有限数值")
-        return default
-    raise QueryFilterError(f"panel.query 变量 {variable_name}.type 必须是 text/number/select 之一")
+    return _dashboard_variable_typed_value(
+        variable,
+        variable_name,
+        variable["default"],
+        value_label="default",
+    )
 
 
 def _panel_query_variable_name(value: str) -> str | None:
@@ -199,14 +277,21 @@ def _resolve_panel_query_variable_defaults(
     query: dict[str, Any],
     *,
     dashboard_config: Any,
+    variable_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     definitions = _dashboard_variable_definitions(dashboard_config)
+    normalized_variable_overrides = variable_overrides or {}
+    _validate_panel_preview_variable_overrides(definitions, normalized_variable_overrides)
     resolved_query: dict[str, Any] = {}
     for key, value in query.items():
         if isinstance(value, str):
             variable_name = _panel_query_variable_name(value)
             if variable_name is not None:
-                value = _dashboard_variable_default(definitions, variable_name)
+                value = _dashboard_variable_value(
+                    definitions,
+                    variable_name,
+                    variable_overrides=normalized_variable_overrides,
+                )
         resolved_query[key] = value
     return resolved_query
 
@@ -464,6 +549,7 @@ def preview_project_dashboard_panel(
     project_id: Annotated[int, Path(gt=0)],
     dashboard_id: Annotated[int, Path(gt=0)],
     panel_id: Annotated[str, Path(min_length=1, max_length=64)],
+    variables: Annotated[str | None, Query(max_length=8192)] = None,
 ) -> DashboardPanelPreviewResponse:
     try:
         dashboard = dashboard_service.get_dashboard(
@@ -481,9 +567,11 @@ def preview_project_dashboard_panel(
             or not isinstance(panel_query, dict)
         ):
             raise QueryFilterError("panel 配置无效")
+        variable_overrides = _parse_panel_preview_variable_overrides(variables)
         resolved_panel_query = _resolve_panel_query_variable_defaults(
             panel_query,
             dashboard_config=dashboard.config,
+            variable_overrides=variable_overrides,
         )
         preview = _build_panel_preview(
             query_service=query_service,
