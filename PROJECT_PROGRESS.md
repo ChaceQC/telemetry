@@ -718,6 +718,7 @@
 - T-0059 已完成前端 feature CI、本地审计和真实 merge：`feature/frontend-dev` 提交 `5b28d5b` 已通过 GitHub Actions run `28064233579`；总 agent 本地审计未发现 P0/P1/P2/P3，代码审计 agent Parfit 因超时关闭且未返回可用结论；随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`。merge 后本地门禁通过：前端 dashboard 专项 4 files / 45 tests passed、typecheck、lint、build 通过，后端 config 13 passed、`uv lock --check`、`git diff --check` 通过。当前等待推送 `dev` 并读取 CI，再同步两个 feature 分支。
 - T-0059 同步 CI 与 worktree 体检通过：`ce5cca2` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 均通过；两个 feature 分支已 fast-forward 到 `dev`。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过，确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交。T-0059 关闭。
 - T-0060 已登记为阶段 5 测试收口小步：Dashboard panel 查询预览真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖登录、项目/API Key/样本摄入、Dashboard CRUD 与 panels 保存、metrics/logs/events/traces/topology panel 预览、未保存草稿不请求后端、非法 query 422/error 展示、权限/未认证边界和既有查询/拓扑快速回归。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
+- T-0060 真实前后端联测通过：测试 agent Poincare 未返回主线程 final，但已按测试 agent 规范追加 `agents/runtime/test-agent.log.md` 记录，结论为通过。使用自启动临时 MySQL 8.0.42 `127.0.0.1:3307`/库 `telemetry_t0060_20260624_080520`、真实后端 `28117`、真实前端 `25173`、Playwright + Microsoft Edge 和临时 Node API 边界脚本；UI 30 条断言和 API 边界 16 条断言全过。覆盖 5 类 panel preview、未保存 config 不请求、非法 query 422 panel 内展示、encoded panel id、401/404/422、无权限边界和 metrics/logs/events/traces/topology 快速回归；证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，`25173/28117/3307` 已释放。
 
 ### 阻塞与风险
 
@@ -740,12 +741,11 @@
 - T-0049-fix 阻断问题已由 `3ed47cb`/`a86f559` 关闭：已登录 URL 直达或刷新查询页首个业务请求带 Authorization，无 401。
 - T-0049-fix 新增 P2 已由 `a86f559` 关闭并经 Planck 重测观察通过：Settings 与 Overview 的 React Query 缓存按 sessionRevision 隔离，并在不可请求认证 API 时隐藏旧数据。
 - T-0049-fix2 阻断问题已由 `a30e126` 关闭并经 Godel 最终联测确认：`/traces?trace_id=...` 会初始化 Trace ID 筛选并传给后端，valid 深链与 129 字符 trace_id 422/错误态均通过。
-- T-0058 残余风险：本轮只基于关系库 `ingest_records` 查询能力返回已保存 panel 的只读预览；尚未做真实 MySQL/真实后端服务/前端浏览器联测，不接 ClickHouse，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警。历史 dashboard config 中更多非法 query 形态仍按参与预览的白名单字段运行时返回 `422` 或沿现有 query service 语义处理。
-- T-0059 残余风险：本轮为前端按需消费 T-0058 预览 API，仍未启动真实后端、数据库或浏览器联测；预览数据只做摘要/样例展示，不做真实图表渲染、ClickHouse 查询、变量替换、模板、缓存、后台刷新或告警。已通过本地单元/交互测试覆盖未保存草稿不请求后端、422 错误展示和 panel path 编码，但真实权限/数据链路需后续集成测试确认。代码审计 agent 本轮未能返回结论，总 agent 已完成本地审计并记录无阻断发现。
+- T-0058/T-0059 的真实 MySQL/真实后端/真实前端/Edge 联测风险已由 T-0060 覆盖并通过；剩余产品边界仍是不接 ClickHouse、不做真实图表渲染、变量替换、模板、缓存、后台刷新或告警。历史 dashboard config 中更多非法 query 形态仍按参与预览的白名单字段运行时返回 `422` 或沿现有 query service 语义处理。
 
 ### 下一步
 
-- 启动并等待 T-0060 测试 agent 完成 Dashboard panel 查询预览真实前后端联测；若通过，再推进基础图表渲染能力。
+- 继续阶段 5 下一小步：Dashboard panel 基础图表渲染前端能力，优先在已保存 panel 的预览数据基础上引入最小可视化，不接 ClickHouse、不做变量/模板/告警。
 
 ### 验证
 
@@ -795,6 +795,8 @@
 - T-0058 最终文档收口 CI 与 worktree 体检通过：GitHub Actions runs `28061977805`、`28062046509`、`28062045863` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `002ac37`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过，确认 root、frontend、backend 三棵 worktree 干净、分支正确、与远端一致。
 - T-0059 前端开发侧本地门禁通过：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files / 45 tests passed；`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 和 `git diff --check` 均通过。未启动真实服务、数据库、Docker 或浏览器。
 - T-0059 同步 CI 与 worktree 体检通过：GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `ce5cca2`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。
+- T-0060 启动记录 CI 与 worktree 体检通过：GitHub Actions runs `28065373335`、`28065444035`、`28065444183` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `ede0c24`，均为 success；随后严格 worktree 体检通过。
+- T-0060 真实前后端联测通过：Poincare 使用自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge；UI 30 条断言、API 边界 16 条断言全过，证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，自有资源已清理。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

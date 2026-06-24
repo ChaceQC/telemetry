@@ -87,7 +87,7 @@ closed      已关闭
 | T-0057 | Dashboard panel 只读预览前端基础 | 总 agent | done | todo | done | done | done |
 | T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | done |
 | T-0059 | Dashboard panel 查询预览前端接入基础 | 总 agent | done | todo | done | done | done |
-| T-0060 | Dashboard panel 查询预览真实前后端联测 | 总 agent | done | done | doing | todo | doing |
+| T-0060 | Dashboard panel 查询预览真实前后端联测 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -514,6 +514,7 @@ closed      已关闭
 | 2026-06-24 | T-0059 | 总 agent | 真实 merge 集成 Dashboard panel 查询预览前端接入 | 代码审计 agent Parfit 因超时关闭且未返回可用结论；总 agent 本地审计 `5b28d5b` 未发现 P0/P1/P2/P3。随后使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`；merge 后本地门禁通过，待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0059 | 总 agent | CI 与 worktree 同步完成 | `ce5cca2` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 均通过；两个 feature 分支已 fast-forward 到 `dev`，严格 worktree 体检通过。T-0059 关闭 | done |
 | 2026-06-24 | T-0060 | 总 agent | 登记 Dashboard panel 查询预览真实前后端联测 | 阶段 5 下一小步限定为测试收口：在 `dev/origin/dev` 最新同步点使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge 验证已保存 dashboard panel 查询预览链路。需覆盖登录/项目/API Key/样本摄入、Dashboard CRUD 与 panels 保存、metrics/logs/events/traces/topology panel 预览、未保存草稿不请求后端、非法 panel query 422/error 展示、权限/未认证基础边界和既有查询/拓扑快速回归。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源 | doing |
+| 2026-06-24 | T-0060 | 测试 agent Poincare | Dashboard panel 查询预览真实前后端联测通过 | Poincare 未返回主线程 final，但已按测试 agent 规范追加 `agents/runtime/test-agent.log.md` 记录，结论为通过。使用自启动临时 MySQL 8.0.42 `127.0.0.1:3307`/库 `telemetry_t0060_20260624_080520`、真实后端 `28117`、真实前端 `25173`、Playwright + Microsoft Edge；UI 30 条断言与 API 边界 16 条断言均通过，覆盖 5 类 panel preview、未保存 config 不请求、422/error、未认证/无权限和基础查询/拓扑回归。证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，自有资源已清理 | done |
 
 ## 6. 测试记录
 
@@ -629,6 +630,8 @@ closed      已关闭
 | 2026-06-24 | T-0059 | feature/frontend-dev CI | GitHub Actions run `28064233579` | 通过 | `5b28d5b` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js 20 actions runtime 弃用注解 |
 | 2026-06-24 | T-0059 | dev merge 后本地验证 | 前端 dashboard 专项 test、typecheck、lint、build；后端 config/uv lock；`git diff --check` | 通过 | merge 提交 `ec60d04` 后，前端 `npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 4 files / 45 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check`、diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-24 | T-0059-sync | CI 与 worktree 同步 | GitHub Actions runs `28064903792`、`28064966565`、`28064966669`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` | 通过 | `ce5cca2` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。两个 feature 分支已同步到 `dev`；严格体检确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交 |
+| 2026-06-24 | T-0060-start | CI 与 worktree 同步 | GitHub Actions runs `28065373335`、`28065444035`、`28065444183`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | T-0060 启动记录 `ede0c24` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js 20 actions runtime 弃用注解。严格 worktree 体检通过 |
+| 2026-06-24 | T-0060 | Dashboard panel 查询预览真实前后端联测 | 测试 agent Poincare；自启动临时 MySQL 8.0.42、真实 FastAPI 后端、真实 Vite 前端、Playwright + Microsoft Edge、临时 Node API 边界脚本 | 通过 | UI 30 条断言全过，API 边界 16 条断言全过。覆盖登录、项目/环境/服务/API Key、metrics/logs/events/traces 摄入、已保存 5 类 panel preview、未保存 config 不请求后端、非法 query 422 panel 内展示、encoded panel id、401/404/422、无权限边界和 metrics/logs/events/traces/topology 快速回归；证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，`25173/28117/3307` 已释放 |
 
 ## 7. 审计记录
 
@@ -740,7 +743,7 @@ closed      已关闭
 | 2026-06-24 | T-0058-final-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `002ac37` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0059 | feature/frontend-dev | dev | 总 agent | 前端接入 T-0058 panel 查询预览 API 提交 `5b28d5b` 已通过 feature CI `28064233579`；Parfit 审计超时无结论，总 agent 本地审计无 P0/P1/P2/P3；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`；`ce5cca2` 已同步到三分支且 CI 均通过 | done |
 | 2026-06-24 | T-0059-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `ce5cca2` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
-| 2026-06-24 | T-0060 | dev | dev | 总 agent | 已登记 Dashboard panel 查询预览真实前后端联测；测试 agent 将基于最新 `dev/origin/dev` 执行，不产生 feature merge | doing |
+| 2026-06-24 | T-0060 | dev | dev | 总 agent | Dashboard panel 查询预览真实前后端联测已通过；本任务为测试收口，不产生 feature merge | done |
 
 ## 10. 决策记录
 
