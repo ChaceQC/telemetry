@@ -88,6 +88,7 @@ closed      已关闭
 | T-0058 | Dashboard panel 查询预览后端基础 | 总 agent | todo | done | done | done | done |
 | T-0059 | Dashboard panel 查询预览前端接入基础 | 总 agent | done | todo | done | done | done |
 | T-0060 | Dashboard panel 查询预览真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0061 | Dashboard panel 基础图表渲染前端能力 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -515,6 +516,7 @@ closed      已关闭
 | 2026-06-24 | T-0059 | 总 agent | CI 与 worktree 同步完成 | `ce5cca2` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 均通过；两个 feature 分支已 fast-forward 到 `dev`，严格 worktree 体检通过。T-0059 关闭 | done |
 | 2026-06-24 | T-0060 | 总 agent | 登记 Dashboard panel 查询预览真实前后端联测 | 阶段 5 下一小步限定为测试收口：在 `dev/origin/dev` 最新同步点使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge 验证已保存 dashboard panel 查询预览链路。需覆盖登录/项目/API Key/样本摄入、Dashboard CRUD 与 panels 保存、metrics/logs/events/traces/topology panel 预览、未保存草稿不请求后端、非法 panel query 422/error 展示、权限/未认证基础边界和既有查询/拓扑快速回归。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源 | doing |
 | 2026-06-24 | T-0060 | 测试 agent Poincare | Dashboard panel 查询预览真实前后端联测通过 | Poincare 未返回主线程 final，但已按测试 agent 规范追加 `agents/runtime/test-agent.log.md` 记录，结论为通过。使用自启动临时 MySQL 8.0.42 `127.0.0.1:3307`/库 `telemetry_t0060_20260624_080520`、真实后端 `28117`、真实前端 `25173`、Playwright + Microsoft Edge；UI 30 条断言与 API 边界 16 条断言均通过，覆盖 5 类 panel preview、未保存 config 不请求、422/error、未认证/无权限和基础查询/拓扑回归。证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，自有资源已清理 | done |
+| 2026-06-24 | T-0061 | 总 agent | 登记 Dashboard panel 基础图表渲染前端能力 | 阶段 5 下一小步限定为前端在 `/dashboards` 查询预览区增加基础可视化：基于 T-0058/T-0059 已有 preview payload，本地无新增后端契约；metrics 聚合用轻量 SVG/条形或趋势摘要展示，topology 用简洁节点/边摘要可视化，logs/events/traces 仍以可扫描样例列表为主并可增加状态/严重度视觉标记。不得接 ClickHouse、变量/模板/告警、后台刷新或保存草稿；优先复用已有 `.metric-trend`/全局样式和 lucide 图标，不新增重量图表库；使用 restrained operational UI，不做 hero/营销布局。将启动前端开发 agent 在 `feature/frontend-dev` 工作 | doing |
 
 ## 6. 测试记录
 
@@ -744,6 +746,7 @@ closed      已关闭
 | 2026-06-24 | T-0059 | feature/frontend-dev | dev | 总 agent | 前端接入 T-0058 panel 查询预览 API 提交 `5b28d5b` 已通过 feature CI `28064233579`；Parfit 审计超时无结论，总 agent 本地审计无 P0/P1/P2/P3；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec60d04`；`ce5cca2` 已同步到三分支且 CI 均通过 | done |
 | 2026-06-24 | T-0059-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `ce5cca2` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0060 | dev | dev | 总 agent | Dashboard panel 查询预览真实前后端联测已通过；本任务为测试收口，不产生 feature merge | done |
+| 2026-06-24 | T-0061 | feature/frontend-dev | dev | 总 agent | 已登记 Dashboard panel 基础图表渲染前端能力；后续由前端开发 agent 在 `feature/frontend-dev` 实现、验证、提交和推送，通过审计后再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 

@@ -719,6 +719,7 @@
 - T-0059 同步 CI 与 worktree 体检通过：`ce5cca2` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28064903792`、`28064966565`、`28064966669` 均通过；两个 feature 分支已 fast-forward 到 `dev`。`./scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过，确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交。T-0059 关闭。
 - T-0060 已登记为阶段 5 测试收口小步：Dashboard panel 查询预览真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖登录、项目/API Key/样本摄入、Dashboard CRUD 与 panels 保存、metrics/logs/events/traces/topology panel 预览、未保存草稿不请求后端、非法 query 422/error 展示、权限/未认证边界和既有查询/拓扑快速回归。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
 - T-0060 真实前后端联测通过：测试 agent Poincare 未返回主线程 final，但已按测试 agent 规范追加 `agents/runtime/test-agent.log.md` 记录，结论为通过。使用自启动临时 MySQL 8.0.42 `127.0.0.1:3307`/库 `telemetry_t0060_20260624_080520`、真实后端 `28117`、真实前端 `25173`、Playwright + Microsoft Edge 和临时 Node API 边界脚本；UI 30 条断言和 API 边界 16 条断言全过。覆盖 5 类 panel preview、未保存 config 不请求、非法 query 422 panel 内展示、encoded panel id、401/404/422、无权限边界和 metrics/logs/events/traces/topology 快速回归；证据目录 `agents/runtime/e2e-T-0060-20260624-080520`，`25173/28117/3307` 已释放。
+- T-0061 已登记为阶段 5 下一小步：Dashboard panel 基础图表渲染前端能力。边界为只在 `/dashboards` 查询预览区基于已有 preview payload 增加最小可视化，不改后端契约、不新增重量图表库、不接 ClickHouse、不做变量/模板/告警或后台刷新。metrics 聚合优先用轻量 SVG/条形或趋势摘要展示，topology 用简洁节点/边摘要可视化，logs/events/traces 保持可扫描样例列表并可加入状态/严重度视觉标记；UI 遵循 restrained operational surface。
 
 ### 阻塞与风险
 
@@ -745,7 +746,7 @@
 
 ### 下一步
 
-- 继续阶段 5 下一小步：Dashboard panel 基础图表渲染前端能力，优先在已保存 panel 的预览数据基础上引入最小可视化，不接 ClickHouse、不做变量/模板/告警。
+- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0061；完成后进行前端验证、代码审计、真实 merge 和 CI/worktree 同步。
 
 ### 验证
 
