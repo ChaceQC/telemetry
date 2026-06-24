@@ -732,6 +732,13 @@
 - T-0062 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `ecf0c5b` 合入，merge 提交 `120e6b5`。merge 后本地门禁通过：后端 dashboard/config 70 tests passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 - T-0062 已完成同步收口：`1201f83` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28071436834`、`28071498132`、`28071498454` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0062 关闭。
 - T-0063 已登记为阶段 5 下一小步：Dashboard 全局时间范围前端基础。边界为在 `/dashboards` 已保存 dashboard 编辑区读取/编辑 `config.time_range`，支持 relative `15m/1h/6h/24h/7d` 与 absolute `from/to` ISO 字符串，保存时写回既有 Dashboard update API，并覆盖 invalid/legacy/unsaved 状态；不改后端契约、不让 panel preview 自动继承全局时间范围、不接 ClickHouse、不做变量、模板、自动刷新或告警，UI 继续遵循 restrained operational surface。
+- T-0063 前端实现与 feature CI 通过：前端开发 agent Bohr 提交并推送 `adbe06c` 到 `feature/frontend-dev`，新增 `/dashboards` 保存层全局时间范围 UI 和纯函数测试；Dashboard 专项 5 files/65 tests、typecheck、lint、build、`git diff --check` 和 Playwright + Microsoft Edge mock 冒烟通过。feature CI run `28072973164` 成功，Frontend checks 与 Backend checks 均为 success；当前已启动 Feynman 只读代码审计。
+- T-0063 审计未通过并已分派修复：代码审计 agent Feynman 在 `adbe06c` 发现 1 个 P2，absolute 时间校验会放过不存在的日历日期，例如 `2026-02-31T00:00:00Z` 会被 V8/Node `Date.parse` 滚动解析并允许保存到 `config.time_range`。P0/P1/P3 未发现；审计侧 5 files/53 tests 通过。已分派 Bohr 修复严格 ISO 日期校验并补回归。
+- T-0063-fix 已重新分派：Bohr 修复轮因连接中断未返回结论；总 agent 检查 `feature/frontend-dev` 仍停在 `adbe06c` 且 worktree 干净，没有半成品或新 CI。已启动前端修复 agent Euler 接手 absolute ISO 严格日期校验修复。
+- T-0063-fix 实现与 feature CI 通过：前端修复 agent Euler 提交并推送 `a611c4a` 到 `feature/frontend-dev`，严格校验 absolute ISO 输入，拒绝不存在日期、月份/日期越界和非闰年 2 月 29 日，并保留合法闰年、毫秒和时区输入；time range 9 tests、保存层交互 25 tests、Dashboard 专项 5 files/69 tests、typecheck、lint、build、`git diff --check` 通过。feature CI run `28079423160` 成功，Frontend checks 与 Backend checks 均为 success；当前已启动 Confucius 只读复审。
+- T-0063-fix 复审未通过并已继续分派：Confucius 确认最终保存路径已能阻止非法 absolute 提交，但发现 1 个新的 P2：字段输入路径仍会把非法 absolute draft 直接写入 `config.time_range` 草稿，未满足错误状态不写回 config 的边界。已登记 T-0063-fix2，要求修复 `writeDashboardTimeRangeToConfigText` 或调用层，非法 absolute 输入不得污染 config JSON，并补纯函数与页面交互回归。
+- T-0063-fix2 实现与 feature CI 通过：前端修复 agent Raman 提交并推送 `eb2c97b` 到 `feature/frontend-dev`，非法 absolute draft 不再写入 `config.time_range` 或污染 config JSON，UI 保留非法输入和错误提示，保存由本地错误拦截；手动 JSON 非法 `time_range` 仍由保存前 parser 阻止。time range 11 tests、DashboardsPage interaction 27 tests、Dashboard 专项 5 files/73 tests、typecheck、lint、build、`git diff --check` 通过。feature CI run `28080485867` 成功，Frontend checks 与 Backend checks 均为 success；当前已启动 Feynman 只读复审 fix2。
+- T-0063-fix2 复审通过：Feynman 复审 `eb2c97b` 未发现 P0/P1/P2/P3，确认非法 `2026-02-31T00:00:00Z` 不会生成污染后的 `configText`，页面保留非法草稿并显示错误，保存路径先拦截非法草稿且不会调用 update API；手动 JSON 非法 `config.time_range` 仍由保存前 parser 阻止；panel preview 仍只调用 `previewDashboardPanel(projectId, dashboardId, panelId)`，未继承或传递 `time_range`。复审侧 2 files/38 tests、Dashboard 专项 5 files/73 tests、diff check 和入库扫描通过。T-0063 可进入真实 merge。
 
 ### 阻塞与风险
 
@@ -758,10 +765,11 @@
 - T-0062 只定义 Dashboard `config.time_range` 的保存层结构，不改变当前预览查询行为；前端时间选择器、panel query 继承、刷新策略和真实预览联测需后续小步覆盖。
 - T-0062 后端审计残余风险：未覆盖真实 MySQL JSON 列读写；绝对时间解析当前依赖 Python `datetime.fromisoformat` 的接受范围，若后续产品要求严格 RFC3339 或强制 timezone-aware，需要另行收紧。
 - T-0063 只做前端保存层体验，不改变远端预览查询的时间范围来源；用户保存 `config.time_range` 后，panel preview 仍按现有 panel query 字段请求，继承全局时间范围需后续小步显式实现和联测。
+- T-0063 的前端保存层和两个审计 P2 已关闭；剩余风险为未做真实后端/MySQL 联调，且 panel preview 继承全局时间范围仍是后续小步，不在当前 merge 边界内。
 
 ### 下一步
 
-- 启动前端开发 agent 在 `feature/frontend-dev` 实现 T-0063 Dashboard 全局时间范围前端基础，完成后执行前端门禁、feature CI、代码审计和真实 merge 流程。
+- 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0063 合入 `dev`，随后执行本地门禁、推送、读取 CI、同步 feature 分支并运行严格 worktree 体检。
 
 ### 验证
 
