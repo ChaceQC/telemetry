@@ -746,6 +746,8 @@
 - T-0064 后端实现和 feature CI 通过：后端开发 agent Kant 提交并推送 `2da1cca` 到 `feature/backend-dev`，已保存 panel preview 会继承 dashboard `config.time_range`，relative `15m/1h/6h/24h/7d` 基于服务端 UTC now 生成查询窗口，absolute 使用 `from/to`，panel 显式 `occurred_from/to` 单边优先覆盖，legacy/no time_range 行为保持。Kant 本地 `tests/test_dashboard_api.py` 59 passed、ruff、format、mypy、`git diff --check` 均通过；feature CI run `28083567233` 成功，Frontend checks 与 Backend checks 均为 success。已启动 Socrates 只读代码审计。
 - T-0064 代码审计通过：Socrates 复审 `2da1cca` 未发现 P0/P1/P2/P3，确认全局 `config.time_range` 继承、panel 显式时间优先、legacy/no time_range 行为、API 契约不变和测试覆盖均符合当前边界；审计侧相关 3 项 preview 时间范围测试、完整 `test_dashboard_api.py` 59 passed、ruff 和 whitespace check 通过。T-0064 可进入真实 merge。
 - T-0064 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `2da1cca` 合入，merge 提交 `666d9ea`。merge 后本地门禁通过：后端 dashboard/config 72 tests passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0064 已完成同步收口：`b28492c` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28084444385`、`28084573871`、`28084583929` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0064 关闭。
+- T-0065 已登记为阶段 5 测试收口小步：Dashboard preview 继承全局时间范围真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖保存 dashboard `config.time_range` 后 panel preview 默认继承 relative/absolute 范围、panel query 显式 `occurred_from/to` 单边优先、legacy/no time_range 行为、UI 预览展示和既有查询/摄入/权限快速回归。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
 
 ### 阻塞与风险
 
@@ -773,11 +775,11 @@
 - T-0062 后端审计残余风险：未覆盖真实 MySQL JSON 列读写；绝对时间解析当前依赖 Python `datetime.fromisoformat` 的接受范围，若后续产品要求严格 RFC3339 或强制 timezone-aware，需要另行收紧。
 - T-0063 只做前端保存层体验，不改变远端预览查询的时间范围来源；用户保存 `config.time_range` 后，panel preview 仍按现有 panel query 字段请求，继承全局时间范围需后续小步显式实现和联测。
 - T-0063 的前端保存层和两个审计 P2 已关闭；剩余风险为未做真实后端/MySQL 联调。
-- T-0064 只做已保存 panel preview 的默认时间范围继承，不改变 API 请求/响应；relative 时间会依赖服务端当前时间计算，测试需使用可稳定断言的时间窗口或注入/封装当前时间，避免 flaky。
+- T-0064 只做已保存 panel preview 的默认时间范围继承，不改变 API 请求/响应；relative 时间会依赖服务端当前时间计算，真实联测需用时间窗口或样本时间设计降低 flaky 风险。
 
 ### 下一步
 
-- 推送 T-0064 dev merge，读取 GitHub Actions CI；CI 通过后同步 `feature/frontend-dev` 与 `feature/backend-dev` 到最新 `dev`，运行严格 worktree 体检，并登记 T-0064 收口状态。
+- 启动 T-0065 测试 agent，在最新 `dev/origin/dev` 上用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 验证 Dashboard preview 继承全局时间范围；通过后登记证据目录、资源清理和关闭 T-0065。
 
 ### 验证
 
