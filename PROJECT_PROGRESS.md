@@ -784,6 +784,8 @@
 - T-0073 前端实现、审计修复和 feature CI 通过：Zeno 在 `feature/frontend-dev` 提交并推送 `9517117`，为已保存 dashboard 的选中 panel preview 增加本地自动刷新控制，支持关闭、15s、30s、60s，默认关闭；复用既有 preview API、query key 和运行时变量覆盖签名；切换项目/dashboard/panel/page、编辑 config/panel/变量/time range/runtime、保存、删除、关闭或卸载时停止并重置。Bacon 审计发现 1 个 P3：手动刷新 pending 时 interval 可能重复发起请求；总 agent 提交 `039f352`，通过 `panelPreviewFetchingRef` 避免任何 preview query fetching 期间自动刷新重入，并补交互测试。Feature CI runs `28114472192`、`28115655056` 均成功，Bacon 复审未发现新的 P0/P1/P2/P3。
 - T-0073 已真实 merge 并完成同步收口：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `9517117` 与 `039f352` 合入 `dev`，merge 提交 `dfd8044`。merge 后本地门禁通过：前端 dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。`dfd8044` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28116264125`、`28116374294`、`28116372695` 均成功；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0073 关闭。
 - T-0074 已登记为阶段 5 测试收口小步：Dashboard 自动刷新真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖自动刷新实际重复触发 panel preview、关闭后停止请求、手动刷新与自动刷新不产生可观察重复并发请求、运行时变量覆盖值随自动刷新保留、未保存 config/panel/变量/time range/runtime 草稿停止或不请求、切换 dashboard/panel/session 停止旧 timer、390px 移动端无横向溢出。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
+- T-0074 启动同步 CI 与 worktree 体检通过：T-0073 收口与 T-0074 启动记录 `fc0cb46` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28116999523`、`28117095511`、`28117094567` 均成功，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。
+- 已启动测试 agent Harvey（`019efaaf-8468-77c1-84ac-c8e437b8cf60`）执行 T-0074：要求使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新真实链路；不改业务代码、不提交/不 push、不修改根正式文档、不读 `auth.txt`、不启动 Docker，只在 ignored 的 `agents/runtime/` 下写测试日志和证据并清理自有资源。
 
 ### 阻塞与风险
 
@@ -823,7 +825,7 @@
 
 ### 下一步
 
-- 提交并推送 T-0073 收口与 T-0074 启动记录，读取对应 `dev` CI；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev`、等待三分支 CI 并运行严格 worktree 体检，再启动 T-0074 测试 agent 做真实 MySQL/后端/前端/Edge 自动刷新联测。
+- 等待测试 agent Harvey 交付 T-0074 真实 MySQL/后端/前端/Edge 自动刷新联测结论；若通过则汇总证据、关闭 T-0074 并登记下一小步，若发现问题则按 P 级别启动对应修复 agent。
 
 ### 验证
 
@@ -836,6 +838,7 @@
 - T-0073 feature 分支门禁通过：`feature/frontend-dev` runs `28114472192`、`28115655056` 均为 success；修复后本地 `DashboardsPage.interaction` 37 passed，dashboard suite 6 files / 95 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
 - T-0073 merge 后本地门禁通过：merge 提交 `dfd8044` 后，前端 dashboard suite 6 files / 95 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。
 - T-0073 同步 CI 与 worktree 体检通过：`dfd8044` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28116264125`、`28116374294`、`28116372695` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
+- T-0074 启动同步 CI 与 worktree 体检通过：`fc0cb46` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28116999523`、`28117095511`、`28117094567` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
 - T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
