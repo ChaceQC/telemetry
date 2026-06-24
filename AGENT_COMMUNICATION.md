@@ -560,6 +560,7 @@ closed      已关闭
 | 2026-06-24 | T-0067 | 前端开发 agent Erdos / 总 agent | Dashboard 变量配置前端基础完成 | Erdos 初轮曾误写根工作树，总 agent 已中断并迁移到 `feature/frontend-dev`，保持根工作树干净；功能提交 `34f2b39` 增加 `/dashboards` 已保存 dashboard 的 `config.variables` 列表、添加/编辑/删除、本地校验与保存写回既有 update API，legacy config 可继续显示并新增变量。feature CI run `28094304945` 通过 | audit |
 | 2026-06-24 | T-0067-fix | 前端开发 agent / 总 agent | 变量空默认值审计修复完成 | Beauvoir 审计发现 1 个 P3：编辑显式 `default: ""` 的合法 text 变量时会丢失 `default` key。修复提交 `81ebdc9` 增加 `hasDefault` 草稿状态与 UI 选项，区分缺省 default 和空字符串 default；feature CI run `28095280129` 通过 | done |
 | 2026-06-24 | T-0067 | 总 agent | 真实 merge 集成 Dashboard 变量配置前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `34f2b39` 与 `81ebdc9` 合入 `dev`，merge 提交 `f83660d`。merge 后本地门禁通过：前端变量/Dashboard 专项 49 tests、typecheck、lint、build 通过；后端 dashboard/config 96 passed、ruff、format、mypy、`uv lock --check` 通过；`git diff --check` 通过。待推送 `dev`、读取 CI 并同步两个 feature 分支 | testing |
+| 2026-06-24 | T-0067 | 总 agent | dev CI 通过 | `6cf7d0c` 已推送到 `dev`，GitHub Actions run `28095878349` 通过；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。下一步将两个 feature 分支 fast-forward 到最新 `dev` 并等待三分支 CI/体检 | testing |
 
 ## 6. 测试记录
 
@@ -705,6 +706,7 @@ closed      已关闭
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端门禁 | `feature/frontend-dev` run `28094304945`；前端变量/Dashboard 专项、typecheck、lint、build、`git diff --check`、Playwright + Microsoft Edge mock 冒烟 | 通过 | `34f2b39` 上 feature/frontend-dev CI 通过；开发侧 `dashboardVariables`、`dashboardJson`、`DashboardsPage.interaction` 专项 46 tests passed，typecheck、lint、build、diff check 通过。Edge mock 覆盖添加 select 变量、JSON 和 PATCH payload 规范化、桌面/移动无横向溢出、无非预期 console error |
 | 2026-06-24 | T-0067-fix | 变量空默认值修复门禁 | `feature/frontend-dev` run `28095280129`；前端变量/Dashboard 专项、typecheck、lint、build、`git diff --check`、Playwright + Microsoft Edge mock 冒烟 | 通过 | `81ebdc9` 上 feature/frontend-dev CI 通过；修复侧专项 49 tests passed，typecheck、lint、build、diff check 通过。Edge mock 覆盖编辑既有 `default: ""` text 变量后 JSON 与 PATCH payload 仍保留空字符串 default，桌面/移动无横向溢出、无非预期 console error，自启端口已释放 |
 | 2026-06-24 | T-0067 | dev merge 后本地验证 | 前端变量/Dashboard 专项、typecheck、lint、build；后端 dashboard/config 专项、ruff、format、mypy、uv lock；`git diff --check` | 通过 | merge 提交 `f83660d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 49 passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check` 均通过；diff check 通过 |
+| 2026-06-24 | T-0067 | dev CI | GitHub Actions run `28095878349` | 通过 | `6cf7d0c` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有 Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
