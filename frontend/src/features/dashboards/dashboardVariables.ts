@@ -16,6 +16,10 @@ export type DashboardVariable = Record<string, unknown> & {
   options?: string[];
 };
 
+export type DashboardVariableRuntimeDraftValues = Record<string, string>;
+export type DashboardVariableRuntimeValue = string | number;
+export type DashboardVariableRuntimeValues = Record<string, DashboardVariableRuntimeValue>;
+
 export type DashboardVariableDraft = {
   mode: 'create' | 'edit';
   editIndex: number | null;
@@ -57,6 +61,17 @@ type ValidationResult<TValue> =
   | {
       ok: true;
       value: TValue;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+type RuntimeOverridesResult =
+  | {
+      ok: true;
+      values: DashboardVariableRuntimeValues;
+      signature: string | null;
     }
   | {
       ok: false;
@@ -202,6 +217,82 @@ export function removeDashboardVariableFromConfigText(configText: string, index:
 
 export function formatDashboardVariableOptions(options: string[] | undefined) {
   return options?.join(', ') ?? '';
+}
+
+export function hasDashboardVariableDefault(variable: DashboardVariable) {
+  return Object.prototype.hasOwnProperty.call(variable, 'default');
+}
+
+export function formatDashboardVariableFallbackLabel(variable: DashboardVariable) {
+  if (!hasDashboardVariableDefault(variable)) {
+    return '无 default';
+  }
+
+  return `default ${formatDashboardVariableRuntimeValue(variable.default ?? '')}`;
+}
+
+export function buildDashboardVariableRuntimeOverrides(
+  variables: DashboardVariable[],
+  draftValues: DashboardVariableRuntimeDraftValues
+): RuntimeOverridesResult {
+  const values: DashboardVariableRuntimeValues = {};
+
+  for (const variable of variables) {
+    const rawValue = draftValues[variable.name];
+    if (rawValue === undefined) {
+      continue;
+    }
+
+    if (variable.type === 'number') {
+      if (rawValue.trim().length === 0) {
+        continue;
+      }
+      const numericValue = Number(rawValue);
+      if (!Number.isFinite(numericValue)) {
+        return {
+          ok: false,
+          message: `${variable.name} 运行时值必须是有限数字。`
+        };
+      }
+      values[variable.name] = numericValue;
+      continue;
+    }
+
+    if (variable.type === 'select') {
+      const selectValue = rawValue.trim();
+      if (selectValue.length === 0) {
+        continue;
+      }
+      if (selectValue.length > DASHBOARD_VARIABLE_VALUE_MAX_LENGTH) {
+        return {
+          ok: false,
+          message: `${variable.name} 运行时值不能超过 ${DASHBOARD_VARIABLE_VALUE_MAX_LENGTH} 字符。`
+        };
+      }
+      if (variable.options && !variable.options.includes(selectValue)) {
+        return {
+          ok: false,
+          message: `${variable.name} 运行时值必须匹配 options 中的一个值。`
+        };
+      }
+      values[variable.name] = selectValue;
+      continue;
+    }
+
+    if (rawValue.length > DASHBOARD_VARIABLE_VALUE_MAX_LENGTH) {
+      return {
+        ok: false,
+        message: `${variable.name} 运行时值不能超过 ${DASHBOARD_VARIABLE_VALUE_MAX_LENGTH} 字符。`
+      };
+    }
+    values[variable.name] = rawValue;
+  }
+
+  return {
+    ok: true,
+    values,
+    signature: Object.keys(values).length > 0 ? JSON.stringify(values) : null
+  };
 }
 
 function parseDashboardConfigForVariables(configText: string): DashboardVariablesParseResult {
@@ -844,6 +935,14 @@ function isDashboardVariableType(value: string): value is DashboardVariableType 
 
 function formatDashboardVariablesJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
+}
+
+function formatDashboardVariableRuntimeValue(value: unknown) {
+  if (typeof value === 'string') {
+    return value.length > 0 ? value : '""';
+  }
+
+  return `${value}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
