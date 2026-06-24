@@ -93,6 +93,7 @@ closed      已关闭
 | T-0063 | Dashboard 全局时间范围前端基础 | 总 agent | done | todo | done | done | done |
 | T-0064 | Dashboard panel preview 继承全局时间范围后端基础 | 总 agent | todo | done | done | done | done |
 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -691,6 +692,7 @@ closed      已关闭
 | 2026-06-24 | T-0064-sync | CI 与 worktree 同步 | GitHub Actions runs `28084444385`、`28084573871`、`28084583929`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `b28492c` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 分支正确、干净且与远端一致，feature 分支没有 dev 未包含提交 |
 | 2026-06-24 | T-0065-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28084865015`、`28084935195`、`28084946694`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | T-0064 收口/T-0065 启动记录 `e8260cd` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
 | 2026-06-24 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | Hooke 原始测试记录；总 agent rerun：临时 MySQL 8.0.42 `23317`、真实 FastAPI `28118`、真实 Vite `25175`、Playwright + Microsoft Edge；`run-api-rerun.ps1`、`run-ui-rerun.ps1` | 通过 | Hooke 原始 API 失败为验证数据/断言问题：metrics 聚合按固定 15m bucket 返回，且 UI 首次补验复用旧 suffix 时 relative 样本已超出 15m 窗口，不判定为产品缺陷。总 agent 刷新 suffix `rerun-1782293932` 后 API rerun PASS，覆盖 health/login/missing-token、项目/环境/服务/API Key 创建、metrics/logs/events/traces 摄入、relative/absolute `config.time_range` 继承、panel 显式 `occurred_from/to` 单边覆盖、legacy/no time_range、empty preview、invalid query `422`、无权限 `404` 和查询/统计快速回归；UI rerun PASS，Edge 验证 relative logs 展示 inside 且排除 old、empty 状态、invalid `422` 错误态、390px 无横向溢出、无非预期 console error。证据目录 `agents/runtime/e2e-T-0065-20260624-162134/rerun`；最终 cleanup 确认 `23317/28118/25175` 无监听残留 |
+| 2026-06-24 | T-0065-docs | dev CI | GitHub Actions run `28089953313` | 通过 | T-0065 收口记录 `156ab3e` 在 `dev` 上通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
@@ -815,6 +817,7 @@ closed      已关闭
 | 2026-06-24 | T-0063 | feature/frontend-dev | dev | 总 agent | Dashboard 全局时间范围前端基础 `adbe06c`、absolute 严格校验修复 `a611c4a` 与草稿写回修复 `eb2c97b` 已通过 feature CI 和 Feynman 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `896dd1d`；`8625d0c` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0064 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 继承全局时间范围后端基础 `2da1cca` 已通过 Socrates 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `666d9ea`；`b28492c` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0065 | dev | dev | 总 agent | Dashboard preview 继承全局时间范围真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hooke 原始失败经总 agent 复核为验证数据/断言问题，总 agent rerun 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 relative/absolute 继承、panel 显式时间覆盖、legacy/empty/invalid/权限边界和移动端 UI；资源已清理 | done |
+| 2026-06-24 | T-0066 | feature/backend-dev | dev | 总 agent | 已登记 Dashboard 变量配置后端基础；后续由后端开发 agent 在 `feature/backend-dev` 推进已保存 dashboard `config.variables` 最小 schema、规范化与后端测试，完成后经代码审计再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
