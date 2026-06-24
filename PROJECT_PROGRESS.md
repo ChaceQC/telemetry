@@ -768,6 +768,9 @@
 - T-0068 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `92ec4e5` 合入，merge 提交 `ac7b3fc`。merge 后本地门禁通过：后端 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 - T-0068 已完成同步收口：`a87d642` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28098182384`、`28098518113`、`28098518399` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0068 关闭。
 - T-0069 已登记为阶段 5 测试收口小步：Dashboard 变量配置与 preview 默认值替换真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖前端 `/dashboards` 保存 `config.variables`、panel query 使用 `${变量名}` 顶层完整字段值、后端 preview 使用 default 替换并返回匹配数据、原始 query 展示不被改写、未知变量/缺 default/非法模板/类型错误 `422` 错误态、权限/未认证基础边界和移动端 UI。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
+- T-0069 启动记录 CI 通过：`465ec9c` 已推送到 `dev`，GitHub Actions run `28098890466` 成功，Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解。
+- T-0069 真实前后端联测通过：测试 agent Dirac 在 `dev/origin/dev` `465ec9c` 使用临时 MySQL 8 `33316`、真实 FastAPI `28117`、真实 Vite `25173` 和 Playwright + Microsoft Edge。覆盖 Alembic 迁移、浏览器登录与 Dashboard 创建/编辑/保存、`config.variables` 保存、panel query 顶层 `${service_source}`/`${log_level}`/`${row_limit}` 默认值替换执行、preview 返回匹配日志、响应/UI 保留原始模板 query、未知变量/缺 default/非法模板/替换后类型错误 `422`、未认证 `401`、无权限 `404`、390px 移动端无横向溢出；后端 28 selected tests 与前端 62 selected tests 通过。证据目录 `agents/runtime/e2e-t0069-20260624-204037`；最终 cleanup 确认 `33316/28117/25173` 已释放，未改业务代码、未读 `auth.txt`、未启动 Docker。T-0069 关闭。
+- T-0070 已登记为阶段 5 下一小步：Dashboard panel preview 请求时变量覆盖后端基础。边界为在已保存 dashboard panel preview 中允许请求携带一次性变量覆盖值，覆盖值只用于本次 preview 执行且优先级高于 `config.variables[].default`，响应仍返回原始保存 query；未知变量、无 default 且无覆盖、模板语法非法、覆盖值类型不符合变量定义或替换后不满足现有 query 校验返回 `422`。不改前端 UI、不保存覆盖值、不做用户会话级变量状态、不做部分字符串拼接/深层模板、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。
 
 ### 阻塞与风险
 
@@ -798,12 +801,12 @@
 - T-0064 只做已保存 panel preview 的默认时间范围继承，不改变 API 请求/响应；relative 时间会依赖服务端当前时间计算，真实联测需用时间窗口或样本时间设计降低 flaky 风险。
 - T-0067 只做 Dashboard 变量配置的保存层前端体验，不执行 panel query 模板变量替换，也不改变 preview 查询语义；真实前后端联调、变量替换执行、模板仪表盘、自动刷新、导入导出和告警均留给后续小步。
 - T-0068 将只支持 panel query 顶层字段“完整值”为 `${变量名}` 的默认值替换，不支持字符串片段拼接、表达式、数组/对象深层模板、URL 请求覆盖变量值、用户会话级变量值或模板仪表盘；替换后仍受现有 query 白名单和类型校验约束。
-- T-0068 仍未做真实 MySQL/真实后端/前端变量控件联调；真实 JSON 列读写、真实 preview 执行计划和浏览器端变量体验需后续专项覆盖。
-- T-0069 为测试收口，不应修改业务代码；如真实联测发现产品缺陷，需登记失败步骤并分派独立修复任务。
+- T-0068/T-0069 的真实 MySQL/真实后端/前端变量控件联调风险已由 T-0069 覆盖并通过；剩余产品边界是不支持请求时变量覆盖、字符串片段拼接、表达式、数组/对象深层模板、用户会话级变量值、模板仪表盘、自动刷新、导入导出或告警。
+- T-0070 只做后端 preview 请求时变量覆盖基础，不改前端 UI；请求覆盖值必须一次性参与 preview 执行且不得写入 Dashboard `config`。
 
 ### 下一步
 
-- 启动测试 agent 在最新 `dev/origin/dev` 上执行 T-0069 真实前后端联测；通过后登记证据目录、资源清理和关闭 T-0069，失败则记录具体失败并分派修复。
+- 启动后端开发 agent 在 `feature/backend-dev` 推进 T-0070 Dashboard panel preview 请求时变量覆盖后端基础；完成后进入代码审计、feature CI、真实 merge、三分支同步和严格 worktree 体检。
 
 ### 验证
 

@@ -96,7 +96,8 @@ closed      已关闭
 | T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0067 | Dashboard 变量配置前端基础 | 总 agent | done | todo | done | done | done |
 | T-0068 | Dashboard panel preview 变量默认值替换后端基础 | 总 agent | todo | done | done | done | done |
-| T-0069 | Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 总 agent | todo | todo | doing | todo | doing |
+| T-0069 | Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0070 | Dashboard panel preview 请求时变量覆盖后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -571,6 +572,8 @@ closed      已关闭
 | 2026-06-24 | T-0068 | 总 agent | 真实 merge 集成 Dashboard preview 变量默认值替换 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `92ec4e5` 合入 `dev`，merge 提交 `ac7b3fc`。merge 后本地门禁通过：后端 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0068 | 总 agent | CI 与 worktree 同步完成 | `a87d642` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28098182384`、`28098518113`、`28098518399` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0068 关闭 | done |
 | 2026-06-24 | T-0069 | 总 agent | 登记 Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖前端 `/dashboards` 保存 `config.variables`、panel query 使用 `${变量名}` 顶层完整字段值、后端 preview 使用 default 替换并返回匹配数据、原始 query 展示不被改写、未知变量/缺 default/非法模板/类型错误 `422` 错误态、权限/未认证基础边界和移动端 UI。不得改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源 | testing |
+| 2026-06-24 | T-0069 | 测试 agent Dirac / 总 agent | Dashboard 变量配置与 preview 默认值替换真实前后端联测通过 | Dirac 在 `dev/origin/dev` `465ec9c` 使用临时 MySQL 8 `33316`、真实 FastAPI `28117`、真实 Vite `25173` 与 Playwright + Microsoft Edge 完成联测。覆盖 Alembic 迁移、浏览器保存 `config.variables`、panel query 顶层 `${service_source}`/`${log_level}`/`${row_limit}` 默认值替换执行、响应/UI 保留原始模板 query、未知变量/缺 default/非法模板/类型错误 `422`、未认证 `401`、无权限 `404`、390px 移动端无横向溢出；后端 28 个选定测试与前端 62 个选定测试通过。证据目录 `agents/runtime/e2e-t0069-20260624-204037`，最终确认 `33316/28117/25173` 释放；未改业务代码、未读 `auth.txt`、未启动 Docker。T-0069 关闭 | done |
+| 2026-06-24 | T-0070 | 总 agent | 登记 Dashboard panel preview 请求时变量覆盖后端基础 | 阶段 5 下一小步限定为后端 preview 查询前变量解析增强：在已保存 dashboard panel preview 中允许请求携带一次性变量覆盖值，覆盖值仅用于本次 preview 执行，优先级高于 `config.variables[].default`，响应仍返回原始保存 query；未知变量、无 default 且无覆盖、模板语法非法、覆盖值类型不符合变量定义或替换后不满足现有 query 校验均返回 `422`。不改前端 UI、不保存覆盖值、不做用户会话级变量状态、不做部分字符串拼接/深层模板、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
 
 ## 6. 测试记录
 
@@ -724,6 +727,8 @@ closed      已关闭
 | 2026-06-24 | T-0068 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `ac7b3fc` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；diff check 通过 |
 | 2026-06-24 | T-0068 | dev CI | GitHub Actions run `28098182384` | 通过 | `a87d642` 上 Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-24 | T-0068-sync | CI 与 worktree 同步 | GitHub Actions runs `28098182384`、`28098518113`、`28098518399`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `a87d642` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
+| 2026-06-24 | T-0069-start | dev CI | GitHub Actions run `28098890466` | 通过 | T-0068 收口与 T-0069 启动记录 `465ec9c` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-24 | T-0069 | Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 测试 agent Dirac；临时 MySQL 8 `33316`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge；后端/前端选定回归 | 通过 | 覆盖真实 MySQL 迁移、登录、Dashboard CRUD 与变量保存、`${service_source}`/`${log_level}`/`${row_limit}` 顶层完整字段变量替换执行、响应/UI 保留原始 query、4 类错误 `422`、未认证 `401`、无权限 `404`、390px 移动端无横向溢出；后端 28 selected tests 与前端 62 selected tests 通过。证据目录 `agents/runtime/e2e-t0069-20260624-204037`；最终 cleanup 确认 `33316/28117/25173` 已释放 |
 
 ## 7. 审计记录
 
@@ -857,6 +862,8 @@ closed      已关闭
 | 2026-06-24 | T-0067-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `9fcf5d1` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0068 | feature/backend-dev | dev | 总 agent | Dashboard preview 变量默认值替换后端基础 `92ec4e5` 已通过 Carson 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `ac7b3fc`；`a87d642` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0068-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `a87d642` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
+| 2026-06-24 | T-0069 | dev | dev | 总 agent | Dashboard 变量配置与 preview 默认值替换真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Dirac 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖变量保存、默认值替换、错误/权限边界和移动端 UI；资源已清理 | done |
+| 2026-06-24 | T-0070 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖后端基础已登记；后续由后端开发 agent 在 `feature/backend-dev` 实现并通过审计后再真实 merge | doing |
 
 ## 10. 决策记录
 
