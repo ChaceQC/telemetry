@@ -1,6 +1,7 @@
 import type { Dashboard, DashboardJson } from '../../api/dashboards';
 import { normalizeDashboardConfigPanels } from './dashboardPanels';
 import { normalizeDashboardConfigTimeRange } from './dashboardTimeRange';
+import { normalizeDashboardConfigVariables } from './dashboardVariables';
 
 export const DEFAULT_DASHBOARD_LAYOUT = {
   version: 1,
@@ -63,9 +64,14 @@ export function parseDashboardJsonField(value: string, label: string): Dashboard
         return normalizedPanelConfig;
       }
 
+      const normalizedVariableConfig = normalizeDashboardConfigVariables(normalizedPanelConfig.value);
+      if (!normalizedVariableConfig.ok) {
+        return normalizedVariableConfig;
+      }
+
       return {
         ok: true,
-        value: normalizedPanelConfig.value
+        value: normalizedVariableConfig.value
       };
     }
 

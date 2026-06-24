@@ -70,6 +70,18 @@ import {
   type DashboardTimeRangeDraft,
   type DashboardTimeRangeReadResult
 } from '../features/dashboards/dashboardTimeRange';
+import {
+  DASHBOARD_VARIABLE_TYPES,
+  createDefaultDashboardVariableDraft,
+  dashboardVariableToDraft,
+  formatDashboardVariableOptions,
+  readDashboardVariablesFromConfigText,
+  removeDashboardVariableFromConfigText,
+  upsertDashboardVariableInConfigText,
+  type DashboardVariable,
+  type DashboardVariableDraft,
+  type DashboardVariablesReadResult
+} from '../features/dashboards/dashboardVariables';
 import { dashboardQueryKeys, dashboardQueryRootKey } from '../features/dashboards/queryKeys';
 import { findUnauthorizedApiError, resolveSettingsAuthState } from '../features/settings/authState';
 import { settingsQueryKeys } from '../features/settings/queryKeys';
@@ -82,6 +94,7 @@ const emptyProjects: Project[] = [];
 type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
 type PanelDraftState = DashboardPanelDraft;
+type VariableDraftState = DashboardVariableDraft;
 type TimeRangeDraftState = {
   configText: string;
   result: DashboardTimeRangeReadResult;
@@ -109,6 +122,10 @@ export function DashboardsPage() {
   const [panelDraftState, setPanelDraftState] = useState<ScopedState<PanelDraftState>>(() => ({
     scopeKey: '',
     value: createDefaultDashboardPanelDraft()
+  }));
+  const [variableDraftState, setVariableDraftState] = useState<ScopedState<VariableDraftState>>(() => ({
+    scopeKey: '',
+    value: createDefaultDashboardVariableDraft()
   }));
   const [timeRangeDraftState, setTimeRangeDraftState] = useState<ScopedState<TimeRangeDraftState | null>>({
     scopeKey: '',
@@ -317,6 +334,9 @@ export function DashboardsPage() {
   const panelReadResult = selectedDashboard
     ? readDashboardPanelsFromConfigText(visibleEditForm.configText)
     : createEmptyPanelReadResult();
+  const variableReadResult = selectedDashboard
+    ? readDashboardVariablesFromConfigText(visibleEditForm.configText)
+    : createEmptyVariableReadResult();
   const timeRangeScopeKey = buildDashboardTimeRangeScopeKey(pageScopeKey, visibleEditForm.dashboardId);
   const configTimeRangeReadResult = selectedDashboard
     ? readDashboardTimeRangeFromConfigText(visibleEditForm.configText)
@@ -329,12 +349,18 @@ export function DashboardsPage() {
       : null;
   const timeRangeReadResult = activeTimeRangeDraft?.result ?? configTimeRangeReadResult;
   const visiblePanels = panelReadResult.ok ? panelReadResult.panels : [];
+  const visibleVariables = variableReadResult.ok ? variableReadResult.variables : [];
   const panelPreviewModel = createDashboardPanelPreviewModel(panelReadResult);
   const panelScopeKey = buildDashboardPanelScopeKey(pageScopeKey, visibleEditForm.dashboardId);
   const activePanelDraft =
     selectedDashboard && panelDraftState.scopeKey === panelScopeKey
       ? panelDraftState.value
       : createDefaultDashboardPanelDraft(visiblePanels);
+  const variableScopeKey = buildDashboardVariableScopeKey(pageScopeKey, visibleEditForm.dashboardId);
+  const activeVariableDraft =
+    selectedDashboard && variableDraftState.scopeKey === variableScopeKey
+      ? variableDraftState.value
+      : createDefaultDashboardVariableDraft(visibleVariables);
   const remotePreviewPanelId =
     selectedDashboard && selectedPreviewPanelState.scopeKey === panelScopeKey ? selectedPreviewPanelState.value : null;
   const savedPanelReadResult = selectedDashboard
@@ -402,6 +428,10 @@ export function DashboardsPage() {
       scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
       value: createDefaultDashboardPanelDraft()
     });
+    setVariableDraftState({
+      scopeKey: buildDashboardVariableScopeKey(nextPageScopeKey, null),
+      value: createDefaultDashboardVariableDraft()
+    });
     setTimeRangeDraftState({ scopeKey: '', value: null });
     setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null), value: null });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
@@ -427,11 +457,23 @@ export function DashboardsPage() {
     setPanelDraftState({ scopeKey: panelScopeKey, value });
   }
 
+  function updateVariableDraft(value: VariableDraftState) {
+    setVariableDraftState({ scopeKey: variableScopeKey, value });
+  }
+
   function resetPanelDraft(configText = visibleEditForm.configText) {
     const panels = readDashboardPanelsFromConfigText(configText);
     setPanelDraftState({
       scopeKey: panelScopeKey,
       value: createDefaultDashboardPanelDraft(panels.ok ? panels.panels : [])
+    });
+  }
+
+  function resetVariableDraft(configText = visibleEditForm.configText) {
+    const variables = readDashboardVariablesFromConfigText(configText);
+    setVariableDraftState({
+      scopeKey: variableScopeKey,
+      value: createDefaultDashboardVariableDraft(variables.ok ? variables.variables : [])
     });
   }
 
@@ -523,6 +565,22 @@ export function DashboardsPage() {
     resetPanelDraft(result.configText);
   }
 
+  function handleVariableApply() {
+    if (!selectedDashboard) {
+      return;
+    }
+
+    const result = upsertDashboardVariableInConfigText(visibleEditForm.configText, activeVariableDraft);
+    if (!result.ok) {
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
+      return;
+    }
+
+    updateEditForm({ ...visibleEditForm, configText: result.configText });
+    clearLocalEditError();
+    resetVariableDraft(result.configText);
+  }
+
   function handleTimeRangeDraftChange(draft: DashboardTimeRangeDraft) {
     if (!selectedDashboard) {
       return;
@@ -560,6 +618,22 @@ export function DashboardsPage() {
     updateEditForm({ ...visibleEditForm, configText: result.configText });
     clearLocalEditError();
     resetPanelDraft(result.configText);
+  }
+
+  function handleVariableDelete(index: number) {
+    if (!selectedDashboard) {
+      return;
+    }
+
+    const result = removeDashboardVariableFromConfigText(visibleEditForm.configText, index);
+    if (!result.ok) {
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
+      return;
+    }
+
+    updateEditForm({ ...visibleEditForm, configText: result.configText });
+    clearLocalEditError();
+    resetVariableDraft(result.configText);
   }
 
   const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
@@ -863,6 +937,17 @@ export function DashboardsPage() {
               selected={Boolean(selectedDashboard)}
               result={timeRangeReadResult}
               onDraftChange={handleTimeRangeDraftChange}
+            />
+            <DashboardVariableEditor
+              disabled={!authState.shouldRequest || !selectedDashboard}
+              variableReadResult={variableReadResult}
+              variables={visibleVariables}
+              draft={activeVariableDraft}
+              onDraftChange={updateVariableDraft}
+              onNew={() => resetVariableDraft()}
+              onSelect={(variable, index) => updateVariableDraft(dashboardVariableToDraft(variable, index))}
+              onDelete={handleVariableDelete}
+              onApply={handleVariableApply}
             />
             <DashboardPanelPreview
               authReady={authState.shouldRequest}
@@ -1765,6 +1850,165 @@ function DashboardPanelEditor({
   );
 }
 
+function DashboardVariableEditor({
+  disabled,
+  variableReadResult,
+  variables,
+  draft,
+  onDraftChange,
+  onNew,
+  onSelect,
+  onDelete,
+  onApply
+}: {
+  disabled: boolean;
+  variableReadResult: DashboardVariablesReadResult;
+  variables: DashboardVariable[];
+  draft: DashboardVariableDraft;
+  onDraftChange: (draft: DashboardVariableDraft) => void;
+  onNew: () => void;
+  onSelect: (variable: DashboardVariable, index: number) => void;
+  onDelete: (index: number) => void;
+  onApply: () => void;
+}) {
+  const controlsDisabled = disabled || !variableReadResult.ok;
+  const optionsDisabled = controlsDisabled || draft.type !== 'select';
+
+  return (
+    <div className="dashboard-variable-editor" aria-label="变量配置">
+      <div className="dashboard-variable-heading">
+        <div>
+          <strong>Variables</strong>
+          <span>{variableReadResult.ok ? `${variables.length} 个变量` : variableReadResult.message}</span>
+        </div>
+        <button className="text-button" type="button" onClick={onNew} disabled={controlsDisabled}>
+          <Plus size={16} aria-hidden="true" />
+          <span>新增</span>
+        </button>
+      </div>
+
+      {variableReadResult.ok ? (
+        variables.length > 0 ? (
+          <ul className="dashboard-variable-list">
+            {variables.map((variable, index) => (
+              <li
+                key={`${variable.name}-${index}`}
+                className={draft.mode === 'edit' && draft.editIndex === index ? 'is-selected' : undefined}
+              >
+                <button className="dashboard-variable-list-item" type="button" onClick={() => onSelect(variable, index)} disabled={disabled}>
+                  <span>
+                    <strong>{variable.label || variable.name}</strong>
+                    <small>
+                      {variable.name} / {variable.type}
+                    </small>
+                    {variable.type === 'select' ? <small>{formatDashboardVariableOptions(variable.options)}</small> : null}
+                  </span>
+                  <code>{formatDashboardVariableDefault(variable)}</code>
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => onDelete(index)}
+                  disabled={disabled}
+                  title="删除变量"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="resource-state dashboard-variable-empty">
+            <FileJson size={18} aria-hidden="true" />
+            <div>
+              <strong>{variableReadResult.hasVariables ? '暂无变量' : 'Legacy config'}</strong>
+              <span>{variableReadResult.hasVariables ? '当前 variables 数组为空。' : '当前 config 未包含 variables，可直接新增。'}</span>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="resource-state resource-state--error dashboard-variable-empty" role="status">
+          <ShieldAlert size={18} aria-hidden="true" />
+          <div>
+            <strong>变量配置不可用</strong>
+            <span>{variableReadResult.message}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="dashboard-variable-form">
+        <label className="field">
+          <span>Name</span>
+          <input
+            value={draft.name}
+            maxLength={64}
+            onChange={(event) => onDraftChange({ ...draft, name: event.target.value })}
+            disabled={controlsDisabled}
+          />
+        </label>
+        <label className="field">
+          <span>Label</span>
+          <input
+            value={draft.label}
+            maxLength={120}
+            onChange={(event) => onDraftChange({ ...draft, label: event.target.value })}
+            disabled={controlsDisabled}
+          />
+        </label>
+        <label className="field">
+          <span>Type</span>
+          <select
+            value={draft.type}
+            onChange={(event) => {
+              const type = event.target.value as DashboardVariableDraft['type'];
+              onDraftChange({
+                ...draft,
+                type,
+                optionsText: type === 'select' ? draft.optionsText : ''
+              });
+            }}
+            disabled={controlsDisabled}
+          >
+            {DASHBOARD_VARIABLE_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Default</span>
+          <input
+            type={draft.type === 'number' ? 'number' : 'text'}
+            step={draft.type === 'number' ? 'any' : undefined}
+            value={draft.defaultValue}
+            maxLength={draft.type === 'number' ? undefined : 256}
+            onChange={(event) => onDraftChange({ ...draft, defaultValue: event.target.value })}
+            disabled={controlsDisabled}
+          />
+        </label>
+        <label className="field dashboard-variable-options-field">
+          <span>Options</span>
+          <textarea
+            aria-label="variable options"
+            value={draft.optionsText}
+            maxLength={2048}
+            onChange={(event) => onDraftChange({ ...draft, optionsText: event.target.value })}
+            placeholder="prod, staging"
+            disabled={optionsDisabled}
+            spellCheck={false}
+          />
+          <small>select 使用逗号或换行分隔；写回时裁剪并去重。</small>
+        </label>
+        <button className="text-button dashboard-variable-apply" type="button" onClick={onApply} disabled={controlsDisabled}>
+          <Save size={16} aria-hidden="true" />
+          <span>{draft.mode === 'edit' ? '更新变量' : '添加变量'}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function InlineError({ error, message }: { error?: unknown; message?: string | null }) {
   const text = message ?? (error ? readErrorMessage(error, 'form') : null);
 
@@ -1843,6 +2087,10 @@ function buildDashboardPanelScopeKey(pageScopeKey: string, dashboardId: number |
   return JSON.stringify({ pageScopeKey, dashboardId });
 }
 
+function buildDashboardVariableScopeKey(pageScopeKey: string, dashboardId: number | null) {
+  return JSON.stringify({ pageScopeKey, dashboardId });
+}
+
 function buildDashboardTimeRangeScopeKey(pageScopeKey: string, dashboardId: number | null) {
   return JSON.stringify({ pageScopeKey, dashboardId });
 }
@@ -1853,6 +2101,15 @@ function createEmptyPanelReadResult(): DashboardPanelsReadResult {
     config: {},
     panels: [],
     hasPanels: false
+  };
+}
+
+function createEmptyVariableReadResult(): DashboardVariablesReadResult {
+  return {
+    ok: true,
+    config: {},
+    variables: [],
+    hasVariables: false
   };
 }
 
@@ -1918,6 +2175,14 @@ function resolveDashboardTimeRangeTone(selected: boolean, result: DashboardTimeR
   }
 
   return result.state === 'missing' ? ('neutral' as const) : ('success' as const);
+}
+
+function formatDashboardVariableDefault(variable: DashboardVariable) {
+  if (!('default' in variable)) {
+    return 'default -';
+  }
+
+  return `default ${variable.default}`;
 }
 
 function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {
