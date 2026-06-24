@@ -89,7 +89,7 @@ closed      已关闭
 | T-0059 | Dashboard panel 查询预览前端接入基础 | 总 agent | done | todo | done | done | done |
 | T-0060 | Dashboard panel 查询预览真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0061 | Dashboard panel 基础图表渲染前端能力 | 总 agent | done | todo | done | done | done |
-| T-0062 | Dashboard 全局时间范围后端基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0062 | Dashboard 全局时间范围后端基础 | 总 agent | todo | done | done | done | audit |
 
 ## 4. API 契约登记
 
@@ -526,6 +526,8 @@ closed      已关闭
 | 2026-06-24 | T-0061 | 总 agent | 真实 merge 集成 Dashboard panel 基础图表预览 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `0c56e29` 与 `6f54d95` 合入 `dev`，merge 提交 `ab44017`。merge 后本地门禁通过：前端 Dashboard 专项 3 files/48 tests passed、typecheck、lint、build 通过，后端 config 13 passed、`uv lock --check`、`git diff --check` 通过；未启动真实服务、数据库、Docker 或浏览器。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
 | 2026-06-24 | T-0061 | 总 agent | CI 与 worktree 同步完成 | `5c5ceb9` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28070194318`、`28070259569`、`28070259541` 均通过；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0061 关闭 | done |
 | 2026-06-24 | T-0062 | 总 agent | 登记 Dashboard 全局时间范围后端基础 | 阶段 5 下一小步限定为后端保存层：在 Dashboard 已保存 `config` 中增加全局 `time_range` 最小 schema 校验与规范化，支持相对时间范围和绝对时间范围的可保存结构，为后续前端时间选择与 panel preview 继承做准备。不改现有 panel preview API 行为，不做前端 UI，不接 ClickHouse，不做变量、模板、自动刷新或告警；保留 legacy config 兼容。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
+| 2026-06-24 | T-0062 | 后端开发 agent Fermat | Dashboard 全局时间范围后端基础完成 | `feature/backend-dev` 提交 `ecf0c5b` 已实现 `config.time_range` 保存层校验与规范化：relative 支持 `15m/1h/6h/24h/7d`，absolute 支持 ISO 8601 `from/to` 且要求 `from < to`，字符串裁剪后保存；legacy config 兼容，不改 panel preview API 行为。开发侧 dashboard API 57 tests、ruff、format、mypy、`git diff --check` 均通过；feature CI run `28071016797` 通过 | audit |
+| 2026-06-24 | T-0062 | 代码审计 agent Avicenna | Dashboard 全局时间范围后端基础复审通过 | Avicenna 只读复审 `ecf0c5b` 未发现 P0/P1/P2/P3；确认 create/update 路径校验和规范化符合边界，aware/naive 不可比较会返回 `422`，legacy config 与 panel preview 行为未被改变。只读复验 dashboard API 57 tests、ruff、format、mypy、`git diff --check` 均通过；残余风险为未覆盖真实 MySQL JSON 列读写，后续产品若要求严格 RFC3339 或强制 timezone-aware 需另行收紧 | done |
 
 ## 6. 测试记录
 
@@ -648,6 +650,7 @@ closed      已关闭
 | 2026-06-24 | T-0061-fix | feature/frontend-dev CI | GitHub Actions run `28069615737` | 通过 | `6f54d95` 上 Frontend checks 与 Backend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-24 | T-0061 | dev merge 后本地验证 | 前端 Dashboard 专项 test、typecheck、lint、build；后端 config/uv lock；`git diff --check` | 通过 | merge 提交 `ab44017` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/pages/DashboardsPage.interaction.test.tsx src/pages/DashboardsPage.test.tsx` 3 files / 48 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check`、diff check 通过。未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-24 | T-0061-sync | CI 与 worktree 同步 | GitHub Actions runs `28070194318`、`28070259569`、`28070259541`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `5c5ceb9` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 分支正确、与远端一致，且 feature 分支没有 dev 未包含提交 |
+| 2026-06-24 | T-0062 | Dashboard 全局时间范围后端门禁 | `feature/backend-dev` run `28071016797`；开发侧与审计侧 dashboard API 专项、ruff、format、mypy、`git diff --check` | 通过 | `ecf0c5b` 上 feature/backend-dev CI 通过；Fermat 与 Avicenna 均运行 `uv run pytest tests/test_dashboard_api.py -q` 57 passed、ruff check、ruff format check、mypy 和 diff check 通过。仅有既有 FastAPI/Starlette TestClient 上游弃用警告；未启动 Docker、真实服务、浏览器或真实 MySQL |
 
 ## 7. 审计记录
 
@@ -663,6 +666,7 @@ closed      已关闭
 | 2026-06-24 | T-0059 | Dashboard panel 查询预览前端接入（`5b28d5b`） | 通过 | 代码审计 agent Parfit 因超时关闭且未返回可用结论；总 agent 本地审计未发现 P0/P1/P2/P3。重点复核了已保存 dashboard/panel 才请求远端预览、未保存草稿不请求、panel path 编码、query key 隔离、422/error 安全展示和 dashboard/project/session 切换不串旧预览；残余风险为未做真实后端/数据库/浏览器联测 | done |
 | 2026-06-24 | T-0061 | Dashboard panel 基础图表预览前端能力（`0c56e29`） | 未通过 | Archimedes 审计发现 2 个 P2：metrics 正负混合 sparkline 负值点错误贴零轴；窄 panel 内 remote visual 固定两列可能裁剪 SVG。另有 P3：5 节点 topology 标签可能越出 viewBox。已由 `6f54d95` 修复并等待复审 | audit |
 | 2026-06-24 | T-0061-fix | Dashboard panel 图表预览审计修复（`6f54d95`） | 通过 | Goodall 复审未发现新的 P0/P1/P2/P3，原 2 个 P2 与 1 个 P3 均关闭；残余风险为真实后端/数据库链路不在本次图表预览修复范围内 | done |
+| 2026-06-24 | T-0062 | Dashboard 全局时间范围后端基础（`ecf0c5b`） | 通过 | Avicenna 复审未发现 P0/P1/P2/P3；`config.time_range` create/update 校验与规范化符合任务边界，legacy config 与 panel preview 行为未被改变。残余风险为未覆盖真实 MySQL JSON 列读写，后续若要求严格 RFC3339 或强制 timezone-aware 需另行收紧 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
@@ -763,7 +767,7 @@ closed      已关闭
 | 2026-06-24 | T-0059-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `ce5cca2` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0060 | dev | dev | 总 agent | Dashboard panel 查询预览真实前后端联测已通过；本任务为测试收口，不产生 feature merge | done |
 | 2026-06-24 | T-0061 | feature/frontend-dev | dev | 总 agent | Dashboard panel 基础图表预览 `0c56e29` 与审计修复 `6f54d95` 已通过 Goodall 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ab44017`；`5c5ceb9` 已同步到三分支且 CI/体检通过 | done |
-| 2026-06-24 | T-0062 | feature/backend-dev | dev | 总 agent | 已登记 Dashboard 全局时间范围后端基础；后续由后端开发 agent 在 `feature/backend-dev` 实现、验证、提交和推送，通过审计后再真实 merge 到 `dev` | doing |
+| 2026-06-24 | T-0062 | feature/backend-dev | dev | 总 agent | Dashboard 全局时间范围后端基础 `ecf0c5b` 已通过 Avicenna 复审和 feature CI；待使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev` 并执行 merge 后门禁 | audit |
 
 ## 10. 决策记录
 
