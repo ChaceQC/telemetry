@@ -25,10 +25,12 @@ from app.schemas.dashboard import (
     MAX_DASHBOARD_JSON_BYTES,
     MAX_DASHBOARD_JSON_DEPTH,
     MAX_DASHBOARD_JSON_NODES,
+    DashboardCreate,
 )
 from app.schemas.management import ResourceStatus
 from app.schemas.permissions import ProjectRole
 from app.services.auth import AuthService, hash_password
+from app.services.dashboard_templates import get_builtin_dashboard_template
 from app.services.errors import ResourceNotFoundError
 
 TEST_AUTH_SECRET = "test-auth-secret-key-with-at-least-thirty-two-bytes"
@@ -227,6 +229,9 @@ def _dashboard_variable_config() -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("method", "path", "json_body"),
     [
+        ("GET", "/api/v1/dashboard-templates", None),
+        ("GET", "/api/v1/dashboard-templates/service-overview", None),
+        ("POST", "/api/v1/projects/1/dashboard-templates/service-overview/dashboards", {}),
         ("GET", "/api/v1/dashboards", None),
         ("POST", "/api/v1/dashboards", {"project_id": 1, "name": "服务总览"}),
         ("GET", "/api/v1/projects/1/dashboards/1", None),
@@ -247,6 +252,198 @@ def test_dashboard_api_rejects_missing_token(
     assert response.status_code == 401
     assert response.json()["detail"] == "缺少访问令牌"
     assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_dashboard_template_list_and_read_return_valid_service_overview_template() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="template-reader")
+
+    list_response = client.get("/api/v1/dashboard-templates", headers=auth_headers)
+
+    assert list_response.status_code == 200
+    templates = list_response.json()["items"]
+    assert [template["id"] for template in templates] == ["service-overview"]
+    template = templates[0]
+    assert template["name"] == "服务总览"
+    assert template["description"]
+
+    config = cast(dict[str, Any], template["config"])
+    assert config["time_range"] == {"mode": "relative", "relative": "1h"}
+    variables = cast(list[dict[str, Any]], config["variables"])
+    panels = cast(list[dict[str, Any]], config["panels"])
+    assert [variable["name"] for variable in variables] == [
+        "service_source",
+        "log_level",
+        "row_limit",
+    ]
+    assert {panel["type"] for panel in panels} == {"metrics", "logs", "traces", "topology"}
+    assert {panel["id"] for panel in panels} == {
+        "latency-trend",
+        "recent-logs",
+        "recent-traces",
+        "service-topology",
+    }
+
+    validated = DashboardCreate(
+        project_id=1,
+        name=template["name"],
+        description=template["description"],
+        layout=template["layout"],
+        config=template["config"],
+    )
+    assert validated.layout == template["layout"]
+    assert validated.config == template["config"]
+
+    read_response = client.get(
+        "/api/v1/dashboard-templates/service-overview",
+        headers=auth_headers,
+    )
+
+    assert read_response.status_code == 200
+    assert read_response.json() == template
+
+
+def test_dashboard_template_unknown_template_returns_404_for_read_and_create() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="template-missing-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+
+    read_response = client.get(
+        "/api/v1/dashboard-templates/missing-template",
+        headers=auth_headers,
+    )
+    create_response = client.post(
+        f"/api/v1/projects/{project_id}/dashboard-templates/missing-template/dashboards",
+        headers=auth_headers,
+        json={},
+    )
+
+    assert read_response.status_code == 404
+    assert read_response.json()["detail"] == "仪表盘模板不存在"
+    assert create_response.status_code == 404
+    assert create_response.json()["detail"] == "仪表盘模板不存在"
+
+
+def test_dashboard_template_create_persists_normal_dashboard_and_can_be_read() -> None:
+    client = build_client()
+    owner, owner_headers = create_auth_headers(client, username="template-owner")
+    project = create_project(client, owner_headers)
+    project_id = cast(int, project["id"])
+
+    create_response = client.post(
+        f"/api/v1/projects/{project_id}/dashboard-templates/service-overview/dashboards",
+        headers=owner_headers,
+        json={},
+    )
+
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+    assert dashboard["project_id"] == project_id
+    assert dashboard["name"] == "服务总览"
+    assert dashboard["description"]
+    assert dashboard["created_by_user_id"] == owner.id
+    assert dashboard["updated_by_user_id"] == owner.id
+
+    config = cast(dict[str, Any], dashboard["config"])
+    panels = cast(list[dict[str, Any]], config["panels"])
+    assert config["time_range"] == {"mode": "relative", "relative": "1h"}
+    assert {panel["type"] for panel in panels} == {"metrics", "logs", "traces", "topology"}
+
+    get_response = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=owner_headers,
+    )
+    preview_response = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}/panels/latency-trend/preview",
+        headers=owner_headers,
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json() == dashboard
+    assert preview_response.status_code == 200
+    assert preview_response.json()["preview"]["kind"] == "metrics"
+    assert preview_response.json()["preview"]["items"] == []
+
+
+def test_dashboard_template_create_uses_permissions_and_rejects_config_injection() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="template-permission-owner")
+    viewer, viewer_headers = create_auth_headers(client, username="template-viewer")
+    _, stranger_headers = create_auth_headers(client, username="template-stranger")
+    project_a = create_project(client, owner_headers, name="项目 A", key="template-project-a")
+    project_b = create_project(client, owner_headers, name="项目 B", key="template-project-b")
+    project_a_id = cast(int, project_a["id"])
+    project_b_id = cast(int, project_b["id"])
+    grant_project_role(
+        client,
+        project_id=project_a_id,
+        user_id=viewer.id,
+        role=ProjectRole.viewer,
+    )
+
+    viewer_response = client.post(
+        f"/api/v1/projects/{project_a_id}/dashboard-templates/service-overview/dashboards",
+        headers=viewer_headers,
+        json={},
+    )
+    stranger_response = client.post(
+        f"/api/v1/projects/{project_a_id}/dashboard-templates/service-overview/dashboards",
+        headers=stranger_headers,
+        json={},
+    )
+    injection_response = client.post(
+        f"/api/v1/projects/{project_a_id}/dashboard-templates/service-overview/dashboards",
+        headers=owner_headers,
+        json={
+            "project_id": project_b_id,
+            "config": {"panels": []},
+        },
+    )
+    override_response = client.post(
+        f"/api/v1/projects/{project_a_id}/dashboard-templates/service-overview/dashboards",
+        headers=owner_headers,
+        json={
+            "name": "自定义服务总览",
+            "description": "团队排障入口",
+        },
+    )
+
+    assert viewer_response.status_code == 403
+    assert viewer_response.json()["detail"] == "无项目权限"
+    assert stranger_response.status_code == 404
+    assert stranger_response.json()["detail"] == "项目不存在"
+    assert injection_response.status_code == 422
+    assert {error["loc"][-1] for error in injection_response.json()["detail"]} == {
+        "project_id",
+        "config",
+    }
+    assert override_response.status_code == 201
+    assert override_response.json()["project_id"] == project_a_id
+    assert override_response.json()["name"] == "自定义服务总览"
+    assert override_response.json()["description"] == "团队排障入口"
+
+
+def test_dashboard_template_records_do_not_share_mutable_config_references() -> None:
+    first = get_builtin_dashboard_template("service-overview")
+    first_layout = cast(dict[str, Any], first.layout)
+    first_config = cast(dict[str, Any], first.config)
+    first_panels = cast(list[dict[str, Any]], first_config["panels"])
+    first_variables = cast(list[dict[str, Any]], first_config["variables"])
+    first_log_level_options = cast(list[str], first_variables[1]["options"])
+    first_layout["columns"] = 99
+    first_panels[0]["title"] = "mutated"
+    first_log_level_options.append("debug")
+
+    second = get_builtin_dashboard_template("service-overview")
+    second_layout = cast(dict[str, Any], second.layout)
+    second_config = cast(dict[str, Any], second.config)
+    second_panels = cast(list[dict[str, Any]], second_config["panels"])
+    second_variables = cast(list[dict[str, Any]], second_config["variables"])
+
+    assert second_layout["columns"] == 12
+    assert second_panels[0]["title"] == "请求延迟趋势"
+    assert second_variables[1]["options"] == ["error", "warn", "info"]
 
 
 def test_dashboard_crud_success_path_with_pagination_and_audit_fields() -> None:

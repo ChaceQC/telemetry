@@ -10,9 +10,12 @@ from app.api.dependencies import get_current_user, get_dashboard_service, get_qu
 from app.repositories.auth import UserRecord
 from app.schemas.dashboard import (
     DashboardCreate,
+    DashboardCreateFromTemplate,
     DashboardListResponse,
     DashboardPanelPreviewResponse,
     DashboardResponse,
+    DashboardTemplateListResponse,
+    DashboardTemplateResponse,
     DashboardUpdate,
 )
 from app.schemas.query import (
@@ -476,6 +479,61 @@ def _build_panel_preview(
             "edges": payload["edges"],
         }
     raise QueryFilterError("panel.type 暂不支持查询预览")
+
+
+@router.get(
+    "/dashboard-templates",
+    response_model=DashboardTemplateListResponse,
+    summary="列出内置仪表盘模板",
+)
+def list_dashboard_templates(
+    dashboard_service: Annotated[DashboardService, Depends(get_dashboard_service)],
+) -> DashboardTemplateListResponse:
+    templates = dashboard_service.list_dashboard_templates()
+    return DashboardTemplateListResponse(
+        items=[DashboardTemplateResponse.model_validate(template) for template in templates]
+    )
+
+
+@router.get(
+    "/dashboard-templates/{template_id}",
+    response_model=DashboardTemplateResponse,
+    summary="读取内置仪表盘模板",
+)
+def get_dashboard_template(
+    dashboard_service: Annotated[DashboardService, Depends(get_dashboard_service)],
+    template_id: Annotated[str, Path(min_length=1, max_length=64)],
+) -> DashboardTemplateResponse:
+    try:
+        template = dashboard_service.get_dashboard_template(template_id=template_id)
+    except ResourceNotFoundError as error:
+        raise _map_dashboard_error(error) from error
+    return DashboardTemplateResponse.model_validate(template)
+
+
+@router.post(
+    "/projects/{project_id}/dashboard-templates/{template_id}/dashboards",
+    response_model=DashboardResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="从内置模板创建仪表盘",
+)
+def create_project_dashboard_from_template(
+    payload: DashboardCreateFromTemplate,
+    dashboard_service: Annotated[DashboardService, Depends(get_dashboard_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int, Path(gt=0)],
+    template_id: Annotated[str, Path(min_length=1, max_length=64)],
+) -> DashboardResponse:
+    try:
+        dashboard = dashboard_service.create_dashboard_from_template(
+            user=current_user,
+            project_id=project_id,
+            template_id=template_id,
+            payload=payload,
+        )
+    except (ResourceForbiddenError, ResourceIntegrityError, ResourceNotFoundError) as error:
+        raise _map_dashboard_error(error) from error
+    return DashboardResponse.model_validate(dashboard)
 
 
 @router.get(

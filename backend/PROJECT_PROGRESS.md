@@ -2,6 +2,33 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-25 T-0075 Dashboard 内置模板后端基础
+
+### 已完成
+
+- 新增内置 dashboard template 后端基础，提供 `GET /api/v1/dashboard-templates`、`GET /api/v1/dashboard-templates/{template_id}` 和 `POST /api/v1/projects/{project_id}/dashboard-templates/{template_id}/dashboards`。
+- 内置 `service-overview`（服务总览）模板，使用既有 `config.panels`、`config.time_range`、`config.variables` schema，包含 metrics/logs/traces/topology 四类最小 panel，query 字段仅使用当前 panel preview/query 白名单可接受的顶层字段和完整 `${变量名}` 模板。
+- 从模板创建 dashboard 复用现有 dashboard 创建权限语义：目标项目至少 `editor`，普通用户无项目成员关系或项目不存在仍按 `404 项目不存在` 隐藏，`viewer` 返回 `403 无项目权限`；创建后持久化为普通 dashboard，继续复用现有 CRUD/RBAC、preview 和 JSON/schema 校验。
+- 模板创建请求体仅允许可选 `name`、`description`，不接受客户端传入 `project_id`、`layout`、`config` 等未声明字段，避免覆盖路径项目或注入模板外 config。
+- 内置模板读取时会深拷贝 `layout/config` 并通过 `DashboardCreate` 保存层 schema 校验，避免多次读取或创建共享可变 config 引用。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖模板列表/读取、未知模板 `404`、从模板创建后可读取和 preview、权限隐藏、请求体注入 `422`、模板 config 保存层校验和深拷贝边界。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录模板 API、服务总览模板内容、权限/错误语义、防注入边界和当前不包含模板市场/导入导出/分享只读/真实 ClickHouse 查询等范围。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard templates 创建/读取、JSON 列读写和前端模板入口联调仍需后续专项补验。
+- 当前仅提供内置服务总览模板和从模板创建普通 dashboard，不做前端模板 UI、模板市场、JSON 导入导出、分享/只读模式、告警态势真实数据或 ClickHouse 查询。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：123 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py app/services/dashboard_templates.py tests/test_dashboard_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py app/services/dashboard_templates.py tests/test_dashboard_api.py`，结果：5 个文件已符合格式。
+- 已运行 `uv run mypy app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py app/services/dashboard_templates.py tests/test_dashboard_api.py`，结果：5 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0070 Dashboard panel preview 请求时变量覆盖后端基础
 
 ### 已完成
