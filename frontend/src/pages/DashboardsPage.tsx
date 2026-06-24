@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { FormEvent } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   createDashboard,
@@ -1873,6 +1873,7 @@ function DashboardVariableEditor({
 }) {
   const controlsDisabled = disabled || !variableReadResult.ok;
   const optionsDisabled = controlsDisabled || draft.type !== 'select';
+  const defaultInputId = useId();
 
   return (
     <div className="dashboard-variable-editor" aria-label="变量配置">
@@ -1964,6 +1965,7 @@ function DashboardVariableEditor({
               onDraftChange({
                 ...draft,
                 type,
+                hasDefault: type === 'number' && draft.defaultValue.trim().length === 0 ? false : draft.hasDefault,
                 optionsText: type === 'select' ? draft.optionsText : ''
               });
             }}
@@ -1976,17 +1978,35 @@ function DashboardVariableEditor({
             ))}
           </select>
         </label>
-        <label className="field">
-          <span>Default</span>
+        <div className="field">
+          <span className="dashboard-variable-default-heading">
+            <label htmlFor={defaultInputId}>Default</label>
+            <label className="dashboard-variable-default-toggle">
+              <input
+                type="checkbox"
+                checked={draft.hasDefault}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    hasDefault: event.target.checked,
+                    defaultValue: event.target.checked ? draft.defaultValue : ''
+                  })
+                }
+                disabled={controlsDisabled}
+              />
+              <span>使用</span>
+            </label>
+          </span>
           <input
+            id={defaultInputId}
             type={draft.type === 'number' ? 'number' : 'text'}
             step={draft.type === 'number' ? 'any' : undefined}
             value={draft.defaultValue}
             maxLength={draft.type === 'number' ? undefined : 256}
-            onChange={(event) => onDraftChange({ ...draft, defaultValue: event.target.value })}
+            onChange={(event) => onDraftChange({ ...draft, hasDefault: true, defaultValue: event.target.value })}
             disabled={controlsDisabled}
           />
-        </label>
+        </div>
         <label className="field dashboard-variable-options-field">
           <span>Options</span>
           <textarea

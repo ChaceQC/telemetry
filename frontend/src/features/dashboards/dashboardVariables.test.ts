@@ -132,6 +132,53 @@ describe('dashboard variable config helpers', () => {
     });
   });
 
+  it('编辑 text 空字符串 default 时保留显式 default，未启用 default 时不写入', () => {
+    const configText = JSON.stringify({
+      variables: [{ name: 'service_name', type: 'text', default: '' }]
+    });
+    const readResult = readDashboardVariablesFromConfigText(configText);
+    expect(readResult.ok).toBe(true);
+    const draft = readResult.ok ? dashboardVariableToDraft(readResult.variables[0], 0) : createDefaultDashboardVariableDraft();
+    expect(draft).toMatchObject({ hasDefault: true, defaultValue: '' });
+
+    expect(upsertDashboardVariableInConfigText(configText, draft)).toMatchObject({
+      ok: true,
+      value: {
+        variables: [{ name: 'service_name', type: 'text', default: '' }]
+      }
+    });
+
+    expect(
+      upsertDashboardVariableInConfigText('{}', {
+        ...createDefaultDashboardVariableDraft(),
+        name: 'service_name',
+        type: 'text',
+        hasDefault: false,
+        defaultValue: ''
+      })
+    ).toMatchObject({
+      ok: true,
+      value: {
+        variables: [{ name: 'service_name', type: 'text' }]
+      }
+    });
+  });
+
+  it('启用 number default 但留空时拒绝写入', () => {
+    expect(
+      upsertDashboardVariableInConfigText('{}', {
+        ...createDefaultDashboardVariableDraft(),
+        name: 'sample_rate',
+        type: 'number',
+        hasDefault: true,
+        defaultValue: ''
+      })
+    ).toEqual({
+      ok: false,
+      message: 'variable.default 必须是有限数字。'
+    });
+  });
+
   it('编辑 variable 时拒绝旧 index 已不再指向原 name 的草稿', () => {
     const draft = {
       mode: 'edit' as const,
@@ -140,6 +187,7 @@ describe('dashboard variable config helpers', () => {
       name: 'sample_rate',
       label: '',
       type: 'number' as const,
+      hasDefault: true,
       defaultValue: '1',
       optionsText: ''
     };

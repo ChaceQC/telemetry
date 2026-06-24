@@ -23,6 +23,7 @@ export type DashboardVariableDraft = {
   name: string;
   label: string;
   type: DashboardVariableType;
+  hasDefault: boolean;
   defaultValue: string;
   optionsText: string;
 };
@@ -123,12 +124,15 @@ export function createDefaultDashboardVariableDraft(
     name: resolveNextVariableName(variables),
     label: '',
     type: 'text',
+    hasDefault: false,
     defaultValue: '',
     optionsText: ''
   };
 }
 
 export function dashboardVariableToDraft(variable: DashboardVariable, index: number): DashboardVariableDraft {
+  const hasDefault = Object.prototype.hasOwnProperty.call(variable, 'default');
+
   return {
     mode: 'edit',
     editIndex: index,
@@ -136,7 +140,8 @@ export function dashboardVariableToDraft(variable: DashboardVariable, index: num
     name: variable.name,
     label: variable.label ?? '',
     type: variable.type,
-    defaultValue: variable.default === undefined ? '' : `${variable.default}`,
+    hasDefault,
+    defaultValue: hasDefault ? `${variable.default ?? ''}` : '',
     optionsText: variable.options?.join('\n') ?? ''
   };
 }
@@ -298,15 +303,11 @@ function dashboardVariableDraftToVariable(draft: DashboardVariableDraft): Valida
     }
     variable.options = options.value;
 
-    const defaultValue = parseOptionalTrimmedDraftString(
-      draft.defaultValue,
-      'variable.default',
-      DASHBOARD_VARIABLE_VALUE_MAX_LENGTH
-    );
-    if (!defaultValue.ok) {
-      return defaultValue;
-    }
-    if (defaultValue.value !== undefined) {
+    if (shouldWriteDraftDefault(draft)) {
+      const defaultValue = parseTrimmedDraftString(draft.defaultValue, 'variable.default', DASHBOARD_VARIABLE_VALUE_MAX_LENGTH);
+      if (!defaultValue.ok) {
+        return defaultValue;
+      }
       if (!options.value.includes(defaultValue.value)) {
         return {
           ok: false,
@@ -329,23 +330,19 @@ function dashboardVariableDraftToVariable(draft: DashboardVariableDraft): Valida
   }
 
   if (type.value === 'number') {
-    const defaultValue = parseOptionalFiniteNumber(draft.defaultValue, 'variable.default');
-    if (!defaultValue.ok) {
-      return defaultValue;
-    }
-    if (defaultValue.value !== undefined) {
+    if (shouldWriteDraftDefault(draft)) {
+      const defaultValue = parseRequiredFiniteNumber(draft.defaultValue, 'variable.default');
+      if (!defaultValue.ok) {
+        return defaultValue;
+      }
       variable.default = defaultValue.value;
     }
   } else {
-    const defaultValue = parseOptionalTrimmedDraftString(
-      draft.defaultValue,
-      'variable.default',
-      DASHBOARD_VARIABLE_VALUE_MAX_LENGTH
-    );
-    if (!defaultValue.ok) {
-      return defaultValue;
-    }
-    if (defaultValue.value !== undefined) {
+    if (shouldWriteDraftDefault(draft)) {
+      const defaultValue = parseTrimmedDraftString(draft.defaultValue, 'variable.default', DASHBOARD_VARIABLE_VALUE_MAX_LENGTH);
+      if (!defaultValue.ok) {
+        return defaultValue;
+      }
       variable.default = defaultValue.value;
     }
   }
@@ -521,6 +518,10 @@ function normalizeVariableType(value: unknown, fieldPath: string): ValidationRes
   };
 }
 
+function shouldWriteDraftDefault(draft: DashboardVariableDraft) {
+  return draft.hasDefault || draft.defaultValue.trim().length > 0;
+}
+
 function getRequiredVariableName(
   mapping: Record<string, unknown>,
   key: string,
@@ -671,19 +672,8 @@ function normalizeOptionalTrimmedUnknownString(
   return normalizeOptionalTrimmedString(mapping[key], fieldPath, maxLength);
 }
 
-function parseOptionalTrimmedDraftString(
-  value: string,
-  fieldPath: string,
-  maxLength: number
-): ValidationResult<string | undefined> {
+function parseTrimmedDraftString(value: string, fieldPath: string, maxLength: number): ValidationResult<string> {
   const trimmedValue = value.trim();
-  if (trimmedValue.length === 0) {
-    return {
-      ok: true,
-      value: undefined
-    };
-  }
-
   if (trimmedValue.length > maxLength) {
     return {
       ok: false,
@@ -737,11 +727,11 @@ function normalizeFiniteNumber(value: unknown, fieldPath: string): ValidationRes
   };
 }
 
-function parseOptionalFiniteNumber(value: string, fieldPath: string): ValidationResult<number | undefined> {
+function parseRequiredFiniteNumber(value: string, fieldPath: string): ValidationResult<number> {
   if (value.trim().length === 0) {
     return {
-      ok: true,
-      value: undefined
+      ok: false,
+      message: `${fieldPath} 必须是有限数字。`
     };
   }
 

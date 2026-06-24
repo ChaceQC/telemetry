@@ -664,6 +664,35 @@ describe('DashboardsPage interactions', () => {
     });
   });
 
+  it('编辑 text 变量时保留显式空字符串 default', async () => {
+    const user = userEvent.setup();
+    const dashboardWithVariables = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        variables: [{ name: 'service_name', type: 'text', default: '' }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [dashboardWithVariables], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const variableEditor = within(editPanel as HTMLElement).getByLabelText('变量配置');
+
+    await user.click(within(variableEditor).getByRole('button', { name: /service_name \/ text/ }));
+    expect((within(variableEditor).getByRole('checkbox', { name: '使用' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(variableEditor).getByLabelText('Default') as HTMLInputElement).value).toBe('');
+    await user.type(within(variableEditor).getByLabelText('Label'), 'Service');
+    await user.click(within(variableEditor).getByRole('button', { name: '更新变量' }));
+
+    const configJson = within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement;
+    expect(JSON.parse(configJson.value)).toEqual({
+      refresh_seconds: 30,
+      variables: [{ name: 'service_name', label: 'Service', type: 'text', default: '' }]
+    });
+  });
+
   it('非法变量草稿和手写 config.variables 会被本地拦截且不保存', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);

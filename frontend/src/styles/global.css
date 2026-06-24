@@ -1516,6 +1516,32 @@ h2 {
   line-height: 1.4;
 }
 
+.dashboard-variable-default-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-variable-default-heading > label {
+  min-width: 0;
+}
+
+.dashboard-variable-default-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-variable-default-toggle input {
+  width: 13px;
+  height: 13px;
+}
+
 .dashboard-panel-layout-fields {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

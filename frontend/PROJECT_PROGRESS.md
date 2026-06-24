@@ -12,15 +12,18 @@
 - 兼容 legacy config：缺失 `variables` 时展示 legacy 状态并允许直接新增；新增后保留 `refresh_seconds`、`panels` 等其他 config 字段。
 - 修复变量编辑器增加内容后触发的 dashboard 编辑区桌面横向溢出：全局时间范围 fieldset 与字段栅格现在可在窄编辑列内收缩/换行。
 - 初始前端 worker 误将 patch 写入根工作树；总 agent 已中断该 worker、将同一批 T-0067 改动迁移到 `feature/frontend-dev` worktree，并恢复根 `dev` 干净。
+- 审计后修复 P3：变量草稿现在区分“没有 default”和“显式空字符串 default”，编辑已有 `default: ""` 的 text/select 变量不会丢失该字段；number default 显式启用但留空时本地拒绝保存。
 
 ### 验证
 
 - 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 通过（3 个测试文件、46 个测试）。
+- 审计修复后已在 `frontend/` 包目录再次执行：`npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 通过（3 个测试文件、49 个测试）；`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
 - 已在 worktree 根目录执行：`git diff --check` 通过。
 - 已用 Playwright CLI + Microsoft Edge 在自启动 Vite `127.0.0.1:25173` 上对 `/dashboards` 做 mock 数据态冒烟：legacy config 新增 `select` 变量后 JSON 写回和 PATCH payload 均包含规范化变量，桌面和 390px 移动视口均无横向溢出，无 console error；自启动 Vite 和 Edge 会话已清理，端口 `25173` 已释放。
+- 审计修复后已再次用 Playwright CLI + Microsoft Edge 在自启动 Vite `127.0.0.1:25173` 上做 mock 数据态冒烟：编辑已有 `default: ""` 的 text 变量后 JSON 和 PATCH payload 均保留空字符串 default，桌面和 390px 移动视口均无横向溢出，无 console error；自启动 Vite 和 Edge 会话已清理，端口 `25173` 已释放。
 
 ### 风险
 
