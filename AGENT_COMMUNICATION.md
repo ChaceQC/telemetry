@@ -95,7 +95,8 @@ closed      已关闭
 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | done | done | done | done |
 | T-0067 | Dashboard 变量配置前端基础 | 总 agent | done | todo | done | done | done |
-| T-0068 | Dashboard panel preview 变量默认值替换后端基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0068 | Dashboard panel preview 变量默认值替换后端基础 | 总 agent | todo | done | done | done | done |
+| T-0069 | Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 总 agent | todo | todo | doing | todo | doing |
 
 ## 4. API 契约登记
 
@@ -568,6 +569,8 @@ closed      已关闭
 | 2026-06-24 | T-0068 | 后端开发 agent Linnaeus | Dashboard panel preview 变量默认值替换后端完成 | `feature/backend-dev` 提交 `92ec4e5` 已实现 preview 执行前变量 default 替换：只处理 panel query 顶层字段完整 `${变量名}`，text/select default 保持字符串、number default 保持数值，响应继续返回原始保存 query；未知变量、缺 default、非法模板、替换后类型非法均返回 `422`。本地 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check`、diff check 通过；feature CI run `28097176361` 通过 | audit |
 | 2026-06-24 | T-0068 | 代码审计 agent Carson | Dashboard preview 变量默认值替换复审通过 | Carson 只读复审 `92ec4e5` 未发现 P0/P1/P2/P3；确认变量替换只作用于 preview 路由执行前的 `resolved_panel_query`，响应仍返回原始 `panel_query`；测试覆盖 text/select/number default、原始 query 不变、时间覆盖、未知变量/缺 default/非法模板/替换后类型非法 `422`、深层模板不替换、权限隐藏和 legacy 行为。审计侧 dashboard/config 100 passed、ruff、format、mypy、diff check 通过 | done |
 | 2026-06-24 | T-0068 | 总 agent | 真实 merge 集成 Dashboard preview 变量默认值替换 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `92ec4e5` 合入 `dev`，merge 提交 `ac7b3fc`。merge 后本地门禁通过：后端 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。待推送 `dev` 并等待 CI 后同步 feature 分支 | testing |
+| 2026-06-24 | T-0068 | 总 agent | CI 与 worktree 同步完成 | `a87d642` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28098182384`、`28098518113`、`28098518399` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0068 关闭 | done |
+| 2026-06-24 | T-0069 | 总 agent | 登记 Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖前端 `/dashboards` 保存 `config.variables`、panel query 使用 `${变量名}` 顶层完整字段值、后端 preview 使用 default 替换并返回匹配数据、原始 query 展示不被改写、未知变量/缺 default/非法模板/类型错误 `422` 错误态、权限/未认证基础边界和移动端 UI。不得改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源 | testing |
 
 ## 6. 测试记录
 
@@ -719,6 +722,8 @@ closed      已关闭
 | 2026-06-24 | T-0068-start-docs | dev CI | GitHub Actions run `28096506979` | 通过 | T-0068 启动 CI 结果记录 `213aaac` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。本条将随下一次实质节点提交，避免纯 CI 记录回声 |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端门禁 | `feature/backend-dev` run `28097176361`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `92ec4e5` 上 feature/backend-dev CI 通过，Backend checks 与 Frontend checks 均为 success；Linnaeus 本地 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、uv lock、diff check 均通过；Carson 审计侧 `--no-sync` 复验同样通过 |
 | 2026-06-24 | T-0068 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `ac7b3fc` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；diff check 通过 |
+| 2026-06-24 | T-0068 | dev CI | GitHub Actions run `28098182384` | 通过 | `a87d642` 上 Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-24 | T-0068-sync | CI 与 worktree 同步 | GitHub Actions runs `28098182384`、`28098518113`、`28098518399`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `a87d642` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -850,7 +855,8 @@ closed      已关闭
 | 2026-06-24 | T-0066 | feature/backend-dev | dev | 总 agent | Dashboard 变量配置后端基础 `6d51ded` 已通过 Heisenberg 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `264a026`；merge 后本地门禁通过，待推送 `dev` 并读取 CI 后同步两个 feature 分支 | done |
 | 2026-06-24 | T-0067 | feature/frontend-dev | dev | 总 agent | Dashboard 变量配置前端基础 `34f2b39` 与空默认值修复 `81ebdc9` 已通过 Beauvoir 审计/复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f83660d`；`9fcf5d1` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0067-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `9fcf5d1` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
-| 2026-06-24 | T-0068 | feature/backend-dev | dev | 总 agent | 已登记 Dashboard panel preview 变量默认值替换后端基础；后续由后端开发 agent 在 `feature/backend-dev` 推进 `${变量名}` 完整字段值替换为已保存变量 default，完成后经代码审计再真实 merge 到 `dev` | doing |
+| 2026-06-24 | T-0068 | feature/backend-dev | dev | 总 agent | Dashboard preview 变量默认值替换后端基础 `92ec4e5` 已通过 Carson 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `ac7b3fc`；`a87d642` 已同步到三分支且 CI/体检通过 | done |
+| 2026-06-24 | T-0068-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `a87d642` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 
 ## 10. 决策记录
 

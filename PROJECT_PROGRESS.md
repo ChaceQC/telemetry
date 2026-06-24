@@ -766,6 +766,8 @@
 - T-0068 启动 CI 结果记录提交 `213aaac` 的 GitHub Actions run `28096506979` 也已通过，Backend checks 与 Frontend checks 均为 success；该结果将随下一次实质节点提交，避免纯 CI 记录回声。
 - T-0068 后端实现、feature CI 和代码审计通过：Linnaeus 提交并推送 `92ec4e5` 到 `feature/backend-dev`，新增 preview 执行前变量 default 替换，只处理 panel query 顶层字段完整 `${变量名}`，text/select default 保持字符串、number default 保持数值，响应仍返回原始保存 query；未知变量、缺 default、非法模板和替换后类型非法均返回 `422`。Linnaeus 本地 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check`、diff check 通过；feature CI run `28097176361` 成功。Carson 只读复审未发现 P0/P1/P2/P3，并复验 dashboard/config、ruff、format、mypy 和 diff check 通过。
 - T-0068 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `92ec4e5` 合入，merge 提交 `ac7b3fc`。merge 后本地门禁通过：后端 dashboard/config 100 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0068 已完成同步收口：`a87d642` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28098182384`、`28098518113`、`28098518399` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0068 关闭。
+- T-0069 已登记为阶段 5 测试收口小步：Dashboard 变量配置与 preview 默认值替换真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖前端 `/dashboards` 保存 `config.variables`、panel query 使用 `${变量名}` 顶层完整字段值、后端 preview 使用 default 替换并返回匹配数据、原始 query 展示不被改写、未知变量/缺 default/非法模板/类型错误 `422` 错误态、权限/未认证基础边界和移动端 UI。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
 
 ### 阻塞与风险
 
@@ -797,10 +799,11 @@
 - T-0067 只做 Dashboard 变量配置的保存层前端体验，不执行 panel query 模板变量替换，也不改变 preview 查询语义；真实前后端联调、变量替换执行、模板仪表盘、自动刷新、导入导出和告警均留给后续小步。
 - T-0068 将只支持 panel query 顶层字段“完整值”为 `${变量名}` 的默认值替换，不支持字符串片段拼接、表达式、数组/对象深层模板、URL 请求覆盖变量值、用户会话级变量值或模板仪表盘；替换后仍受现有 query 白名单和类型校验约束。
 - T-0068 仍未做真实 MySQL/真实后端/前端变量控件联调；真实 JSON 列读写、真实 preview 执行计划和浏览器端变量体验需后续专项覆盖。
+- T-0069 为测试收口，不应修改业务代码；如真实联测发现产品缺陷，需登记失败步骤并分派独立修复任务。
 
 ### 下一步
 
-- 将 `origin/feature/backend-dev` 的 T-0068 真实 merge 到 `dev`，运行本地集成门禁，推送后读取 GitHub Actions 并同步两个 feature 分支。
+- 启动测试 agent 在最新 `dev/origin/dev` 上执行 T-0069 真实前后端联测；通过后登记证据目录、资源清理和关闭 T-0069，失败则记录具体失败并分派修复。
 
 ### 验证
 
@@ -865,6 +868,8 @@
 - T-0068 启动 CI 结果记录提交 `213aaac` 的 GitHub Actions run `28096506979` 成功，Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解。
 - T-0068 后端开发/审计门禁通过：`feature/backend-dev` 提交 `92ec4e5` 上 GitHub Actions run `28097176361` 成功；Linnaeus 本地 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check`、diff check 均通过。Carson 审计侧 `uv run --no-sync pytest tests/test_dashboard_api.py tests/test_config.py -q -p no:cacheprovider` 100 passed，并复验 ruff、format、mypy、diff check 通过。
 - T-0068 merge 后本地门禁通过：merge 提交 `ac7b3fc` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 100 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；`git diff --check` 通过。
+- T-0068 dev CI 通过：GitHub Actions run `28098182384` 在 `a87d642` 上成功，Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解。
+- T-0068 同步 CI 与 worktree 体检通过：GitHub Actions runs `28098182384`、`28098518113`、`28098518399` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `a87d642`，均为 success；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
