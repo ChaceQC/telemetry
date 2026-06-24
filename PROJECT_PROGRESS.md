@@ -762,6 +762,7 @@
 - T-0067 dev CI 通过：`6cf7d0c` 已推送到 `dev`，GitHub Actions run `28095878349` 成功，Backend checks 与 Frontend checks 均为 success；仅有既有 Node.js runtime 弃用注解。下一步同步两个 feature 分支到最新 `dev` 并等待三分支 CI/体检。
 - T-0067 已完成同步收口：`9fcf5d1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28096048491`、`28096067196`、`28096080892` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0067 关闭。
 - T-0068 已登记为阶段 5 下一小步：Dashboard panel preview 变量默认值替换后端基础。边界为只在已保存 dashboard panel preview 查询执行前读取 `config.variables` 中的 default，当 panel `query` 顶层字段值完整匹配 `${变量名}` 时替换为对应 default，再走现有 query 白名单校验和 preview 执行；未知变量、变量无 default、模板语法非法或替换后类型不满足现有 query 校验返回 `422`。不新增前端 UI、不接受请求时变量覆盖、不做部分字符串拼接替换、不改 Dashboard 保存契约、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。
+- T-0068 启动记录 CI 通过：`2c4bb58` 已推送到 `dev`，GitHub Actions run `28096373574` 成功，Backend checks 与 Frontend checks 均为 success；已启动后端开发 agent Linnaeus 在 `feature/backend-dev` 推进实现。
 
 ### 阻塞与风险
 
@@ -856,6 +857,7 @@
 - T-0067 merge 后本地门禁通过：merge 提交 `f83660d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 49 passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check` 通过；`git diff --check` 通过。
 - T-0067 dev CI 通过：GitHub Actions run `28095878349` 在 `6cf7d0c` 上成功，Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有 Node.js runtime 弃用注解。
 - T-0067 同步 CI 与 worktree 体检通过：GitHub Actions runs `28096048491`、`28096067196`、`28096080892` 分别覆盖 `dev`、`feature/frontend-dev`、`feature/backend-dev` 的 `9fcf5d1`，均为 success；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过。
+- T-0068 启动记录 CI 通过：GitHub Actions run `28096373574` 在 `2c4bb58` 上成功，Backend checks 与 Frontend checks 均为 success。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。

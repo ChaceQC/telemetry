@@ -564,6 +564,7 @@ closed      已关闭
 | 2026-06-24 | T-0067 | 总 agent | dev CI 通过 | `6cf7d0c` 已推送到 `dev`，GitHub Actions run `28095878349` 通过；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。下一步将两个 feature 分支 fast-forward 到最新 `dev` 并等待三分支 CI/体检 | testing |
 | 2026-06-24 | T-0067-sync | 总 agent | CI 与 worktree 同步完成 | `9fcf5d1` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`，GitHub Actions runs `28096048491`、`28096067196`、`28096080892` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0067 关闭 | done |
 | 2026-06-24 | T-0068 | 总 agent | 登记 Dashboard panel preview 变量默认值替换后端基础 | 阶段 5 下一小步限定为后端 preview 查询前的保存配置变量默认值替换：在已保存 dashboard `config.variables` 中读取变量 default，并在已保存 panel `query` 顶层字段值完全匹配 `${变量名}` 时替换为该 default 后再进入现有 query 白名单校验和 preview 执行。未知变量、变量无 default、模板语法非法或替换后类型不满足现有 query 校验应返回 `422`。不新增前端 UI、不接受请求时变量覆盖、不做部分字符串拼接替换、不改 Dashboard 保存契约、不接 ClickHouse、不做模板仪表盘、自动刷新、导入导出或告警。将启动后端开发 agent 在 `feature/backend-dev` 工作 | doing |
+| 2026-06-24 | T-0068 | 总 agent | 启动后端开发 agent Linnaeus | 已启动后端开发 agent Linnaeus（`019ef978-1c38-7402-8fc2-a36ced5548ce`），限定在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 实现 T-0068；要求不读 `auth.txt`、不启动 Docker/真实服务/浏览器/MySQL，完成本地后端验证后提交并 push | doing |
 
 ## 6. 测试记录
 
@@ -711,6 +712,7 @@ closed      已关闭
 | 2026-06-24 | T-0067 | dev merge 后本地验证 | 前端变量/Dashboard 专项、typecheck、lint、build；后端 dashboard/config 专项、ruff、format、mypy、uv lock；`git diff --check` | 通过 | merge 提交 `f83660d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 49 passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check` 均通过；diff check 通过 |
 | 2026-06-24 | T-0067 | dev CI | GitHub Actions run `28095878349` | 通过 | `6cf7d0c` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有 Node.js runtime 弃用注解 |
 | 2026-06-24 | T-0067-sync | CI 与 worktree 同步 | GitHub Actions runs `28096048491`、`28096067196`、`28096080892`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `9fcf5d1` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
+| 2026-06-24 | T-0068-start | dev CI | GitHub Actions run `28096373574` | 通过 | T-0067 收口与 T-0068 启动记录 `2c4bb58` 在 `dev` 上通过 CI；Backend checks 与 Frontend checks 均为 success |
 
 ## 7. 审计记录
 
