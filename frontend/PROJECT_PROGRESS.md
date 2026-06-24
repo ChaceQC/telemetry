@@ -2,6 +2,29 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0063-fix Dashboard absolute 时间严格校验
+
+### 已完成
+
+- 修复 `config.time_range` absolute ISO 校验只依赖 `Date.parse` 的问题：现在会解析输入中的年月日时分秒、毫秒和 timezone offset，并反校验解析后的日期字段，拒绝 V8/Node 会滚动接受的不存在日期。
+- 保持当前支持的 absolute 输入范围：合法 `Z`、timezone offset、毫秒以及同类无 timezone datetime 仍可通过；from/to timezone 可比性规则不变。
+- 补充回归测试覆盖 `2026-02-31T00:00:00Z`、`2026-02-29T00:00:00Z`、`2024-02-29T00:00:00Z`、月份/日期/时间/offset 越界，以及编辑保存层非法 absolute 不触发 update API。
+- 本轮不改后端契约，不让 panel preview 继承 time range，不接 ClickHouse、变量、模板、auto refresh 或 alerting。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd exec -- vitest run src/features/dashboards/dashboardTimeRange.test.ts --reporter=dot` 通过（1 个测试文件、9 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd exec -- vitest run src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（1 个测试文件、25 个测试）。
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd exec -- vitest run src/features/dashboards/dashboardTimeRange.test.ts src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（5 个测试文件、69 个测试）。Vitest 输出仍包含项目既有 React Router SSR/future flag warning。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 未跑 Playwright；本修复限定在前端纯函数校验和保存层本地拦截，已用 Vitest 覆盖回归。
+
 ## 2026-06-24 T-0063 Dashboard 全局时间范围前端基础
 
 ### 已完成

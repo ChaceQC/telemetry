@@ -295,6 +295,36 @@ describe('DashboardsPage interactions', () => {
     ]);
   });
 
+  it('非法 absolute 全局时间范围不会通过编辑保存接口提交', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify({
+          refresh_seconds: 30,
+          time_range: {
+            mode: 'absolute',
+            from: '2026-02-31T00:00:00Z',
+            to: '2026-03-01T00:00:00Z'
+          }
+        })
+      }
+    });
+
+    expect(within(timeRangeEditor).getByText('time_range 配置错误')).toBeTruthy();
+    expect(within(timeRangeEditor).getAllByText('config.time_range.from 必须是 ISO 8601 时间字符串。')).toHaveLength(2);
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect((await screen.findAllByText('config.time_range.from 必须是 ISO 8601 时间字符串。')).length).toBeGreaterThan(0);
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
   it('在编辑区添加 panel 后通过既有更新接口保存 config.panels', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);

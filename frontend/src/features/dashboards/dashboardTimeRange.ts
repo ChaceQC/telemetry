@@ -356,7 +356,8 @@ function requireTrimmedString(
 }
 
 function parseComparableIsoTime(value: string, fieldPath: string) {
-  if (!isIsoDateTimeText(value)) {
+  const parts = parseIsoDateTimeParts(value);
+  if (!parts.ok) {
     return {
       ok: false as const,
       message: `${fieldPath} 必须是 ISO 8601 时间字符串。`
@@ -364,7 +365,7 @@ function parseComparableIsoTime(value: string, fieldPath: string) {
   }
 
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) {
+  if (!Number.isFinite(timestamp) || !matchesParsedUtcParts(timestamp, parts.value)) {
     return {
       ok: false as const,
       message: `${fieldPath} 必须是 ISO 8601 时间字符串。`
@@ -376,6 +377,126 @@ function parseComparableIsoTime(value: string, fieldPath: string) {
     value: timestamp,
     hasTimezone: hasIsoTimezone(value)
   };
+}
+
+type IsoDateTimeParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+  timezoneOffsetMinutes: number | null;
+};
+
+function parseIsoDateTimeParts(value: string): ValidationResult<IsoDateTimeParts> {
+  const match =
+    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.(?<fraction>\d+))?(?<timezone>Z|[+-]\d{2}:\d{2})?$/i.exec(
+      value
+    );
+
+  if (!match?.groups) {
+    return {
+      ok: false,
+      message: 'invalid ISO date time'
+    };
+  }
+
+  const year = Number(match.groups.year);
+  const month = Number(match.groups.month);
+  const day = Number(match.groups.day);
+  const hour = Number(match.groups.hour);
+  const minute = Number(match.groups.minute);
+  const second = Number(match.groups.second);
+  const millisecond = Number((match.groups.fraction ?? '').padEnd(3, '0').slice(0, 3));
+  const timezoneOffsetMinutes = parseIsoTimezoneOffsetMinutes(match.groups.timezone);
+
+  if (
+    month < 1 ||
+    month > 12 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    timezoneOffsetMinutes === false
+  ) {
+    return {
+      ok: false,
+      message: 'invalid ISO date time'
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      year,
+      month,
+      day,
+      hour,
+      minute,
+      second,
+      millisecond,
+      timezoneOffsetMinutes
+    }
+  };
+}
+
+function parseIsoTimezoneOffsetMinutes(value: string | undefined): number | null | false {
+  if (!value) {
+    return null;
+  }
+
+  if (value.toUpperCase() === 'Z') {
+    return 0;
+  }
+
+  const sign = value.startsWith('-') ? -1 : 1;
+  const hours = Number(value.slice(1, 3));
+  const minutes = Number(value.slice(4, 6));
+  if (hours > 23 || minutes > 59) {
+    return false;
+  }
+
+  return sign * (hours * 60 + minutes);
+}
+
+function matchesParsedUtcParts(timestamp: number, parts: IsoDateTimeParts) {
+  if (parts.timezoneOffsetMinutes === null) {
+    const parsed = new Date(timestamp);
+    return (
+      parsed.getFullYear() === parts.year &&
+      parsed.getMonth() === parts.month - 1 &&
+      parsed.getDate() === parts.day &&
+      parsed.getHours() === parts.hour &&
+      parsed.getMinutes() === parts.minute &&
+      parsed.getSeconds() === parts.second &&
+      parsed.getMilliseconds() === parts.millisecond
+    );
+  }
+
+  const expectedTimestamp = createUtcTimestamp(parts) - parts.timezoneOffsetMinutes * 60_000;
+
+  if (expectedTimestamp !== timestamp) {
+    return false;
+  }
+
+  const parsed = new Date(expectedTimestamp + parts.timezoneOffsetMinutes * 60_000);
+  return (
+    parsed.getUTCFullYear() === parts.year &&
+    parsed.getUTCMonth() === parts.month - 1 &&
+    parsed.getUTCDate() === parts.day &&
+    parsed.getUTCHours() === parts.hour &&
+    parsed.getUTCMinutes() === parts.minute &&
+    parsed.getUTCSeconds() === parts.second &&
+    parsed.getUTCMilliseconds() === parts.millisecond
+  );
+}
+
+function createUtcTimestamp(parts: IsoDateTimeParts) {
+  const date = new Date(0);
+  date.setUTCFullYear(parts.year, parts.month - 1, parts.day);
+  date.setUTCHours(parts.hour, parts.minute, parts.second, parts.millisecond);
+  return date.getTime();
 }
 
 function dashboardTimeRangeToDraft(value: unknown): DashboardTimeRangeDraft {
@@ -419,10 +540,6 @@ function formatRelativeTimeRangeText(value: DashboardRelativeTimeRange) {
     case '7d':
       return '7 天';
   }
-}
-
-function isIsoDateTimeText(value: string) {
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/i.test(value);
 }
 
 function hasIsoTimezone(value: string) {

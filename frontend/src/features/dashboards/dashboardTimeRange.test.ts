@@ -127,6 +127,144 @@ describe('dashboard time range config helpers', () => {
     });
   });
 
+  it('严格校验 absolute ISO 日期字段并拒绝 Date.parse 滚动日期', () => {
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-02-31T00:00:00Z', to: '2026-03-01T00:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-02-29T00:00:00Z', to: '2026-03-01T00:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-13-01T00:00:00Z', to: '2027-01-01T00:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-04-31T00:00:00Z', to: '2026-05-01T00:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2024-02-29T00:00:00Z', to: '2024-03-01T00:00:00Z' }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        time_range: { mode: 'absolute', from: '2024-02-29T00:00:00Z', to: '2024-03-01T00:00:00Z' }
+      }
+    });
+  });
+
+  it('保留合法 absolute 毫秒、timezone offset 和无 timezone 同类输入', () => {
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00.123Z',
+          to: '2026-06-24T01:00:00.987+00:00'
+        }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00.123Z',
+          to: '2026-06-24T01:00:00.987+00:00'
+        }
+      }
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00+08:00',
+          to: '2026-06-24T01:00:00+08:00'
+        }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00+08:00',
+          to: '2026-06-24T01:00:00+08:00'
+        }
+      }
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00',
+          to: '2026-06-24T01:00:00'
+        }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00',
+          to: '2026-06-24T01:00:00'
+        }
+      }
+    });
+  });
+
+  it('拒绝 absolute 时间字段和 timezone offset 越界', () => {
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-06-24T24:00:00Z', to: '2026-06-25T01:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-06-24T00:60:00Z', to: '2026-06-25T01:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-06-24T00:00:60Z', to: '2026-06-25T01:00:00Z' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: { mode: 'absolute', from: '2026-06-24T00:00:00+24:00', to: '2026-06-25T01:00:00+24:00' }
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+  });
+
   it('读取非法 time_range 时保留可修复草稿', () => {
     expect(readDashboardTimeRangeFromConfigText('{"time_range":{"mode":"relative","relative":"10m"}}')).toEqual({
       ok: false,
