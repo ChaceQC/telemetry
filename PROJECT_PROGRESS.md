@@ -757,6 +757,8 @@
 - T-0066 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `6d51ded` 合入，merge 提交 `264a026`。merge 后本地门禁通过：后端 dashboard/config 96 passed、ruff、format、mypy、`uv lock --check` 通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 - T-0066 已完成同步收口：`c8abff9` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28092160807`、`28092255631`、`28092259751` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0066 关闭。
 - T-0067 已登记为阶段 5 下一小步：Dashboard 变量配置前端基础。边界为在 `/dashboards` 已保存 dashboard 编辑区读取/编辑 `config.variables`，提供最小变量列表、添加/编辑/删除、`name/label/type/default/options` 前端本地校验和写回既有 Dashboard update API；不改后端契约、不执行 panel query 模板替换、不改 preview 查询语义、不接 ClickHouse、不做模板仪表盘、自动刷新、JSON 导入导出或告警，并保持 legacy config 兼容。
+- T-0067 前端实现、审计修复和 feature CI 通过：Erdos 初轮误写根工作树，总 agent 已中断并迁移改动到 `feature/frontend-dev`，根工作树保持干净；实现提交 `34f2b39` 新增 Dashboard 变量 UI、变量 helper 与保存层交互测试，支持变量列表、添加/选择/编辑/删除、本地校验和保存写回既有 update API，legacy config 可继续显示并新增变量。feature CI run `28094304945` 成功；Beauvoir 审计发现 1 个 P3：编辑显式 `default: ""` 的 text 变量会丢失 default key；修复提交 `81ebdc9` 增加 `hasDefault` 草稿状态与 UI 选项，feature CI run `28095280129` 成功，复审通过。
+- T-0067 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `34f2b39` 与 `81ebdc9` 合入，merge 提交 `f83660d`。merge 后本地门禁通过：前端变量/Dashboard 专项 49 tests passed、typecheck、lint、build 通过；后端 dashboard/config 96 passed、ruff、format、mypy、`uv lock --check` 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
 
 ### 阻塞与风险
 
@@ -785,10 +787,11 @@
 - T-0063 只做前端保存层体验，不改变远端预览查询的时间范围来源；用户保存 `config.time_range` 后，panel preview 仍按现有 panel query 字段请求，继承全局时间范围需后续小步显式实现和联测。
 - T-0063 的前端保存层和两个审计 P2 已关闭；剩余风险为未做真实后端/MySQL 联调。
 - T-0064 只做已保存 panel preview 的默认时间范围继承，不改变 API 请求/响应；relative 时间会依赖服务端当前时间计算，真实联测需用时间窗口或样本时间设计降低 flaky 风险。
+- T-0067 只做 Dashboard 变量配置的保存层前端体验，不执行 panel query 模板变量替换，也不改变 preview 查询语义；真实前后端联调、变量替换执行、模板仪表盘、自动刷新、导入导出和告警均留给后续小步。
 
 ### 下一步
 
-- 启动 T-0065 测试 agent，在最新 `dev/origin/dev` 上用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 验证 Dashboard preview 继承全局时间范围；通过后登记证据目录、资源清理和关闭 T-0065。
+- 推送 T-0067 merge/记录到 `dev`，读取 GitHub Actions 结果并回写；随后 fast-forward `feature/frontend-dev` 与 `feature/backend-dev` 到最新 `dev`，等待三分支 CI 并运行严格 worktree 体检。
 
 ### 验证
 
@@ -845,6 +848,8 @@
 - T-0062 后端开发/审计门禁通过：`feature/backend-dev` 提交 `ecf0c5b` 上 GitHub Actions run `28071016797` 成功；Fermat 与 Avicenna 均运行 `uv run pytest tests/test_dashboard_api.py -q` 57 passed、`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py` 和 `git diff --check` 通过。仅有既有 FastAPI/Starlette TestClient 上游弃用警告。
 - T-0062 merge 后本地门禁通过：merge 提交 `120e6b5` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 70 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。
 - T-0062 同步 CI 与 worktree 体检通过：GitHub Actions runs `28071436834`、`28071498132`、`28071498454` 分别覆盖 `dev`、`feature/backend-dev`、`feature/frontend-dev` 的 `1201f83`，均为 success；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。`./scripts/Test-AgentWorktreeState.ps1` 通过。
+- T-0067 feature 门禁通过：实现提交 `34f2b39` 上 GitHub Actions run `28094304945` 成功；前端变量/Dashboard 专项 46 tests、typecheck、lint、build、diff check 通过，Playwright + Microsoft Edge mock 冒烟覆盖添加 select 变量、JSON/PATCH payload 规范化和桌面/移动无横向溢出。修复提交 `81ebdc9` 上 GitHub Actions run `28095280129` 成功；专项增至 49 tests，并覆盖编辑既有 `default: ""` text 变量后 JSON 与 PATCH payload 保留空字符串 default。
+- T-0067 merge 后本地门禁通过：merge 提交 `f83660d` 后，前端 `npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 49 passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、`uv lock --check` 通过；`git diff --check` 通过。
 - 前端 Mencius 开发侧完成查询页分页自检；测试 agent Nietzsche 独立复验 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过，9 个测试文件、35 个测试通过。
 - 联合测试 agent Helmholtz 使用真实 MySQL 临时库、真实后端和真实前端完成分页链路联调，结论通过；未覆盖 Docker Compose MySQL 路径、大数据量、并发分页和生产反代/子路径部署。
 - T-0034/T-0035 集成后根仓库验证通过：`uv run pytest tests/test_query_api.py` 12 passed，后端全量 `uv run pytest` 118 passed/2 skipped，`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .` 通过；前端 `npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run typecheck`、`npm.cmd run build` 通过。
