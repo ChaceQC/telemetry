@@ -775,6 +775,9 @@
 - T-0070 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `11674c0`、`f631cdc`、`5c7797c` 合入。merge 后本地门禁通过：后端 dashboard/config 115 passed、ruff、format、mypy、`uv lock --check` 通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；`dev` CI 已通过。
 - T-0070 已完成同步收口：`8a55f7e` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28104177879`、`28104289799`、`28104289434` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 重跑通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0070 关闭。
 - T-0071 已登记为阶段 5 下一小步：Dashboard panel preview 请求时变量覆盖前端接入基础。边界为在 `/dashboards` 已保存 dashboard 的变量配置与 panel 查询预览之间建立最小运行时变量值草稿，调用 panel preview API 时通过 `variables` query 参数传递覆盖值；覆盖值不写回 dashboard config，保存变量配置仍走既有保存路径。覆盖 text/select/number 输入、默认值 fallback、无 default 但有运行时值、loading/error/422/unauth 状态和响应原始 query 展示；不改后端契约、不做用户会话持久化、不做部分字符串/深层模板、模板仪表盘、自动刷新、导入导出或告警。
+- T-0071 前端实现、审阅和 feature CI 通过：总 agent 接手前端实现并推送 `67f9ef4` 到 `feature/frontend-dev`，`previewDashboardPanel` 支持非空 `variables` query 参数，Panel 预览新增运行时变量值草稿，覆盖 text/number/select 校验、空 override default fallback、无 default text 空字符串显式覆盖、query key signature 隔离，以及 dashboard/project/page/save/delete 切换清理。Feature CI run `28109001643` 成功；本地专项 4 files/60 tests、typecheck、lint、build、diff check 通过；总 agent 本地审阅未发现 P0/P1/P2/P3。
+- T-0071 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `67f9ef4` 合入，merge 提交 `917c667`。merge 后本地门禁通过：前端 `src/api/dashboards.test.ts`、`dashboardVariables.test.ts`、`dashboardJson.test.ts`、`DashboardsPage.interaction.test.tsx` 共 60 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_dashboard_api.py` 102 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。`dev` CI run `28109362140` 成功，Backend checks 与 Frontend checks 均为 success。
+- T-0072 已登记为阶段 5 下一小步：Dashboard panel preview 请求时变量覆盖真实前后端联测。目标是在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖运行时 text/number/select 覆盖、无 default 变量由运行时值补齐、清空 text 显式发送空字符串、空 override 使用 default fallback、响应/UI 保留原始 query、422/401/404 错误态、保存不回写运行时值和移动端 UI。不改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源。
 
 ### 阻塞与风险
 
@@ -807,15 +810,19 @@
 - T-0068 将只支持 panel query 顶层字段“完整值”为 `${变量名}` 的默认值替换，不支持字符串片段拼接、表达式、数组/对象深层模板、URL 请求覆盖变量值、用户会话级变量值或模板仪表盘；替换后仍受现有 query 白名单和类型校验约束。
 - T-0068/T-0069 的真实 MySQL/真实后端/前端变量控件联调风险已由 T-0069 覆盖并通过；剩余产品边界是不支持请求时变量覆盖、字符串片段拼接、表达式、数组/对象深层模板、用户会话级变量值、模板仪表盘、自动刷新、导入导出或告警。
 - T-0070 只做后端 preview 请求时变量覆盖基础，不改前端 UI；请求覆盖值必须一次性参与 preview 执行且不得写入 Dashboard `config`。本次已通过单元/静态/feature CI、审计复审、dev CI、三分支同步 CI 和严格 worktree 体检；真实 MySQL/真实前后端联调、URL 长度边界和前端变量控件消费路径留给后续小步。
-- T-0071 只做前端运行时变量值接入 preview，不改变保存层变量 schema 或后端契约；运行时值不做跨会话持久化。
+- T-0071 只做前端运行时变量值接入 preview，不改变保存层变量 schema 或后端契约；运行时值不做跨会话持久化。实现、feature CI、dev merge、本地门禁和 dev CI 已通过。
+- T-0072 为真实联测收口小步，不改业务代码；仍不覆盖 URL 长度极限、跨会话运行时变量持久化、自动刷新、模板仪表盘、导入导出或告警。
 
 ### 下一步
 
-- 启动前端开发 agent 在 `feature/frontend-dev` 推进 T-0071 Dashboard panel preview 请求时变量覆盖前端接入基础；完成后进行前端审计/验证、真实 merge 到 `dev`、读取 CI 并同步两个 feature 分支。
+- 提交并推送 T-0071 收口与 T-0072 启动记录，读取对应 `dev` CI；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev`、等待三分支 CI 并运行严格 worktree 体检，再启动 T-0072 真实前后端联测。
 
 ### 验证
 
 - 后端 Lovelace 开发侧快速冒烟 `uv run pytest tests/test_query_api.py` 12 passed；其余完整验证由测试 agent 独立复验，不作为开发 agent 交付门禁替代。
+- T-0071 feature 分支门禁通过：`feature/frontend-dev` run `28109001643` 在 `67f9ef4` 上成功；本地前端 dashboard/API/variables/interaction 专项 4 files/60 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
+- T-0071 merge 后本地门禁通过：merge 提交 `917c667` 后，前端同一组 4 files/60 tests、typecheck、lint、build 通过；后端 `uv run pytest tests/test_dashboard_api.py` 102 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。
+- T-0071 dev CI 通过：GitHub Actions run `28109362140` 在 `917c667` 上成功，Backend checks 与 Frontend checks 均为 success。
 - T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
 - T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。

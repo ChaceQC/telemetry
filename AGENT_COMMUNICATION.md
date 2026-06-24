@@ -98,7 +98,8 @@ closed      已关闭
 | T-0068 | Dashboard panel preview 变量默认值替换后端基础 | 总 agent | todo | done | done | done | done |
 | T-0069 | Dashboard 变量配置与 preview 默认值替换真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0070 | Dashboard panel preview 请求时变量覆盖后端基础 | 总 agent | todo | done | done | done | done |
-| T-0071 | Dashboard panel preview 请求时变量覆盖前端接入基础 | 总 agent | doing | done | todo | todo | doing |
+| T-0071 | Dashboard panel preview 请求时变量覆盖前端接入基础 | 总 agent | done | done | done | done | done |
+| T-0072 | Dashboard panel preview 请求时变量覆盖真实前后端联测 | 总 agent | done | done | todo | done | doing |
 
 ## 4. API 契约登记
 
@@ -578,6 +579,9 @@ closed      已关闭
 | 2026-06-24 | T-0070 | 后端开发 agent Locke / 总 agent | Dashboard panel preview 请求时变量覆盖后端完成 | `feature/backend-dev` 提交 `11674c0` 新增 preview GET query 参数 `variables`（JSON 对象字符串）作为一次性变量覆盖，覆盖值优先于已保存 default 且不回写 dashboard config，响应 `query` 保持原始模板。Lagrange 审计发现 2 个同族 P1：超大 JSON int 会在 number override 或 float query 字段路径触发 `OverflowError` 形成 500；总 agent 提交 `f631cdc` 与 `5c7797c` 修复并补 `limit`、`duration_min_ms` 回归。最终复审未发现新的 P0/P1/P2/P3；feature CI runs `28102353642`、`28103133358`、`28103595845` 均通过 | done |
 | 2026-06-24 | T-0070 | 总 agent | 真实 merge 集成 Dashboard preview 请求时变量覆盖 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `11674c0`、`f631cdc`、`5c7797c` 合入 `dev`。merge 后本地门禁通过：后端 dashboard/config 115 passed、ruff、format、mypy、`uv lock --check` 通过；前端 typecheck 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；已推送 `dev` 并通过 CI | testing |
 | 2026-06-24 | T-0070-sync | 总 agent | CI 与 worktree 同步完成 | `8a55f7e` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28104177879`、`28104289799`、`28104289434` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 重跑通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0070 关闭 | done |
+| 2026-06-24 | T-0071 | 总 agent | Dashboard panel preview 请求时变量覆盖前端接入完成 | 前端开发 agent 初轮未形成完整交付，总 agent 接手并在 `feature/frontend-dev` 提交 `67f9ef4`：`/dashboards` Panel 预览新增运行时变量值草稿，按 text/number/select 校验并在调用 preview API 时发送非空 `variables` query 参数；覆盖值不写回 dashboard config，空 override 保持 default fallback，query key 按 override signature 隔离。feature CI run `28109001643` 通过 | done |
+| 2026-06-24 | T-0071 | 总 agent | 真实 merge 集成 Dashboard preview 请求时变量覆盖前端接入 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `67f9ef4` 合入 `dev`，merge 提交 `917c667`。merge 后本地门禁通过：前端 dashboard/api/variables/interaction 专项 60 tests、typecheck、lint、build 通过；后端 `tests/test_dashboard_api.py` 102 passed、1 条既有 Starlette/TestClient warning；`git diff --check` 通过。`dev` CI run `28109362140` 通过，Backend checks 与 Frontend checks 均为 success | done |
+| 2026-06-24 | T-0072 | 总 agent | 登记 Dashboard preview 请求时变量覆盖真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实后端、真实前端、真实 MySQL 临时库或测试 agent 自有本地 MySQL 实例，以及 Playwright + Microsoft Edge，覆盖已保存 dashboard 的 `config.variables`、运行时 text/number/select 覆盖、无 default 变量由运行时值补齐、清空 text 显式发送空字符串、空 override 使用 default fallback、preview 响应仍展示原始 query、422/401/404 错误态、保存不回写运行时值和移动端 UI。不得改业务代码，不启动 Docker，只清理测试 agent 自己启动并记录的资源 | testing |
 
 ## 6. 测试记录
 
@@ -736,6 +740,9 @@ closed      已关闭
 | 2026-06-24 | T-0070 | Dashboard preview 请求时变量覆盖后端门禁 | `feature/backend-dev` runs `28102353642`、`28103133358`、`28103595845`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | 实现提交 `11674c0` 与两个 P1 修复 `f631cdc`、`5c7797c` 均通过 feature CI，Backend checks 与 Frontend checks 均为 success；最终本地 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning，ruff、format、mypy、uv lock、diff check 通过。Lagrange 最终复审确认 `limit/duration_min_ms/duration_max_ms` 超大 int 路径均返回 `422`，未发现新 P0/P1/P2/P3 |
 | 2026-06-24 | T-0070 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck；`git diff --check` | 通过 | merge 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 115 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、diff check 通过 |
 | 2026-06-24 | T-0070-sync | CI 与 worktree 同步 | GitHub Actions runs `28104177879`、`28104289799`、`28104289434`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `8a55f7e` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检首次因 GitHub TLS handshake 网络抖动 fetch 失败但各工作树检查均 OK；立即重跑后完整通过 |
+| 2026-06-24 | T-0071 | Dashboard preview 请求时变量覆盖前端门禁 | `feature/frontend-dev` run `28109001643`；前端 dashboard API/variables/json/interaction 专项、typecheck、lint、build、`git diff --check` | 通过 | `67f9ef4` 上 feature/frontend-dev CI 通过，Backend checks 与 Frontend checks 均为 success；本地专项 4 files/60 tests passed，typecheck、lint、build、diff check 通过。额外复跑 `DashboardsPage.interaction` 34 tests 与 typecheck 通过 |
+| 2026-06-24 | T-0071 | dev merge 后本地验证 | 前端 dashboard/api/variables/interaction 专项、typecheck、lint、build；后端 dashboard API 专项；`git diff --check` | 通过 | merge 提交 `917c667` 后，前端 `npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 4 files/60 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build` 通过；后端 `uv run pytest tests/test_dashboard_api.py` 102 passed、1 条既有 Starlette/TestClient warning；diff check 通过 |
+| 2026-06-24 | T-0071 | dev CI | GitHub Actions run `28109362140` | 通过 | `917c667` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test |
 
 ## 7. 审计记录
 
@@ -760,6 +767,7 @@ closed      已关闭
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端基础（`34f2b39`） | 未通过 | Beauvoir 审计发现 1 个 P3：编辑合法 text 变量且显式 `default: ""` 时，前端 draft 会把空字符串 default 与缺省 default 混同，保存后丢失 `default` key。未发现 P0/P1/P2 | blocked |
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
+| 2026-06-24 | T-0071 | Dashboard preview 请求时变量覆盖前端接入（`67f9ef4`） | 通过 | 总 agent 本地审阅未发现 P0/P1/P2/P3；确认 `variables` 仅在非空 override 时发送，运行时覆盖值不进入保存 payload，number/select/text 边界与 query key signature 隔离符合后端契约。残余风险为真实 MySQL/真实后端/真实前端联调与 URL 长度边界，已登记 T-0072 覆盖 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
@@ -871,7 +879,8 @@ closed      已关闭
 | 2026-06-24 | T-0068-sync | dev | feature/backend-dev / feature/frontend-dev | 总 agent | 已将两个 feature 分支 fast-forward 到 `a87d642` 并推送；三分支 CI 均通过，严格 worktree 体检通过 | done |
 | 2026-06-24 | T-0069 | dev | dev | 总 agent | Dashboard 变量配置与 preview 默认值替换真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Dirac 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖变量保存、默认值替换、错误/权限边界和移动端 UI；资源已清理 | done |
 | 2026-06-24 | T-0070 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖后端基础 `11674c0` 与 P1 修复 `f631cdc`、`5c7797c` 已通过 Lagrange 最终复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`；`8a55f7e` 已同步到三分支且 CI/体检通过 | done |
-| 2026-06-24 | T-0071 | feature/frontend-dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖前端接入基础已登记；后续由前端开发 agent 在 `feature/frontend-dev` 实现并通过审计后再真实 merge | doing |
+| 2026-06-24 | T-0071 | feature/frontend-dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖前端接入 `67f9ef4` 已通过 feature CI 和总 agent 本地审阅；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `917c667`；本地门禁和 `dev` CI run `28109362140` 均通过 | done |
+| 2026-06-24 | T-0072 | dev | dev | 总 agent | Dashboard panel preview 请求时变量覆盖真实前后端联测已登记；本任务为测试收口，不产生 feature merge，后续由测试 agent 在最新 `dev/origin/dev` 使用真实后端、真实前端、真实 MySQL 和 Playwright + Microsoft Edge 验证 | doing |
 
 ## 10. 决策记录
 
