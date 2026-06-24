@@ -954,6 +954,61 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(1);
   });
 
+  it('自动刷新不会和未完成的手动刷新并发请求', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    const previewResponse: DashboardPanelPreviewResponse = {
+      project_id: project.id,
+      dashboard_id: panelDashboard.id,
+      panel_id: 'logs',
+      title: '错误日志',
+      panel_type: 'logs',
+      query: {},
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    };
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel.mockResolvedValue(previewResponse);
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(1));
+
+    vi.useFakeTimers();
+    fireEvent.change(within(preview).getByRole('combobox', { name: '自动刷新' }), { target: { value: '15' } });
+    const manualRefresh = createDeferred<DashboardPanelPreviewResponse>();
+    apiMocks.previewDashboardPanel.mockImplementationOnce(() => manualRefresh.promise);
+
+    await act(async () => {
+      fireEvent.click(within(preview).getByRole('button', { name: '刷新预览' }));
+      await Promise.resolve();
+    });
+    expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+    expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      manualRefresh.resolve(previewResponse);
+      await manualRefresh.promise;
+    });
+  });
+
   it('panel 查询预览可携带运行时变量覆盖且不会写回 dashboard config', async () => {
     const user = userEvent.setup();
     const panelDashboard = createDashboardFixture({

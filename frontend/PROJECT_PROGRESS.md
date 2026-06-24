@@ -11,11 +11,12 @@
 - 自动刷新只在已保存 dashboard/panel、当前 config 未改动、运行时变量覆盖合法且与已加载 preview 签名一致、手动预览同等可请求条件满足时启用。
 - 切换 project/dashboard/panel/page、修改 config/panel/variable/time range/runtime 变量、保存或删除 dashboard、关闭自动刷新以及组件卸载时都会停止旧 interval，避免串旧数据。
 - UI 保持现有 operational dashboard 风格：在选中 panel 的加载/刷新预览按钮旁增加紧凑 select 和短状态 badge，不增加解释性大段文案或重量抽象。
+- 审计 P3 已修复：自动刷新 tick 会检查当前 preview query 是否已有请求在途，避免与未完成的手动刷新并发发起重复 preview 请求。
 
 ### 验证
 
-- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（1 个测试文件、36 个测试）。
-- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/features/dashboards/dashboardTimeRange.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（6 个测试文件、94 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（1 个测试文件、37 个测试）。
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/features/dashboards/dashboardTimeRange.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（6 个测试文件、95 个测试）。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。

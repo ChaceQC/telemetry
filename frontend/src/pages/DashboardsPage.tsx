@@ -187,6 +187,7 @@ export function DashboardsPage() {
   const [deleteLocked, setDeleteLocked] = useState(false);
   const deleteInFlightRef = useRef(false);
   const autoRefreshInFlightRef = useRef(false);
+  const panelPreviewFetchingRef = useRef(false);
   const [localCreateErrorState, setLocalCreateErrorState] = useState<ScopedState<string | null>>({
     scopeKey: '',
     value: null
@@ -486,13 +487,16 @@ export function DashboardsPage() {
   });
   const refetchPanelPreview = panelPreviewQuery.refetch;
   useEffect(() => {
+    panelPreviewFetchingRef.current = panelPreviewQuery.isFetching;
+  }, [panelPreviewQuery.isFetching]);
+  useEffect(() => {
     if (!canRunPanelAutoRefresh) {
       autoRefreshInFlightRef.current = false;
       return undefined;
     }
 
     const intervalId = window.setInterval(() => {
-      if (autoRefreshInFlightRef.current) {
+      if (autoRefreshInFlightRef.current || panelPreviewFetchingRef.current) {
         return;
       }
 
