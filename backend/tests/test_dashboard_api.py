@@ -197,6 +197,33 @@ def _dashboard_panel_config() -> dict[str, Any]:
     }
 
 
+def _dashboard_variable_config() -> dict[str, Any]:
+    return {
+        "refresh_seconds": 30,
+        "variables": [
+            {
+                "name": "env",
+                "label": "Environment",
+                "type": "select",
+                "default": "prod",
+                "options": ["prod", "staging"],
+            },
+            {
+                "name": "service_name",
+                "label": "Service",
+                "type": "text",
+                "default": "checkout",
+            },
+            {
+                "name": "_sample_rate",
+                "label": "Sample rate",
+                "type": "number",
+                "default": 0.5,
+            },
+        ],
+    }
+
+
 @pytest.mark.parametrize(
     ("method", "path", "json_body"),
     [
@@ -560,7 +587,122 @@ def test_dashboard_time_range_config_normalizes_for_create_and_update() -> None:
     }
 
 
-def test_dashboard_panel_config_keeps_legacy_config_compatible() -> None:
+def test_dashboard_create_and_update_accept_variable_config() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="variable-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    config = _dashboard_variable_config()
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Variable dashboard",
+            "config": config,
+        },
+    )
+
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+    assert dashboard["config"] == config
+
+    updated_config = {
+        "variables": [
+            {
+                "name": "region",
+                "label": "Region",
+                "type": "select",
+                "default": "ap-southeast-1",
+                "options": ["us-east-1", "ap-southeast-1"],
+            }
+        ]
+    }
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": updated_config},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["config"] == updated_config
+
+
+def test_dashboard_variable_config_normalizes_string_fields_for_create_and_update() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="normalized-variable-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+
+    create_config = {
+        "variables": [
+            {
+                "name": " env ",
+                "label": " Environment ",
+                "type": " select ",
+                "default": " prod ",
+                "options": [" prod ", "\tstaging\n"],
+            }
+        ]
+    }
+    expected_create_config = {
+        "variables": [
+            {
+                "name": "env",
+                "label": "Environment",
+                "type": "select",
+                "default": "prod",
+                "options": ["prod", "staging"],
+            }
+        ]
+    }
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Normalized variable dashboard",
+            "config": create_config,
+        },
+    )
+
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+    assert dashboard["config"] == expected_create_config
+    assert dashboard["config"]["variables"][0]["name"] == "env"
+
+    update_config = {
+        "variables": [
+            {
+                "name": "\tservice_name\n",
+                "label": "\tService\n",
+                "type": "\ttext\n",
+                "default": "\tcheckout\n",
+            }
+        ]
+    }
+    expected_update_config = {
+        "variables": [
+            {
+                "name": "service_name",
+                "label": "Service",
+                "type": "text",
+                "default": "checkout",
+            }
+        ]
+    }
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": update_config},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["config"] == expected_update_config
+
+
+def test_dashboard_config_keeps_legacy_config_without_variables_compatible() -> None:
     client = build_client()
     _, auth_headers = create_auth_headers(client, username="legacy-config-owner")
     project = create_project(client, auth_headers)
@@ -806,6 +948,14 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
                     "from": "2026-06-20T10:00:00Z",
                     "to": "2026-06-20T10:05:00Z",
                 },
+                "variables": [
+                    {
+                        "name": "service_name",
+                        "label": "Service",
+                        "type": "text",
+                        "default": "api",
+                    }
+                ],
                 "panels": [
                     {
                         "id": "latency",
@@ -881,6 +1031,13 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
     metrics_body = metrics_preview.json()
     assert metrics_body["panel_id"] == "latency"
     assert metrics_body["panel_type"] == "metrics"
+    assert metrics_body["query"] == {
+        "name": "http.duration",
+        "source": "api",
+        "window": "5m",
+        "aggregation": "avg",
+        "limit": 5,
+    }
     assert metrics_body["preview"]["kind"] == "metrics"
     assert metrics_body["preview"]["mode"] == "aggregate"
     assert metrics_body["preview"]["items"][0]["name"] == "http.duration"
@@ -1381,6 +1538,77 @@ def test_dashboard_invalid_panel_config_is_reported_as_422(
         json={
             "project_id": project_id,
             "name": "Invalid panel config",
+            "config": invalid_config,
+        },
+    )
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=auth_headers,
+        json={"config": invalid_config},
+    )
+
+    assert create_response.status_code == 422
+    assert any("config" in error["loc"] for error in create_response.json()["detail"])
+    assert update_response.status_code == 422
+    assert any("config" in error["loc"] for error in update_response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    "invalid_config",
+    [
+        {"variables": "not-array"},
+        {"variables": ["not-object"]},
+        {"variables": [{"name": "env", "type": "unknown"}]},
+        {"variables": [{"type": "text"}]},
+        {"variables": [{"name": "env"}]},
+        {"variables": [{"name": "", "type": "text"}]},
+        {"variables": [{"name": "1env", "type": "text"}]},
+        {"variables": [{"name": "service-name", "type": "text"}]},
+        {"variables": [{"name": "env", "type": "text", "label": ""}]},
+        {
+            "variables": [
+                {"name": "env", "type": "text"},
+                {"name": "env", "type": "select", "options": ["prod"]},
+            ]
+        },
+        {
+            "variables": [
+                {"name": " env ", "type": "text"},
+                {"name": "env", "type": "select", "options": ["prod"]},
+            ]
+        },
+        {"variables": [{"name": "env", "type": "text", "options": ["prod"]}]},
+        {"variables": [{"name": "sample_rate", "type": "number", "options": [1]}]},
+        {"variables": [{"name": "sample_rate", "type": "number", "default": "1"}]},
+        {"variables": [{"name": "sample_rate", "type": "number", "default": True}]},
+        {"variables": [{"name": "env", "type": "select"}]},
+        {"variables": [{"name": "env", "type": "select", "options": "prod"}]},
+        {"variables": [{"name": "env", "type": "select", "options": []}]},
+        {"variables": [{"name": "env", "type": "select", "options": ["prod", " prod "]}]},
+        {"variables": [{"name": "env", "type": "select", "options": ["prod", ""]}]},
+        {
+            "variables": [
+                {"name": "env", "type": "select", "options": ["prod"], "default": "staging"}
+            ]
+        },
+        {"variables": [{"name": "env", "type": "select", "options": ["prod"], "default": 1}]},
+    ],
+)
+def test_dashboard_invalid_variable_config_is_reported_as_422(
+    invalid_config: dict[str, Any],
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="invalid-variable-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard = create_dashboard(client, auth_headers, project_id=project_id)
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Invalid variable config",
             "config": invalid_config,
         },
     )
