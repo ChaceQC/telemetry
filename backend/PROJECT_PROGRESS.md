@@ -2,6 +2,31 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0062 Dashboard 全局时间范围后端基础
+
+### 已完成
+
+- 在 dashboard 保存层 `config` 校验中新增顶层 `time_range` 最小 schema：仅当 `config` 是对象且包含 `time_range` 时生效，数组 config 和没有 `time_range` 的 legacy config 仍保持兼容。
+- 支持相对时间范围 `{"mode":"relative","relative":"15m|1h|6h|24h|7d"}`，对 `mode/relative` 裁剪首尾空白并按裁剪后字符串保存。
+- 支持绝对时间范围 `{"mode":"absolute","from":"ISO 8601","to":"ISO 8601"}`，对 `mode/from/to` 裁剪首尾空白并保留裁剪后的原始字符串；校验 `from/to` 可解析且可比较为 ISO 8601 时间，并要求 `from < to`。
+- 拒绝对象以外的 `time_range`、未知或空 `mode`、缺失字段、非字符串或空字符串、未知相对范围、绝对时间不可解析、aware/naive 混用导致不可比较以及 `from >= to`。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖 create/update 保存相对和绝对 time range、首尾空白规范化、legacy config 兼容，以及非法 time range 在 create/update 均返回 `422`。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 `config.time_range` 保存契约、规范化策略、错误边界，以及 panel preview 不自动继承全局时间范围。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮只做已保存 dashboard `config.time_range` 的后端保存校验与规范化；不改 panel preview API 行为，不做前端 UI，不接 ClickHouse，不做变量、模板、自动刷新或告警。
+- 未启动 Docker、真实后端服务、前端、浏览器或真实 MySQL；真实数据库 JSON 列读写和前端消费仍需后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：57 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：2 个文件已符合格式。
+- 已运行 `uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`，结果：2 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0058 Dashboard panel 查询预览后端基础
 
 ### 已完成

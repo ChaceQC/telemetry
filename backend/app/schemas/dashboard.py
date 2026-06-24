@@ -24,6 +24,7 @@ MAX_DASHBOARD_PANEL_ID_LENGTH = 64
 MAX_DASHBOARD_PANEL_TITLE_LENGTH = 120
 
 PANEL_TYPES = frozenset({"metrics", "logs", "events", "traces", "topology"})
+DASHBOARD_TIME_RANGE_RELATIVES = frozenset({"15m", "1h", "6h", "24h", "7d"})
 
 
 def _default_json_object() -> dict[str, Any]:
@@ -46,12 +47,80 @@ def _validate_dashboard_json(value: DashboardJson, *, field_name: str) -> Dashbo
 
 
 def _validate_dashboard_config(value: DashboardJson) -> None:
-    if not isinstance(value, dict) or "panels" not in value:
+    if not isinstance(value, dict):
         return
-    panels = value["panels"]
-    if not isinstance(panels, list):
-        raise ValueError("config.panels 必须是数组")
-    _validate_panel_collection(panels, field_path="config.panels")
+    if "time_range" in value:
+        _validate_dashboard_time_range(value["time_range"])
+    if "panels" in value:
+        panels = value["panels"]
+        if not isinstance(panels, list):
+            raise ValueError("config.panels 必须是数组")
+        _validate_panel_collection(panels, field_path="config.panels")
+
+
+def _validate_dashboard_time_range(time_range: Any) -> None:
+    if not isinstance(time_range, dict):
+        raise ValueError("config.time_range 必须是 JSON 对象")
+
+    mode = _require_non_empty_string(
+        time_range,
+        key="mode",
+        field_path="config.time_range",
+        max_length=len("absolute"),
+    )
+    if mode == "relative":
+        _validate_relative_time_range(time_range)
+        return
+    if mode == "absolute":
+        _validate_absolute_time_range(time_range)
+        return
+    raise ValueError("config.time_range.mode 必须是 relative/absolute 之一")
+
+
+def _validate_relative_time_range(time_range: dict[str, Any]) -> None:
+    relative = _require_non_empty_string(
+        time_range,
+        key="relative",
+        field_path="config.time_range",
+        max_length=max(len(value) for value in DASHBOARD_TIME_RANGE_RELATIVES),
+    )
+    if relative not in DASHBOARD_TIME_RANGE_RELATIVES:
+        raise ValueError("config.time_range.relative 必须是 15m/1h/6h/24h/7d 之一")
+
+
+def _validate_absolute_time_range(time_range: dict[str, Any]) -> None:
+    from_value = _require_trimmed_string(
+        time_range,
+        key="from",
+        field_path="config.time_range",
+    )
+    to_value = _require_trimmed_string(
+        time_range,
+        key="to",
+        field_path="config.time_range",
+    )
+    from_datetime = _parse_iso_datetime(
+        from_value,
+        field_path="config.time_range.from",
+    )
+    to_datetime = _parse_iso_datetime(
+        to_value,
+        field_path="config.time_range.to",
+    )
+    try:
+        is_valid_range = from_datetime < to_datetime
+    except TypeError:
+        raise ValueError("config.time_range.from/to 必须使用可比较的 ISO 8601 时间字符串") from None
+    if not is_valid_range:
+        raise ValueError("config.time_range.from 必须早于 config.time_range.to")
+
+
+def _parse_iso_datetime(value: str, *, field_path: str) -> datetime:
+    parseable_value = f"{value[:-1]}+00:00" if value.endswith("Z") else value
+    try:
+        return datetime.fromisoformat(parseable_value)
+    except ValueError:
+        raise ValueError(f"{field_path} 必须是 ISO 8601 时间字符串") from None
 
 
 def _validate_panel_collection(panels: list[Any], *, field_path: str) -> None:
@@ -136,6 +205,24 @@ def _require_non_empty_string(
         raise ValueError(f"{field_path}.{key} 不能为空")
     if len(stripped_value) > max_length:
         raise ValueError(f"{field_path}.{key} 不能超过 {max_length} 字符")
+    mapping[key] = stripped_value
+    return stripped_value
+
+
+def _require_trimmed_string(
+    mapping: dict[str, Any],
+    *,
+    key: str,
+    field_path: str,
+) -> str:
+    if key not in mapping:
+        raise ValueError(f"{field_path}.{key} 为必填字段")
+    value = mapping[key]
+    if not isinstance(value, str):
+        raise ValueError(f"{field_path}.{key} 必须是字符串")
+    stripped_value = value.strip()
+    if not stripped_value:
+        raise ValueError(f"{field_path}.{key} 不能为空")
     mapping[key] = stripped_value
     return stripped_value
 
