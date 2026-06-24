@@ -3,6 +3,7 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Clock,
   FileJson,
   LayoutDashboard,
   LoaderCircle,
@@ -59,6 +60,16 @@ import {
   type DashboardPanelRemotePreviewVisualizationModel,
   type DashboardPanelsReadResult
 } from '../features/dashboards/dashboardPanels';
+import {
+  DASHBOARD_TIME_RANGE_RELATIVES,
+  DEFAULT_DASHBOARD_TIME_RANGE_RELATIVE,
+  createDefaultDashboardTimeRangeDraft,
+  isDashboardRelativeTimeRange,
+  readDashboardTimeRangeFromConfigText,
+  writeDashboardTimeRangeToConfigText,
+  type DashboardTimeRangeDraft,
+  type DashboardTimeRangeReadResult
+} from '../features/dashboards/dashboardTimeRange';
 import { dashboardQueryKeys, dashboardQueryRootKey } from '../features/dashboards/queryKeys';
 import { findUnauthorizedApiError, resolveSettingsAuthState } from '../features/settings/authState';
 import { settingsQueryKeys } from '../features/settings/queryKeys';
@@ -295,6 +306,9 @@ export function DashboardsPage() {
   const panelReadResult = selectedDashboard
     ? readDashboardPanelsFromConfigText(visibleEditForm.configText)
     : createEmptyPanelReadResult();
+  const timeRangeReadResult = selectedDashboard
+    ? readDashboardTimeRangeFromConfigText(visibleEditForm.configText)
+    : createEmptyTimeRangeReadResult();
   const visiblePanels = panelReadResult.ok ? panelReadResult.panels : [];
   const panelPreviewModel = createDashboardPanelPreviewModel(panelReadResult);
   const panelScopeKey = buildDashboardPanelScopeKey(pageScopeKey, visibleEditForm.dashboardId);
@@ -480,6 +494,21 @@ export function DashboardsPage() {
     updateEditForm({ ...visibleEditForm, configText: result.configText });
     clearLocalEditError();
     resetPanelDraft(result.configText);
+  }
+
+  function handleTimeRangeDraftChange(draft: DashboardTimeRangeDraft) {
+    if (!selectedDashboard) {
+      return;
+    }
+
+    const result = writeDashboardTimeRangeToConfigText(visibleEditForm.configText, draft);
+    if (!result.ok) {
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
+      return;
+    }
+
+    updateEditForm({ ...visibleEditForm, configText: result.configText });
+    clearLocalEditError();
   }
 
   function handlePanelDelete(index: number) {
@@ -788,6 +817,12 @@ export function DashboardsPage() {
               onChange={(configText) => updateEditForm({ ...visibleEditForm, configText })}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
+            <DashboardTimeRangeEditor
+              disabled={!authState.shouldRequest || !selectedDashboard}
+              selected={Boolean(selectedDashboard)}
+              result={timeRangeReadResult}
+              onDraftChange={handleTimeRangeDraftChange}
+            />
             <DashboardPanelPreview
               authReady={authState.shouldRequest}
               selected={Boolean(selectedDashboard)}
@@ -998,6 +1033,138 @@ function DashboardSummaryItem({ icon: Icon, label, value }: { icon: LucideIcon; 
       <Icon size={20} aria-hidden="true" />
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DashboardTimeRangeEditor({
+  disabled,
+  selected,
+  result,
+  onDraftChange
+}: {
+  disabled: boolean;
+  selected: boolean;
+  result: DashboardTimeRangeReadResult;
+  onDraftChange: (draft: DashboardTimeRangeDraft) => void;
+}) {
+  const controlsDisabled = disabled || !selected || !result.editable;
+  const draft = result.draft;
+  const mode = draft.mode;
+  const relative = isDashboardRelativeTimeRange(draft.relative) ? draft.relative : DEFAULT_DASHBOARD_TIME_RANGE_RELATIVE;
+
+  return (
+    <div className="dashboard-time-range-editor" aria-label="全局时间范围">
+      <div className="dashboard-time-range-heading">
+        <div>
+          <strong>全局时间范围</strong>
+          <span>{selected ? result.message : '从列表中选择一个 dashboard 后，可编辑 config.time_range。'}</span>
+        </div>
+        <StatusBadge tone={resolveDashboardTimeRangeTone(selected, result)}>
+          {selected ? result.statusLabel : '未选择'}
+        </StatusBadge>
+      </div>
+
+      {!selected ? (
+        <div className="resource-state dashboard-time-range-state">
+          <Clock size={18} aria-hidden="true" />
+          <div>
+            <strong>未选择 dashboard</strong>
+            <span>选择已保存 dashboard 后，可读取和写回 config.time_range。</span>
+          </div>
+        </div>
+      ) : !result.editable ? (
+        <div className="resource-state resource-state--error dashboard-time-range-state" role="status">
+          <ShieldAlert size={18} aria-hidden="true" />
+          <div>
+            <strong>时间范围不可编辑</strong>
+            <span>{result.message}</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          {!result.ok ? (
+            <div className="resource-state resource-state--error dashboard-time-range-state" role="status">
+              <ShieldAlert size={18} aria-hidden="true" />
+              <div>
+                <strong>time_range 配置错误</strong>
+                <span>{result.message}</span>
+              </div>
+            </div>
+          ) : null}
+
+          <fieldset className="dashboard-time-range-modes" disabled={controlsDisabled}>
+            <legend>模式</legend>
+            <div className="dashboard-time-range-mode-list">
+              {(['none', 'relative', 'absolute'] as const).map((nextMode) => (
+                <label key={nextMode} className={mode === nextMode ? 'is-selected' : undefined}>
+                  <input
+                    type="radio"
+                    name="dashboard-time-range-mode"
+                    value={nextMode}
+                    checked={mode === nextMode}
+                    onChange={() => onDraftChange(createDashboardTimeRangeModeDraft(draft, nextMode))}
+                  />
+                  <span>{formatDashboardTimeRangeModeLabel(nextMode)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="dashboard-time-range-fields">
+            <label className="field">
+              <span>Relative</span>
+              <select
+                value={relative}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    mode: 'relative',
+                    relative: event.target.value
+                  })
+                }
+                disabled={controlsDisabled || mode !== 'relative'}
+              >
+                {DASHBOARD_TIME_RANGE_RELATIVES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>From ISO</span>
+              <input
+                value={draft.from}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    mode: 'absolute',
+                    from: event.target.value
+                  })
+                }
+                placeholder="2026-06-24T00:00:00Z"
+                disabled={controlsDisabled || mode !== 'absolute'}
+              />
+            </label>
+            <label className="field">
+              <span>To ISO</span>
+              <input
+                value={draft.to}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    mode: 'absolute',
+                    to: event.target.value
+                  })
+                }
+                placeholder="2026-06-24T01:00:00Z"
+                disabled={controlsDisabled || mode !== 'absolute'}
+              />
+            </label>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1642,6 +1809,59 @@ function createEmptyPanelReadResult(): DashboardPanelsReadResult {
     panels: [],
     hasPanels: false
   };
+}
+
+function createEmptyTimeRangeReadResult(): DashboardTimeRangeReadResult {
+  return {
+    ok: true,
+    editable: true,
+    state: 'missing',
+    statusLabel: '未配置',
+    message: '当前 config 未包含全局时间范围。',
+    draft: createDefaultDashboardTimeRangeDraft()
+  };
+}
+
+function createDashboardTimeRangeModeDraft(
+  draft: DashboardTimeRangeDraft,
+  mode: DashboardTimeRangeDraft['mode']
+): DashboardTimeRangeDraft {
+  if (mode === 'relative') {
+    return {
+      ...draft,
+      mode,
+      relative: isDashboardRelativeTimeRange(draft.relative) ? draft.relative : DEFAULT_DASHBOARD_TIME_RANGE_RELATIVE
+    };
+  }
+
+  return {
+    ...draft,
+    mode
+  };
+}
+
+function formatDashboardTimeRangeModeLabel(mode: DashboardTimeRangeDraft['mode']) {
+  if (mode === 'relative') {
+    return 'Relative';
+  }
+
+  if (mode === 'absolute') {
+    return 'Absolute';
+  }
+
+  return '未配置';
+}
+
+function resolveDashboardTimeRangeTone(selected: boolean, result: DashboardTimeRangeReadResult) {
+  if (!selected) {
+    return 'neutral' as const;
+  }
+
+  if (!result.ok) {
+    return result.editable ? ('danger' as const) : ('warning' as const);
+  }
+
+  return result.state === 'missing' ? ('neutral' as const) : ('success' as const);
 }
 
 function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {

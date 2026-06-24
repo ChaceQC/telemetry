@@ -221,6 +221,80 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.deleteDashboard).toHaveBeenCalledWith(12, 7);
   });
 
+  it('可在编辑区写入 relative 全局时间范围并通过既有更新接口保存 config', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+
+    expect(within(timeRangeEditor).getAllByText('未配置').length).toBeGreaterThan(0);
+    await user.click(within(timeRangeEditor).getByRole('radio', { name: 'Relative' }));
+    fireEvent.change(within(timeRangeEditor).getByRole('combobox', { name: 'Relative' }), { target: { value: '7d' } });
+
+    const configText = (within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value;
+    expect(JSON.parse(configText)).toEqual({
+      refresh_seconds: 30,
+      time_range: {
+        mode: 'relative',
+        relative: '7d'
+      }
+    });
+
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
+      12,
+      7,
+      {
+        config: {
+          refresh_seconds: 30,
+          time_range: {
+            mode: 'relative',
+            relative: '7d'
+          }
+        }
+      }
+    ]);
+  });
+
+  it('可在编辑区写入 absolute 全局时间范围并保存 trimmed ISO 字符串', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+
+    await user.click(within(timeRangeEditor).getByRole('radio', { name: 'Absolute' }));
+    fireEvent.change(within(timeRangeEditor).getByLabelText('From ISO'), {
+      target: { value: ' 2026-06-24T00:00:00Z ' }
+    });
+    fireEvent.change(within(timeRangeEditor).getByLabelText('To ISO'), {
+      target: { value: '\t2026-06-24T01:00:00+00:00\n' }
+    });
+
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
+      12,
+      7,
+      {
+        config: {
+          refresh_seconds: 30,
+          time_range: {
+            mode: 'absolute',
+            from: '2026-06-24T00:00:00Z',
+            to: '2026-06-24T01:00:00+00:00'
+          }
+        }
+      }
+    ]);
+  });
+
   it('在编辑区添加 panel 后通过既有更新接口保存 config.panels', async () => {
     const user = userEvent.setup();
     renderPage(<DashboardsPage />);
@@ -327,6 +401,67 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
   });
 
+  it('手动修改 config.time_range 后全局时间范围表单立即同步且不保存', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify(
+          {
+            refresh_seconds: 30,
+            time_range: {
+              mode: 'relative',
+              relative: '6h'
+            }
+          },
+          null,
+          2
+        )
+      }
+    });
+
+    expect((within(timeRangeEditor).getByRole('radio', { name: 'Relative' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(timeRangeEditor).getByRole('combobox', { name: 'Relative' }) as HTMLSelectElement).value).toBe('6h');
+    expect(within(timeRangeEditor).getByText('最近 6h')).toBeTruthy();
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it('非法或非对象 config 会显示全局时间范围状态且避免覆盖 JSON 草稿', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: { value: '{"time_range":{"mode":"relative","relative":"10m"}}' }
+    });
+
+    expect(within(timeRangeEditor).getByText('time_range 配置错误')).toBeTruthy();
+    expect(within(timeRangeEditor).getAllByText('config.time_range.relative 必须是 15m/1h/6h/24h/7d 之一。')).toHaveLength(2);
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect((await screen.findAllByText('config.time_range.relative 必须是 15m/1h/6h/24h/7d 之一。')).length).toBeGreaterThan(0);
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: { value: '[]' }
+    });
+
+    expect(within(timeRangeEditor).getByText('时间范围不可编辑')).toBeTruthy();
+    expect(within(timeRangeEditor).getAllByText('config 必须是 JSON 对象才能使用 time_range。')).toHaveLength(2);
+    expect(within(timeRangeEditor).queryByRole('radio', { name: 'Relative' })).toBeNull();
+    expect((within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value).toBe('[]');
+  });
+
   it('为已保存 panel 按需加载后端查询预览样例', async () => {
     const user = userEvent.setup();
     const panelDashboard = createDashboardFixture({
@@ -374,6 +509,7 @@ describe('DashboardsPage interactions', () => {
     await user.click(within(preview).getByRole('button', { name: '加载预览' }));
 
     await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledWith(12, 7, 'logs'));
+    expect(apiMocks.previewDashboardPanel.mock.calls[0]).toEqual([12, 7, 'logs']);
     expect(await within(preview).findByText('日志样例')).toBeTruthy();
     expect(within(preview).getByText('1 条最近日志')).toBeTruthy();
     expect(within(preview).getByLabelText('日志级别 error，来源 api')).toBeTruthy();
