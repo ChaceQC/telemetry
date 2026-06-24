@@ -1435,6 +1435,53 @@ def test_dashboard_panel_preview_reports_variable_override_request_errors_as_422
     assert preview_response.json()["detail"] == expected_detail
 
 
+def test_dashboard_panel_preview_reports_large_number_float_override_as_422() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-large-float-override-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Large float override preview dashboard",
+            "config": {
+                "variables": [
+                    {
+                        "name": "min_duration",
+                        "type": "number",
+                        "default": 1,
+                    }
+                ],
+                "panels": [
+                    {
+                        "id": "slow-traces",
+                        "title": "Slow traces",
+                        "type": "traces",
+                        "query": {
+                            "duration_min_ms": "${min_duration}",
+                            "limit": 5,
+                        },
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/slow-traces/preview"
+        ),
+        headers=auth_headers,
+        params={"variables": json.dumps({"min_duration": int("9" * 400)})},
+    )
+
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 422
+    assert preview_response.json()["detail"] == "panel.query.duration_min_ms 必须是有限数值"
+
+
 def test_dashboard_panel_preview_inherits_relative_time_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

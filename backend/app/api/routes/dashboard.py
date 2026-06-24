@@ -313,9 +313,15 @@ def _panel_query_float(query: dict[str, Any], key: str) -> float | None:
     value = query.get(key)
     if value is None:
         return None
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise QueryFilterError(f"panel.query.{key} 必须是有限数值")
-    return float(value)
+    try:
+        float_value = float(value)
+    except OverflowError as error:
+        raise QueryFilterError(f"panel.query.{key} 必须是有限数值") from error
+    if not isfinite(float_value):
+        raise QueryFilterError(f"panel.query.{key} 必须是有限数值")
+    return float_value
 
 
 def _panel_metric_window(query: dict[str, Any]) -> Literal["1m", "5m", "15m", "1h"]:
