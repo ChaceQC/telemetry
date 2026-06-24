@@ -75,6 +75,8 @@ export type DashboardPanelPreviewResponse = {
   preview: DashboardPanelPreviewPayload;
 };
 
+export type DashboardPanelPreviewVariables = Record<string, string | number>;
+
 export type CreateDashboardRequest = {
   project_id: number;
   name: string;
@@ -124,9 +126,18 @@ export function deleteDashboard(projectId: number, dashboardId: number) {
   });
 }
 
-export function previewDashboardPanel(projectId: number, dashboardId: number, panelId: string) {
+export function previewDashboardPanel(
+  projectId: number,
+  dashboardId: number,
+  panelId: string,
+  variables?: DashboardPanelPreviewVariables | null
+) {
+  const variablesQueryParam = variables && Object.keys(variables).length > 0 ? JSON.stringify(variables) : undefined;
+
   return apiRequest<DashboardPanelPreviewResponse>(
-    `${buildProjectDashboardPath(projectId, dashboardId)}/panels/${encodeURIComponent(panelId)}/preview`
+    buildQueryPath(`${buildProjectDashboardPath(projectId, dashboardId)}/panels/${encodeURIComponent(panelId)}/preview`, {
+      variables: variablesQueryParam
+    })
   );
 }
 

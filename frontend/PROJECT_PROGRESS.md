@@ -2,6 +2,31 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0071 Dashboard preview 请求时变量覆盖前端接入基础
+
+### 已完成
+
+- `/dashboards` 已保存 dashboard 编辑区的 Panel 预览区域新增运行时变量值控件，读取当前 `config.variables` 并按 `text`、`number`、`select` 渲染紧凑输入。
+- `previewDashboardPanel()` 新增可选 `variables` 参数，非空覆盖值会序列化为 `variables=<JSON object string>` query 参数；空对象或未填运行时值不传，让后端继续使用已保存 default。
+- 运行时变量值仅参与远程 panel preview 请求，不写回 `config JSON`，也不会进入 Dashboard update payload；变量配置保存仍走既有 `config.variables` 保存路径。
+- 运行时覆盖支持 text 空字符串显式覆盖、number 非空转有限数字、select 选项校验；非法 number/select 会在本地显示编辑错误并阻止 preview 请求。
+- Panel preview React Query key 已纳入运行时覆盖签名，修改变量后再次加载同一 panel 会产生新的远程预览请求，不复用旧结果；响应展示仍使用后端返回的原始 `query`。
+- 切换 dashboard、分页、保存成功、删除当前 dashboard 或切换项目时会清理运行时变量草稿和 preview 覆盖状态，避免跨 dashboard 残留。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 通过（4 个测试文件、60 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 文案修正后已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/DashboardsPage.interaction.test.tsx` 通过（1 个测试文件、34 个测试），`npm.cmd run typecheck` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 本轮不改后端契约，不做真实后端/MySQL/浏览器联调；真实请求时变量覆盖的端到端效果留给后续测试小步覆盖。
+- 运行时变量值不做跨会话持久化，也不支持部分字符串模板、深层模板、模板仪表盘、自动刷新、导入导出或告警。
+
 ## 2026-06-24 T-0067 Dashboard 变量配置前端基础
 
 ### 已完成

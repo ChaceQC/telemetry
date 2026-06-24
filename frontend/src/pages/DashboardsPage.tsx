@@ -27,7 +27,8 @@ import {
   updateDashboard,
   type Dashboard,
   type DashboardListParams,
-  type DashboardPanelPreviewResponse
+  type DashboardPanelPreviewResponse,
+  type DashboardPanelPreviewVariables
 } from '../api/dashboards';
 import { formatApiErrorMessage } from '../api/http';
 import { listProjects, type Project } from '../api/settings';
@@ -52,6 +53,7 @@ import {
   dashboardPanelToDraft,
   readDashboardPanelsFromConfigText,
   removeDashboardPanelFromConfigText,
+  summarizeDashboardPanelQuery,
   upsertDashboardPanelInConfigText,
   type DashboardPanel,
   type DashboardPanelPreviewModel,
@@ -72,14 +74,17 @@ import {
 } from '../features/dashboards/dashboardTimeRange';
 import {
   DASHBOARD_VARIABLE_TYPES,
+  buildDashboardVariableRuntimeOverrides,
   createDefaultDashboardVariableDraft,
   dashboardVariableToDraft,
+  formatDashboardVariableFallbackLabel,
   formatDashboardVariableOptions,
   readDashboardVariablesFromConfigText,
   removeDashboardVariableFromConfigText,
   upsertDashboardVariableInConfigText,
   type DashboardVariable,
   type DashboardVariableDraft,
+  type DashboardVariableRuntimeDraftValues,
   type DashboardVariablesReadResult
 } from '../features/dashboards/dashboardVariables';
 import { dashboardQueryKeys, dashboardQueryRootKey } from '../features/dashboards/queryKeys';
@@ -95,6 +100,11 @@ type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
 type PanelDraftState = DashboardPanelDraft;
 type VariableDraftState = DashboardVariableDraft;
+type VariableRuntimeDraftState = DashboardVariableRuntimeDraftValues;
+type PreviewVariablesState = {
+  values: DashboardPanelPreviewVariables;
+  signature: string | null;
+};
 type TimeRangeDraftState = {
   configText: string;
   result: DashboardTimeRangeReadResult;
@@ -127,6 +137,10 @@ export function DashboardsPage() {
     scopeKey: '',
     value: createDefaultDashboardVariableDraft()
   }));
+  const [variableRuntimeDraftState, setVariableRuntimeDraftState] = useState<ScopedState<VariableRuntimeDraftState>>({
+    scopeKey: '',
+    value: {}
+  });
   const [timeRangeDraftState, setTimeRangeDraftState] = useState<ScopedState<TimeRangeDraftState | null>>({
     scopeKey: '',
     value: null
@@ -151,6 +165,10 @@ export function DashboardsPage() {
   const [selectedPreviewPanelState, setSelectedPreviewPanelState] = useState<ScopedState<string | null>>({
     scopeKey: '',
     value: null
+  });
+  const [previewVariablesState, setPreviewVariablesState] = useState<ScopedState<PreviewVariablesState>>({
+    scopeKey: '',
+    value: createEmptyPreviewVariablesState()
   });
   const [deleteLocked, setDeleteLocked] = useState(false);
   const deleteInFlightRef = useRef(false);
@@ -261,7 +279,12 @@ export function DashboardsPage() {
       setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
       setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
       setTimeRangeDraftState({ scopeKey: '', value: null });
+      setVariableRuntimeDraftState({ scopeKey: '', value: {} });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id), value: null });
+      setPreviewVariablesState({
+        scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id),
+        value: createEmptyPreviewVariablesState()
+      });
       setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
       setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
       setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -282,7 +305,12 @@ export function DashboardsPage() {
     onSuccess: (dashboard) => {
       setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(dashboard) });
       setTimeRangeDraftState({ scopeKey: '', value: null });
+      setVariableRuntimeDraftState({ scopeKey: '', value: {} });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id), value: null });
+      setPreviewVariablesState({
+        scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
+        value: createEmptyPreviewVariablesState()
+      });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
       setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
@@ -303,6 +331,8 @@ export function DashboardsPage() {
       if (activeEditForm.dashboardId === dashboard.id) {
         setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
         setTimeRangeDraftState({ scopeKey: '', value: null });
+        setVariableRuntimeDraftState({ scopeKey: '', value: {} });
+        setPreviewVariablesState({ scopeKey: panelScopeKey, value: createEmptyPreviewVariablesState() });
       }
       if (nextOffset !== dashboardOffset) {
         setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
@@ -361,8 +391,14 @@ export function DashboardsPage() {
     selectedDashboard && variableDraftState.scopeKey === variableScopeKey
       ? variableDraftState.value
       : createDefaultDashboardVariableDraft(visibleVariables);
+  const activeVariableRuntimeDraft =
+    selectedDashboard && variableRuntimeDraftState.scopeKey === panelScopeKey ? variableRuntimeDraftState.value : {};
   const remotePreviewPanelId =
     selectedDashboard && selectedPreviewPanelState.scopeKey === panelScopeKey ? selectedPreviewPanelState.value : null;
+  const activePreviewVariables =
+    selectedDashboard && previewVariablesState.scopeKey === panelScopeKey
+      ? previewVariablesState.value
+      : createEmptyPreviewVariablesState();
   const savedPanelReadResult = selectedDashboard
     ? readDashboardPanelsFromConfigText(formatDashboardJson(selectedDashboard.config))
     : createEmptyPanelReadResult();
@@ -389,12 +425,22 @@ export function DashboardsPage() {
             auth.sessionRevision,
             selectedDashboard.project_id,
             selectedDashboard.id,
-            remotePreviewPanelId
+            remotePreviewPanelId,
+            activePreviewVariables.signature
           )
         : dashboardQueryKeys.panelPreview(auth.sessionRevision, 0, 0, ''),
     queryFn: () => {
       if (!selectedDashboard || !remotePreviewPanelId) {
         throw new Error('请选择要预览的 panel。');
+      }
+
+      if (activePreviewVariables.signature) {
+        return previewDashboardPanel(
+          selectedDashboard.project_id,
+          selectedDashboard.id,
+          remotePreviewPanelId,
+          activePreviewVariables.values
+        );
       }
 
       return previewDashboardPanel(selectedDashboard.project_id, selectedDashboard.id, remotePreviewPanelId);
@@ -432,8 +478,13 @@ export function DashboardsPage() {
       scopeKey: buildDashboardVariableScopeKey(nextPageScopeKey, null),
       value: createDefaultDashboardVariableDraft()
     });
+    setVariableRuntimeDraftState({ scopeKey: '', value: {} });
     setTimeRangeDraftState({ scopeKey: '', value: null });
     setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null), value: null });
+    setPreviewVariablesState({
+      scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
+      value: createEmptyPreviewVariablesState()
+    });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -459,6 +510,16 @@ export function DashboardsPage() {
 
   function updateVariableDraft(value: VariableDraftState) {
     setVariableDraftState({ scopeKey: variableScopeKey, value });
+  }
+
+  function updateVariableRuntimeDraft(variableName: string, value: string) {
+    setVariableRuntimeDraftState({
+      scopeKey: panelScopeKey,
+      value: {
+        ...activeVariableRuntimeDraft,
+        [variableName]: value
+      }
+    });
   }
 
   function resetPanelDraft(configText = visibleEditForm.configText) {
@@ -636,6 +697,31 @@ export function DashboardsPage() {
     resetVariableDraft(result.configText);
   }
 
+  function handlePreviewPanelSelect(panelId: string) {
+    const runtimeOverrides = buildDashboardVariableRuntimeOverrides(visibleVariables, activeVariableRuntimeDraft);
+    if (!runtimeOverrides.ok) {
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: runtimeOverrides.message });
+      return;
+    }
+
+    const nextPreviewVariables = {
+      values: runtimeOverrides.values,
+      signature: runtimeOverrides.signature
+    };
+    const shouldRefetchSelectedPreview =
+      panelId === remotePreviewPanelId &&
+      activePreviewVariables.signature === nextPreviewVariables.signature &&
+      canRequestRemotePreview;
+
+    setSelectedPreviewPanelState({ scopeKey: panelScopeKey, value: panelId });
+    setPreviewVariablesState({ scopeKey: panelScopeKey, value: nextPreviewVariables });
+    clearLocalEditError();
+
+    if (shouldRefetchSelectedPreview) {
+      void panelPreviewQuery.refetch();
+    }
+  }
+
   const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
   const clearLocalEditError = () => setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
 
@@ -793,6 +879,11 @@ export function DashboardsPage() {
             onSelect={(dashboard) => {
               updateEditForm(dashboardToEditForm(dashboard));
               setTimeRangeDraftState({ scopeKey: '', value: null });
+              setVariableRuntimeDraftState({ scopeKey: '', value: {} });
+              setPreviewVariablesState({
+                scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
+                value: createEmptyPreviewVariablesState()
+              });
               clearLocalEditError();
             }}
             onDelete={handleDelete}
@@ -809,6 +900,11 @@ export function DashboardsPage() {
             onPrevious={() => {
               updateEditForm(dashboardToEditForm(null));
               setTimeRangeDraftState({ scopeKey: '', value: null });
+              setVariableRuntimeDraftState({ scopeKey: '', value: {} });
+              setPreviewVariablesState({
+                scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
+                value: createEmptyPreviewVariablesState()
+              });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: Math.max(0, dashboardOffset - DASHBOARD_PAGE_LIMIT)
@@ -817,6 +913,11 @@ export function DashboardsPage() {
             onNext={() => {
               updateEditForm(dashboardToEditForm(null));
               setTimeRangeDraftState({ scopeKey: '', value: null });
+              setVariableRuntimeDraftState({ scopeKey: '', value: {} });
+              setPreviewVariablesState({
+                scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
+                value: createEmptyPreviewVariablesState()
+              });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: dashboardOffset + DASHBOARD_PAGE_LIMIT
@@ -953,6 +1054,8 @@ export function DashboardsPage() {
               authReady={authState.shouldRequest}
               selected={Boolean(selectedDashboard)}
               model={panelPreviewModel}
+              variables={visibleVariables}
+              runtimeDraft={activeVariableRuntimeDraft}
               selectedPreviewPanelId={remotePreviewPanelId}
               canRequestRemotePreview={canRequestRemotePreview}
               hasUnsavedDashboardConfig={hasUnsavedDashboardConfig}
@@ -960,12 +1063,8 @@ export function DashboardsPage() {
               remotePreviewError={canRequestRemotePreview && panelPreviewQuery.isError ? panelPreviewQuery.error : null}
               remotePreviewLoading={canRequestRemotePreview && panelPreviewQuery.isLoading}
               remotePreviewFetching={canRequestRemotePreview && panelPreviewQuery.isFetching}
-              onSelectPreview={(panelId) => {
-                setSelectedPreviewPanelState({ scopeKey: panelScopeKey, value: panelId });
-                if (panelId === remotePreviewPanelId && canRequestRemotePreview) {
-                  void panelPreviewQuery.refetch();
-                }
-              }}
+              onRuntimeDraftChange={updateVariableRuntimeDraft}
+              onSelectPreview={handlePreviewPanelSelect}
             />
             <DashboardPanelEditor
               disabled={!authState.shouldRequest || !selectedDashboard}
@@ -1326,6 +1425,8 @@ function DashboardPanelPreview({
   authReady,
   selected,
   model,
+  variables,
+  runtimeDraft,
   selectedPreviewPanelId,
   canRequestRemotePreview,
   hasUnsavedDashboardConfig,
@@ -1333,11 +1434,14 @@ function DashboardPanelPreview({
   remotePreviewError,
   remotePreviewLoading,
   remotePreviewFetching,
+  onRuntimeDraftChange,
   onSelectPreview
 }: {
   authReady: boolean;
   selected: boolean;
   model: DashboardPanelPreviewModel;
+  variables: DashboardVariable[];
+  runtimeDraft: DashboardVariableRuntimeDraftValues;
   selectedPreviewPanelId: string | null;
   canRequestRemotePreview: boolean;
   hasUnsavedDashboardConfig: boolean;
@@ -1345,6 +1449,7 @@ function DashboardPanelPreview({
   remotePreviewError: unknown | null;
   remotePreviewLoading: boolean;
   remotePreviewFetching: boolean;
+  onRuntimeDraftChange: (variableName: string, value: string) => void;
   onSelectPreview: (panelId: string) => void;
 }) {
   if (!authReady) {
@@ -1387,6 +1492,14 @@ function DashboardPanelPreview({
       {model.state === 'ready' ? (
         <>
           <p className="dashboard-panel-preview-help">{model.message}</p>
+          {variables.length > 0 ? (
+            <DashboardPanelRuntimeVariables
+              variables={variables}
+              runtimeDraft={runtimeDraft}
+              disabled={hasUnsavedDashboardConfig}
+              onRuntimeDraftChange={onRuntimeDraftChange}
+            />
+          ) : null}
           <ol
             className="dashboard-panel-preview-grid"
             style={{ gridTemplateColumns: `repeat(${model.columns}, minmax(0, 1fr))` }}
@@ -1441,7 +1554,7 @@ function DashboardPanelPreviewHeading({
     <div className="dashboard-panel-preview-heading">
       <div>
         <strong>Panel 预览</strong>
-        <span>只读显示当前 config JSON 中的 panels，不请求图表数据。</span>
+        <span>显示当前 config panels，并可按需加载已保存 panel 的查询样例。</span>
       </div>
       <StatusBadge tone={tone}>{statusLabel}</StatusBadge>
     </div>
@@ -1471,6 +1584,8 @@ function DashboardPanelPreviewCard({
 }) {
   const isSelectedForRemotePreview = selectedPreviewPanelId === panel.id;
   const canRequestThisPanelPreview = canRequestRemotePreview && isSelectedForRemotePreview;
+  const querySummary =
+    isSelectedForRemotePreview && remotePreviewData ? summarizeDashboardPanelQuery(remotePreviewData.query) : panel.querySummary;
 
   return (
     <div className="dashboard-panel-preview-card">
@@ -1511,7 +1626,7 @@ function DashboardPanelPreviewCard({
         </div>
         <div>
           <dt>Query</dt>
-          <dd>{panel.querySummary}</dd>
+          <dd>{querySummary}</dd>
         </div>
       </dl>
       {isSelectedForRemotePreview ? (
@@ -1524,6 +1639,89 @@ function DashboardPanelPreviewCard({
         />
       ) : null}
     </div>
+  );
+}
+
+function DashboardPanelRuntimeVariables({
+  variables,
+  runtimeDraft,
+  disabled,
+  onRuntimeDraftChange
+}: {
+  variables: DashboardVariable[];
+  runtimeDraft: DashboardVariableRuntimeDraftValues;
+  disabled: boolean;
+  onRuntimeDraftChange: (variableName: string, value: string) => void;
+}) {
+  return (
+    <div className="dashboard-panel-remote-preview" aria-label="运行时变量值">
+      <div className="dashboard-panel-remote-preview-heading">
+        <strong>运行时变量值</strong>
+        <span>{variables.length > 0 ? `${variables.length} 个变量` : '无变量'}</span>
+      </div>
+      {variables.length > 0 ? (
+        <div className="dashboard-variable-form">
+          {variables.map((variable) => (
+            <DashboardPanelRuntimeVariableField
+              key={variable.name}
+              variable={variable}
+              value={runtimeDraft[variable.name] ?? ''}
+              disabled={disabled}
+              onChange={(value) => onRuntimeDraftChange(variable.name, value)}
+            />
+          ))}
+        </div>
+      ) : (
+        <span className="dashboard-panel-remote-preview-empty">当前 config.variables 为空。</span>
+      )}
+    </div>
+  );
+}
+
+function DashboardPanelRuntimeVariableField({
+  variable,
+  value,
+  disabled,
+  onChange
+}: {
+  variable: DashboardVariable;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const label = `运行时变量 ${variable.name}`;
+  const fallbackLabel = formatDashboardVariableFallbackLabel(variable);
+
+  if (variable.type === 'select') {
+    return (
+      <label className="field">
+        <span>{variable.label || variable.name}</span>
+        <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
+          <option value="">{fallbackLabel}</option>
+          {variable.options?.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label className="field">
+      <span>{variable.label || variable.name}</span>
+      <input
+        aria-label={label}
+        type={variable.type === 'number' ? 'number' : 'text'}
+        step={variable.type === 'number' ? 'any' : undefined}
+        value={value}
+        maxLength={variable.type === 'number' ? undefined : 256}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={fallbackLabel}
+        disabled={disabled}
+      />
+    </label>
   );
 }
 
@@ -2141,6 +2339,13 @@ function createEmptyTimeRangeReadResult(): DashboardTimeRangeReadResult {
     statusLabel: '未配置',
     message: '当前 config 未包含全局时间范围。',
     draft: createDefaultDashboardTimeRangeDraft()
+  };
+}
+
+function createEmptyPreviewVariablesState(): PreviewVariablesState {
+  return {
+    values: {},
+    signature: null
   };
 }
 

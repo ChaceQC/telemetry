@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDashboardVariableRuntimeOverrides,
   createDefaultDashboardVariableDraft,
   dashboardVariableToDraft,
   normalizeDashboardConfigVariables,
@@ -176,6 +177,72 @@ describe('dashboard variable config helpers', () => {
     ).toEqual({
       ok: false,
       message: 'variable.default 必须是有限数字。'
+    });
+  });
+
+  it('运行时变量覆盖只传显式填写的值并保留 text 空字符串覆盖', () => {
+    expect(
+      buildDashboardVariableRuntimeOverrides(
+        [
+          { name: 'service_name', type: 'text', default: 'checkout' },
+          { name: 'empty_service', type: 'text' },
+          { name: 'sample_rate', type: 'number', default: 1 },
+          { name: 'env', type: 'select', options: ['prod', 'staging'], default: 'prod' }
+        ],
+        {
+          empty_service: '',
+          sample_rate: '',
+          env: '',
+          service_name: 'checkout-api'
+        }
+      )
+    ).toEqual({
+      ok: true,
+      values: {
+        service_name: 'checkout-api',
+        empty_service: ''
+      },
+      signature: JSON.stringify({
+        service_name: 'checkout-api',
+        empty_service: ''
+      })
+    });
+
+    expect(
+      buildDashboardVariableRuntimeOverrides(
+        [
+          { name: 'sample_rate', type: 'number' },
+          { name: 'env', type: 'select', options: ['prod', 'staging'] }
+        ],
+        {
+          sample_rate: '0.25',
+          env: 'staging'
+        }
+      )
+    ).toEqual({
+      ok: true,
+      values: {
+        sample_rate: 0.25,
+        env: 'staging'
+      },
+      signature: JSON.stringify({
+        sample_rate: 0.25,
+        env: 'staging'
+      })
+    });
+  });
+
+  it('运行时变量覆盖拒绝非法 number 和 select 值', () => {
+    expect(buildDashboardVariableRuntimeOverrides([{ name: 'sample_rate', type: 'number' }], { sample_rate: 'NaN' })).toEqual({
+      ok: false,
+      message: 'sample_rate 运行时值必须是有限数字。'
+    });
+
+    expect(
+      buildDashboardVariableRuntimeOverrides([{ name: 'env', type: 'select', options: ['prod'] }], { env: 'staging' })
+    ).toEqual({
+      ok: false,
+      message: 'env 运行时值必须匹配 options 中的一个值。'
     });
   });
 

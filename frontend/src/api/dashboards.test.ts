@@ -147,6 +147,66 @@ describe('dashboard api client', () => {
     );
   });
 
+  it('panel 查询预览空 variables 不生成查询串且保留当前 token', async () => {
+    const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
+    const response = {
+      project_id: 12,
+      dashboard_id: 7,
+      panel_id: 'logs',
+      title: 'Logs',
+      panel_type: 'logs',
+      query: {},
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
+
+    setApiAuthToken('preview-token');
+    await expect(previewDashboardPanel(12, 7, 'logs', {})).resolves.toEqual(response);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/projects/12/dashboards/7/panels/logs/preview',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer preview-token'
+        })
+      })
+    );
+  });
+
+  it('panel 查询预览 variables 会序列化为 URL encoded JSON 并携带当前 token', async () => {
+    const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
+    const response = {
+      project_id: 12,
+      dashboard_id: 7,
+      panel_id: 'logs',
+      title: 'Logs',
+      panel_type: 'logs',
+      query: {},
+      preview: {
+        kind: 'logs',
+        mode: 'recent',
+        items: []
+      }
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
+
+    setApiAuthToken('preview-token');
+    await expect(previewDashboardPanel(12, 7, 'logs', { service_name: 'checkout api', sample_rate: 0.5 })).resolves.toEqual(response);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/projects/12/dashboards/7/panels/logs/preview?variables=%7B%22service_name%22%3A%22checkout+api%22%2C%22sample_rate%22%3A0.5%7D',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer preview-token'
+        })
+      })
+    );
+  });
+
   it('空列表参数不生成空查询串', async () => {
     const { listDashboards } = await loadDashboardClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], limit: 50, offset: 0, total: 0 }));

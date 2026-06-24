@@ -19,7 +19,10 @@ type DashboardListResult = { items: Dashboard[]; limit: number; offset: number; 
 const apiMocks = vi.hoisted(() => ({
   listProjects: vi.fn<() => Promise<Project[]>>(),
   listDashboards: vi.fn<(params?: DashboardListParams) => Promise<DashboardListResult>>(),
-  previewDashboardPanel: vi.fn<(projectId: number, dashboardId: number, panelId: string) => Promise<DashboardPanelPreviewResponse>>(),
+  previewDashboardPanel:
+    vi.fn<
+      (projectId: number, dashboardId: number, panelId: string, variables?: Record<string, string | number>) => Promise<DashboardPanelPreviewResponse>
+    >(),
   createDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn()
@@ -828,6 +831,133 @@ describe('DashboardsPage interactions', () => {
     expect(within(preview).getByLabelText('日志级别 error，来源 api')).toBeTruthy();
     expect(within(preview).getByText('error / api / 2026-06-20 10:01:00Z')).toBeTruthy();
     expect(within(preview).getByText('boom')).toBeTruthy();
+  });
+
+  it('panel 查询预览可携带运行时变量覆盖且不会写回 dashboard config', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        variables: [
+          { name: 'service_source', label: 'Service', type: 'text', default: 'api' },
+          { name: 'empty_keyword', label: 'Keyword', type: 'text' },
+          { name: 'row_limit', label: 'Rows', type: 'number', default: 10 },
+          { name: 'log_level', label: 'Level', type: 'select', options: ['error', 'warn'], default: 'error' }
+        ],
+        panels: [
+          {
+            id: 'logs',
+            title: '错误日志',
+            type: 'logs',
+            query: { source: '${service_source}', keyword: '${empty_keyword}', level: '${log_level}', limit: '${row_limit}' },
+            layout: { x: 0, y: 0, w: 6, h: 3 }
+          }
+        ]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    apiMocks.previewDashboardPanel
+      .mockResolvedValueOnce({
+        project_id: project.id,
+        dashboard_id: panelDashboard.id,
+        panel_id: 'logs',
+        title: '错误日志',
+        panel_type: 'logs',
+        query: { source: '${service_source}', keyword: '${empty_keyword}', level: '${log_level}', limit: '${row_limit}' },
+        preview: {
+          kind: 'logs',
+          mode: 'recent',
+          items: []
+        }
+      })
+      .mockResolvedValueOnce({
+        project_id: project.id,
+        dashboard_id: panelDashboard.id,
+        panel_id: 'logs',
+        title: '错误日志',
+        panel_type: 'logs',
+        query: { source: '${service_source}', keyword: '${empty_keyword}', level: '${log_level}', limit: '${row_limit}' },
+        preview: {
+          kind: 'logs',
+          mode: 'recent',
+          items: []
+        }
+      });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+    const runtimeVariables = within(preview).getByLabelText('运行时变量值');
+
+    expect(within(runtimeVariables).getByPlaceholderText('default api')).toBeTruthy();
+    expect(within(runtimeVariables).getByText('4 个变量')).toBeTruthy();
+
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledWith(12, 7, 'logs'));
+
+    await user.clear(within(runtimeVariables).getByLabelText('运行时变量 service_source'));
+    await user.type(within(runtimeVariables).getByLabelText('运行时变量 service_source'), 'worker');
+    await user.type(within(runtimeVariables).getByLabelText('运行时变量 empty_keyword'), 'timeout');
+    await user.clear(within(runtimeVariables).getByLabelText('运行时变量 row_limit'));
+    await user.type(within(runtimeVariables).getByLabelText('运行时变量 row_limit'), '25');
+    await user.selectOptions(within(runtimeVariables).getByLabelText('运行时变量 log_level'), 'warn');
+    await user.click(within(preview).getByRole('button', { name: '刷新预览' }));
+
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledTimes(2));
+    expect(apiMocks.previewDashboardPanel.mock.calls[1]).toEqual([
+      12,
+      7,
+      'logs',
+      {
+        service_source: 'worker',
+        empty_keyword: 'timeout',
+        row_limit: 25,
+        log_level: 'warn'
+      }
+    ]);
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+
+    await user.clear(within(editPanel as HTMLElement).getByLabelText('名称'));
+    await user.type(within(editPanel as HTMLElement).getByLabelText('名称'), 'SLO 值班看板 v2');
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+    const savedPayload = apiMocks.updateDashboard.mock.calls[0]?.[2];
+    expect(savedPayload).toEqual({
+      name: 'SLO 值班看板 v2'
+    });
+    expect(JSON.stringify(savedPayload)).not.toContain('worker');
+    expect(JSON.stringify(savedPayload)).not.toContain('timeout');
+  });
+
+  it('运行时变量默认 fallback 不传覆盖值，但无 default 的 text 空字符串可显式覆盖', async () => {
+    const user = userEvent.setup();
+    const panelDashboard = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        variables: [
+          { name: 'service_source', type: 'text', default: 'api' },
+          { name: 'empty_keyword', type: 'text' },
+          { name: 'row_limit', type: 'number', default: 10 },
+          { name: 'log_level', type: 'select', options: ['error', 'warn'], default: 'error' }
+        ],
+        panels: [{ id: 'logs', title: '错误日志', type: 'logs', query: {}, layout: { x: 0, y: 0, w: 6, h: 3 } }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [panelDashboard], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const preview = within(editPanel as HTMLElement).getByLabelText('Panel 预览');
+    const runtimeVariables = within(preview).getByLabelText('运行时变量值');
+
+    await user.type(within(runtimeVariables).getByLabelText('运行时变量 empty_keyword'), 'draft');
+    await user.clear(within(runtimeVariables).getByLabelText('运行时变量 empty_keyword'));
+    await user.click(within(preview).getByRole('button', { name: '加载预览' }));
+
+    await waitFor(() => expect(apiMocks.previewDashboardPanel).toHaveBeenCalledWith(12, 7, 'logs', { empty_keyword: '' }));
   });
 
   it('为 metrics panel 渲染轻量聚合可视化', async () => {
