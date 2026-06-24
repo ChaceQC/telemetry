@@ -1068,6 +1068,104 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
     ]
 
 
+def test_dashboard_panel_preview_resolves_variable_defaults_before_query_execution() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-variable-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "matched variable defaults",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "ignored source",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+                {
+                    "level": "info",
+                    "message": "ignored level",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Variable preview dashboard",
+            "config": {
+                "variables": [
+                    {
+                        "name": "service_source",
+                        "label": "Service source",
+                        "type": "text",
+                        "default": "api",
+                    },
+                    {
+                        "name": "log_level",
+                        "label": "Log level",
+                        "type": "select",
+                        "options": ["info", "error"],
+                        "default": "error",
+                    },
+                    {
+                        "name": "row_limit",
+                        "label": "Row limit",
+                        "type": "number",
+                        "default": 5,
+                    },
+                ],
+                "panels": [
+                    {
+                        "id": "errors",
+                        "title": "Errors",
+                        "type": "logs",
+                        "query": {
+                            "source": "${service_source}",
+                            "level": "${log_level}",
+                            "limit": "${row_limit}",
+                        },
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/errors/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 200
+    preview_body = preview_response.json()
+    assert preview_body["query"] == {
+        "source": "${service_source}",
+        "level": "${log_level}",
+        "limit": "${row_limit}",
+    }
+    assert [log["message"] for log in preview_body["preview"]["items"]] == [
+        "matched variable defaults"
+    ]
+
+
 def test_dashboard_panel_preview_inherits_relative_time_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1234,6 +1332,274 @@ def test_dashboard_panel_preview_panel_time_overrides_dashboard_time_range() -> 
     assert explicit_to_response.status_code == 200
     assert [log["message"] for log in explicit_to_response.json()["preview"]["items"]] == [
         "dashboard range"
+    ]
+
+
+def test_dashboard_panel_preview_variable_time_defaults_override_dashboard_time_range() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-variable-time-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "dashboard range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "panel variable range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:06:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "after dashboard to",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:07:00Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Variable time preview dashboard",
+            "config": {
+                "time_range": {
+                    "mode": "absolute",
+                    "from": "2026-06-20T10:00:00Z",
+                    "to": "2026-06-20T10:06:00Z",
+                },
+                "variables": [
+                    {
+                        "name": "range_from",
+                        "label": "Range from",
+                        "type": "text",
+                        "default": "2026-06-20T10:05:00Z",
+                    },
+                    {
+                        "name": "range_to",
+                        "label": "Range to",
+                        "type": "text",
+                        "default": "2026-06-20T10:02:00Z",
+                    },
+                ],
+                "panels": [
+                    {
+                        "id": "explicit-from-variable",
+                        "title": "Explicit from variable",
+                        "type": "logs",
+                        "query": {
+                            "level": "error",
+                            "occurred_from": "${range_from}",
+                            "limit": 5,
+                        },
+                    },
+                    {
+                        "id": "explicit-to-variable",
+                        "title": "Explicit to variable",
+                        "type": "logs",
+                        "query": {
+                            "level": "error",
+                            "occurred_to": "${range_to}",
+                            "limit": 5,
+                        },
+                    },
+                ],
+            },
+        },
+    )
+
+    explicit_from_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/explicit-from-variable/preview"
+        ),
+        headers=auth_headers,
+    )
+    explicit_to_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/explicit-to-variable/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert explicit_from_response.status_code == 200
+    assert [log["message"] for log in explicit_from_response.json()["preview"]["items"]] == [
+        "panel variable range"
+    ]
+    assert explicit_to_response.status_code == 200
+    assert [log["message"] for log in explicit_to_response.json()["preview"]["items"]] == [
+        "dashboard range"
+    ]
+
+
+def test_dashboard_panel_preview_reports_invalid_variable_templates_as_422() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-variable-invalid-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Invalid variable preview",
+            "config": {
+                "variables": [
+                    {"name": "source", "type": "text", "default": "api"},
+                    {"name": "missing_default", "type": "text"},
+                    {"name": "row_limit", "type": "number", "default": 5},
+                ],
+                "panels": [
+                    {
+                        "id": "unknown-variable",
+                        "title": "Unknown variable",
+                        "type": "logs",
+                        "query": {"source": "${unknown_source}"},
+                    },
+                    {
+                        "id": "missing-default",
+                        "title": "Missing default",
+                        "type": "logs",
+                        "query": {"source": "${missing_default}"},
+                    },
+                    {
+                        "id": "invalid-template",
+                        "title": "Invalid template",
+                        "type": "logs",
+                        "query": {"source": "svc-${source}"},
+                    },
+                    {
+                        "id": "invalid-type",
+                        "title": "Invalid type",
+                        "type": "logs",
+                        "query": {"source": "${row_limit}"},
+                    },
+                ],
+            },
+        },
+    )
+
+    unknown_variable_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/unknown-variable/preview"
+        ),
+        headers=auth_headers,
+    )
+    missing_default_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/missing-default/preview"
+        ),
+        headers=auth_headers,
+    )
+    invalid_template_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/invalid-template/preview"
+        ),
+        headers=auth_headers,
+    )
+    invalid_type_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/invalid-type/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert dashboard_response.status_code == 201
+    assert unknown_variable_response.status_code == 422
+    assert unknown_variable_response.json()["detail"] == "panel.query 变量 unknown_source 未定义"
+    assert missing_default_response.status_code == 422
+    assert missing_default_response.json()["detail"] == (
+        "panel.query 变量 missing_default 缺少 default"
+    )
+    assert invalid_template_response.status_code == 422
+    assert invalid_template_response.json()["detail"] == "panel.query 变量模板语法无效"
+    assert invalid_type_response.status_code == 422
+    assert invalid_type_response.json()["detail"] == "panel.query.source 必须是字符串"
+
+
+def test_dashboard_panel_preview_does_not_replace_nested_variable_templates() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-nested-variable-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "api error",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "worker error",
+                    "source": "worker",
+                    "timestamp": "2026-06-20T10:01:00Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Nested variable preview",
+            "config": {
+                "variables": [{"name": "source", "type": "text", "default": "api"}],
+                "panels": [
+                    {
+                        "id": "nested-filter",
+                        "title": "Nested filter",
+                        "type": "logs",
+                        "query": {
+                            "level": "error",
+                            "filters": {"source": "${source}"},
+                            "limit": 5,
+                        },
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/nested-filter/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 200
+    assert [log["message"] for log in preview_response.json()["preview"]["items"]] == [
+        "worker error",
+        "api error",
     ]
 
 

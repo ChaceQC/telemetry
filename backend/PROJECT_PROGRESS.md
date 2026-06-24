@@ -2,6 +2,34 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0068 Dashboard panel preview 变量默认值替换后端基础
+
+### 已完成
+
+- `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` 现在会在执行已保存 panel query 前读取已保存 dashboard `config.variables`，并仅对 panel `query` 顶层字段中完整匹配 `${变量名}` 的字符串做变量 default 替换。
+- 支持 `text`、`select`、`number` 变量 default：`text/select` 替换后保持字符串，`number` 替换后保持数字，再进入既有 query 白名单校验和 preview 执行路径。
+- 未知变量、变量无 `default`、模板语法非法、替换后类型不满足现有 query 校验时均沿既有 preview 错误路径返回 `422`，避免历史/损坏配置形成 `500`。
+- 保持已保存 panel `query` 响应为原始模板值，不回写替换结果，不修改 dashboard 保存契约；不支持请求时变量覆盖、部分字符串拼接替换或数组/对象深层模板替换。
+- 保持 panel 显式 `occurred_from` / `occurred_to` 与 dashboard `config.time_range` 的既有优先级语义：变量替换后再进入现有 query/time range 处理，因此显式时间变量 default 仍优先于 dashboard 全局时间范围。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖 text/select/number default 驱动真实 preview 查询、原始 query 响应不变、变量时间 default 覆盖 dashboard time range、未知变量/缺 default/非法模板/替换后类型非法 `422`，以及深层模板不替换。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 preview 变量默认值替换契约和边界；本轮不新增 API 路径、不变更响应模型、存储结构或部署依赖。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard panel preview 执行计划和前端变量控件联调仍需后续专项补验。
+- 当前只支持顶层字段完整模板替换；复杂 DSL、请求时变量覆盖、数组/对象深层模板、模板 dashboard、导入导出、自动刷新、告警和 ClickHouse 查询均不在本轮范围内。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：87 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：100 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/api/routes/dashboard.py tests/test_dashboard_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/api/routes/dashboard.py tests/test_dashboard_api.py`，结果：2 个文件已符合格式。
+- 已运行 `uv run mypy app/api/routes/dashboard.py tests/test_dashboard_api.py`，结果：2 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0066 Dashboard 变量配置后端基础
 
 ### 已完成
