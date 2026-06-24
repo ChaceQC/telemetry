@@ -755,6 +755,8 @@
 - T-0066 启动同步 CI 通过：`20bfcee` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28090256108`、`28090294021`、`28090298987` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。已启动后端开发 agent Cicero 在 `feature/backend-dev` 推进实现。
 - T-0066 后端实现、审计和 feature CI 通过：Cicero 提交并推送 `6d51ded` 到 `feature/backend-dev`，新增 `config.variables` 保存层最小 schema 校验与规范化，变量支持 `name/label/type/default/options`，`name` 限定稳定模板标识，`type` 限定 `text/number/select`，select options 裁剪去重且 default 必须命中 options，legacy config 保持兼容；同步后端 README、后端进度和 API 契约草案。开发侧 dashboard API 83 passed、dashboard/config 96 passed、ruff、format、mypy、`uv lock --check`、diff check 均通过；feature CI run `28091537118` 成功。Heisenberg 审计未发现 P0/P1/P2/P3，确认未改变 panel preview 查询语义；残余风险为未做真实 MySQL JSON 列读写和前端变量控件消费路径。
 - T-0066 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `6d51ded` 合入，merge 提交 `264a026`。merge 后本地门禁通过：后端 dashboard/config 96 passed、ruff、format、mypy、`uv lock --check` 通过；前端 `npm.cmd run typecheck` 和 `git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0066 已完成同步收口：`c8abff9` 已推送到 `dev`、`feature/backend-dev` 和 `feature/frontend-dev`，GitHub Actions runs `28092160807`、`28092255631`、`28092259751` 均通过；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0066 关闭。
+- T-0067 已登记为阶段 5 下一小步：Dashboard 变量配置前端基础。边界为在 `/dashboards` 已保存 dashboard 编辑区读取/编辑 `config.variables`，提供最小变量列表、添加/编辑/删除、`name/label/type/default/options` 前端本地校验和写回既有 Dashboard update API；不改后端契约、不执行 panel query 模板替换、不改 preview 查询语义、不接 ClickHouse、不做模板仪表盘、自动刷新、JSON 导入导出或告警，并保持 legacy config 兼容。
 
 ### 阻塞与风险
 

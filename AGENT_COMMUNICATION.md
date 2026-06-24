@@ -94,6 +94,7 @@ closed      已关闭
 | T-0064 | Dashboard panel preview 继承全局时间范围后端基础 | 总 agent | todo | done | done | done | done |
 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | done | done | done | done |
+| T-0067 | Dashboard 变量配置前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -696,6 +697,7 @@ closed      已关闭
 | 2026-06-24 | T-0066-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28090256108`、`28090294021`、`28090298987`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | T-0066 启动记录 `20bfcee` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
 | 2026-06-24 | T-0066 | Dashboard 变量配置后端门禁 | `feature/backend-dev` run `28091537118`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `6d51ded` 上 feature/backend-dev CI 通过，Frontend checks 与 Backend checks 均为 success；Cicero 本地 `tests/test_dashboard_api.py` 83 passed，`tests/test_dashboard_api.py tests/test_config.py` 96 passed，1 条既有 TestClient 上游弃用 warning，ruff、format、mypy、uv lock、diff check 均通过。未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器 |
 | 2026-06-24 | T-0066 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck；`git diff --check` | 通过 | merge 提交 `264a026` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、diff check 通过 |
+| 2026-06-24 | T-0066-sync | CI 与 worktree 同步 | GitHub Actions runs `28092160807`、`28092255631`、`28092259751`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `c8abff9` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
 
 ## 7. 审计记录
 
@@ -822,6 +824,7 @@ closed      已关闭
 | 2026-06-24 | T-0064 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 继承全局时间范围后端基础 `2da1cca` 已通过 Socrates 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `666d9ea`；`b28492c` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0065 | dev | dev | 总 agent | Dashboard preview 继承全局时间范围真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hooke 原始失败经总 agent 复核为验证数据/断言问题，总 agent rerun 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 relative/absolute 继承、panel 显式时间覆盖、legacy/empty/invalid/权限边界和移动端 UI；资源已清理 | done |
 | 2026-06-24 | T-0066 | feature/backend-dev | dev | 总 agent | Dashboard 变量配置后端基础 `6d51ded` 已通过 Heisenberg 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `264a026`；merge 后本地门禁通过，待推送 `dev` 并读取 CI 后同步两个 feature 分支 | done |
+| 2026-06-24 | T-0067 | feature/frontend-dev | dev | 总 agent | 已登记 Dashboard 变量配置前端基础；后续由前端开发 agent 在 `feature/frontend-dev` 推进 `/dashboards` 已保存 dashboard 编辑区读取/编辑 `config.variables` 的最小 UI、校验和保存写回，完成后经代码审计再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
