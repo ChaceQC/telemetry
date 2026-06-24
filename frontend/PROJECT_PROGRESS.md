@@ -2,6 +2,31 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0063-fix2 Dashboard absolute 草稿写回保护
+
+### 已完成
+
+- 修复 `writeDashboardTimeRangeToConfigText()` 的 absolute 分支：现在写回前会复用严格 absolute 校验和规范化，非法 `from/to` 直接返回错误，不再产出包含非法 `config.time_range` 的 `configText`。
+- `/dashboards` 全局时间范围编辑器新增本地非法草稿承接：用户输入非法 absolute 时字段值和错误提示保留，但 `config JSON` textarea 保持上一份合法 config 或 legacy config，不被非法 `time_range` 污染。
+- 保存时若当前 time range 表单仍处于非法草稿状态，会先用本地错误阻止提交；用户手动编辑 `config JSON` 写入非法 `time_range` 仍由保存前 parser 阻止。
+- 保持 relative 写回、none 删除和合法 absolute 写回行为；合法 absolute 写回会在 textarea 中保存 trim 后的 ISO 字符串。
+- 补充纯函数和页面交互回归测试，覆盖合法 absolute 写回、从合法 absolute 改成 `2026-02-31T00:00:00Z` 不污染 JSON、从 legacy/无 `time_range` 输入非法 absolute 不写入非法 `time_range`。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd exec -- vitest run src/features/dashboards/dashboardTimeRange.test.ts --reporter=dot` 通过（1 个测试文件、11 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd exec -- vitest run src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（1 个测试文件、27 个测试）。
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd exec -- vitest run src/features/dashboards/dashboardTimeRange.test.ts src/features/dashboards/dashboardPanels.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（5 个测试文件、73 个测试）。Vitest 输出仍包含项目既有 React Router SSR/future flag warning。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 当前仍未做真实后端/MySQL 联调；本修复限定在前端纯函数和 Dashboard 编辑保存本地拦截。
+- 本轮不改后端契约，不让 panel preview 继承 time range，不接 ClickHouse、变量、模板、auto refresh 或 alerting。
+
 ## 2026-06-24 T-0063-fix Dashboard absolute 时间严格校验
 
 ### 已完成

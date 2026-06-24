@@ -39,6 +39,64 @@ describe('dashboard time range config helpers', () => {
     });
   });
 
+  it('写入合法 absolute time_range 时校验并保留 trimmed ISO 字符串', () => {
+    const result = writeDashboardTimeRangeToConfigText('{"refresh_seconds":30}', {
+      mode: 'absolute',
+      relative: '1h',
+      from: ' 2026-06-24T00:00:00Z ',
+      to: '\t2026-06-24T01:00:00+00:00\n'
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        refresh_seconds: 30,
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00Z',
+          to: '2026-06-24T01:00:00+00:00'
+        }
+      }
+    });
+    expect(result.ok ? JSON.parse(result.configText) : null).toEqual({
+      refresh_seconds: 30,
+      time_range: {
+        mode: 'absolute',
+        from: '2026-06-24T00:00:00Z',
+        to: '2026-06-24T01:00:00+00:00'
+      }
+    });
+  });
+
+  it('非法 absolute 草稿不会生成新的 config.time_range 写回结果', () => {
+    expect(
+      writeDashboardTimeRangeToConfigText(
+        '{"refresh_seconds":30,"time_range":{"mode":"absolute","from":"2026-06-24T00:00:00Z","to":"2026-06-24T01:00:00Z"}}',
+        {
+          mode: 'absolute',
+          relative: '1h',
+          from: '2026-02-31T00:00:00Z',
+          to: '2026-03-01T00:00:00Z'
+        }
+      )
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+
+    expect(
+      writeDashboardTimeRangeToConfigText('{"refresh_seconds":30}', {
+        mode: 'absolute',
+        relative: '1h',
+        from: '2026-02-31T00:00:00Z',
+        to: '2026-03-01T00:00:00Z'
+      })
+    ).toEqual({
+      ok: false,
+      message: 'config.time_range.from 必须是 ISO 8601 时间字符串。'
+    });
+  });
+
   it('写入 none 时删除已有 time_range 并保留其他字段', () => {
     const result = writeDashboardTimeRangeToConfigText(
       '{"refresh_seconds":30,"time_range":{"mode":"relative","relative":"1h"}}',

@@ -181,11 +181,15 @@ export function writeDashboardTimeRangeToConfigText(configText: string, draft: D
       relative: relative.value
     };
   } else {
-    nextConfig.time_range = {
+    const absolute = normalizeAbsoluteTimeRange({
       mode: 'absolute',
       from: draft.from,
       to: draft.to
-    };
+    });
+    if (!absolute.ok) {
+      return absolute;
+    }
+    nextConfig.time_range = absolute.value;
   }
 
   return {

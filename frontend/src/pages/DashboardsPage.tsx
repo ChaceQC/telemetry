@@ -82,6 +82,10 @@ const emptyProjects: Project[] = [];
 type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
 type PanelDraftState = DashboardPanelDraft;
+type TimeRangeDraftState = {
+  configText: string;
+  result: DashboardTimeRangeReadResult;
+};
 type ScopedState<TValue> = {
   scopeKey: string;
   value: TValue;
@@ -106,6 +110,10 @@ export function DashboardsPage() {
     scopeKey: '',
     value: createDefaultDashboardPanelDraft()
   }));
+  const [timeRangeDraftState, setTimeRangeDraftState] = useState<ScopedState<TimeRangeDraftState | null>>({
+    scopeKey: '',
+    value: null
+  });
   const [dashboardOffsetState, setDashboardOffsetState] = useState<ScopedState<number>>({ scopeKey: '', value: 0 });
   const [formUnauthorizedErrorState, setFormUnauthorizedErrorState] = useState<ScopedState<unknown | null>>({
     scopeKey: '',
@@ -235,6 +243,7 @@ export function DashboardsPage() {
       setProjectIdInputState({ scopeKey: authScopeKey, value: nextProjectId });
       setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
       setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
+      setTimeRangeDraftState({ scopeKey: '', value: null });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id), value: null });
       setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
       setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -255,6 +264,7 @@ export function DashboardsPage() {
       updateDashboard(dashboard.project_id, dashboard.id, payload),
     onSuccess: (dashboard) => {
       setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(dashboard) });
+      setTimeRangeDraftState({ scopeKey: '', value: null });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id), value: null });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
       setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
@@ -275,6 +285,7 @@ export function DashboardsPage() {
       const nextOffset = resolveOffsetAfterDeletingOne(dashboardOffset, total, DASHBOARD_PAGE_LIMIT);
       if (activeEditForm.dashboardId === dashboard.id) {
         setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
+        setTimeRangeDraftState({ scopeKey: '', value: null });
       }
       if (nextOffset !== dashboardOffset) {
         setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
@@ -306,9 +317,17 @@ export function DashboardsPage() {
   const panelReadResult = selectedDashboard
     ? readDashboardPanelsFromConfigText(visibleEditForm.configText)
     : createEmptyPanelReadResult();
-  const timeRangeReadResult = selectedDashboard
+  const timeRangeScopeKey = buildDashboardTimeRangeScopeKey(pageScopeKey, visibleEditForm.dashboardId);
+  const configTimeRangeReadResult = selectedDashboard
     ? readDashboardTimeRangeFromConfigText(visibleEditForm.configText)
     : createEmptyTimeRangeReadResult();
+  const activeTimeRangeDraft =
+    selectedDashboard &&
+    timeRangeDraftState.scopeKey === timeRangeScopeKey &&
+    timeRangeDraftState.value?.configText === visibleEditForm.configText
+      ? timeRangeDraftState.value
+      : null;
+  const timeRangeReadResult = activeTimeRangeDraft?.result ?? configTimeRangeReadResult;
   const visiblePanels = panelReadResult.ok ? panelReadResult.panels : [];
   const panelPreviewModel = createDashboardPanelPreviewModel(panelReadResult);
   const panelScopeKey = buildDashboardPanelScopeKey(pageScopeKey, visibleEditForm.dashboardId);
@@ -383,6 +402,7 @@ export function DashboardsPage() {
       scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
       value: createDefaultDashboardPanelDraft()
     });
+    setTimeRangeDraftState({ scopeKey: '', value: null });
     setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null), value: null });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
@@ -455,6 +475,13 @@ export function DashboardsPage() {
       return;
     }
 
+    if (activeTimeRangeDraft && !activeTimeRangeDraft.result.ok) {
+      updateMutation.reset();
+      setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalEditErrorState({ scopeKey: pageScopeKey, value: activeTimeRangeDraft.result.message });
+      return;
+    }
+
     const payload = buildDashboardPatchPayload(selectedDashboard, visibleEditForm);
 
     if (!payload.ok) {
@@ -503,11 +530,19 @@ export function DashboardsPage() {
 
     const result = writeDashboardTimeRangeToConfigText(visibleEditForm.configText, draft);
     if (!result.ok) {
+      setTimeRangeDraftState({
+        scopeKey: timeRangeScopeKey,
+        value: {
+          configText: visibleEditForm.configText,
+          result: createInvalidTimeRangeDraftResult(draft, result.message)
+        }
+      });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: result.message });
       return;
     }
 
     updateEditForm({ ...visibleEditForm, configText: result.configText });
+    setTimeRangeDraftState({ scopeKey: timeRangeScopeKey, value: null });
     clearLocalEditError();
   }
 
@@ -683,6 +718,7 @@ export function DashboardsPage() {
             isDeleting={isDeleteLocked}
             onSelect={(dashboard) => {
               updateEditForm(dashboardToEditForm(dashboard));
+              setTimeRangeDraftState({ scopeKey: '', value: null });
               clearLocalEditError();
             }}
             onDelete={handleDelete}
@@ -698,6 +734,7 @@ export function DashboardsPage() {
             hasNextPage={hasNextPage}
             onPrevious={() => {
               updateEditForm(dashboardToEditForm(null));
+              setTimeRangeDraftState({ scopeKey: '', value: null });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: Math.max(0, dashboardOffset - DASHBOARD_PAGE_LIMIT)
@@ -705,6 +742,7 @@ export function DashboardsPage() {
             }}
             onNext={() => {
               updateEditForm(dashboardToEditForm(null));
+              setTimeRangeDraftState({ scopeKey: '', value: null });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: dashboardOffset + DASHBOARD_PAGE_LIMIT
@@ -814,7 +852,10 @@ export function DashboardsPage() {
             <JsonTextarea
               label="config JSON"
               value={visibleEditForm.configText}
-              onChange={(configText) => updateEditForm({ ...visibleEditForm, configText })}
+              onChange={(configText) => {
+                updateEditForm({ ...visibleEditForm, configText });
+                setTimeRangeDraftState({ scopeKey: '', value: null });
+              }}
               disabled={!authState.shouldRequest || !selectedDashboard}
             />
             <DashboardTimeRangeEditor
@@ -1802,6 +1843,10 @@ function buildDashboardPanelScopeKey(pageScopeKey: string, dashboardId: number |
   return JSON.stringify({ pageScopeKey, dashboardId });
 }
 
+function buildDashboardTimeRangeScopeKey(pageScopeKey: string, dashboardId: number | null) {
+  return JSON.stringify({ pageScopeKey, dashboardId });
+}
+
 function createEmptyPanelReadResult(): DashboardPanelsReadResult {
   return {
     ok: true,
@@ -1819,6 +1864,17 @@ function createEmptyTimeRangeReadResult(): DashboardTimeRangeReadResult {
     statusLabel: '未配置',
     message: '当前 config 未包含全局时间范围。',
     draft: createDefaultDashboardTimeRangeDraft()
+  };
+}
+
+function createInvalidTimeRangeDraftResult(draft: DashboardTimeRangeDraft, message: string): DashboardTimeRangeReadResult {
+  return {
+    ok: false,
+    editable: true,
+    state: 'invalid-time-range',
+    statusLabel: '配置错误',
+    message,
+    draft
   };
 }
 

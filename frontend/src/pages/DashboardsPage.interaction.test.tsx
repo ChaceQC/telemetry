@@ -277,6 +277,15 @@ describe('DashboardsPage interactions', () => {
       target: { value: '\t2026-06-24T01:00:00+00:00\n' }
     });
 
+    expect(JSON.parse((within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value)).toEqual({
+      refresh_seconds: 30,
+      time_range: {
+        mode: 'absolute',
+        from: '2026-06-24T00:00:00Z',
+        to: '2026-06-24T01:00:00+00:00'
+      }
+    });
+
     await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
 
     expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
@@ -293,6 +302,70 @@ describe('DashboardsPage interactions', () => {
         }
       }
     ]);
+  });
+
+  it('从合法 absolute 改成非法日期时不会污染 config.time_range 草稿', async () => {
+    const user = userEvent.setup();
+    const dashboardWithAbsoluteTimeRange = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24T00:00:00Z',
+          to: '2026-06-24T01:00:00Z'
+        }
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [dashboardWithAbsoluteTimeRange], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+    const configJson = within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement;
+
+    fireEvent.change(within(timeRangeEditor).getByLabelText('From ISO'), {
+      target: { value: '2026-02-31T00:00:00Z' }
+    });
+
+    expect(within(timeRangeEditor).getByText('time_range 配置错误')).toBeTruthy();
+    expect(within(timeRangeEditor).getAllByText('config.time_range.from 必须是 ISO 8601 时间字符串。')).toHaveLength(2);
+    expect((within(timeRangeEditor).getByLabelText('From ISO') as HTMLInputElement).value).toBe('2026-02-31T00:00:00Z');
+    expect(JSON.parse(configJson.value)).toEqual({
+      refresh_seconds: 30,
+      time_range: {
+        mode: 'absolute',
+        from: '2026-06-24T00:00:00Z',
+        to: '2026-06-24T01:00:00Z'
+      }
+    });
+
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect((await screen.findAllByText('config.time_range.from 必须是 ISO 8601 时间字符串。')).length).toBeGreaterThan(0);
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it('从 legacy config 输入非法 absolute 时不会写入非法 time_range', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const timeRangeEditor = within(editPanel as HTMLElement).getByLabelText('全局时间范围');
+    const configJson = within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement;
+
+    await user.click(within(timeRangeEditor).getByRole('radio', { name: 'Absolute' }));
+    fireEvent.change(within(timeRangeEditor).getByLabelText('From ISO'), {
+      target: { value: '2026-02-31T00:00:00Z' }
+    });
+
+    expect(within(timeRangeEditor).getByText('time_range 配置错误')).toBeTruthy();
+    expect((within(timeRangeEditor).getByLabelText('From ISO') as HTMLInputElement).value).toBe('2026-02-31T00:00:00Z');
+    expect(JSON.parse(configJson.value)).toEqual({ refresh_seconds: 30 });
+    expect(JSON.parse(configJson.value)).not.toHaveProperty('time_range');
   });
 
   it('非法 absolute 全局时间范围不会通过编辑保存接口提交', async () => {
