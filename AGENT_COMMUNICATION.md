@@ -93,7 +93,7 @@ closed      已关闭
 | T-0063 | Dashboard 全局时间范围前端基础 | 总 agent | done | todo | done | done | done |
 | T-0064 | Dashboard panel preview 继承全局时间范围后端基础 | 总 agent | todo | done | done | done | done |
 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | 总 agent | done | done | done | done | done |
-| T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0066 | Dashboard 变量配置后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -693,6 +693,9 @@ closed      已关闭
 | 2026-06-24 | T-0065-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28084865015`、`28084935195`、`28084946694`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | T-0064 收口/T-0065 启动记录 `e8260cd` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
 | 2026-06-24 | T-0065 | Dashboard preview 继承全局时间范围真实前后端联测 | Hooke 原始测试记录；总 agent rerun：临时 MySQL 8.0.42 `23317`、真实 FastAPI `28118`、真实 Vite `25175`、Playwright + Microsoft Edge；`run-api-rerun.ps1`、`run-ui-rerun.ps1` | 通过 | Hooke 原始 API 失败为验证数据/断言问题：metrics 聚合按固定 15m bucket 返回，且 UI 首次补验复用旧 suffix 时 relative 样本已超出 15m 窗口，不判定为产品缺陷。总 agent 刷新 suffix `rerun-1782293932` 后 API rerun PASS，覆盖 health/login/missing-token、项目/环境/服务/API Key 创建、metrics/logs/events/traces 摄入、relative/absolute `config.time_range` 继承、panel 显式 `occurred_from/to` 单边覆盖、legacy/no time_range、empty preview、invalid query `422`、无权限 `404` 和查询/统计快速回归；UI rerun PASS，Edge 验证 relative logs 展示 inside 且排除 old、empty 状态、invalid `422` 错误态、390px 无横向溢出、无非预期 console error。证据目录 `agents/runtime/e2e-T-0065-20260624-162134/rerun`；最终 cleanup 确认 `23317/28118/25175` 无监听残留 |
 | 2026-06-24 | T-0065-docs | dev CI | GitHub Actions run `28089953313` | 通过 | T-0065 收口记录 `156ab3e` 在 `dev` 上通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解 |
+| 2026-06-24 | T-0066-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28090256108`、`28090294021`、`28090298987`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | T-0066 启动记录 `20bfcee` 在 `dev`、`feature/backend-dev`、`feature/frontend-dev` 上均通过 CI；Frontend checks 与 Backend checks 均为 success，仅有既有 Node.js runtime 弃用注解。严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
+| 2026-06-24 | T-0066 | Dashboard 变量配置后端门禁 | `feature/backend-dev` run `28091537118`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `6d51ded` 上 feature/backend-dev CI 通过，Frontend checks 与 Backend checks 均为 success；Cicero 本地 `tests/test_dashboard_api.py` 83 passed，`tests/test_dashboard_api.py tests/test_config.py` 96 passed，1 条既有 TestClient 上游弃用 warning，ruff、format、mypy、uv lock、diff check 均通过。未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器 |
+| 2026-06-24 | T-0066 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck；`git diff --check` | 通过 | merge 提交 `264a026` 后，后端 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 96 passed、1 条既有 Starlette/TestClient 弃用警告；`uv run ruff check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/schemas/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 均通过；前端 `npm.cmd run typecheck`、diff check 通过 |
 
 ## 7. 审计记录
 
@@ -713,6 +716,7 @@ closed      已关闭
 | 2026-06-24 | T-0063-fix | Dashboard absolute 严格日期校验修复（`a611c4a`） | 未通过 | 原 Date.parse 滚动日期 P2 的最终保存路径已关闭，但新增 P2：字段输入路径仍会把非法 absolute draft 写入 `config.time_range` 草稿，未满足错误状态不写回 config 的前端状态边界；需修复草稿写回路径并补回归。未发现 P0/P1/P3 | blocked |
 | 2026-06-24 | T-0063-fix2 | Dashboard absolute 草稿写回修复（`eb2c97b`） | 通过 | Feynman 复审未发现 P0/P1/P2/P3；原非法 absolute draft 写回 `config.time_range` 的 P2 已关闭，合法 relative/absolute、手动 JSON 保存前拦截和 panel preview 不传递 `time_range` 均符合边界。残余风险为未做真实后端/MySQL 联调，后续真实预览继承全局时间范围需单独小步实现 | done |
 | 2026-06-24 | T-0064 | Dashboard panel preview 继承全局时间范围后端基础（`2da1cca`） | 通过 | Socrates 复审未发现 P0/P1/P2/P3；全局 relative/absolute 范围、panel 显式时间优先、legacy 行为、API 契约不变和测试覆盖均符合当前边界。残余风险为未做真实 MySQL/真实后端/前端浏览器联测 | done |
+| 2026-06-24 | T-0066 | Dashboard 变量配置后端基础（`6d51ded`） | 通过 | Heisenberg 审计未发现 P0/P1/P2/P3；确认 `config.variables` 保存层 schema 与规范化贴合任务边界，legacy config 和 panel preview 语义未被扩展或改写。假设 `variables: []`、`text.default` 空字符串和变量对象保留未知扩展字段为可接受策略；残余风险为未做真实 MySQL JSON 列读写和前端变量控件消费路径 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
@@ -817,7 +821,7 @@ closed      已关闭
 | 2026-06-24 | T-0063 | feature/frontend-dev | dev | 总 agent | Dashboard 全局时间范围前端基础 `adbe06c`、absolute 严格校验修复 `a611c4a` 与草稿写回修复 `eb2c97b` 已通过 feature CI 和 Feynman 复审；总 agent 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `896dd1d`；`8625d0c` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0064 | feature/backend-dev | dev | 总 agent | Dashboard panel preview 继承全局时间范围后端基础 `2da1cca` 已通过 Socrates 复审和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `666d9ea`；`b28492c` 已同步到三分支且 CI/体检通过 | done |
 | 2026-06-24 | T-0065 | dev | dev | 总 agent | Dashboard preview 继承全局时间范围真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hooke 原始失败经总 agent 复核为验证数据/断言问题，总 agent rerun 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 relative/absolute 继承、panel 显式时间覆盖、legacy/empty/invalid/权限边界和移动端 UI；资源已清理 | done |
-| 2026-06-24 | T-0066 | feature/backend-dev | dev | 总 agent | 已登记 Dashboard 变量配置后端基础；后续由后端开发 agent 在 `feature/backend-dev` 推进已保存 dashboard `config.variables` 最小 schema、规范化与后端测试，完成后经代码审计再真实 merge 到 `dev` | doing |
+| 2026-06-24 | T-0066 | feature/backend-dev | dev | 总 agent | Dashboard 变量配置后端基础 `6d51ded` 已通过 Heisenberg 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `264a026`；merge 后本地门禁通过，待推送 `dev` 并读取 CI 后同步两个 feature 分支 | done |
 
 ## 10. 决策记录
 
