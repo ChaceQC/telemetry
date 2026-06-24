@@ -1096,12 +1096,11 @@ h2 {
 
 .dashboard-panel-remote-visual {
   display: grid;
-  grid-template-columns: minmax(96px, 0.38fr) minmax(150px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
   align-items: center;
   gap: 10px;
   min-width: 0;
   padding: 8px;
-  overflow: hidden;
   border: 1px solid #dce8ea;
   border-radius: 8px;
   background: #fbfcfc;

@@ -22,6 +22,7 @@
 - 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
 - 已在 worktree 根目录执行：`git diff --check` 通过。
 - 已用 Playwright CLI + Microsoft Edge 在自启动 Vite `127.0.0.1:25173` 上对 `/dashboards` 做 mock 数据态视觉复核：桌面 1280px 与移动 390px 均渲染出非空 metrics SVG（2 个 bar 与 sparkline），`avg 22 ms`/`样本 5` 可见，页面和 Panel 预览无横向溢出。已关闭 Edge session，停止自有 Vite 进程链并确认 `25173` 无监听。
+- 审计修复后已补充复验：修复 metrics 正负混合 sparkline 误用柱形顶点、窄 panel 图表固定两列被裁剪、5 节点 topology 标签可能越出 viewBox；新增回归测试后 `dashboardPanels.test.ts` 17 tests passed，Dashboard 专项 3 files / 48 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。Playwright CLI + Microsoft Edge 复验显示 metrics 图表盒 `scrollWidth=clientWidth=264`、2 个 bar 可见，`25173` 已释放。
 
 ### 风险
 

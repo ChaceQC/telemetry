@@ -125,6 +125,7 @@ export type DashboardPanelRemotePreviewMetricBar = {
   windowLabel: string;
   x: number;
   y: number;
+  pointY: number;
   width: number;
   height: number;
   tone: DashboardPanelRemotePreviewTone;
@@ -1118,12 +1119,13 @@ function createMetricAggregateVisualization(items: MetricPreviewItem[]): Dashboa
       windowLabel: `${formatPreviewTime(item.window_start)} - ${formatPreviewTime(item.window_end)}`,
       x: roundChartNumber(firstBarX + index * (barWidth + gap)),
       y: roundChartNumber(Math.min(axisY, valueY)),
+      pointY: roundChartNumber(valueY),
       width: roundChartNumber(barWidth),
       height: roundChartNumber(barHeight),
       tone: numericValue < 0 ? ('warning' as const) : ('info' as const)
     };
   });
-  const sparklinePoints = bars.map((bar) => `${roundChartNumber(bar.x + bar.width / 2)} ${roundChartNumber(bar.y)}`);
+  const sparklinePoints = bars.map((bar) => `${roundChartNumber(bar.x + bar.width / 2)} ${bar.pointY}`);
   const primaryItem = visualItems[visualItems.length - 1];
 
   return {
@@ -1414,8 +1416,8 @@ function resolveTopologyNodePositions(count: number) {
       [
         { x: 120, y: 22 },
         { x: 54, y: 48 },
-        { x: 78, y: 92 },
-        { x: 162, y: 92 },
+        { x: 78, y: 82 },
+        { x: 162, y: 82 },
         { x: 186, y: 48 }
       ]
     ]

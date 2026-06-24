@@ -621,6 +621,88 @@ describe('dashboard panel config helpers', () => {
     }
   });
 
+  it('为正负混合 metrics sparkline 使用真实值坐标而不是柱形顶点', () => {
+    const preview = createDashboardPanelRemotePreviewModel({
+      project_id: 12,
+      dashboard_id: 7,
+      panel_id: 'delta',
+      title: 'Delta',
+      panel_type: 'metrics',
+      query: {},
+      preview: {
+        kind: 'metrics',
+        mode: 'aggregate',
+        items: [
+          {
+            project_id: 12,
+            name: 'queue.delta',
+            source: 'api',
+            window_start: '2026-06-20T10:00:00Z',
+            window_end: '2026-06-20T10:01:00Z',
+            aggregation: 'sum',
+            value: -3,
+            sample_count: 1,
+            unit: null
+          },
+          {
+            project_id: 12,
+            name: 'queue.delta',
+            source: 'api',
+            window_start: '2026-06-20T10:01:00Z',
+            window_end: '2026-06-20T10:02:00Z',
+            aggregation: 'sum',
+            value: 6,
+            sample_count: 1,
+            unit: null
+          }
+        ]
+      }
+    });
+
+    if (preview.visualization?.kind !== 'metrics') {
+      throw new Error('expected metrics visualization');
+    }
+
+    const negativeBar = preview.visualization.bars[0];
+    const positiveBar = preview.visualization.bars[1];
+
+    expect(negativeBar.y).toBe(preview.visualization.axisY);
+    expect(negativeBar.pointY).toBeGreaterThan(preview.visualization.axisY);
+    expect(positiveBar.pointY).toBeLessThan(preview.visualization.axisY);
+    expect(preview.visualization.sparklinePath).toContain(`${negativeBar.x + negativeBar.width / 2} ${negativeBar.pointY}`);
+    expect(preview.visualization.sparklinePath).toContain(`${positiveBar.x + positiveBar.width / 2} ${positiveBar.pointY}`);
+  });
+
+  it('为 5 节点 topology 保持节点标签在 SVG 视图范围内', () => {
+    const preview = createDashboardPanelRemotePreviewModel({
+      project_id: 12,
+      dashboard_id: 7,
+      panel_id: 'topology',
+      title: 'Topology',
+      panel_type: 'topology',
+      query: {},
+      preview: {
+        kind: 'topology',
+        mode: 'topology',
+        nodes: [
+          { source: 'api', span_count: 20, trace_count: 8, error_span_count: 0, avg_duration_ms: 20, max_duration_ms: 40 },
+          { source: 'worker', span_count: 16, trace_count: 7, error_span_count: 0, avg_duration_ms: 30, max_duration_ms: 50 },
+          { source: 'db', span_count: 12, trace_count: 6, error_span_count: 0, avg_duration_ms: 40, max_duration_ms: 60 },
+          { source: 'cache', span_count: 8, trace_count: 5, error_span_count: 0, avg_duration_ms: 50, max_duration_ms: 70 },
+          { source: 'queue', span_count: 4, trace_count: 4, error_span_count: 0, avg_duration_ms: 60, max_duration_ms: 80 }
+        ],
+        edges: []
+      }
+    });
+
+    if (preview.visualization?.kind !== 'topology') {
+      throw new Error('expected topology visualization');
+    }
+
+    expect(preview.visualization.nodes).toHaveLength(5);
+    expect(preview.visualization.nodes.every((node) => node.y + node.radius + 12 <= 112)).toBe(true);
+  });
+
   it('为只返回边的 topology 合成缺失节点并保留可视摘要', () => {
     const preview = createDashboardPanelRemotePreviewModel({
       project_id: 12,
