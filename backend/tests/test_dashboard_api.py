@@ -1,5 +1,6 @@
 import json
 from argparse import Namespace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -691,6 +692,13 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
                     "source": "api",
                     "timestamp": "2026-06-20T10:04:59Z",
                 },
+                {
+                    "name": "http.duration",
+                    "value": 200,
+                    "unit": "ms",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:06:00Z",
+                },
             ]
         },
     )
@@ -711,6 +719,12 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
                     "source": "api",
                     "timestamp": "2026-06-20T10:02:00Z",
                 },
+                {
+                    "level": "error",
+                    "message": "outside dashboard time",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:06:00Z",
+                },
             ]
         },
     )
@@ -722,6 +736,16 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
             "source": "ci",
             "timestamp": "2026-06-20T10:03:00Z",
             "payload": {"version": "2026.6.20"},
+        },
+    )
+    outside_events_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "type": "deployment",
+            "source": "ci",
+            "timestamp": "2026-06-20T10:06:00Z",
+            "payload": {"version": "outside"},
         },
     )
     traces_response = client.post(
@@ -748,6 +772,25 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
                     "status_code": "error",
                     "source": "worker",
                 },
+                {
+                    "trace_id": "trace-outside",
+                    "span_id": "api-root-outside",
+                    "name": "GET /orders",
+                    "start_time": "2026-06-20T10:06:00Z",
+                    "duration_ms": 120,
+                    "status_code": "ok",
+                    "source": "api",
+                },
+                {
+                    "trace_id": "trace-outside",
+                    "span_id": "worker-child-outside",
+                    "parent_span_id": "api-root-outside",
+                    "name": "process order",
+                    "start_time": "2026-06-20T10:06:00.010Z",
+                    "duration_ms": 60,
+                    "status_code": "error",
+                    "source": "worker",
+                },
             ]
         },
     )
@@ -758,6 +801,11 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
             "project_id": project_id,
             "name": "Preview dashboard",
             "config": {
+                "time_range": {
+                    "mode": "absolute",
+                    "from": "2026-06-20T10:00:00Z",
+                    "to": "2026-06-20T10:05:00Z",
+                },
                 "panels": [
                     {
                         "id": "latency",
@@ -795,7 +843,7 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
                         "type": "topology",
                         "query": {"source": "api", "limit": 5},
                     },
-                ]
+                ],
             },
         },
     )
@@ -803,6 +851,7 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
     assert metrics_response.status_code == 202
     assert logs_response.status_code == 202
     assert events_response.status_code == 202
+    assert outside_events_response.status_code == 202
     assert traces_response.status_code == 202
     assert dashboard_response.status_code == 201
     dashboard_id = dashboard_response.json()["id"]
@@ -839,11 +888,14 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
     assert metrics_body["preview"]["items"][0]["sample_count"] == 2
 
     assert logs_preview.status_code == 200
-    assert logs_preview.json()["preview"]["items"][0]["message"] == "boom"
+    assert [log["message"] for log in logs_preview.json()["preview"]["items"]] == ["boom"]
     assert events_preview.status_code == 200
-    assert events_preview.json()["preview"]["items"][0]["type"] == "deployment"
+    event_items = events_preview.json()["preview"]["items"]
+    assert [event["payload"] for event in event_items] == [{"version": "2026.6.20"}]
     assert traces_preview.status_code == 200
-    assert traces_preview.json()["preview"]["items"][0]["trace_id"] == "trace-preview"
+    assert [trace["trace_id"] for trace in traces_preview.json()["preview"]["items"]] == [
+        "trace-preview"
+    ]
     assert topology_preview.status_code == 200
     topology_body = topology_preview.json()
     assert {node["source"] for node in topology_body["preview"]["nodes"]} == {"api", "worker"}
@@ -856,6 +908,175 @@ def test_dashboard_panel_preview_returns_saved_panel_query_samples() -> None:
             "avg_duration_ms": 50,
             "max_duration_ms": 50,
         }
+    ]
+
+
+def test_dashboard_panel_preview_inherits_relative_time_range(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.routes import dashboard as dashboard_route
+
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-relative-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+    monkeypatch.setattr(
+        dashboard_route,
+        "_preview_now",
+        lambda: datetime(2026, 6, 20, 10, 15, tzinfo=UTC),
+    )
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "inside relative range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:00:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "outside relative range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T09:59:59Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Relative preview dashboard",
+            "config": {
+                "time_range": {"mode": "relative", "relative": "15m"},
+                "panels": [
+                    {
+                        "id": "errors",
+                        "title": "Errors",
+                        "type": "logs",
+                        "query": {"level": "error", "limit": 5},
+                    }
+                ],
+            },
+        },
+    )
+    preview_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/errors/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert preview_response.status_code == 200
+    assert [log["message"] for log in preview_response.json()["preview"]["items"]] == [
+        "inside relative range"
+    ]
+
+
+def test_dashboard_panel_preview_panel_time_overrides_dashboard_time_range() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="preview-time-override-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, auth_headers, project_id=project_id)
+
+    logs_response = client.post(
+        "/api/v1/ingest/logs",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "logs": [
+                {
+                    "level": "error",
+                    "message": "dashboard range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:02:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "panel explicit range",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:06:00Z",
+                },
+                {
+                    "level": "error",
+                    "message": "after dashboard to",
+                    "source": "api",
+                    "timestamp": "2026-06-20T10:07:00Z",
+                },
+            ]
+        },
+    )
+    dashboard_response = client.post(
+        "/api/v1/dashboards",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "Panel override preview dashboard",
+            "config": {
+                "time_range": {
+                    "mode": "absolute",
+                    "from": "2026-06-20T10:00:00Z",
+                    "to": "2026-06-20T10:06:00Z",
+                },
+                "panels": [
+                    {
+                        "id": "explicit-from",
+                        "title": "Explicit from",
+                        "type": "logs",
+                        "query": {
+                            "level": "error",
+                            "occurred_from": "2026-06-20T10:05:00Z",
+                            "limit": 5,
+                        },
+                    },
+                    {
+                        "id": "explicit-to",
+                        "title": "Explicit to",
+                        "type": "logs",
+                        "query": {
+                            "level": "error",
+                            "occurred_to": "2026-06-20T10:02:00Z",
+                            "limit": 5,
+                        },
+                    },
+                ],
+            },
+        },
+    )
+
+    explicit_from_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/explicit-from/preview"
+        ),
+        headers=auth_headers,
+    )
+    explicit_to_response = client.get(
+        (
+            f"/api/v1/projects/{project_id}/dashboards/"
+            f"{dashboard_response.json()['id']}/panels/explicit-to/preview"
+        ),
+        headers=auth_headers,
+    )
+
+    assert logs_response.status_code == 202
+    assert dashboard_response.status_code == 201
+    assert explicit_from_response.status_code == 200
+    assert [log["message"] for log in explicit_from_response.json()["preview"]["items"]] == [
+        "panel explicit range"
+    ]
+    assert explicit_to_response.status_code == 200
+    assert [log["message"] for log in explicit_to_response.json()["preview"]["items"]] == [
+        "dashboard range"
     ]
 
 

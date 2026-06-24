@@ -2,6 +2,31 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0064 Dashboard panel preview 继承全局时间范围
+
+### 已完成
+
+- `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` 现在会读取已保存 dashboard `config.time_range`，并在 panel query 未显式设置对应时间边界时转换为 query service 使用的 `occurred_from` / `occurred_to`。
+- 支持保存层既有 `relative` 范围 `15m/1h/6h/24h/7d`，基于服务端当前 UTC 时间生成 `[now - relative, now]` 查询范围；测试中通过 monkeypatch `_preview_now()` 固定当前时间，避免 flaky。
+- 支持保存层既有 `absolute` 范围 `from/to`，按 ISO 8601 字符串解析后传入 query service；历史/非法形状的 dashboard `time_range` 在 preview 阶段按旧行为忽略，不影响 legacy config。
+- panel query 显式 `occurred_from` / `occurred_to` 分别优先于 dashboard 全局范围，支持单边覆盖：例如 panel 只显式 `occurred_from` 时，`occurred_to` 仍可继承 dashboard 全局 `to`。
+- 扩展 `backend/tests/test_dashboard_api.py`：原有 metrics/logs/events/traces/topology preview 成功路径现在包含 dashboard absolute 全局时间范围，并通过范围外样本证明真实 query 结果被过滤；新增 relative 全局时间范围固定 now 测试；新增 panel 单边显式时间优先测试；legacy/no panels/无 `time_range` 的既有隐藏或旧行为保持不变。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 panel preview 继承 `config.time_range` 的请求/响应不变、优先级和当前边界。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮只在已保存 dashboard panel preview 后端基础中补齐全局时间范围继承；不改前端请求，不新增请求参数，不改 `DashboardPanelPreviewResponse` 响应模型，不接 ClickHouse，不做变量、模板、自动刷新或告警。
+- 未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard panel preview 执行计划和前端消费仍需后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：59 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check`，结果：通过。
+- 已运行 `uv run ruff format --check`，结果：87 个文件已符合格式。
+- 已运行 `uv run mypy`，结果：87 个源文件无类型错误。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-24 T-0062 Dashboard 全局时间范围后端基础
 
 ### 已完成
