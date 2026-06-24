@@ -1194,13 +1194,43 @@ h2 {
 
 .dashboard-panel-preview-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-start;
+  gap: 6px;
   min-width: 0;
 }
 
 .dashboard-panel-preview-actions .text-button {
   min-height: 32px;
   padding: 6px 9px;
+}
+
+.dashboard-panel-auto-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid #d4e1e3;
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  background: #fbfcfc;
+}
+
+.dashboard-panel-auto-refresh select {
+  min-width: 72px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #172026;
+  font-size: 12px;
+  font-weight: 800;
+  background: #ffffff;
 }
 
 .dashboard-panel-preview-actions .lucide-loader-circle {
