@@ -80,6 +80,52 @@ describe('dashboard JSON helpers', () => {
     });
   });
 
+  it('保存 config 时规范化 variables 字符串字段', () => {
+    expect(
+      parseDashboardJsonField(
+        JSON.stringify({
+          variables: [
+            {
+              name: ' env ',
+              label: ' Environment ',
+              type: ' select ',
+              default: ' prod ',
+              options: [' prod ', '\tstaging\n']
+            }
+          ]
+        }),
+        'config'
+      )
+    ).toEqual({
+      ok: true,
+      value: {
+        variables: [
+          {
+            name: 'env',
+            label: 'Environment',
+            type: 'select',
+            default: 'prod',
+            options: ['prod', 'staging']
+          }
+        ]
+      }
+    });
+  });
+
+  it('保存 config 时拦截非法 variables', () => {
+    expect(
+      parseDashboardJsonField(
+        JSON.stringify({
+          variables: [{ name: 'env', type: 'select', options: ['prod'], default: 'staging' }]
+        }),
+        'config'
+      )
+    ).toEqual({
+      ok: false,
+      message: 'config.variables[0].default 必须匹配 options 中的一个值。'
+    });
+  });
+
   it('默认创建表单使用项目 ID 和最小 layout/config', () => {
     expect(createDefaultDashboardForm('12')).toMatchObject({
       projectId: '12',

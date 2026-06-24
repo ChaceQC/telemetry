@@ -565,6 +565,216 @@ describe('DashboardsPage interactions', () => {
     expect((within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement).value).toBe('[]');
   });
 
+  it('可在编辑区添加变量并通过既有更新接口保存 config.variables', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const variableEditor = within(editPanel as HTMLElement).getByLabelText('变量配置');
+    expect(within(variableEditor).getByText('Legacy config')).toBeTruthy();
+
+    await user.clear(within(variableEditor).getByLabelText('Name'));
+    await user.type(within(variableEditor).getByLabelText('Name'), ' env ');
+    await user.type(within(variableEditor).getByLabelText('Label'), ' Environment ');
+    fireEvent.change(within(variableEditor).getByLabelText('Type'), { target: { value: 'select' } });
+    await user.type(within(variableEditor).getByLabelText('Default'), ' prod ');
+    fireEvent.change(within(variableEditor).getByLabelText('variable options'), {
+      target: { value: ' prod, staging\nprod ' }
+    });
+    await user.click(within(variableEditor).getByRole('button', { name: '添加变量' }));
+
+    const configJson = within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement;
+    expect(JSON.parse(configJson.value)).toEqual({
+      refresh_seconds: 30,
+      variables: [
+        {
+          name: 'env',
+          label: 'Environment',
+          type: 'select',
+          default: 'prod',
+          options: ['prod', 'staging']
+        }
+      ]
+    });
+    expect(within(variableEditor).getByText('Environment')).toBeTruthy();
+    expect(within(variableEditor).getByText('env / select')).toBeTruthy();
+    expect(within(variableEditor).getByText('prod, staging')).toBeTruthy();
+
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect(apiMocks.updateDashboard.mock.calls[0]?.slice(0, 3)).toEqual([
+      12,
+      7,
+      {
+        config: {
+          refresh_seconds: 30,
+          variables: [
+            {
+              name: 'env',
+              label: 'Environment',
+              type: 'select',
+              default: 'prod',
+              options: ['prod', 'staging']
+            }
+          ]
+        }
+      }
+    ]);
+  });
+
+  it('可编辑和删除 config.variables 中的变量', async () => {
+    const user = userEvent.setup();
+    const dashboardWithVariables = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        variables: [
+          { name: 'env', label: '环境', type: 'select', options: ['prod', 'staging'], default: 'prod' },
+          { name: 'sample_rate', type: 'number', default: 1 }
+        ]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [dashboardWithVariables], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const variableEditor = within(editPanel as HTMLElement).getByLabelText('变量配置');
+
+    await user.click(within(variableEditor).getByRole('button', { name: /sample_rate \/ number/ }));
+    await user.type(within(variableEditor).getByLabelText('Label'), 'Sample rate');
+    await user.clear(within(variableEditor).getByLabelText('Default'));
+    await user.type(within(variableEditor).getByLabelText('Default'), '0.25');
+    await user.click(within(variableEditor).getByRole('button', { name: '更新变量' }));
+    await user.click(within(variableEditor).getAllByTitle('删除变量')[0]);
+
+    const configJson = within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement;
+    expect(JSON.parse(configJson.value)).toEqual({
+      refresh_seconds: 30,
+      variables: [
+        {
+          name: 'sample_rate',
+          label: 'Sample rate',
+          type: 'number',
+          default: 0.25
+        }
+      ]
+    });
+  });
+
+  it('编辑 text 变量时保留显式空字符串 default', async () => {
+    const user = userEvent.setup();
+    const dashboardWithVariables = createDashboardFixture({
+      config: {
+        refresh_seconds: 30,
+        variables: [{ name: 'service_name', type: 'text', default: '' }]
+      }
+    });
+    apiMocks.listDashboards.mockResolvedValue({ items: [dashboardWithVariables], limit: 50, offset: 0, total: 1 });
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const variableEditor = within(editPanel as HTMLElement).getByLabelText('变量配置');
+
+    await user.click(within(variableEditor).getByRole('button', { name: /service_name \/ text/ }));
+    expect((within(variableEditor).getByRole('checkbox', { name: '使用' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(variableEditor).getByLabelText('Default') as HTMLInputElement).value).toBe('');
+    await user.type(within(variableEditor).getByLabelText('Label'), 'Service');
+    await user.click(within(variableEditor).getByRole('button', { name: '更新变量' }));
+
+    const configJson = within(editPanel as HTMLElement).getByLabelText('config JSON') as HTMLTextAreaElement;
+    expect(JSON.parse(configJson.value)).toEqual({
+      refresh_seconds: 30,
+      variables: [{ name: 'service_name', label: 'Service', type: 'text', default: '' }]
+    });
+  });
+
+  it('非法变量草稿和手写 config.variables 会被本地拦截且不保存', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const variableEditor = within(editPanel as HTMLElement).getByLabelText('变量配置');
+
+    await user.clear(within(variableEditor).getByLabelText('Name'));
+    await user.type(within(variableEditor).getByLabelText('Name'), '1env');
+    await user.click(within(variableEditor).getByRole('button', { name: '添加变量' }));
+
+    expect(await screen.findByText('variable.name 只能包含字母、数字和下划线，且不能以数字开头。')).toBeTruthy();
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify({
+          refresh_seconds: 30,
+          variables: [{ name: 'env', type: 'select', options: ['prod'], default: 'staging' }]
+        })
+      }
+    });
+
+    expect(within(variableEditor).getByText('变量配置不可用')).toBeTruthy();
+    expect(within(variableEditor).getAllByText('config.variables[0].default 必须匹配 options 中的一个值。')).toHaveLength(2);
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect((await screen.findAllByText('config.variables[0].default 必须匹配 options 中的一个值。')).length).toBeGreaterThan(0);
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify({
+          refresh_seconds: 30,
+          variables: [
+            { name: 'env', type: 'text' },
+            { name: ' env ', type: 'select', options: ['prod'] }
+          ]
+        })
+      }
+    });
+    await user.click(within(editPanel as HTMLElement).getByRole('button', { name: '保存修改' }));
+
+    expect((await screen.findAllByText('config.variables[1].name 不能重复。')).length).toBeGreaterThan(0);
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
+  it('手动修改 config.variables 后变量列表立即同步且不保存', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const editPanel = screen.getAllByRole('heading', { name: '编辑' }).at(-1)?.closest('article') ?? null;
+    expect(editPanel).not.toBeNull();
+    const variableEditor = within(editPanel as HTMLElement).getByLabelText('变量配置');
+
+    fireEvent.change(within(editPanel as HTMLElement).getByLabelText('config JSON'), {
+      target: {
+        value: JSON.stringify(
+          {
+            refresh_seconds: 30,
+            variables: [
+              { name: 'service_name', label: 'Service', type: 'text', default: 'checkout' },
+              { name: 'env', type: 'select', options: ['prod', 'staging'], default: 'prod' }
+            ]
+          },
+          null,
+          2
+        )
+      }
+    });
+
+    expect(within(variableEditor).getByText('2 个变量')).toBeTruthy();
+    expect(within(variableEditor).getByText('Service')).toBeTruthy();
+    expect(within(variableEditor).getByText('service_name / text')).toBeTruthy();
+    expect(within(variableEditor).getByText('env / select')).toBeTruthy();
+    expect(within(variableEditor).getByText('prod, staging')).toBeTruthy();
+    expect(apiMocks.updateDashboard).not.toHaveBeenCalled();
+  });
+
   it('为已保存 panel 按需加载后端查询预览样例', async () => {
     const user = userEvent.setup();
     const panelDashboard = createDashboardFixture({

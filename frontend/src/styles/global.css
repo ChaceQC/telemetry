@@ -867,6 +867,7 @@ h2 {
 
 .dashboard-time-range-modes {
   min-width: 0;
+  min-inline-size: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -917,11 +918,22 @@ h2 {
 
 .dashboard-time-range-fields {
   display: grid;
-  grid-template-columns: minmax(120px, 0.7fr) repeat(2, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
   gap: 10px;
+  min-width: 0;
 }
 
 .dashboard-panel-editor {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.dashboard-variable-editor {
   display: grid;
   gap: 12px;
   min-width: 0;
@@ -938,8 +950,20 @@ h2 {
   gap: 12px;
 }
 
+.dashboard-variable-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .dashboard-panel-heading strong,
 .dashboard-panel-heading span {
+  display: block;
+}
+
+.dashboard-variable-heading strong,
+.dashboard-variable-heading span {
   display: block;
 }
 
@@ -947,7 +971,18 @@ h2 {
   color: #172026;
 }
 
+.dashboard-variable-heading strong {
+  color: #172026;
+}
+
 .dashboard-panel-heading span {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-variable-heading span {
   margin-top: 3px;
   color: var(--text-muted);
   font-size: 12px;
@@ -964,7 +999,24 @@ h2 {
   list-style: none;
 }
 
+.dashboard-variable-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
 .dashboard-panel-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.dashboard-variable-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 38px;
   gap: 8px;
@@ -976,7 +1028,27 @@ h2 {
   background: #f0faf8;
 }
 
+.dashboard-variable-list li.is-selected .dashboard-variable-list-item {
+  border-color: var(--accent);
+  background: #f0faf8;
+}
+
 .dashboard-panel-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  background: #ffffff;
+  text-align: left;
+}
+
+.dashboard-variable-list-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -999,7 +1071,22 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.dashboard-variable-list-item strong,
+.dashboard-variable-list-item small,
+.dashboard-variable-list-item span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .dashboard-panel-list-item small {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dashboard-variable-list-item small {
   margin-top: 3px;
   color: var(--text-muted);
   font-size: 12px;
@@ -1013,7 +1100,21 @@ h2 {
   white-space: nowrap;
 }
 
+.dashboard-variable-list-item code {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dashboard-panel-empty {
+  min-height: 86px;
+}
+
+.dashboard-variable-empty {
   min-height: 86px;
 }
 
@@ -1377,9 +1478,20 @@ h2 {
   gap: 10px;
 }
 
+.dashboard-variable-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .dashboard-panel-query-field,
 .dashboard-panel-layout-fields,
 .dashboard-panel-apply {
+  grid-column: 1 / -1;
+}
+
+.dashboard-variable-options-field,
+.dashboard-variable-apply {
   grid-column: 1 / -1;
 }
 
@@ -1389,6 +1501,45 @@ h2 {
   font-size: 12px;
   line-height: 1.5;
   white-space: pre;
+}
+
+.dashboard-variable-options-field textarea {
+  min-height: 82px;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dashboard-variable-options-field small {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dashboard-variable-default-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-variable-default-heading > label {
+  min-width: 0;
+}
+
+.dashboard-variable-default-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-variable-default-toggle input {
+  width: 13px;
+  height: 13px;
 }
 
 .dashboard-panel-layout-fields {

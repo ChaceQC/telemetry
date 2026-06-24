@@ -2,6 +2,34 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-24 T-0067 Dashboard 变量配置前端基础
+
+### 已完成
+
+- `/dashboards` 已保存 dashboard 编辑区新增 `config.variables` 基础编辑器，支持读取列表、新增、选择编辑、删除，并即时写回同一个 `config JSON` textarea。
+- 新增 `dashboardVariables` 纯函数层，对齐后端 T-0066 变量契约：`name` trim 后匹配 `[A-Za-z_][A-Za-z0-9_]*` 且最长 64、`label` 可选非空且最长 120、`type` 为 `text/number/select`、`default` 按类型校验、`select.options` trim/去重/非空且 default 必须命中选项。
+- `parseDashboardJsonField(..., "config")` 保存前新增 variables 规范化与本地拦截，手写非法 `config.variables` 不会调用既有 update API。
+- 兼容 legacy config：缺失 `variables` 时展示 legacy 状态并允许直接新增；新增后保留 `refresh_seconds`、`panels` 等其他 config 字段。
+- 修复变量编辑器增加内容后触发的 dashboard 编辑区桌面横向溢出：全局时间范围 fieldset 与字段栅格现在可在窄编辑列内收缩/换行。
+- 初始前端 worker 误将 patch 写入根工作树；总 agent 已中断该 worker、将同一批 T-0067 改动迁移到 `feature/frontend-dev` worktree，并恢复根 `dev` 干净。
+- 审计后修复 P3：变量草稿现在区分“没有 default”和“显式空字符串 default”，编辑已有 `default: ""` 的 text/select 变量不会丢失该字段；number default 显式启用但留空时本地拒绝保存。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 通过（3 个测试文件、46 个测试）。
+- 审计修复后已在 `frontend/` 包目录再次执行：`npm.cmd run test -- src/features/dashboards/dashboardVariables.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.interaction.test.tsx` 通过（3 个测试文件、49 个测试）；`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+- 已用 Playwright CLI + Microsoft Edge 在自启动 Vite `127.0.0.1:25173` 上对 `/dashboards` 做 mock 数据态冒烟：legacy config 新增 `select` 变量后 JSON 写回和 PATCH payload 均包含规范化变量，桌面和 390px 移动视口均无横向溢出，无 console error；自启动 Vite 和 Edge 会话已清理，端口 `25173` 已释放。
+- 审计修复后已再次用 Playwright CLI + Microsoft Edge 在自启动 Vite `127.0.0.1:25173` 上做 mock 数据态冒烟：编辑已有 `default: ""` 的 text 变量后 JSON 和 PATCH payload 均保留空字符串 default，桌面和 390px 移动视口均无横向溢出，无 console error；自启动 Vite 和 Edge 会话已清理，端口 `25173` 已释放。
+
+### 风险
+
+- 未做真实后端/MySQL 联调；浏览器冒烟使用前端 mock API 数据态。
+- 本轮只实现变量配置的编辑保存基础，不执行变量替换，不改变 panel preview/query 语义，不新增模板、自动刷新、导入导出或告警能力。
+
 ## 2026-06-24 T-0063-fix2 Dashboard absolute 草稿写回保护
 
 ### 已完成
