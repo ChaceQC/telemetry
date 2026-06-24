@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 from math import isfinite
 from typing import Annotated, Any, Literal, cast
@@ -41,6 +42,7 @@ DASHBOARD_RELATIVE_TIME_DELTAS = {
     "24h": timedelta(hours=24),
     "7d": timedelta(days=7),
 }
+PANEL_QUERY_VARIABLE_TEMPLATE_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
 
 
 def _map_dashboard_error(error: Exception) -> HTTPException:
@@ -138,6 +140,75 @@ def _dashboard_time_range_query(config: Any) -> dict[str, datetime | None]:
     except TypeError:
         return {}
     return {"occurred_from": occurred_from, "occurred_to": absolute_occurred_to}
+
+
+def _dashboard_variable_definitions(config: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(config, dict):
+        return {}
+    variables = config.get("variables")
+    if not isinstance(variables, list):
+        return {}
+
+    definitions: dict[str, dict[str, Any]] = {}
+    for variable in variables:
+        if not isinstance(variable, dict):
+            continue
+        variable_name = variable.get("name")
+        if isinstance(variable_name, str):
+            definitions[variable_name] = variable
+    return definitions
+
+
+def _dashboard_variable_default(
+    definitions: dict[str, dict[str, Any]],
+    variable_name: str,
+) -> str | int | float:
+    variable = definitions.get(variable_name)
+    if variable is None:
+        raise QueryFilterError(f"panel.query 变量 {variable_name} 未定义")
+    if "default" not in variable:
+        raise QueryFilterError(f"panel.query 变量 {variable_name} 缺少 default")
+
+    variable_type = variable.get("type")
+    default = variable["default"]
+    if variable_type in {"text", "select"}:
+        if not isinstance(default, str):
+            raise QueryFilterError(f"panel.query 变量 {variable_name}.default 必须是字符串")
+        return default
+    if variable_type == "number":
+        if (
+            isinstance(default, bool)
+            or not isinstance(default, (int, float))
+            or not isfinite(default)
+        ):
+            raise QueryFilterError(f"panel.query 变量 {variable_name}.default 必须是有限数值")
+        return default
+    raise QueryFilterError(f"panel.query 变量 {variable_name}.type 必须是 text/number/select 之一")
+
+
+def _panel_query_variable_name(value: str) -> str | None:
+    match = PANEL_QUERY_VARIABLE_TEMPLATE_PATTERN.fullmatch(value)
+    if match is not None:
+        return match.group(1)
+    if "${" in value:
+        raise QueryFilterError("panel.query 变量模板语法无效")
+    return None
+
+
+def _resolve_panel_query_variable_defaults(
+    query: dict[str, Any],
+    *,
+    dashboard_config: Any,
+) -> dict[str, Any]:
+    definitions = _dashboard_variable_definitions(dashboard_config)
+    resolved_query: dict[str, Any] = {}
+    for key, value in query.items():
+        if isinstance(value, str):
+            variable_name = _panel_query_variable_name(value)
+            if variable_name is not None:
+                value = _dashboard_variable_default(definitions, variable_name)
+        resolved_query[key] = value
+    return resolved_query
 
 
 def _panel_query_limit(query: dict[str, Any], *, default: int = 20, maximum: int = 100) -> int:
@@ -410,12 +481,16 @@ def preview_project_dashboard_panel(
             or not isinstance(panel_query, dict)
         ):
             raise QueryFilterError("panel 配置无效")
+        resolved_panel_query = _resolve_panel_query_variable_defaults(
+            panel_query,
+            dashboard_config=dashboard.config,
+        )
         preview = _build_panel_preview(
             query_service=query_service,
             current_user=current_user,
             project_id=project_id,
             panel_type=panel_type,
-            query=panel_query,
+            query=resolved_panel_query,
             dashboard_time_range=_dashboard_time_range_query(dashboard.config),
         )
     except (ResourceForbiddenError, ResourceNotFoundError) as error:

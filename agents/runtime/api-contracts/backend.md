@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0066`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，但当前不执行变量替换。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0068`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -497,13 +497,14 @@ PATCH 请求体示例：
   - `events`：`type` 或 `event_type`。
   - `traces`：`trace_id`、`span_id`、`name`、`status_code`、`duration_min_ms`、`duration_max_ms`。
   - `topology`：使用通用 `source`、时间范围和 `limit`。
-- 时间范围继承：当 dashboard 保存了对象类型 `config.time_range` 时，preview 会在 panel query 未显式设置对应时间边界时转换为 query service 使用的 `occurred_from` / `occurred_to`。相对范围 `{"mode":"relative","relative":"15m|1h|6h|24h|7d"}` 基于服务端当前 UTC 时间生成 `[now-relative, now]`；绝对范围 `{"mode":"absolute","from":"ISO 8601","to":"ISO 8601"}` 使用保存的 `from/to`。panel query 显式 `occurred_from` / `occurred_to` 分别优先于 dashboard 全局范围，支持单边覆盖；没有 `time_range`、非对象 config、legacy config 或历史非法 `time_range` 形状按旧行为不继承时间过滤。
+- 变量默认值替换：preview 执行前读取已保存 dashboard `config.variables`，仅当已保存 panel `query` 顶层字段值完整匹配 `${变量名}` 时替换为该变量 `default`，再进入现有 query 白名单校验和 preview 执行。`text/select` default 以字符串传入，`number` default 以数字传入；响应体 `query` 仍返回已保存的原始 query，不回写替换结果。未知变量、变量无 `default`、模板语法非法或替换后类型不满足现有 query 校验时返回 `422`。不支持请求时变量覆盖、部分字符串拼接替换、数组/对象深层模板替换，也不修改 dashboard 保存契约。
+- 时间范围继承：当 dashboard 保存了对象类型 `config.time_range` 时，preview 会在变量默认值替换后，在 panel query 未显式设置对应时间边界时转换为 query service 使用的 `occurred_from` / `occurred_to`。相对范围 `{"mode":"relative","relative":"15m|1h|6h|24h|7d"}` 基于服务端当前 UTC 时间生成 `[now-relative, now]`；绝对范围 `{"mode":"absolute","from":"ISO 8601","to":"ISO 8601"}` 使用保存的 `from/to`。panel query 显式 `occurred_from` / `occurred_to` 分别优先于 dashboard 全局范围，支持单边覆盖；没有 `time_range`、非对象 config、legacy config 或历史非法 `time_range` 形状按旧行为不继承时间过滤。
 - 字段规则：未知 query 字段忽略；`limit` 默认为 `20`，范围 `1..100`；时间字段必须是 ISO 8601 字符串；`metrics` 的 `window/aggregation` 必须是字符串枚举值；字符串字段类型错误、过长、非法 `window/aggregation`、非有限 duration 或 duration 下界大于上界返回 `422`。
 - 错误：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `404 Not Found`：项目不存在、普通用户不在项目权限范围内、dashboard 不属于该项目/不存在、`config` 非对象或未保存 `panels`、`panel_id` 不存在。
-  - `422 Unprocessable Entity`：路径参数或已保存 panel query 中参与预览的白名单字段非法。
-- 当前边界：只读已保存 dashboard `config.panels`；不支持未保存草稿 config，不写 dashboard，不接 ClickHouse，不做真实图表渲染、变量替换、模板、缓存、后台任务或告警；已保存 `config.variables` 当前只做保存校验和规范化，不影响 panel preview 请求或查询语义。
+  - `422 Unprocessable Entity`：路径参数、变量模板、变量 default 或已保存 panel query 中参与预览的白名单字段非法。
+- 当前边界：只读已保存 dashboard `config.panels` 和 `config.variables`；不支持未保存草稿 config，不写 dashboard，不接 ClickHouse，不做真实图表渲染、请求时变量覆盖、模板 dashboard、缓存、后台任务或告警。
 
 ## API-0008 数据摄入
 
