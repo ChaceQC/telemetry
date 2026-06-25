@@ -609,6 +609,7 @@ closed      已关闭
 | 2026-06-25 | T-0076 | 代码审计 agent Parfit / 总 agent | Dashboard 内置模板前端审计通过 | Parfit 只读审计 `origin/dev..origin/feature/frontend-dev` 未发现 P0/P1/P2/P3；确认模板路径、payload 边界、`sessionRevision` query key 隔离、dashboard cache 清理、创建后 fallback 和移动端换行/降列风险均符合当前任务边界。Parfit 完成后已按用户要求关闭 | done |
 | 2026-06-25 | T-0076 | 总 agent | 真实 merge 集成 Dashboard 内置模板前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0076 合入 `dev`，merge 提交 `28f1a3a`。merge 后本地门禁通过：前端 `npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check` 和 `git diff --check` 通过。`dev` CI run `28160157990` 通过，Frontend checks 与 Backend checks 均为 success | done |
 | 2026-06-25 | T-0076-sync | 总 agent | CI 与 worktree 同步完成 | T-0076 完成记录 `2e65b01` 已推送到 `dev`，并将最新 `dev` 同步到 `feature/frontend-dev` 提交 `4ce1571`、`feature/backend-dev` 提交 `e95f26e`；GitHub Actions runs `28160590316`、`28160762257`、`28160649213` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0076 关闭 | done |
+| 2026-06-25 | T-0077 | 总 agent | 登记 Dashboard 内置模板真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge，覆盖 dashboard template 列表/详情、从 `service-overview` 创建普通 dashboard、创建后进入既有 dashboard 编辑/预览流程、模板创建权限/401/403/404/422 边界、创建后保存不回写内置模板、390px 移动端布局和 logs/events/metrics 或 dashboard CRUD 快速回归。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
 
 ## 6. 测试记录
 
@@ -928,6 +929,7 @@ closed      已关闭
 | 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Harvey 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新重复请求、停止、并发保护、运行时变量、未保存草稿、切换 timer 和移动端 UI；资源已清理 | done |
 | 2026-06-24 | T-0075 | feature/backend-dev | dev | 总 agent | Dashboard 内置模板后端基础 `9f530c6` 已通过 Newton 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `41e1743`；本地门禁、`dev` CI run `28122471295`、feature 同步 CI runs `28127248601`、`28127248664` 和严格 worktree 体检均通过 | done |
 | 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础 `a9f5f06`、`7bb4ca7`、`2cd6c09` 已通过 feature CI、Parfit 审计、真实 merge、merge 后本地门禁、`dev` CI 和三分支同步 CI；最新同步提交为 `dev` `2e65b01`、`feature/frontend-dev` `4ce1571`、`feature/backend-dev` `e95f26e`，严格 worktree 体检通过 | done |
+| 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已登记；本任务为测试收口，不产生 feature merge。下一步启动测试 agent 在最新 `dev/origin/dev` 上使用真实 MySQL/后端/前端/Edge 验证模板链路 | testing |
 
 ## 10. 决策记录
 
