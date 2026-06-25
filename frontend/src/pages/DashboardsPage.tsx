@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
   ChevronLeft,
@@ -21,14 +22,18 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   createDashboard,
+  createDashboardFromTemplate,
   deleteDashboard,
+  getDashboardTemplate,
+  listDashboardTemplates,
   listDashboards,
   previewDashboardPanel,
   updateDashboard,
   type Dashboard,
   type DashboardListParams,
   type DashboardPanelPreviewResponse,
-  type DashboardPanelPreviewVariables
+  type DashboardPanelPreviewVariables,
+  type DashboardTemplate
 } from '../api/dashboards';
 import { formatApiErrorMessage } from '../api/http';
 import { listProjects, type Project } from '../api/settings';
@@ -43,6 +48,7 @@ import {
 import {
   buildDashboardPatchPayload,
   buildDashboardPayload,
+  buildDashboardTemplateCreatePayload,
   normalizePositiveInteger
 } from '../features/dashboards/dashboardPayload';
 import {
@@ -101,8 +107,15 @@ const DASHBOARD_PANEL_AUTO_REFRESH_OPTIONS = [
 ] as const;
 const emptyDashboards: Dashboard[] = [];
 const emptyProjects: Project[] = [];
+const emptyDashboardTemplates: DashboardTemplate[] = [];
 
 type CreateFormState = ReturnType<typeof createDefaultDashboardForm>;
+type TemplateCreateFormState = {
+  projectId: string;
+  templateId: string;
+  name: string;
+  description: string;
+};
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
 type PanelDraftState = DashboardPanelDraft;
 type VariableDraftState = DashboardVariableDraft;
@@ -135,10 +148,18 @@ export function DashboardsPage() {
     scopeKey: '',
     value: createDefaultDashboardForm()
   }));
+  const [templateCreateFormState, setTemplateCreateFormState] = useState<ScopedState<TemplateCreateFormState>>(() => ({
+    scopeKey: '',
+    value: createDefaultDashboardTemplateForm()
+  }));
   const [editFormState, setEditFormState] = useState<ScopedState<EditFormState>>(() => ({
     scopeKey: '',
     value: dashboardToEditForm(null)
   }));
+  const [activeDashboardFallbackState, setActiveDashboardFallbackState] = useState<ScopedState<Dashboard | null>>({
+    scopeKey: '',
+    value: null
+  });
   const [panelDraftState, setPanelDraftState] = useState<ScopedState<PanelDraftState>>(() => ({
     scopeKey: '',
     value: createDefaultDashboardPanelDraft()
@@ -161,6 +182,10 @@ export function DashboardsPage() {
     value: null
   });
   const [createRemoteErrorState, setCreateRemoteErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [templateCreateRemoteErrorState, setTemplateCreateRemoteErrorState] = useState<ScopedState<unknown | null>>({
     scopeKey: '',
     value: null
   });
@@ -189,6 +214,10 @@ export function DashboardsPage() {
   const autoRefreshInFlightRef = useRef(false);
   const panelPreviewFetchingRef = useRef(false);
   const [localCreateErrorState, setLocalCreateErrorState] = useState<ScopedState<string | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [localTemplateCreateErrorState, setLocalTemplateCreateErrorState] = useState<ScopedState<string | null>>({
     scopeKey: '',
     value: null
   });
@@ -234,8 +263,33 @@ export function DashboardsPage() {
     retry: false
   });
 
+  const templatesQuery = useQuery({
+    queryKey: dashboardQueryKeys.templates(auth.sessionRevision),
+    queryFn: listDashboardTemplates,
+    enabled: shouldRequest,
+    retry: false
+  });
+
+  const rawProjects = shouldRequest ? projectsQuery.data ?? emptyProjects : emptyProjects;
+  const rawTemplates = shouldRequest ? templatesQuery.data?.items ?? emptyDashboardTemplates : emptyDashboardTemplates;
+  const defaultTemplateProjectId = resolveDefaultDashboardTemplateProjectId(normalizedProjectId, rawProjects);
+  const scopedTemplateCreateForm =
+    shouldRequest && templateCreateFormState.scopeKey === pageScopeKey ? templateCreateFormState.value : null;
+  const activeTemplateCreateForm =
+    scopedTemplateCreateForm && (scopedTemplateCreateForm.templateId || rawTemplates.length === 0)
+      ? scopedTemplateCreateForm
+      : createDefaultDashboardTemplateForm(scopedTemplateCreateForm?.projectId ?? defaultTemplateProjectId, rawTemplates[0]);
+  const activeTemplateId = activeTemplateCreateForm.templateId.trim();
+  const templateDetailQuery = useQuery({
+    queryKey: dashboardQueryKeys.template(auth.sessionRevision, activeTemplateId),
+    queryFn: () => getDashboardTemplate(activeTemplateId),
+    enabled: shouldRequest && activeTemplateId.length > 0,
+    retry: false
+  });
+
   const baseUnauthorizedError =
-    findUnauthorizedApiError([projectsQuery.error, dashboardsQuery.error]) ?? activeFormUnauthorizedError;
+    findUnauthorizedApiError([projectsQuery.error, dashboardsQuery.error, templatesQuery.error, templateDetailQuery.error]) ??
+    activeFormUnauthorizedError;
   const baseAuthState = resolveSettingsAuthState({
     isAuthenticated: auth.isAuthenticated,
     isRestoring: auth.isRestoring,
@@ -260,55 +314,95 @@ export function DashboardsPage() {
     canUseAuthDataBeforePanelPreview && localCreateErrorState.scopeKey === pageScopeKey
       ? localCreateErrorState.value
       : null;
+  const localTemplateCreateError =
+    canUseAuthDataBeforePanelPreview && localTemplateCreateErrorState.scopeKey === pageScopeKey
+      ? localTemplateCreateErrorState.value
+      : null;
   const localEditError =
     canUseDashboardData && localEditErrorState.scopeKey === pageScopeKey ? localEditErrorState.value : null;
-  const projects = canUseAuthDataBeforePanelPreview ? projectsQuery.data ?? emptyProjects : emptyProjects;
+  const projects = canUseAuthDataBeforePanelPreview ? rawProjects : emptyProjects;
+  const dashboardTemplates = canUseAuthDataBeforePanelPreview ? rawTemplates : emptyDashboardTemplates;
   const dashboards = canUseDashboardData ? dashboardsQuery.data?.items ?? emptyDashboards : emptyDashboards;
   const total = canUseDashboardData ? dashboardsQuery.data?.total ?? dashboards.length : 0;
   const selectedProject = visibleProjectId
     ? projects.find((project) => project.id === visibleProjectId) ?? null
     : null;
+  const selectedDashboardTemplate =
+    canUseAuthDataBeforePanelPreview && activeTemplateId
+      ? dashboardTemplates.find((template) => template.id === activeTemplateId) ?? null
+      : null;
+  const selectedDashboardTemplateDetail =
+    canUseAuthDataBeforePanelPreview && activeTemplateId
+      ? templateDetailQuery.data ?? selectedDashboardTemplate
+      : null;
   const anyLoading =
     canUseAuthDataBeforePanelPreview &&
-    (projectsQuery.isLoading || (!projectIdInputInvalidForDisplay && dashboardsQuery.isLoading));
+    (projectsQuery.isLoading ||
+      templatesQuery.isLoading ||
+      templateDetailQuery.isLoading ||
+      (!projectIdInputInvalidForDisplay && dashboardsQuery.isLoading));
   const anyError =
     canUseAuthDataBeforePanelPreview &&
-    (projectsQuery.isError || (!projectIdInputInvalidForDisplay && dashboardsQuery.isError));
+    (projectsQuery.isError ||
+      templatesQuery.isError ||
+      templateDetailQuery.isError ||
+      (!projectIdInputInvalidForDisplay && dashboardsQuery.isError));
   const pageStart = total > 0 ? dashboardOffset + 1 : 0;
   const pageEnd = Math.min(dashboardOffset + dashboards.length, total);
   const hasPreviousPage = dashboardOffset > 0;
   const hasNextPage = dashboardOffset + dashboards.length < total;
   const isPageChanging = canUseDashboardData && dashboardsQuery.isFetching;
 
+  function activateCreatedDashboard(dashboard: Dashboard, options: { source: 'manual' | 'template' }) {
+    const nextProjectId = `${dashboard.project_id}`;
+    const nextDashboardParams: DashboardListParams = {
+      project_id: dashboard.project_id,
+      limit: DASHBOARD_PAGE_LIMIT,
+      offset: 0
+    };
+    const nextOffsetScopeKey = buildDashboardOffsetScopeKey(authScopeKey, nextProjectId);
+    const nextPageScopeKey = buildDashboardPageScopeKey({
+      authScopeKey,
+      projectIdInput: nextProjectId,
+      dashboardOffset: 0
+    });
+    const nextPanelScopeKey = buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id);
+
+    setProjectIdInputState({ scopeKey: authScopeKey, value: nextProjectId });
+    setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
+    setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
+    setActiveDashboardFallbackState({ scopeKey: nextPageScopeKey, value: dashboard });
+    setTimeRangeDraftState({ scopeKey: '', value: null });
+    setVariableRuntimeDraftState({ scopeKey: '', value: {} });
+    setSelectedPreviewPanelState({ scopeKey: nextPanelScopeKey, value: null });
+    setPreviewVariablesState({ scopeKey: nextPanelScopeKey, value: createEmptyPreviewVariablesState() });
+    setPanelAutoRefreshState({ scopeKey: nextPanelScopeKey, value: createInactivePanelAutoRefreshState() });
+    setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setLocalTemplateCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setTemplateCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    upsertDashboardListCache(queryClient, auth.sessionRevision, nextDashboardParams, dashboard);
+
+    if (options.source === 'manual') {
+      setCreateFormState({ scopeKey: nextPageScopeKey, value: createDefaultDashboardForm(nextProjectId) });
+    } else {
+      setTemplateCreateFormState({
+        scopeKey: nextPageScopeKey,
+        value: createDefaultDashboardTemplateForm(
+          nextProjectId,
+          selectedDashboardTemplateDetail ?? selectedDashboardTemplate ?? dashboardTemplates[0]
+        )
+      });
+    }
+
+    invalidateDashboards(queryClient);
+  }
+
   const createMutation = useMutation({
     mutationFn: createDashboard,
     onSuccess: (dashboard) => {
-      const nextProjectId = `${dashboard.project_id}`;
-      const nextOffsetScopeKey = buildDashboardOffsetScopeKey(authScopeKey, nextProjectId);
-      const nextPageScopeKey = buildDashboardPageScopeKey({
-        authScopeKey,
-        projectIdInput: nextProjectId,
-        dashboardOffset: 0
-      });
-      setCreateFormState({ scopeKey: nextPageScopeKey, value: createDefaultDashboardForm(nextProjectId) });
-      setProjectIdInputState({ scopeKey: authScopeKey, value: nextProjectId });
-      setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
-      setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(dashboard) });
-      setTimeRangeDraftState({ scopeKey: '', value: null });
-      setVariableRuntimeDraftState({ scopeKey: '', value: {} });
-      setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id), value: null });
-      setPreviewVariablesState({
-        scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id),
-        value: createEmptyPreviewVariablesState()
-      });
-      setPanelAutoRefreshState({
-        scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, dashboard.id),
-        value: createInactivePanelAutoRefreshState()
-      });
-      setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
-      setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
-      setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
-      invalidateDashboards(queryClient);
+      activateCreatedDashboard(dashboard, { source: 'manual' });
     },
     onError: (error) => {
       if (isAuthError(error)) {
@@ -319,11 +413,34 @@ export function DashboardsPage() {
     }
   });
 
+  const templateCreateMutation = useMutation({
+    mutationFn: ({
+      projectId,
+      templateId,
+      payload
+    }: {
+      projectId: number;
+      templateId: string;
+      payload: Parameters<typeof createDashboardFromTemplate>[2];
+    }) => createDashboardFromTemplate(projectId, templateId, payload),
+    onSuccess: (dashboard) => {
+      activateCreatedDashboard(dashboard, { source: 'template' });
+    },
+    onError: (error) => {
+      if (isAuthError(error)) {
+        setFormUnauthorizedErrorState({ scopeKey: authScopeKey, value: error });
+        return;
+      }
+      setTemplateCreateRemoteErrorState({ scopeKey: pageScopeKey, value: error });
+    }
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ dashboard, payload }: { dashboard: Dashboard; payload: Parameters<typeof updateDashboard>[2] }) =>
       updateDashboard(dashboard.project_id, dashboard.id, payload),
     onSuccess: (dashboard) => {
       setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(dashboard) });
+      setActiveDashboardFallbackState({ scopeKey: pageScopeKey, value: dashboard });
       setTimeRangeDraftState({ scopeKey: '', value: null });
       setVariableRuntimeDraftState({ scopeKey: '', value: {} });
       setSelectedPreviewPanelState({ scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id), value: null });
@@ -354,6 +471,7 @@ export function DashboardsPage() {
       const nextOffset = resolveOffsetAfterDeletingOne(dashboardOffset, total, DASHBOARD_PAGE_LIMIT);
       if (activeEditForm.dashboardId === dashboard.id) {
         setEditFormState({ scopeKey: pageScopeKey, value: dashboardToEditForm(null) });
+        setActiveDashboardFallbackState({ scopeKey: pageScopeKey, value: null });
         setTimeRangeDraftState({ scopeKey: '', value: null });
         setVariableRuntimeDraftState({ scopeKey: '', value: {} });
         setPreviewVariablesState({ scopeKey: panelScopeKey, value: createEmptyPreviewVariablesState() });
@@ -379,11 +497,19 @@ export function DashboardsPage() {
   });
 
   const createFormError = createRemoteErrorState.scopeKey === pageScopeKey ? createRemoteErrorState.value : null;
+  const templateCreateFormError =
+    templateCreateRemoteErrorState.scopeKey === pageScopeKey ? templateCreateRemoteErrorState.value : null;
   const updateFormError = updateRemoteErrorState.scopeKey === pageScopeKey ? updateRemoteErrorState.value : null;
   const deleteFormError = deleteRemoteErrorState.scopeKey === pageScopeKey ? deleteRemoteErrorState.value : null;
   const isDeleteLocked = deleteLocked || deleteMutation.isPending;
+  const activeDashboardFallback =
+    canUseDashboardData &&
+    activeDashboardFallbackState.scopeKey === pageScopeKey &&
+    activeDashboardFallbackState.value?.id === activeEditForm.dashboardId
+      ? activeDashboardFallbackState.value
+      : null;
   const selectedDashboard = canUseDashboardData
-    ? dashboards.find((dashboard) => dashboard.id === activeEditForm.dashboardId) ?? null
+    ? dashboards.find((dashboard) => dashboard.id === activeEditForm.dashboardId) ?? activeDashboardFallback
     : null;
   const visibleEditForm = selectedDashboard ? activeEditForm : dashboardToEditForm(null);
   const panelReadResult = selectedDashboard
@@ -532,7 +658,12 @@ export function DashboardsPage() {
       scopeKey: nextPageScopeKey,
       value: createDefaultDashboardForm(nextProjectId)
     });
+    setTemplateCreateFormState({
+      scopeKey: nextPageScopeKey,
+      value: createDefaultDashboardTemplateForm(nextProjectId, dashboardTemplates[0])
+    });
     setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(null) });
+    setActiveDashboardFallbackState({ scopeKey: nextPageScopeKey, value: null });
     setPanelDraftState({
       scopeKey: buildDashboardPanelScopeKey(nextPageScopeKey, null),
       value: createDefaultDashboardPanelDraft()
@@ -554,17 +685,24 @@ export function DashboardsPage() {
     });
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setLocalTemplateCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
     setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setTemplateCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     setUpdateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     setDeleteRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     createMutation.reset();
+    templateCreateMutation.reset();
     updateMutation.reset();
     deleteMutation.reset();
   }
 
   function updateCreateForm(value: CreateFormState) {
     setCreateFormState({ scopeKey: pageScopeKey, value });
+  }
+
+  function updateTemplateCreateForm(value: TemplateCreateFormState) {
+    setTemplateCreateFormState({ scopeKey: pageScopeKey, value });
   }
 
   function updateEditForm(value: EditFormState) {
@@ -638,6 +776,37 @@ export function DashboardsPage() {
     clearLocalCreateError();
     setCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     createMutation.mutate(payload.value);
+  }
+
+  function handleTemplateCreateSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!authState.shouldRequest) {
+      return;
+    }
+
+    const parsedProjectId = normalizePositiveInteger(activeTemplateCreateForm.projectId);
+    const templateId = activeTemplateCreateForm.templateId.trim();
+    if (!parsedProjectId) {
+      templateCreateMutation.reset();
+      setTemplateCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalTemplateCreateErrorState({ scopeKey: pageScopeKey, value: '请选择一个有效项目。' });
+      return;
+    }
+    if (!templateId) {
+      templateCreateMutation.reset();
+      setTemplateCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalTemplateCreateErrorState({ scopeKey: pageScopeKey, value: '请选择一个内置模板。' });
+      return;
+    }
+
+    const payload = buildDashboardTemplateCreatePayload({
+      name: activeTemplateCreateForm.name,
+      description: activeTemplateCreateForm.description
+    });
+
+    setLocalTemplateCreateErrorState({ scopeKey: pageScopeKey, value: null });
+    setTemplateCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+    templateCreateMutation.mutate({ projectId: parsedProjectId, templateId, payload: payload.value });
   }
 
   function handleEditSubmit(event: FormEvent) {
@@ -819,6 +988,16 @@ export function DashboardsPage() {
 
   const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
   const clearLocalEditError = () => setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
+  const templatePanelLoading =
+    canUseAuthDataBeforePanelPreview && (templatesQuery.isLoading || templateDetailQuery.isLoading);
+  const templatePanelError = canUseAuthDataBeforePanelPreview && (templatesQuery.isError || templateDetailQuery.isError);
+  const templateProjectOptions = resolveDashboardTemplateProjectOptions(activeTemplateCreateForm.projectId, projects);
+  const templateCreateDisabled =
+    !authState.shouldRequest ||
+    templateCreateMutation.isPending ||
+    templatePanelLoading ||
+    dashboardTemplates.length === 0 ||
+    templateProjectOptions.length === 0;
 
   return (
     <div className="dashboards-page">
@@ -837,9 +1016,13 @@ export function DashboardsPage() {
               if (authState.shouldRequest) {
                 projectsQuery.refetch();
                 dashboardsQuery.refetch();
+                templatesQuery.refetch();
+                if (activeTemplateId) {
+                  templateDetailQuery.refetch();
+                }
               }
             }}
-            disabled={!authState.shouldRequest || dashboardsQuery.isFetching}
+            disabled={!authState.shouldRequest || dashboardsQuery.isFetching || templatesQuery.isFetching}
             title={authState.shouldRequest ? '刷新仪表盘' : '登录后刷新仪表盘'}
           >
             <RefreshCw size={18} aria-hidden="true" />
@@ -884,6 +1067,7 @@ export function DashboardsPage() {
         <DashboardSummaryItem icon={LayoutDashboard} label="仪表盘" value={total} />
         <DashboardSummaryItem icon={BarChart3} label="当前列表" value={dashboards.length} />
         <DashboardSummaryItem icon={FileJson} label="项目" value={projects.length} />
+        <DashboardSummaryItem icon={Plus} label="模板" value={dashboardTemplates.length} />
       </section>
 
       <section className="dashboard-control-panel" aria-label="项目筛选">
@@ -923,6 +1107,144 @@ export function DashboardsPage() {
               disabled={!authState.shouldRequest}
             />
           </label>
+        </div>
+      </section>
+
+      <section className="dashboard-template-panel" aria-label="内置模板">
+        <div className="section-heading">
+          <div>
+            <h2>内置模板</h2>
+            <p>从内置模板创建普通 dashboard，创建后可继续编辑 panel、变量和时间范围。</p>
+          </div>
+          <StatusBadge
+            tone={
+              templatePanelError
+                ? 'danger'
+                : templatePanelLoading
+                  ? 'warning'
+                  : dashboardTemplates.length > 0
+                    ? 'success'
+                    : 'neutral'
+            }
+          >
+            {templatePanelError
+              ? '读取失败'
+              : templatePanelLoading
+                ? '加载中'
+                : dashboardTemplates.length > 0
+                  ? `${dashboardTemplates.length} 个`
+                  : '暂无模板'}
+          </StatusBadge>
+        </div>
+
+        <div className="dashboard-template-grid">
+          <DashboardTemplateListState
+            authReady={canUseAuthData}
+            isLoading={canUseAuthDataBeforePanelPreview && templatesQuery.isLoading}
+            isError={canUseAuthDataBeforePanelPreview && templatesQuery.isError}
+            error={templatesQuery.error}
+            templates={dashboardTemplates}
+            selectedTemplateId={activeTemplateId}
+            onSelect={(template) => {
+              updateTemplateCreateForm({
+                ...activeTemplateCreateForm,
+                templateId: template.id,
+                name: '',
+                description: ''
+              });
+              setLocalTemplateCreateErrorState({ scopeKey: pageScopeKey, value: null });
+              setTemplateCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+            }}
+          />
+
+          <form className="dashboard-template-create" onSubmit={handleTemplateCreateSubmit}>
+            <DashboardTemplateDetailState
+              template={selectedDashboardTemplateDetail}
+              isLoading={canUseAuthDataBeforePanelPreview && templateDetailQuery.isLoading}
+              isError={canUseAuthDataBeforePanelPreview && templateDetailQuery.isError}
+              error={templateDetailQuery.error}
+            />
+
+            <div className="dashboard-template-fields">
+              <label className="field">
+                <span>模板</span>
+                <select
+                  value={activeTemplateCreateForm.templateId}
+                  onChange={(event) =>
+                    updateTemplateCreateForm({
+                      ...activeTemplateCreateForm,
+                      templateId: event.target.value,
+                      name: '',
+                      description: ''
+                    })
+                  }
+                  disabled={!authState.shouldRequest || dashboardTemplates.length === 0}
+                >
+                  {dashboardTemplates.length === 0 ? <option value="">暂无可用模板</option> : null}
+                  {dashboardTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} / {template.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>目标项目</span>
+                <select
+                  value={activeTemplateCreateForm.projectId}
+                  onChange={(event) =>
+                    updateTemplateCreateForm({ ...activeTemplateCreateForm, projectId: event.target.value })
+                  }
+                  disabled={!authState.shouldRequest || templateProjectOptions.length === 0}
+                >
+                  {templateProjectOptions.length === 0 ? <option value="">暂无可用项目</option> : null}
+                  {templateProjectOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>名称</span>
+                <input
+                  aria-label="模板创建名称"
+                  maxLength={100}
+                  value={activeTemplateCreateForm.name}
+                  onChange={(event) =>
+                    updateTemplateCreateForm({ ...activeTemplateCreateForm, name: event.target.value })
+                  }
+                  placeholder={selectedDashboardTemplateDetail?.name ?? '服务总览'}
+                  disabled={!authState.shouldRequest || dashboardTemplates.length === 0}
+                />
+                <small>留空使用模板名称。</small>
+              </label>
+              <label className="field">
+                <span>描述</span>
+                <textarea
+                  aria-label="模板创建描述"
+                  maxLength={500}
+                  value={activeTemplateCreateForm.description}
+                  onChange={(event) =>
+                    updateTemplateCreateForm({ ...activeTemplateCreateForm, description: event.target.value })
+                  }
+                  placeholder={selectedDashboardTemplateDetail?.description ?? '值班入口'}
+                  disabled={!authState.shouldRequest || dashboardTemplates.length === 0}
+                />
+                <small>留空使用模板描述。</small>
+              </label>
+            </div>
+
+            <InlineError message={localTemplateCreateError} error={templateCreateFormError} />
+            <button className="primary-button" type="submit" disabled={templateCreateDisabled}>
+              {templateCreateMutation.isPending ? (
+                <LoaderCircle size={16} aria-hidden="true" />
+              ) : (
+                <Plus size={16} aria-hidden="true" />
+              )}
+              <span>{templateCreateMutation.isPending ? '创建中' : '从模板创建'}</span>
+            </button>
+          </form>
         </div>
       </section>
 
@@ -973,6 +1295,7 @@ export function DashboardsPage() {
             isDeleting={isDeleteLocked}
             onSelect={(dashboard) => {
               updateEditForm(dashboardToEditForm(dashboard));
+              setActiveDashboardFallbackState({ scopeKey: pageScopeKey, value: dashboard });
               setTimeRangeDraftState({ scopeKey: '', value: null });
               setVariableRuntimeDraftState({ scopeKey: '', value: {} });
               setPreviewVariablesState({
@@ -1311,6 +1634,170 @@ function DashboardListState({
         </li>
       ))}
     </ul>
+  );
+}
+
+function DashboardTemplateListState({
+  authReady,
+  isLoading,
+  isError,
+  error,
+  templates,
+  selectedTemplateId,
+  onSelect
+}: {
+  authReady: boolean;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  templates: DashboardTemplate[];
+  selectedTemplateId: string;
+  onSelect: (template: DashboardTemplate) => void;
+}) {
+  if (!authReady) {
+    return (
+      <div className="resource-state">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div>
+          <strong>等待登录</strong>
+          <span>登录后会加载内置 dashboard 模板。</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="resource-state query-loading-state" role="status">
+        <LoaderCircle size={18} aria-hidden="true" />
+        <div>
+          <strong>正在加载模板</strong>
+          <span>读取可用的内置 dashboard 模板。</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="resource-state resource-state--error" role="status">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div>
+          <strong>模板读取失败</strong>
+          <span>{formatApiErrorMessage(error)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (templates.length === 0) {
+    return (
+      <div className="resource-state">
+        <FileJson size={18} aria-hidden="true" />
+        <div>
+          <strong>暂无模板</strong>
+          <span>当前后端没有返回内置 dashboard 模板。</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="dashboard-template-list">
+      {templates.map((template) => {
+        const summary = summarizeDashboardTemplate(template);
+
+        return (
+          <li key={template.id} className={template.id === selectedTemplateId ? 'is-selected' : undefined}>
+            <button className="dashboard-template-list-item" type="button" onClick={() => onSelect(template)}>
+              <span>
+                <strong>{template.name}</strong>
+                <small>{template.description || '未填写描述'}</small>
+                <small>{summary.compactLabel}</small>
+              </span>
+              <code>{template.id}</code>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function DashboardTemplateDetailState({
+  template,
+  isLoading,
+  isError,
+  error
+}: {
+  template: DashboardTemplate | null;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+}) {
+  if (isLoading) {
+    return (
+      <div className="resource-state query-loading-state" role="status">
+        <LoaderCircle size={18} aria-hidden="true" />
+        <div>
+          <strong>正在读取模板详情</strong>
+          <span>同步模板 layout、panel 和变量摘要。</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="resource-state resource-state--error" role="status">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div>
+          <strong>模板详情不可用</strong>
+          <span>{formatApiErrorMessage(error)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!template) {
+    return (
+      <div className="resource-state">
+        <FileJson size={18} aria-hidden="true" />
+        <div>
+          <strong>未选择模板</strong>
+          <span>选择模板后会显示 panel、变量和时间范围摘要。</span>
+        </div>
+      </div>
+    );
+  }
+
+  const summary = summarizeDashboardTemplate(template);
+
+  return (
+    <div className="dashboard-template-detail" aria-label="模板摘要">
+      <div className="dashboard-template-detail-heading">
+        <div>
+          <strong>{template.name}</strong>
+          <span>{template.description || '未填写描述'}</span>
+        </div>
+        <code>{template.id}</code>
+      </div>
+      <dl className="dashboard-template-summary">
+        <div>
+          <dt>Panels</dt>
+          <dd>{summary.panelLabel}</dd>
+        </div>
+        <div>
+          <dt>Variables</dt>
+          <dd>{summary.variableLabel}</dd>
+        </div>
+        <div>
+          <dt>Time range</dt>
+          <dd>{summary.timeRangeLabel}</dd>
+        </div>
+      </dl>
+      <p>{summary.panelTitleLabel}</p>
+    </div>
   );
 }
 
@@ -2405,6 +2892,64 @@ function formatProjectScope(projectId: number | null, project: Project | null) {
   return `仅显示项目 #${projectId} 的 dashboard。`;
 }
 
+function createDefaultDashboardTemplateForm(projectId = '', template?: DashboardTemplate | null): TemplateCreateFormState {
+  return {
+    projectId,
+    templateId: template?.id ?? '',
+    name: '',
+    description: ''
+  };
+}
+
+function resolveDefaultDashboardTemplateProjectId(projectId: number | null, projects: Project[]) {
+  if (projectId) {
+    return `${projectId}`;
+  }
+
+  return projects[0] ? `${projects[0].id}` : '';
+}
+
+function resolveDashboardTemplateProjectOptions(projectId: string, projects: Project[]) {
+  const options = projects.map((project) => ({
+    id: `${project.id}`,
+    label: `${project.name} / #${project.id}`
+  }));
+  const normalizedProjectId = normalizePositiveInteger(projectId);
+  if (normalizedProjectId && !options.some((option) => option.id === `${normalizedProjectId}`)) {
+    options.unshift({
+      id: `${normalizedProjectId}`,
+      label: `项目 #${normalizedProjectId}`
+    });
+  }
+
+  return options;
+}
+
+function summarizeDashboardTemplate(template: DashboardTemplate) {
+  const configText = formatDashboardJson(template.config);
+  const panelReadResult = readDashboardPanelsFromConfigText(configText);
+  const variableReadResult = readDashboardVariablesFromConfigText(configText);
+  const timeRangeReadResult = readDashboardTimeRangeFromConfigText(configText);
+  const panelLabel = panelReadResult.ok ? `${panelReadResult.panels.length} 个 panel` : panelReadResult.message;
+  const variableLabel = variableReadResult.ok ? `${variableReadResult.variables.length} 个变量` : variableReadResult.message;
+  const timeRangeLabel = timeRangeReadResult.ok ? timeRangeReadResult.statusLabel : timeRangeReadResult.message;
+  const panelTitleLabel =
+    panelReadResult.ok && panelReadResult.panels.length > 0
+      ? panelReadResult.panels
+          .slice(0, 4)
+          .map((panel) => panel.title)
+          .join(' / ')
+      : '暂无 panel 摘要';
+
+  return {
+    compactLabel: `${panelLabel} / ${variableLabel} / ${timeRangeLabel}`,
+    panelLabel,
+    variableLabel,
+    timeRangeLabel,
+    panelTitleLabel
+  };
+}
+
 function formatDashboardPageSummary(pageStart: number, pageEnd: number, total: number, limit: number) {
   if (total === 0) {
     return `0 条结果，每页 ${limit} 条。`;
@@ -2568,7 +3113,39 @@ function formatDashboardVariableDefault(variable: DashboardVariable) {
   return `default ${variable.default}`;
 }
 
-function invalidateDashboards(queryClient: ReturnType<typeof useQueryClient>) {
+function upsertDashboardListCache(
+  queryClient: QueryClient,
+  sessionRevision: number,
+  params: DashboardListParams,
+  dashboard: Dashboard
+) {
+  queryClient.setQueryData<{
+    items: Dashboard[];
+    limit: number;
+    offset: number;
+    total: number;
+  }>(dashboardQueryKeys.list(sessionRevision, params), (current) => {
+    if (!current) {
+      return {
+        items: [dashboard],
+        limit: params.limit ?? DASHBOARD_PAGE_LIMIT,
+        offset: params.offset ?? 0,
+        total: 1
+      };
+    }
+
+    const limit = current.limit || params.limit || DASHBOARD_PAGE_LIMIT;
+    const existed = current.items.some((item) => item.id === dashboard.id);
+    const items = [dashboard, ...current.items.filter((item) => item.id !== dashboard.id)].slice(0, limit);
+    return {
+      ...current,
+      items,
+      total: existed ? Math.max(current.total, items.length) : Math.max(current.total + 1, items.length)
+    };
+  });
+}
+
+function invalidateDashboards(queryClient: QueryClient) {
   return queryClient.invalidateQueries({ queryKey: dashboardQueryRootKey });
 }
 

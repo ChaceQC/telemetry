@@ -35,7 +35,7 @@ npm.cmd run preview
 
 ```text
 VITE_APP_NAME=遥测平台
-VITE_APP_VERSION=0.2.11
+VITE_APP_VERSION=0.2.12
 VITE_PUBLIC_BASE_PATH=/
 VITE_API_BASE_URL=http://localhost:28117
 VITE_API_BASE_PATH=/api
@@ -82,10 +82,11 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 
 - 列表：调用 `GET /api/v1/dashboards`，支持可选 `project_id`、固定首屏 `limit=50` 和 `offset=0`；页面同时复用 `GET /api/v1/projects` 展示项目下拉，也允许手动输入项目 ID。
 - 创建：调用 `POST /api/v1/dashboards`，提交 `project_id`、`name`、可空 `description`、`layout` 和 `config`。
+- 内置模板：调用 `GET /api/v1/dashboard-templates`、`GET /api/v1/dashboard-templates/{template_id}` 和 `POST /api/v1/projects/{project_id}/dashboard-templates/{template_id}/dashboards`；页面展示模板 panel/变量/time range 摘要，允许选择目标项目并填写可选名称/描述覆盖值。
 - 编辑：调用 `PATCH /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，只提交实际变化字段；描述清空会提交 `description=null`。
 - 删除：调用 `DELETE /api/v1/projects/{project_id}/dashboards/{dashboard_id}`，成功后刷新 dashboard 列表。
 
-`layout` 和 `config` 在前端以 JSON textarea 编辑，提交前会先校验必须是 JSON 对象或数组；`config.panels` 若存在会按后端最小 schema 校验并规范化。编辑区提供最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；操作会写回 `config.panels` 并保留其他顶层 legacy config 字段，最终仍通过既有 Dashboard update API 保存。编辑区同时提供只读 Panel 预览，直接消费当前 `config JSON` textarea 文本，展示 panel 标题、type/id、layout `x/y/w/h` 和稳定 query 摘要，并覆盖 legacy config、空 panels、invalid `config.panels`、未登录和未选择 dashboard 状态；预览不会触发保存 API 或图表数据请求。若选择 panel 后手动改动 `config JSON` 导致当前 index 不再指向原 panel id，更新会提示重新选择，避免覆盖错误 panel。页面展示 loading、error、empty、未登录/会话恢复状态；Dashboard 查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `dashboards` 缓存，避免显示上一 session 数据。当前不做 panel 图表渲染、变量/时间范围高级配置、ClickHouse 图表查询或告警规则。
+从模板创建时，前端只发送 `name` 和 `description` 覆盖字段，不发送 `project_id`、`layout` 或 `config`；创建成功后返回普通 dashboard，并进入既有编辑/预览工作流。`layout` 和 `config` 在前端以 JSON textarea 编辑，提交前会先校验必须是 JSON 对象或数组；`config.panels` 若存在会按后端最小 schema 校验并规范化。编辑区提供最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；操作会写回 `config.panels` 并保留其他顶层 legacy config 字段，最终仍通过既有 Dashboard update API 保存。编辑区同时提供只读 Panel 预览，直接消费当前 `config JSON` textarea 文本，展示 panel 标题、type/id、layout `x/y/w/h` 和稳定 query 摘要，并覆盖 legacy config、空 panels、invalid `config.panels`、未登录和未选择 dashboard 状态；预览不会触发保存 API 或图表数据请求。若选择 panel 后手动改动 `config JSON` 导致当前 index 不再指向原 panel id，更新会提示重新选择，避免覆盖错误 panel。页面展示 loading、error、empty、未登录/会话恢复、模板 `401/404/422` 状态；Dashboard 查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `dashboards` 缓存，避免显示上一 session 数据。当前不做 JSON 导入导出、分享/只读、模板市场、复杂模板编辑、ClickHouse 图表查询或告警规则。
 
 ## 总览页摄入统计
 

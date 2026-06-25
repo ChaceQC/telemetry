@@ -6,6 +6,9 @@ export const dashboardQueryRootKey = ['dashboards'] as const;
 export const dashboardQueryKeys = {
   list: (sessionRevision: number, params: DashboardListParams) =>
     [...dashboardQueryRootKey, 'list', sessionRevision, params] as const,
+  templates: (sessionRevision: number) => [...dashboardQueryRootKey, 'templates', sessionRevision] as const,
+  template: (sessionRevision: number, templateId: string) =>
+    [...dashboardQueryRootKey, 'template', sessionRevision, templateId] as const,
   panelPreview: (
     sessionRevision: number,
     projectId: number,
