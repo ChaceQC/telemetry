@@ -3134,11 +3134,13 @@ function upsertDashboardListCache(
       };
     }
 
-    const items = [dashboard, ...current.items.filter((item) => item.id !== dashboard.id)];
+    const limit = current.limit || params.limit || DASHBOARD_PAGE_LIMIT;
+    const existed = current.items.some((item) => item.id === dashboard.id);
+    const items = [dashboard, ...current.items.filter((item) => item.id !== dashboard.id)].slice(0, limit);
     return {
       ...current,
       items,
-      total: Math.max(current.total, items.length)
+      total: existed ? Math.max(current.total, items.length) : Math.max(current.total + 1, items.length)
     };
   });
 }

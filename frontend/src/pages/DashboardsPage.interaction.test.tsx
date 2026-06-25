@@ -292,6 +292,57 @@ describe('DashboardsPage interactions', () => {
     expect(screen.getByDisplayValue('支付团队值班入口')).toBeTruthy();
   });
 
+  it('第一页已满时从模板创建仍进入编辑态且不把缓存页撑过 limit', async () => {
+    const user = userEvent.setup();
+    const templateDashboard = createDashboardFixture({
+      id: 99,
+      project_id: project.id,
+      name: '满页后新增看板',
+      description: '模板创建后立即编辑',
+      layout: dashboardTemplate.layout,
+      config: dashboardTemplate.config
+    });
+    const firstPageItems = Array.from({ length: 50 }, (_, index) =>
+      createDashboardFixture({
+        id: index + 1,
+        name: `现有看板 ${index + 1}`,
+        description: `第 ${index + 1} 条`,
+        project_id: project.id
+      })
+    );
+    let created = false;
+    const pendingRefresh = createDeferred<DashboardListResult>();
+    apiMocks.createDashboardFromTemplate.mockImplementation(async () => {
+      created = true;
+      return templateDashboard;
+    });
+    apiMocks.listDashboards.mockImplementation(async () => {
+      if (created) {
+        return pendingRefresh.promise;
+      }
+
+      return { items: firstPageItems, limit: 50, offset: 0, total: 50 };
+    });
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('第 1-50 条，共 50 条，每页 50 条。');
+    fireEvent.change(screen.getAllByLabelText('项目')[0], { target: { value: `${project.id}` } });
+    await screen.findByText(`仅显示 ${project.name} / #${project.id} 的 dashboard。`);
+    const templatePanel = screen.getByLabelText('内置模板');
+    await within(templatePanel).findByLabelText('模板摘要');
+    await user.type(within(templatePanel).getByLabelText('模板创建名称'), '满页后新增看板');
+    await user.click(within(templatePanel).getByRole('button', { name: '从模板创建' }));
+
+    expect(apiMocks.createDashboardFromTemplate).toHaveBeenCalledWith(12, 'service-overview', {
+      name: '满页后新增看板'
+    });
+    expect(await screen.findByDisplayValue('满页后新增看板')).toBeTruthy();
+    expect(screen.getAllByText('第 1-50 条，共 51 条，每页 50 条。').length).toBeGreaterThan(0);
+
+    pendingRefresh.resolve({ items: [templateDashboard, ...firstPageItems.slice(0, 49)], limit: 50, offset: 0, total: 51 });
+    await waitFor(() => expect(screen.getByDisplayValue('满页后新增看板')).toBeTruthy());
+  });
+
   it('从模板创建失败时显示后端 422 错误且不提交 layout/config', async () => {
     const user = userEvent.setup();
     apiMocks.createDashboardFromTemplate.mockRejectedValue(
