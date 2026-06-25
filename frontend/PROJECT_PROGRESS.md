@@ -11,6 +11,7 @@
 - 模板列表、详情和创建错误复用既有登录、loading、empty、error 与表单错误样式；模板查询 key 按 `sessionRevision` 隔离，避免跨账号复用旧模板状态。
 - 创建成功后返回普通 dashboard，进入既有编辑、time range、variables、panels 和 preview 工作流；新增列表缓存 upsert 与当前页面 fallback，避免创建成功但列表刷新暂未包含新记录时编辑态丢失。
 - 补充创建后列表缓存边界：当前第一页已满时，从模板创建成功只把新 dashboard 插入当前缓存页首并裁剪到既有 `limit`，同时将 `total` 增加 1，避免乐观缓存临时撑出超过分页大小的列表并仍保持新 dashboard 编辑态。
+- 补做前端版本落点收口：将 `frontend/src/api/config.ts` 的运行时默认版本和 `frontend/README.md` 环境变量示例统一为 `0.2.12`，消除遗留的 `0.2.11` 旧值。
 - UI 保持当前运维 dashboard 风格：模板区为紧凑工作面板，移动端单列折叠，不新增后端契约、不引入模板编辑或模板市场抽象。
 - README 已补充 dashboard 模板接口、payload 边界和当前不覆盖范围。
 
