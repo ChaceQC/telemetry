@@ -3,7 +3,15 @@ from __future__ import annotations
 from app.repositories.auth import UserRecord
 from app.repositories.dashboard import DashboardPage, DashboardRecord, DashboardRepository
 from app.repositories.management import ManagementRepository
-from app.schemas.dashboard import DashboardCreate, DashboardCreateFromTemplate, DashboardUpdate
+from app.schemas.dashboard import (
+    DASHBOARD_EXPORT_SCHEMA,
+    DASHBOARD_EXPORT_VERSION,
+    DashboardCreate,
+    DashboardCreateFromTemplate,
+    DashboardExportDocument,
+    DashboardImportRequest,
+    DashboardUpdate,
+)
 from app.schemas.permissions import ProjectRole, role_includes
 from app.services.dashboard_templates import (
     DashboardTemplateRecord,
@@ -117,6 +125,46 @@ class DashboardService:
             else template.description,
             layout=template.layout,
             config=template.config,
+        )
+        return self.create_dashboard(payload=create_payload, user=user)
+
+    def export_dashboard(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int,
+        dashboard_id: int,
+    ) -> DashboardExportDocument:
+        dashboard = self.get_dashboard(
+            user=user,
+            project_id=project_id,
+            dashboard_id=dashboard_id,
+        )
+        return DashboardExportDocument(
+            schema_name=DASHBOARD_EXPORT_SCHEMA,
+            version=DASHBOARD_EXPORT_VERSION,
+            name=dashboard.name,
+            description=dashboard.description,
+            layout=dashboard.layout,
+            config=dashboard.config,
+        )
+
+    def import_dashboard(
+        self,
+        *,
+        user: UserRecord,
+        project_id: int,
+        payload: DashboardImportRequest,
+    ) -> DashboardRecord:
+        document = payload.document
+        create_payload = DashboardCreate(
+            project_id=project_id,
+            name=payload.name if payload.name is not None else document.name,
+            description=payload.description
+            if "description" in payload.model_fields_set
+            else document.description,
+            layout=document.layout,
+            config=document.config,
         )
         return self.create_dashboard(payload=create_payload, user=user)
 

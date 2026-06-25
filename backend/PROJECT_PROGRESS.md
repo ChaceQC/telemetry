@@ -2,6 +2,38 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-25 T-0078 Dashboard JSON 导入导出后端基础
+
+### 已完成
+
+- 新增 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/export`，按已保存 dashboard 读取权限导出单个可移植 JSON 文档。
+- 导出文档固定包含 `schema=telemetry.dashboard`、`version=1`、`name`、`description`、`layout`、`config`，不包含数据库 `id`、`project_id`、创建/更新用户或创建/更新时间等实例字段。
+- 新增 `POST /api/v1/projects/{project_id}/dashboards/import`，请求体为 `document` 加可选顶层 `name/description` 覆盖，未覆盖时使用文档内名称和描述。
+- 导入在路径项目下创建普通 dashboard，复用现有 dashboard 创建权限语义：目标项目至少 `editor`，`viewer` 返回 `403 无项目权限`，普通用户无项目成员关系或项目不存在返回 `404 项目不存在`。
+- 导入文档通过 `DashboardExportDocument` 校验 schema/version、必填字段、禁止实例字段，并复用现有 `DashboardCreate` 的 JSON 大小/深度/复杂度/finite-number、panel、time_range 和 variables 校验。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖导出成功/权限/实例字段排除、导入成功/覆盖/普通 dashboard 后续可编辑、权限隐藏、非法 schema/version、缺字段、实例字段注入、非法 panel/time_range/variables、超大/过深/过复杂/NaN/Infinity。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录导入/导出 API 路径、请求/响应、权限、错误语义和当前不做前端 UI、批量导入、模板市场、分享/只读、文件上传存储、跨项目权限提升、覆盖已有 dashboard、ClickHouse 数据导出或告警。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL dashboard JSON 列读写、真实后端 HTTP 和前端导入导出 UI 联调仍需后续专项补验。
+- 当前只支持单个 dashboard JSON 文档通过请求体导入；不做文件上传存储、批量导入、覆盖已有 dashboard、模板市场、分享/只读、跨项目权限提升、ClickHouse 数据导出或告警。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：140 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：153 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：88 个文件已符合格式。
+- 已运行 `uv run mypy .`，结果：88 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过。
+- 已运行 `git diff --check`，结果：通过。
+
+### 测试 agent 独立复验
+
+- 已启动测试 agent `Bacon`（思考强度 xhigh）对 T-0078 后端导入导出专项做独立复验；已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`、`uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py tests/test_dashboard_api.py`、`uv run ruff format --check app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py tests/test_dashboard_api.py`、`uv run mypy app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py tests/test_dashboard_api.py`、`uv lock --check` 和 `git diff --check`，结果均通过；核心结论通过。未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器，真实 MySQL/dashboard JSON 列读写和真实 HTTP/UI 联调留待后续专项补验。
+
 ## 2026-06-25 T-0075 Dashboard 内置模板后端基础
 
 ### 已完成

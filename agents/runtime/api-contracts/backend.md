@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0075`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0078`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -355,6 +355,7 @@
 - 权限：
   - 列表/读取要求目标项目至少 `viewer`；全局列表不传 `project_id` 时自动过滤为当前用户可访问项目。
   - 创建/更新/删除要求目标项目至少 `editor`；`viewer` 返回 `403 无项目权限`。
+  - 导出要求目标项目至少 `viewer`；导入要求目标项目至少 `editor`，导入后创建普通 dashboard。
   - 普通用户没有目标项目成员关系时返回 `404 项目不存在`，避免枚举项目；dashboard ID 不属于指定项目时返回 `404 仪表盘不存在`。
   - 超级用户可访问全部已存在项目，但项目不存在仍返回 `404 项目不存在`。
 
@@ -484,7 +485,75 @@ PATCH 请求体示例：
   - `404 Not Found`：项目不存在、普通用户不在项目权限范围内、dashboard 不属于指定项目/不存在，或 template 不存在。
   - `409 Conflict`：dashboard 数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段、路径参数或分页参数格式错误，包括 `layout/config` 超过大小、深度、复杂度限制、包含非有限数，`config.time_range` 非对象、未知 `mode`、缺少必填字段、非字符串或空字符串、未知相对范围、绝对范围时间不可解析或 `from >= to`，`config.panels` 非数组、panel 非对象、缺少必填字段、未知 `type`、重复 `id`、`query` 非对象、`layout` 数值非法，或 `config.variables` 非数组、variable 非对象、缺少必填字段、非法 `name/type/options/default`、重复 `name`。
-- 当前边界：不做前端 dashboard 页面，不做 panel 图表渲染，不接 ClickHouse 查询，不做保存时用户会话级变量状态、模板市场、导入导出、分享/只读模式、自动刷新或告警规则。
+- 当前边界：不做前端 dashboard 页面，不做 panel 图表渲染，不接 ClickHouse 查询，不做保存时用户会话级变量状态、模板市场、分享/只读模式、自动刷新或告警规则。
+
+### 导出 dashboard JSON
+
+- 方法：`GET`
+- 路径：`/api/v1/projects/{project_id}/dashboards/{dashboard_id}/export`
+- 权限：与读取 dashboard 一致，目标项目至少 `viewer`；普通用户无项目成员关系或项目不存在返回 `404 项目不存在`，dashboard 不属于路径项目或不存在返回 `404 仪表盘不存在`。
+- 响应：`200 OK`
+
+```json
+{
+  "schema": "telemetry.dashboard",
+  "version": 1,
+  "name": "服务总览",
+  "description": "值班视图",
+  "layout": {"version": 1, "widgets": []},
+  "config": {"refresh_seconds": 30}
+}
+```
+
+- 响应字段：
+  - `schema`：固定为 `telemetry.dashboard`。
+  - `version`：当前固定为 `1`。
+  - `name`：dashboard 名称，1 到 100 字符。
+  - `description`：dashboard 描述，可为 `null`，最多 500 字符。
+  - `layout` / `config`：已保存 dashboard JSON 定义。
+- 可移植边界：导出文档不得包含数据库实例字段，包括 `id`、`project_id`、`created_by_user_id`、`updated_by_user_id`、`created_at`、`updated_at`。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `404 Not Found`：项目不存在、普通用户不在项目权限范围内，或 dashboard 不属于指定项目/不存在。
+  - `422 Unprocessable Entity`：路径参数格式错误。
+
+### 导入 dashboard JSON
+
+- 方法：`POST`
+- 路径：`/api/v1/projects/{project_id}/dashboards/import`
+- 权限：与创建 dashboard 一致，目标项目至少 `editor`；`viewer` 返回 `403 无项目权限`；普通用户无项目成员关系或项目不存在返回 `404 项目不存在`。
+- 请求体：`document` 为导出文档；顶层可选 `name`、`description` 用于覆盖导出文档内同名字段，未提供时使用文档值。`description=null` 表示创建出的 dashboard 描述为空。
+
+```json
+{
+  "document": {
+    "schema": "telemetry.dashboard",
+    "version": 1,
+    "name": "服务总览",
+    "description": "值班视图",
+    "layout": {"version": 1, "widgets": []},
+    "config": {"refresh_seconds": 30}
+  },
+  "name": "导入副本",
+  "description": null
+}
+```
+
+- 行为：服务端使用路径 `project_id` 和导入文档构造 `DashboardCreate`，在目标项目下创建普通 dashboard；创建后响应完整 `DashboardResponse`，包含新数据库 `id`、目标 `project_id`、创建/更新用户和时间戳。导入不会覆盖已有 dashboard，不会提升跨项目权限，也不会回写导出来源 dashboard。
+- 文档字段规则：
+  - `schema` 必填且必须为 `telemetry.dashboard`。
+  - `version` 必填且当前必须为 `1`。
+  - `name` 必填，1 到 100 字符；可被请求体顶层 `name` 覆盖。
+  - `description` 必填，可为 `null`，最多 500 字符；可被请求体顶层 `description` 覆盖。
+  - `layout` / `config` 必填，必须是 JSON 对象或数组；复用 dashboard 创建的 64 KiB 大小、32 层深度、4096 节点复杂度、有限数字、`config.panels`、`config.time_range`、`config.variables` 校验和规范化。
+  - 导入文档不得包含实例字段：`id`、`project_id`、`created_by_user_id`、`updated_by_user_id`、`created_at`、`updated_at`。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `403 Forbidden`：已认证且处于目标项目权限范围内，但缺少 `editor`。
+  - `404 Not Found`：项目不存在或普通用户不在项目权限范围内。
+  - `409 Conflict`：dashboard 数据库完整性约束错误。
+  - `422 Unprocessable Entity`：请求体字段或路径参数格式错误；非法 schema/version；缺少导出文档必填字段；导入文档包含实例字段；导入文档或顶层请求含未声明字段；`layout/config` 超过大小、深度、复杂度限制；包含 `NaN`、`Infinity` 或 `-Infinity`；非法 panel、time range 或 variables。
+- 当前边界：不做前端导入导出 UI，不做批量导入、模板市场、分享/只读、文件上传存储、跨项目权限提升、覆盖已有 dashboard、ClickHouse 数据导出或告警。
 
 ## API-0024 Dashboard panel 查询预览
 

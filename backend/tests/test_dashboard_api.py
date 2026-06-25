@@ -22,6 +22,8 @@ from app.repositories.dashboard import SqlAlchemyDashboardRepository
 from app.repositories.management import SqlAlchemyManagementRepository
 from app.repositories.permissions import SqlAlchemyPermissionRepository
 from app.schemas.dashboard import (
+    DASHBOARD_EXPORT_SCHEMA,
+    DASHBOARD_EXPORT_VERSION,
     MAX_DASHBOARD_JSON_BYTES,
     MAX_DASHBOARD_JSON_DEPTH,
     MAX_DASHBOARD_JSON_NODES,
@@ -234,7 +236,21 @@ def _dashboard_variable_config() -> dict[str, Any]:
         ("POST", "/api/v1/projects/1/dashboard-templates/service-overview/dashboards", {}),
         ("GET", "/api/v1/dashboards", None),
         ("POST", "/api/v1/dashboards", {"project_id": 1, "name": "服务总览"}),
+        (
+            "POST",
+            "/api/v1/projects/1/dashboards/import",
+            {
+                "document": {
+                    "schema": DASHBOARD_EXPORT_SCHEMA,
+                    "version": DASHBOARD_EXPORT_VERSION,
+                    "name": "服务总览",
+                    "layout": {},
+                    "config": {},
+                }
+            },
+        ),
         ("GET", "/api/v1/projects/1/dashboards/1", None),
+        ("GET", "/api/v1/projects/1/dashboards/1/export", None),
         ("GET", "/api/v1/projects/1/dashboards/1/panels/cpu/preview", None),
         ("PATCH", "/api/v1/projects/1/dashboards/1", {"name": "服务概览"}),
         ("DELETE", "/api/v1/projects/1/dashboards/1", None),
@@ -618,6 +634,305 @@ def test_superuser_can_manage_dashboards_without_project_membership() -> None:
     assert response.json()["project_id"] == project_id
     assert response.json()["layout"] == {}
     assert response.json()["config"] == {}
+
+
+def test_dashboard_export_returns_portable_document_without_instance_fields() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="export-owner")
+    viewer, viewer_headers = create_auth_headers(client, username="export-viewer")
+    _, stranger_headers = create_auth_headers(client, username="export-stranger")
+    project_a = create_project(client, owner_headers, name="项目 A", key="export-project-a")
+    project_b = create_project(client, owner_headers, name="项目 B", key="export-project-b")
+    project_a_id = cast(int, project_a["id"])
+    project_b_id = cast(int, project_b["id"])
+    grant_project_role(
+        client,
+        project_id=project_a_id,
+        user_id=viewer.id,
+        role=ProjectRole.viewer,
+    )
+    dashboard_config = {
+        "refresh_seconds": 30,
+        "time_range": {"mode": "relative", "relative": "1h"},
+        **_dashboard_panel_config(),
+        "variables": _dashboard_variable_config()["variables"],
+    }
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=owner_headers,
+        json={
+            "project_id": project_a_id,
+            "name": "可导出仪表盘",
+            "description": "用于跨项目导入",
+            "layout": {"version": 1, "widgets": [{"i": "latency-p95"}]},
+            "config": dashboard_config,
+        },
+    )
+    assert create_response.status_code == 201
+    dashboard = create_response.json()
+
+    owner_response = client.get(
+        f"/api/v1/projects/{project_a_id}/dashboards/{dashboard['id']}/export",
+        headers=owner_headers,
+    )
+    viewer_response = client.get(
+        f"/api/v1/projects/{project_a_id}/dashboards/{dashboard['id']}/export",
+        headers=viewer_headers,
+    )
+    stranger_response = client.get(
+        f"/api/v1/projects/{project_a_id}/dashboards/{dashboard['id']}/export",
+        headers=stranger_headers,
+    )
+    cross_project_response = client.get(
+        f"/api/v1/projects/{project_b_id}/dashboards/{dashboard['id']}/export",
+        headers=owner_headers,
+    )
+
+    assert owner_response.status_code == 200
+    exported = owner_response.json()
+    assert exported == viewer_response.json()
+    assert exported == {
+        "schema": DASHBOARD_EXPORT_SCHEMA,
+        "version": DASHBOARD_EXPORT_VERSION,
+        "name": "可导出仪表盘",
+        "description": "用于跨项目导入",
+        "layout": {"version": 1, "widgets": [{"i": "latency-p95"}]},
+        "config": dashboard_config,
+    }
+    assert not {
+        "id",
+        "project_id",
+        "created_by_user_id",
+        "updated_by_user_id",
+        "created_at",
+        "updated_at",
+    } & set(exported)
+    assert viewer_response.status_code == 200
+    assert stranger_response.status_code == 404
+    assert stranger_response.json()["detail"] == "项目不存在"
+    assert cross_project_response.status_code == 404
+    assert cross_project_response.json()["detail"] == "仪表盘不存在"
+
+
+def test_dashboard_import_creates_normal_dashboard_and_supports_overrides() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="import-owner")
+    project_a = create_project(client, owner_headers, name="导出项目", key="import-source")
+    project_b = create_project(client, owner_headers, name="导入项目", key="import-target")
+    project_a_id = cast(int, project_a["id"])
+    project_b_id = cast(int, project_b["id"])
+    source_dashboard = create_dashboard(
+        client,
+        owner_headers,
+        project_id=project_a_id,
+        name="源仪表盘",
+    )
+    export_response = client.get(
+        f"/api/v1/projects/{project_a_id}/dashboards/{source_dashboard['id']}/export",
+        headers=owner_headers,
+    )
+    assert export_response.status_code == 200
+    document = export_response.json()
+
+    import_response = client.post(
+        f"/api/v1/projects/{project_b_id}/dashboards/import",
+        headers=owner_headers,
+        json={
+            "document": document,
+            "name": "导入副本",
+            "description": None,
+        },
+    )
+    fallback_response = client.post(
+        f"/api/v1/projects/{project_b_id}/dashboards/import",
+        headers=owner_headers,
+        json={"document": document},
+    )
+
+    assert import_response.status_code == 201
+    imported = import_response.json()
+    assert imported["id"] != source_dashboard["id"]
+    assert imported["project_id"] == project_b_id
+    assert imported["name"] == "导入副本"
+    assert imported["description"] is None
+    assert imported["layout"] == source_dashboard["layout"]
+    assert imported["config"] == source_dashboard["config"]
+    assert imported["created_by_user_id"] == imported["updated_by_user_id"]
+    assert imported["created_at"]
+    assert imported["updated_at"]
+
+    patch_response = client.patch(
+        f"/api/v1/projects/{project_b_id}/dashboards/{imported['id']}",
+        headers=owner_headers,
+        json={"name": "普通仪表盘可编辑"},
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["name"] == "普通仪表盘可编辑"
+
+    assert fallback_response.status_code == 201
+    fallback_dashboard = fallback_response.json()
+    assert fallback_dashboard["name"] == document["name"]
+    assert fallback_dashboard["description"] == document["description"]
+
+
+def test_dashboard_import_uses_project_permissions_and_hiding_semantics() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="import-permission-owner")
+    viewer, viewer_headers = create_auth_headers(client, username="import-viewer")
+    _, stranger_headers = create_auth_headers(client, username="import-stranger")
+    project = create_project(client, owner_headers, name="导入权限项目", key="import-permission")
+    project_id = cast(int, project["id"])
+    grant_project_role(
+        client,
+        project_id=project_id,
+        user_id=viewer.id,
+        role=ProjectRole.viewer,
+    )
+    document = {
+        "schema": DASHBOARD_EXPORT_SCHEMA,
+        "version": DASHBOARD_EXPORT_VERSION,
+        "name": "导入权限",
+        "description": None,
+        "layout": {},
+        "config": {},
+    }
+
+    viewer_response = client.post(
+        f"/api/v1/projects/{project_id}/dashboards/import",
+        headers=viewer_headers,
+        json={"document": document},
+    )
+    stranger_response = client.post(
+        f"/api/v1/projects/{project_id}/dashboards/import",
+        headers=stranger_headers,
+        json={"document": document},
+    )
+    missing_project_response = client.post(
+        "/api/v1/projects/999999/dashboards/import",
+        headers=owner_headers,
+        json={"document": document},
+    )
+
+    assert viewer_response.status_code == 403
+    assert viewer_response.json()["detail"] == "无项目权限"
+    assert stranger_response.status_code == 404
+    assert stranger_response.json()["detail"] == "项目不存在"
+    assert missing_project_response.status_code == 404
+    assert missing_project_response.json()["detail"] == "项目不存在"
+
+
+@pytest.mark.parametrize(
+    "document_patch",
+    [
+        {"schema": "telemetry.dashboard.v2"},
+        {"version": DASHBOARD_EXPORT_VERSION + 1},
+        {"layout": None},
+        {"config": None},
+        {"config": {"panels": [{"id": "cpu", "title": "CPU", "type": "unknown", "query": {}}]}},
+        {"config": {"time_range": {"mode": "relative", "relative": "10m"}}},
+        {"config": {"variables": [{"name": "1env", "type": "text"}]}},
+        {"id": 1},
+        {"project_id": 1},
+        {"created_by_user_id": 1},
+        {"updated_by_user_id": 1},
+        {"created_at": "2026-06-25T00:00:00Z"},
+        {"updated_at": "2026-06-25T00:00:00Z"},
+    ],
+)
+def test_dashboard_import_rejects_invalid_or_nonportable_document(
+    document_patch: dict[str, Any],
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username="import-invalid-owner")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    document = {
+        "schema": DASHBOARD_EXPORT_SCHEMA,
+        "version": DASHBOARD_EXPORT_VERSION,
+        "name": "导入非法文档",
+        "description": None,
+        "layout": {},
+        "config": {},
+    }
+    document.update(document_patch)
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/dashboards/import",
+        headers=auth_headers,
+        json={"document": document},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    ["schema", "version", "name", "description", "layout", "config"],
+)
+def test_dashboard_import_requires_export_document_fields(missing_field: str) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username=f"import-missing-{missing_field}")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    document = {
+        "schema": DASHBOARD_EXPORT_SCHEMA,
+        "version": DASHBOARD_EXPORT_VERSION,
+        "name": "导入缺字段",
+        "description": None,
+        "layout": {},
+        "config": {},
+    }
+    document.pop(missing_field)
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/dashboards/import",
+        headers=auth_headers,
+        json={"document": document},
+    )
+
+    assert response.status_code == 422
+    assert any(missing_field in error["loc"] for error in response.json()["detail"])
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("layout", {"blob": "x" * (MAX_DASHBOARD_JSON_BYTES + 1)}),
+        ("config", _too_deep_dashboard_json()),
+        ("layout", _too_complex_dashboard_json()),
+        ("layout", {"bad": float("nan")}),
+        ("config", {"bad": [float("inf")]}),
+        ("config", {"bad": float("-inf")}),
+    ],
+)
+def test_dashboard_import_reuses_dashboard_json_payload_limits(
+    field_name: str,
+    invalid_value: Any,
+) -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client, username=f"import-limit-{field_name}")
+    project = create_project(client, auth_headers)
+    project_id = cast(int, project["id"])
+    headers = _json_request_headers(auth_headers)
+    document = {
+        "schema": DASHBOARD_EXPORT_SCHEMA,
+        "version": DASHBOARD_EXPORT_VERSION,
+        "name": "导入非法 JSON",
+        "description": None,
+        "layout": {},
+        "config": {},
+        field_name: invalid_value,
+    }
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/dashboards/import",
+        headers=headers,
+        content=_dashboard_content({"document": document}),
+    )
+
+    assert response.status_code == 422
+    assert any(field_name in error["loc"] for error in response.json()["detail"])
 
 
 def test_dashboard_create_and_update_accept_panel_config() -> None:
