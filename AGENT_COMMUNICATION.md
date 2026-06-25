@@ -103,7 +103,7 @@ closed      已关闭
 | T-0073 | Dashboard 自动刷新前端基础 | 总 agent | done | todo | done | done | done |
 | T-0074 | Dashboard 自动刷新真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0075 | Dashboard 内置模板后端基础 | 总 agent | todo | done | done | done | done |
-| T-0076 | Dashboard 内置模板前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0076 | Dashboard 内置模板前端基础 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -605,6 +605,9 @@ closed      已关闭
 | 2026-06-24 | T-0076 | 总 agent | 登记 Dashboard 内置模板前端基础 | 阶段 5 下一小步限定为前端消费 T-0075 模板 API：在 `/dashboards` 页面提供内置模板列表/详情和“从模板创建 dashboard”的最小入口，支持选择项目、模板预览摘要、创建名称/描述、loading/error/401/404/422 状态，创建成功后进入普通 dashboard 编辑/预览流程。不改后端契约，不做 JSON 导入导出、分享/只读、模板市场、告警态势真实数据或复杂模板编辑 | todo |
 | 2026-06-25 | T-0075-sync | 总 agent | CI 与 worktree 同步完成 | T-0075 merge 与 T-0076 启动记录 `46fb5b3` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；GitHub Actions runs `28122471295`、`28127248601`、`28127248664` 均通过，Backend checks 与 Frontend checks 均为 success，仅有既有 Actions Node.js runtime 弃用注解；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致，feature 分支没有 dev 未包含提交。T-0075 关闭 | done |
 | 2026-06-25 | T-0076 | 总 agent | 启动前端开发 agent Pasteur | 已启动前端开发 agent Pasteur（`019efb50-2ba4-7623-9c87-c19a100438d1`）在 `feature/frontend-dev` 推进 T-0076，要求先遵守 `frontend-skill`，在 `/dashboards` 消费 T-0075 模板 API，实现模板列表/详情/从模板创建入口、项目选择、名称/描述、loading/error/401/404/422 和创建成功进入普通 dashboard 流程；不改后端契约、不读 `auth.txt`、不启动 Docker，验证后提交并 push | doing |
+| 2026-06-25 | T-0076 | 前端开发 agent Pasteur / 总 agent | Dashboard 内置模板前端基础完成 | `feature/frontend-dev` 已包含 `a9f5f06`、`7bb4ca7`、`2cd6c09`：`/dashboards` 新增内置模板列表/详情/从模板创建入口，创建 payload 只发送非空 `name`/`description`，不发送 `project_id/layout/config`；创建成功后进入普通 dashboard 编辑/预览工作流，并补齐满页列表缓存裁剪与版本落点收口。Feature CI run `28159443491` 通过；总 agent 本地前端 Dashboard 专项 60 tests、typecheck、lint、build、diff check 均通过 | audit |
+| 2026-06-25 | T-0076 | 代码审计 agent Parfit / 总 agent | Dashboard 内置模板前端审计通过 | Parfit 只读审计 `origin/dev..origin/feature/frontend-dev` 未发现 P0/P1/P2/P3；确认模板路径、payload 边界、`sessionRevision` query key 隔离、dashboard cache 清理、创建后 fallback 和移动端换行/降列风险均符合当前任务边界。Parfit 完成后已按用户要求关闭 | done |
+| 2026-06-25 | T-0076 | 总 agent | 真实 merge 集成 Dashboard 内置模板前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0076 合入 `dev`，merge 提交 `28f1a3a`。merge 后本地门禁通过：前端 `npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check` 和 `git diff --check` 通过。`dev` CI run `28160157990` 通过，Frontend checks 与 Backend checks 均为 success | done |
 
 ## 6. 测试记录
 
