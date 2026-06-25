@@ -104,6 +104,8 @@ closed      已关闭
 | T-0074 | Dashboard 自动刷新真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0075 | Dashboard 内置模板后端基础 | 总 agent | todo | done | done | done | done |
 | T-0076 | Dashboard 内置模板前端基础 | 总 agent | done | todo | done | done | done |
+| T-0077 | Dashboard 内置模板真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0078 | Dashboard JSON 导入导出后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -610,6 +612,9 @@ closed      已关闭
 | 2026-06-25 | T-0076 | 总 agent | 真实 merge 集成 Dashboard 内置模板前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0076 合入 `dev`，merge 提交 `28f1a3a`。merge 后本地门禁通过：前端 `npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check` 和 `git diff --check` 通过。`dev` CI run `28160157990` 通过，Frontend checks 与 Backend checks 均为 success | done |
 | 2026-06-25 | T-0076-sync | 总 agent | CI 与 worktree 同步完成 | T-0076 完成记录 `2e65b01` 已推送到 `dev`，并将最新 `dev` 同步到 `feature/frontend-dev` 提交 `4ce1571`、`feature/backend-dev` 提交 `e95f26e`；GitHub Actions runs `28160590316`、`28160762257`、`28160649213` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0076 关闭 | done |
 | 2026-06-25 | T-0077 | 总 agent | 登记 Dashboard 内置模板真实前后端联测 | 阶段 5 下一小步限定为测试收口：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge，覆盖 dashboard template 列表/详情、从 `service-overview` 创建普通 dashboard、创建后进入既有 dashboard 编辑/预览流程、模板创建权限/401/403/404/422 边界、创建后保存不回写内置模板、390px 移动端布局和 logs/events/metrics 或 dashboard CRUD 快速回归。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
+| 2026-06-25 | T-0077 | 测试 agents Hypatia/Euler / 总 agent | Dashboard 内置模板真实前后端联测通过 | T-0077 在 `dev/origin/dev` `3556223` 上完成真实 MySQL、真实 FastAPI、真实 Vite 与 Playwright + Microsoft Edge 联测。Hypatia 初轮暴露测试编排问题：seed 脚本缺 `backend` import path、浏览器脚本无法解析 `playwright` 包；均为 runtime 脚本问题且自有资源已清理。Euler 使用新证据目录 `agents/runtime/e2e-T-0077-browser-rerun-20260625-233732` 重跑完整 API + Edge 浏览器断言并通过：模板列表/详情含 `service-overview`，从模板创建普通 dashboard 后进入编辑/预览流程，模板创建 payload 仅含 `name/description`，panel preview 返回 `200`，模板 hash 前后一致，401/403/404/422 权限与错误边界、dashboard CRUD 快速回归、390px 移动端无横向溢出均通过；临时 MySQL `33377`、后端 `28117`、前端 `25173` 已清理，系统 `3306` 未触碰 | done |
+| 2026-06-25 | T-0077-sync | 总 agent | CI 与 worktree 同步完成 | T-0077 启动记录 `3556223` 已推送到 `dev`，并同步到 `feature/frontend-dev` 提交 `7be301a`、`feature/backend-dev` 提交 `e0973e3`；GitHub Actions runs `28178199863`、`28178430142`、`28178460331` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0077 关闭 | done |
+| 2026-06-25 | T-0078 | 总 agent | 登记 Dashboard JSON 导入导出后端基础 | 阶段 5 下一小步限定为后端 JSON 导入导出基础：在已保存 dashboard CRUD/RBAC/JSON 保护之上提供最小导出与导入后端能力。导出返回单个 dashboard 的可移植 JSON 文档，包含名称、描述、layout、config 和 schema/version 元数据但不包含数据库 id、项目 id、创建者或时间戳；导入在目标项目下创建普通 dashboard，复用现有 `DashboardCreate`、权限、JSON 大小/深度/finite/panel/time_range/variables 校验和隐藏无权限项目语义，支持可选名称/描述覆盖。不改前端 UI，不做批量导入、模板市场、分享/只读、跨项目权限提升、文件上传存储、ClickHouse 数据导出或告警；将启动后端开发 agent 在 `feature/backend-dev` 工作，并要求其按需启动测试 agent | doing |
 
 ## 6. 测试记录
 
@@ -782,6 +787,8 @@ closed      已关闭
 | 2026-06-24 | T-0075 | Dashboard 内置模板后端门禁 | `feature/backend-dev` run `28121599570`；后端 dashboard/config 专项、ruff、format、mypy、`uv lock --check`、`git diff --check` | 通过 | `9f530c6` 上 feature/backend-dev CI 通过，Backend checks 与 Frontend checks 均为 success；Dewey 本地 dashboard/config 123 passed、ruff、format、mypy、uv lock、diff check 通过；Newton 审计侧 dashboard 专项 110 passed、ruff、format、mypy、diff check 通过 |
 | 2026-06-24 | T-0075 | dev merge 后本地验证 | 后端 dashboard/config 专项、ruff、format、mypy、uv lock；前端 typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `41e1743` 后，后端 dashboard/config 123 passed、1 条既有 Starlette/TestClient warning；`uv run ruff check app/api/routes/dashboard.py app/schemas/dashboard.py app/services/dashboard.py app/services/dashboard_templates.py tests/test_dashboard_api.py`、`uv run ruff format --check ...`、`uv run mypy ...`、`uv lock --check` 均通过；前端 typecheck、lint、build 通过；diff check 通过 |
 | 2026-06-25 | T-0075-sync | CI 与 worktree 同步 | GitHub Actions runs `28122471295`、`28127248601`、`28127248664`；feature 分支 fast-forward；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `46fb5b3` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致，feature 分支没有 dev 未包含提交 |
+| 2026-06-25 | T-0077-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28178199863`、`28178430142`、`28178460331`；feature 分支 merge 同步；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `3556223` 在 `dev`、`7be301a` 在 `feature/frontend-dev`、`e0973e3` 在 `feature/backend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
+| 2026-06-25 | T-0077 | Dashboard 内置模板真实前后端联测 | 测试 agents Hypatia/Euler；临时 MySQL `127.0.0.1:33377`、库 `telemetry_t0077_20260625_233857`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge `149.0.4022.80`；后端 API 与浏览器断言 | 通过 | 最终证据目录 `agents/runtime/e2e-T-0077-browser-rerun-20260625-233732`。`api-summary.json` 与 `browser-summary.json` 均为 `passed=true`、`failures=[]`；覆盖 template 列表/详情、`service-overview` 创建普通 dashboard、创建后 panel preview `200`、payload 只含 `name/description`、模板 hash 前后一致、401/403/404/422 边界、dashboard CRUD 快速回归、桌面/390px 移动端截图与无横向溢出。cleanup 确认临时 MySQL 库/实例/datadir、后端、前端均已清理，系统 `3306` 未触碰 |
 
 ## 7. 审计记录
 
@@ -929,7 +936,8 @@ closed      已关闭
 | 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Harvey 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新重复请求、停止、并发保护、运行时变量、未保存草稿、切换 timer 和移动端 UI；资源已清理 | done |
 | 2026-06-24 | T-0075 | feature/backend-dev | dev | 总 agent | Dashboard 内置模板后端基础 `9f530c6` 已通过 Newton 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `41e1743`；本地门禁、`dev` CI run `28122471295`、feature 同步 CI runs `28127248601`、`28127248664` 和严格 worktree 体检均通过 | done |
 | 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础 `a9f5f06`、`7bb4ca7`、`2cd6c09` 已通过 feature CI、Parfit 审计、真实 merge、merge 后本地门禁、`dev` CI 和三分支同步 CI；最新同步提交为 `dev` `2e65b01`、`feature/frontend-dev` `4ce1571`、`feature/backend-dev` `e95f26e`，严格 worktree 体检通过 | done |
-| 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已登记；本任务为测试收口，不产生 feature merge。下一步启动测试 agent 在最新 `dev/origin/dev` 上使用真实 MySQL/后端/前端/Edge 验证模板链路 | testing |
+| 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hypatia/Euler 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖模板链路、权限/错误边界、创建后普通 dashboard 编辑/预览、模板不被回写、移动端布局和 CRUD 快速回归；资源已清理 | done |
+| 2026-06-25 | T-0078 | feature/backend-dev | dev | 总 agent | Dashboard JSON 导入导出后端基础已登记；下一步启动后端开发 agent 在 `feature/backend-dev` 实现后端最小导出/导入能力，完成测试与审计后再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 

@@ -1002,3 +1002,32 @@
 - `dev` CI run `28160157990` 在 `28f1a3a` 上 Frontend checks 与 Backend checks 均为 success。
 - T-0076 完成记录与三分支同步 CI 通过：`dev` run `28160590316`、`feature/frontend-dev` run `28160762257`、`feature/backend-dev` run `28160649213` 均为 success。
 - 严格 worktree 体检通过：`powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1` 确认三棵 worktree 分支、保护项、敏感文件、运行日志和本地/远端同步状态均正常。
+
+## 2026-06-25 T-0077 Dashboard 内置模板真实前后端联测
+
+### 已完成
+
+- T-0077 启动记录 `3556223` 已推送到 `dev`，并同步到 `feature/frontend-dev` 提交 `7be301a`、`feature/backend-dev` 提交 `e0973e3`。
+- 三分支 CI 均通过：`dev` run `28178199863`、`feature/frontend-dev` run `28178430142`、`feature/backend-dev` run `28178460331`，Backend checks 与 Frontend checks 均为 success。
+- 测试 agents Hypatia/Euler 完成真实 MySQL、真实 FastAPI、真实 Vite 与 Playwright + Microsoft Edge 联测。Hypatia 初轮暴露的 seed import path 和 Playwright 包解析问题均属于 runtime 测试编排问题，资源均已清理；Euler 使用新证据目录完成完整重跑。
+- 最终证据目录：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732`。
+- `api-summary.json` 与 `browser-summary.json` 均为 `passed=true`、`failures=[]`。
+- 覆盖 template 列表/详情、`service-overview` 从模板创建普通 dashboard、创建后进入普通 dashboard 编辑/预览流程、panel preview `200`、模板创建 payload 仅含 `name/description`、模板 hash 创建前后一致、未认证 `401`、viewer 创建 `403`、无权限/不存在 `404`、非法 payload/path `422`、dashboard CRUD 快速回归、桌面与 390px 移动端无横向溢出。
+- cleanup 确认临时 MySQL `127.0.0.1:33377`、临时库 `telemetry_t0077_20260625_233857`、datadir、真实后端 `28117`、真实前端 `25173` 均已清理，系统 MySQL `3306` 未触碰；未读 `auth.txt`，未启动 Docker。
+
+### 阻塞与风险
+
+- T-0077 真实联测已通过；残余风险为内置模板后续仍不包含复杂模板编辑、模板市场、分享/只读、告警态势真实数据或 ClickHouse 数据查询。
+- 测试过程中暴露的 runtime 编排问题已通过补验目录修正并重跑通过；这些脚本位于 ignored 的 `agents/runtime/`，不影响业务代码。
+
+### 下一步
+
+- 登记并启动 `T-0078` Dashboard JSON 导入导出后端基础：在已保存 dashboard CRUD/RBAC/JSON 保护之上提供最小导出与导入后端能力。导出返回单个 dashboard 的可移植 JSON 文档，包含名称、描述、layout、config 和 schema/version 元数据但不包含数据库 id、项目 id、创建者或时间戳；导入在目标项目下创建普通 dashboard，复用既有 `DashboardCreate`、权限、JSON 大小/深度/finite/panel/time_range/variables 校验和隐藏无权限项目语义，支持可选名称/描述覆盖。
+- T-0078 不改前端 UI，不做批量导入、模板市场、分享/只读、跨项目权限提升、文件上传存储、ClickHouse 数据导出或告警。
+
+### 验证
+
+- GitHub Actions：`28178199863`、`28178430142`、`28178460331` 均通过。
+- T-0077 API 断言：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732/api-summary.json` 记录 `passed=true`、`failures=[]`。
+- T-0077 Edge 浏览器断言：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732/browser-summary.json` 记录 `passed=true`、`failures=[]`，Microsoft Edge `149.0.4022.80`。
+- 视觉证据：`desktop-dashboard-template.png` 与 `mobile-dashboard-template.png` 已保留在最终证据目录。
