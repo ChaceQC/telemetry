@@ -608,6 +608,7 @@ closed      已关闭
 | 2026-06-25 | T-0076 | 前端开发 agent Pasteur / 总 agent | Dashboard 内置模板前端基础完成 | `feature/frontend-dev` 已包含 `a9f5f06`、`7bb4ca7`、`2cd6c09`：`/dashboards` 新增内置模板列表/详情/从模板创建入口，创建 payload 只发送非空 `name`/`description`，不发送 `project_id/layout/config`；创建成功后进入普通 dashboard 编辑/预览工作流，并补齐满页列表缓存裁剪与版本落点收口。Feature CI run `28159443491` 通过；总 agent 本地前端 Dashboard 专项 60 tests、typecheck、lint、build、diff check 均通过 | audit |
 | 2026-06-25 | T-0076 | 代码审计 agent Parfit / 总 agent | Dashboard 内置模板前端审计通过 | Parfit 只读审计 `origin/dev..origin/feature/frontend-dev` 未发现 P0/P1/P2/P3；确认模板路径、payload 边界、`sessionRevision` query key 隔离、dashboard cache 清理、创建后 fallback 和移动端换行/降列风险均符合当前任务边界。Parfit 完成后已按用户要求关闭 | done |
 | 2026-06-25 | T-0076 | 总 agent | 真实 merge 集成 Dashboard 内置模板前端基础 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 T-0076 合入 `dev`，merge 提交 `28f1a3a`。merge 后本地门禁通过：前端 `npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，typecheck、lint、build 通过；后端 `uv run pytest tests/test_config.py -q` 13 passed，`uv lock --check` 和 `git diff --check` 通过。`dev` CI run `28160157990` 通过，Frontend checks 与 Backend checks 均为 success | done |
+| 2026-06-25 | T-0076-sync | 总 agent | CI 与 worktree 同步完成 | T-0076 完成记录 `2e65b01` 已推送到 `dev`，并将最新 `dev` 同步到 `feature/frontend-dev` 提交 `4ce1571`、`feature/backend-dev` 提交 `e95f26e`；GitHub Actions runs `28160590316`、`28160762257`、`28160649213` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0076 关闭 | done |
 
 ## 6. 测试记录
 
@@ -926,7 +927,7 @@ closed      已关闭
 | 2026-06-24 | T-0074-start-sync | dev | feature/frontend-dev / feature/backend-dev | 总 agent | T-0073 收口与 T-0074 启动记录 `fc0cb46` 已同步到三分支；CI runs `28116999523`、`28117095511`、`28117094567` 均通过，严格 worktree 体检通过。测试 agent Harvey 已启动执行真实联测 | testing |
 | 2026-06-24 | T-0074 | dev | dev | 总 agent | Dashboard 自动刷新真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Harvey 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖自动刷新重复请求、停止、并发保护、运行时变量、未保存草稿、切换 timer 和移动端 UI；资源已清理 | done |
 | 2026-06-24 | T-0075 | feature/backend-dev | dev | 总 agent | Dashboard 内置模板后端基础 `9f530c6` 已通过 Newton 审计和 feature CI；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `41e1743`；本地门禁、`dev` CI run `28122471295`、feature 同步 CI runs `28127248601`、`28127248664` 和严格 worktree 体检均通过 | done |
-| 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础已启动；前端开发 agent Pasteur（`019efb50-2ba4-7623-9c87-c19a100438d1`）正在 `feature/frontend-dev` 实现模板列表/详情/从模板创建入口，完成后需读取 feature CI、代码审计并由总 agent 真实 merge 到 `dev` | doing |
+| 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础 `a9f5f06`、`7bb4ca7`、`2cd6c09` 已通过 feature CI、Parfit 审计、真实 merge、merge 后本地门禁、`dev` CI 和三分支同步 CI；最新同步提交为 `dev` `2e65b01`、`feature/frontend-dev` `4ce1571`、`feature/backend-dev` `e95f26e`，严格 worktree 体检通过 | done |
 
 ## 10. 决策记录
 
