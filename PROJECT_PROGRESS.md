@@ -981,6 +981,8 @@
 - 总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `a9f5f06`、`7bb4ca7`、`2cd6c09` 合入 `dev`，merge 提交 `28f1a3a`。
 - merge 后本地门禁通过：前端 Dashboard 专项 60 tests passed、typecheck、lint、build；后端 config 13 passed、`uv lock --check`；`git diff --check` 均通过。
 - `dev` CI run `28160157990` 在 `28f1a3a` 上成功，Frontend checks 与 Backend checks 均为 success。
+- T-0076 完成记录 `2e65b01` 已推送到 `dev`，并同步到 `feature/frontend-dev` 提交 `4ce1571`、`feature/backend-dev` 提交 `e95f26e`；三分支最新 CI runs `28160590316`、`28160762257`、`28160649213` 均通过。
+- 严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，根、前端、后端三棵 worktree 均在预期分支、无未提交/未跟踪可提交改动，且本地/远端一致。
 
 ### 阻塞与风险
 
@@ -989,7 +991,7 @@
 
 ### 下一步
 
-- 推送 T-0076 进展记录并同步两个 feature 分支到最新 `dev`；随后继续阶段 5 Dashboard RBAC/分享只读、阶段 3 ClickHouse/MongoDB 查询切换或阶段 6 告警规则小步。
+- 登记并启动 `T-0077` Dashboard 内置模板真实前后端联测：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge，覆盖模板列表/详情、从模板创建 dashboard、权限与错误边界、创建后进入普通 dashboard 编辑/预览流程、保存不回写模板、移动端布局和核心回归。
 
 ### 验证
 
@@ -998,3 +1000,5 @@
 - Parfit 只读审计 `origin/dev..origin/feature/frontend-dev` 未发现 P0/P1/P2/P3；审计侧 `git status`、`git log`、`git diff --stat`、`git diff --check` 和多次 `git show`/`git grep` 只读核对前端实现、测试、样式和后端契约均通过。
 - merge 后本地门禁通过：merge 提交 `28f1a3a` 后，前端 Dashboard 专项 `npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q` 13 passed、`uv lock --check`；`git diff --check` 均通过。
 - `dev` CI run `28160157990` 在 `28f1a3a` 上 Frontend checks 与 Backend checks 均为 success。
+- T-0076 完成记录与三分支同步 CI 通过：`dev` run `28160590316`、`feature/frontend-dev` run `28160762257`、`feature/backend-dev` run `28160649213` 均为 success。
+- 严格 worktree 体检通过：`powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1` 确认三棵 worktree 分支、保护项、敏感文件、运行日志和本地/远端同步状态均正常。
