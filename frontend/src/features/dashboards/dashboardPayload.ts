@@ -1,4 +1,4 @@
-import { updateDashboard, type Dashboard } from '../../api/dashboards';
+import { updateDashboard, type CreateDashboardFromTemplateRequest, type Dashboard } from '../../api/dashboards';
 import { parseDashboardJsonField } from './dashboardJson';
 
 export function buildDashboardPayload(input: {
@@ -82,6 +82,24 @@ export function buildDashboardPatchPayload(
   return {
     ok: true as const,
     value: changedPayload
+  };
+}
+
+export function buildDashboardTemplateCreatePayload(input: { name: string; description: string }) {
+  const payload: CreateDashboardFromTemplateRequest = {};
+  const name = input.name.trim();
+  const description = input.description.trim();
+
+  if (name.length > 0) {
+    payload.name = name;
+  }
+  if (description.length > 0) {
+    payload.description = description;
+  }
+
+  return {
+    ok: true as const,
+    value: payload
   };
 }
 

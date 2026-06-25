@@ -80,6 +80,77 @@ describe('dashboard api client', () => {
     );
   });
 
+  it('模板列表、详情和从模板创建使用后端模板路径', async () => {
+    const { listDashboardTemplates, getDashboardTemplate, createDashboardFromTemplate, setApiAuthToken } =
+      await loadDashboardClient();
+    const template = {
+      id: 'service-overview',
+      name: '服务总览',
+      description: '服务健康入口',
+      layout: { version: 1 },
+      config: { panels: [] }
+    };
+    const dashboard = {
+      id: 9,
+      project_id: 12,
+      name: '支付服务总览',
+      description: '支付团队值班入口',
+      layout: template.layout,
+      config: template.config,
+      created_by_user_id: 1,
+      updated_by_user_id: 1,
+      created_at: '2026-06-25T04:20:00Z',
+      updated_at: '2026-06-25T04:20:00Z'
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ items: [template] }))
+      .mockResolvedValueOnce(jsonResponse(template))
+      .mockResolvedValueOnce(jsonResponse(dashboard, 201));
+
+    setApiAuthToken('template-token');
+    await expect(listDashboardTemplates()).resolves.toEqual({ items: [template] });
+    await expect(getDashboardTemplate('service overview')).resolves.toEqual(template);
+    await expect(
+      createDashboardFromTemplate(12, 'service overview', {
+        name: '支付服务总览',
+        description: undefined
+      })
+    ).resolves.toEqual(dashboard);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:28117/api/v1/dashboard-templates',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer template-token'
+        })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:28117/api/v1/dashboard-templates/service%20overview',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer template-token'
+        })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:28117/api/v1/projects/12/dashboard-templates/service%20overview/dashboards',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          name: '支付服务总览'
+        }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer template-token'
+        })
+      })
+    );
+  });
+
   it('更新和删除使用项目边界路径', async () => {
     const { updateDashboard, deleteDashboard } = await loadDashboardClient();
     const fetchMock = vi

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Dashboard, DashboardListParams, DashboardPanelPreviewResponse } from '../api/dashboards';
+import type { Dashboard, DashboardListParams, DashboardPanelPreviewResponse, DashboardTemplate } from '../api/dashboards';
 import { ApiClientError } from '../api/http';
 import type { Project } from '../api/settings';
 import { AuthContext } from '../features/auth/authContext';
@@ -19,11 +19,14 @@ type DashboardListResult = { items: Dashboard[]; limit: number; offset: number; 
 const apiMocks = vi.hoisted(() => ({
   listProjects: vi.fn<() => Promise<Project[]>>(),
   listDashboards: vi.fn<(params?: DashboardListParams) => Promise<DashboardListResult>>(),
+  listDashboardTemplates: vi.fn<() => Promise<{ items: DashboardTemplate[] }>>(),
+  getDashboardTemplate: vi.fn<(templateId: string) => Promise<DashboardTemplate>>(),
   previewDashboardPanel:
     vi.fn<
       (projectId: number, dashboardId: number, panelId: string, variables?: Record<string, string | number>) => Promise<DashboardPanelPreviewResponse>
     >(),
   createDashboard: vi.fn(),
+  createDashboardFromTemplate: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn()
 }));
@@ -34,7 +37,10 @@ vi.mock('../api/settings', () => ({
 
 vi.mock('../api/dashboards', () => ({
   createDashboard: apiMocks.createDashboard,
+  createDashboardFromTemplate: apiMocks.createDashboardFromTemplate,
   deleteDashboard: apiMocks.deleteDashboard,
+  getDashboardTemplate: apiMocks.getDashboardTemplate,
+  listDashboardTemplates: apiMocks.listDashboardTemplates,
   listDashboards: apiMocks.listDashboards,
   previewDashboardPanel: apiMocks.previewDashboardPanel,
   updateDashboard: apiMocks.updateDashboard
@@ -62,6 +68,43 @@ const dashboard: Dashboard = createDashboardFixture({
   layout: { version: 1, widgets: [] },
   config: { refresh_seconds: 30 }
 });
+
+const dashboardTemplate: DashboardTemplate = {
+  id: 'service-overview',
+  name: '服务总览',
+  description: '内置服务健康总览',
+  layout: { version: 1, widgets: [] },
+  config: {
+    time_range: {
+      mode: 'relative',
+      relative: '1h'
+    },
+    variables: [
+      {
+        name: 'service_source',
+        label: 'Service',
+        type: 'text',
+        default: 'api'
+      }
+    ],
+    panels: [
+      {
+        id: 'logs',
+        title: '错误日志',
+        type: 'logs',
+        query: { level: 'error' },
+        layout: { x: 0, y: 0, w: 6, h: 3 }
+      },
+      {
+        id: 'metrics',
+        title: '延迟趋势',
+        type: 'metrics',
+        query: { name: 'http.server.duration' },
+        layout: { x: 6, y: 0, w: 6, h: 3 }
+      }
+    ]
+  }
+};
 
 function createDashboardFixture(overrides: Partial<Dashboard> = {}): Dashboard {
   return {
@@ -145,6 +188,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   apiMocks.listProjects.mockResolvedValue([project]);
   apiMocks.listDashboards.mockResolvedValue({ items: [dashboard], limit: 50, offset: 0, total: 1 });
+  apiMocks.listDashboardTemplates.mockResolvedValue({ items: [dashboardTemplate] });
+  apiMocks.getDashboardTemplate.mockResolvedValue(dashboardTemplate);
   apiMocks.previewDashboardPanel.mockResolvedValue({
     project_id: project.id,
     dashboard_id: dashboard.id,
@@ -159,6 +204,14 @@ beforeEach(() => {
     }
   });
   apiMocks.createDashboard.mockResolvedValue({ ...dashboard, id: 8, name: '新建看板' });
+  apiMocks.createDashboardFromTemplate.mockResolvedValue({
+    ...dashboard,
+    id: 9,
+    name: '支付服务总览',
+    description: '支付团队值班入口',
+    layout: dashboardTemplate.layout,
+    config: dashboardTemplate.config
+  });
   apiMocks.updateDashboard.mockResolvedValue({ ...dashboard, name: '服务健康概览', description: null });
   apiMocks.deleteDashboard.mockResolvedValue(null);
 });
@@ -196,6 +249,74 @@ describe('DashboardsPage interactions', () => {
       layout: { version: 1, widgets: [] },
       config: { refresh_seconds: 45 }
     });
+  });
+
+  it('支持从内置模板创建普通 dashboard 并只提交覆盖字段', async () => {
+    const user = userEvent.setup();
+    const templateDashboard = createDashboardFixture({
+      id: 9,
+      project_id: project.id,
+      name: '支付服务总览',
+      description: '支付团队值班入口',
+      layout: dashboardTemplate.layout,
+      config: dashboardTemplate.config
+    });
+    let created = false;
+    apiMocks.createDashboardFromTemplate.mockImplementation(async () => {
+      created = true;
+      return templateDashboard;
+    });
+    apiMocks.listDashboards.mockImplementation(async () =>
+      created
+        ? { items: [dashboard], limit: 50, offset: 0, total: 1 }
+        : { items: [dashboard], limit: 50, offset: 0, total: 1 }
+    );
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('服务总览');
+    const templatePanel = screen.getByLabelText('内置模板');
+    await within(templatePanel).findByLabelText('模板摘要');
+    expect(within(templatePanel).getByText('2 个 panel')).toBeTruthy();
+    expect(within(templatePanel).getByText('1 个变量')).toBeTruthy();
+    expect(within(templatePanel).getByText('最近 1h')).toBeTruthy();
+
+    await user.type(within(templatePanel).getByLabelText('模板创建名称'), '支付服务总览');
+    await user.type(within(templatePanel).getByLabelText('模板创建描述'), '支付团队值班入口');
+    await user.click(within(templatePanel).getByRole('button', { name: '从模板创建' }));
+
+    expect(apiMocks.createDashboardFromTemplate).toHaveBeenCalledWith(12, 'service-overview', {
+      name: '支付服务总览',
+      description: '支付团队值班入口'
+    });
+    expect(await screen.findByDisplayValue('支付服务总览')).toBeTruthy();
+    expect(screen.getByDisplayValue('支付团队值班入口')).toBeTruthy();
+  });
+
+  it('从模板创建失败时显示后端 422 错误且不提交 layout/config', async () => {
+    const user = userEvent.setup();
+    apiMocks.createDashboardFromTemplate.mockRejectedValue(
+      new ApiClientError({
+        message: 'extra forbidden',
+        status: 422,
+        details: { detail: '请求字段不允许' }
+      })
+    );
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('服务总览');
+    const templatePanel = screen.getByLabelText('内置模板');
+    await within(templatePanel).findByLabelText('模板摘要');
+    await user.type(within(templatePanel).getByLabelText('模板创建名称'), '坏模板创建');
+    await user.click(within(templatePanel).getByRole('button', { name: '从模板创建' }));
+
+    await waitFor(() => expect(apiMocks.createDashboardFromTemplate).toHaveBeenCalled());
+    expect(await screen.findByText(/请求字段不允许/)).toBeTruthy();
+    expect(apiMocks.createDashboardFromTemplate).toHaveBeenCalledWith(12, 'service-overview', {
+      name: '坏模板创建'
+    });
+    expect(apiMocks.createDashboardFromTemplate.mock.calls[0]?.[2]).not.toHaveProperty('layout');
+    expect(apiMocks.createDashboardFromTemplate.mock.calls[0]?.[2]).not.toHaveProperty('config');
+    expect(apiMocks.createDashboardFromTemplate.mock.calls[0]?.[2]).not.toHaveProperty('project_id');
   });
 
   it('选择列表项后可更新名称、清空描述并删除 dashboard', async () => {
