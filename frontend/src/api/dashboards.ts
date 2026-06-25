@@ -37,6 +37,18 @@ export type DashboardListResponse = {
   total: number;
 };
 
+export type DashboardTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  layout: DashboardJson;
+  config: DashboardJson;
+};
+
+export type DashboardTemplateListResponse = {
+  items: DashboardTemplate[];
+};
+
 export type DashboardPanelPreviewPayload =
   | {
       kind: 'metrics';
@@ -92,6 +104,11 @@ export type UpdateDashboardRequest = {
   config?: DashboardJson;
 };
 
+export type CreateDashboardFromTemplateRequest = {
+  name?: string | null;
+  description?: string | null;
+};
+
 export function listDashboards(params: DashboardListParams = {}) {
   return apiRequest<DashboardListResponse>(
     buildQueryPath('/api/v1/dashboards', {
@@ -104,6 +121,25 @@ export function listDashboards(params: DashboardListParams = {}) {
 
 export function createDashboard(payload: CreateDashboardRequest) {
   return apiRequest<Dashboard>('/api/v1/dashboards', {
+    method: 'POST',
+    body: JSON.stringify(cleanDashboardPayload(payload))
+  });
+}
+
+export function listDashboardTemplates() {
+  return apiRequest<DashboardTemplateListResponse>('/api/v1/dashboard-templates');
+}
+
+export function getDashboardTemplate(templateId: string) {
+  return apiRequest<DashboardTemplate>(buildDashboardTemplatePath(templateId));
+}
+
+export function createDashboardFromTemplate(
+  projectId: number,
+  templateId: string,
+  payload: CreateDashboardFromTemplateRequest = {}
+) {
+  return apiRequest<Dashboard>(`${buildProjectDashboardTemplatePath(projectId, templateId)}/dashboards`, {
     method: 'POST',
     body: JSON.stringify(cleanDashboardPayload(payload))
   });
@@ -143,6 +179,14 @@ export function previewDashboardPanel(
 
 function buildProjectDashboardPath(projectId: number, dashboardId: number) {
   return `/api/v1/projects/${encodeURIComponent(`${projectId}`)}/dashboards/${encodeURIComponent(`${dashboardId}`)}`;
+}
+
+function buildDashboardTemplatePath(templateId: string) {
+  return `/api/v1/dashboard-templates/${encodeURIComponent(templateId)}`;
+}
+
+function buildProjectDashboardTemplatePath(projectId: number, templateId: string) {
+  return `/api/v1/projects/${encodeURIComponent(`${projectId}`)}/dashboard-templates/${encodeURIComponent(templateId)}`;
 }
 
 function cleanDashboardPayload<TPayload extends Record<string, unknown>>(payload: TPayload) {

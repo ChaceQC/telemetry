@@ -2,6 +2,33 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-25 T-0076 Dashboard 内置模板创建前端基础
+
+### 已完成
+
+- `/dashboards` 新增内置模板区域，接入 `GET /api/v1/dashboard-templates` 和 `GET /api/v1/dashboard-templates/{template_id}`，展示模板名称、描述、id、panel 数、变量数和 time range 摘要。
+- 新增从模板创建入口，调用 `POST /api/v1/projects/{project_id}/dashboard-templates/{template_id}/dashboards`，支持目标项目选择和可选名称/描述覆盖；前端 payload 只发送非空 `name`、`description`，不发送 `project_id`、`layout` 或 `config`。
+- 模板列表、详情和创建错误复用既有登录、loading、empty、error 与表单错误样式；模板查询 key 按 `sessionRevision` 隔离，避免跨账号复用旧模板状态。
+- 创建成功后返回普通 dashboard，进入既有编辑、time range、variables、panels 和 preview 工作流；新增列表缓存 upsert 与当前页面 fallback，避免创建成功但列表刷新暂未包含新记录时编辑态丢失。
+- 补充创建后列表缓存边界：当前第一页已满时，从模板创建成功只把新 dashboard 插入当前缓存页首并裁剪到既有 `limit`，同时将 `total` 增加 1，避免乐观缓存临时撑出超过分页大小的列表并仍保持新 dashboard 编辑态。
+- 补做前端版本落点收口：将 `frontend/src/api/config.ts` 的运行时默认版本和 `frontend/README.md` 环境变量示例统一为 `0.2.12`，消除遗留的 `0.2.11` 旧值。
+- UI 保持当前运维 dashboard 风格：模板区为紧凑工作面板，移动端单列折叠，不新增后端契约、不引入模板编辑或模板市场抽象。
+- README 已补充 dashboard 模板接口、payload 边界和当前不覆盖范围。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（3 个测试文件、59 个测试）。
+- 已在 `frontend/` 包目录执行全量门禁：`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test -- --run`、`npm.cmd run build` 均通过（全量 Vitest 31 个测试文件、225 个测试）。
+- 创建后编辑态和满页缓存边界修复后，已在 `frontend/` 包目录执行：`npm.cmd run test -- src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（1 个测试文件、40 个测试）。
+- 已用 Microsoft Edge + Playwright 在自启动 Vite `127.0.0.1:25173` 上对 `/dashboards` 做 mock 数据态视觉复核：桌面 1366px 与移动 390px 模板区均可见且无横向溢出；模板创建 POST body 为 `{"name":"核心服务总览"}`，未携带 `project_id/layout/config`；创建成功后进入普通 dashboard 编辑表单。自启动 Vite 进程链已停止，端口 `25173` 已释放。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 未做真实后端/MySQL 联调；浏览器复核使用前端 mock API 数据态。
+- 本轮只消费 T-0075 后端模板契约并创建普通 dashboard，不实现模板市场、模板自定义编辑、JSON 导入导出、分享/只读、ClickHouse 图表查询或告警规则。
+- 测试输出仍包含项目既有 React Router SSR/future flag warning。
+
 ## 2026-06-25 T-0073 Dashboard 自动刷新前端基础
 
 ### 已完成

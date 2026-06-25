@@ -4,11 +4,15 @@ import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '../api/http';
-import type { Dashboard, DashboardListResponse } from '../api/dashboards';
+import type { Dashboard, DashboardListResponse, DashboardTemplate, DashboardTemplateListResponse } from '../api/dashboards';
 import type { Project } from '../api/settings';
 import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
-import { buildDashboardPatchPayload, buildDashboardPayload } from '../features/dashboards/dashboardPayload';
+import {
+  buildDashboardPatchPayload,
+  buildDashboardPayload,
+  buildDashboardTemplateCreatePayload
+} from '../features/dashboards/dashboardPayload';
 import { dashboardQueryKeys } from '../features/dashboards/queryKeys';
 import { settingsQueryKeys } from '../features/settings/queryKeys';
 import { DashboardsPage } from './DashboardsPage';
@@ -31,6 +35,36 @@ const dashboard: Dashboard = {
   updated_by_user_id: 1,
   created_at: '2026-06-23T10:20:00Z',
   updated_at: '2026-06-23T10:30:00Z'
+};
+
+const dashboardTemplate: DashboardTemplate = {
+  id: 'service-overview',
+  name: '服务总览',
+  description: '内置服务健康总览',
+  layout: { version: 1, widgets: [] },
+  config: {
+    time_range: {
+      mode: 'relative',
+      relative: '1h'
+    },
+    variables: [
+      {
+        name: 'service_source',
+        label: 'Service',
+        type: 'text',
+        default: 'api'
+      }
+    ],
+    panels: [
+      {
+        id: 'logs',
+        title: '错误日志',
+        type: 'logs',
+        query: { level: 'error' },
+        layout: { x: 0, y: 0, w: 6, h: 3 }
+      }
+    ]
+  }
 };
 
 function createAuth(overrides: Partial<AuthContextValue>): AuthContextValue {
@@ -107,6 +141,19 @@ function seedDashboards(
   params: { project_id?: number; limit: number; offset: number } = { project_id: undefined, limit: 50, offset: 0 }
 ) {
   queryClient.setQueryData(dashboardQueryKeys.list(sessionRevision, params), response);
+}
+
+function templateResponse(items: DashboardTemplate[] = [dashboardTemplate]): DashboardTemplateListResponse {
+  return {
+    items
+  };
+}
+
+function seedDashboardTemplates(queryClient: QueryClient, sessionRevision: number, response = templateResponse()) {
+  queryClient.setQueryData(dashboardQueryKeys.templates(sessionRevision), response);
+  response.items.forEach((template) => {
+    queryClient.setQueryData(dashboardQueryKeys.template(sessionRevision, template.id), template);
+  });
 }
 
 function seedDashboardError(queryClient: QueryClient, sessionRevision: number, error: Error) {
@@ -193,6 +240,7 @@ describe('DashboardsPage states', () => {
     const queryClient = new QueryClient();
     seedProjects(queryClient, 2, []);
     seedDashboards(queryClient, 2, dashboardResponse([]));
+    seedDashboardTemplates(queryClient, 2);
 
     const html = renderWithProviders(<DashboardsPage />, queryClient, createSignedInAuth(2));
 
@@ -200,12 +248,14 @@ describe('DashboardsPage states', () => {
     expect(html).toContain('<strong>0</strong>');
     expect(html).toContain('暂无仪表盘');
     expect(html).toContain('全部可访问项目');
+    expect(html).toContain('服务总览');
   });
 
   it('展示已缓存列表、项目选择和编辑表单', () => {
     const queryClient = new QueryClient();
     seedProjects(queryClient, 2);
     seedDashboards(queryClient, 2);
+    seedDashboardTemplates(queryClient, 2);
 
     const html = renderWithProviders(<DashboardsPage />, queryClient, createSignedInAuth(2));
 
@@ -217,6 +267,8 @@ describe('DashboardsPage states', () => {
     expect(html).toContain('创建仪表盘');
     expect(html).toContain('保存修改');
     expect(html).toContain('全局时间范围');
+    expect(html).toContain('内置模板');
+    expect(html).toContain('从模板创建');
     expect(html).toContain('未选择 dashboard');
     expect(html).not.toContain('Trace ID');
     expect(html).not.toContain('Span ID');
@@ -226,6 +278,7 @@ describe('DashboardsPage states', () => {
     const queryClient = new QueryClient();
     seedProjects(queryClient, 2);
     seedDashboards(queryClient, 2, { items: [dashboard], limit: 50, offset: 0, total: 51 });
+    seedDashboardTemplates(queryClient, 2);
 
     const html = renderWithProviders(<DashboardsPage />, queryClient, createSignedInAuth(2));
 
@@ -321,6 +374,32 @@ describe('Dashboard page helpers', () => {
     ).toEqual({
       ok: false,
       message: '至少修改一个字段后再保存。'
+    });
+  });
+
+  it('模板创建 payload 只发送非空 name 和 description 覆盖值', () => {
+    expect(
+      buildDashboardTemplateCreatePayload({
+        name: ' 支付服务总览 ',
+        description: ' '
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        name: '支付服务总览'
+      }
+    });
+
+    expect(
+      buildDashboardTemplateCreatePayload({
+        name: '',
+        description: ' 支付团队值班入口 '
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        description: '支付团队值班入口'
+      }
     });
   });
 });

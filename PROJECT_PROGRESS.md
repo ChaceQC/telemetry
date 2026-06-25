@@ -790,8 +790,9 @@
 - T-0074 真实前后端联测通过：Harvey 在 `dev/origin/dev` `a97b361` 使用自启动 MySQL 8.0.42 临时实例 `127.0.0.1:33374`、库 `telemetry_t0074_20260625_0138`、真实 FastAPI `28117`、真实 Vite `25173` 和 Playwright + Microsoft Edge。覆盖 15s 自动刷新触发 2 次真实 panel preview，请求间隔约 `14989ms`；关闭自动刷新后超过 15s 无新增请求；手动刷新 pending 与自动 tick 最大并发重叠 `1`；运行时变量 `service=api-b` 参与 preview 并返回 `source=api-b` 日志，保存 payload 仍保留 `${service}` 和 default `api-a`；未保存 panel/config、运行时变量草稿、time range 草稿停止或不发起 preview；切换 panel、dashboard、logout/session 停止旧 timer；390px 移动端 `scrollWidth=390` 且自动刷新控件可用。登录、Dashboard 创建/删除、panel 保存、logs preview、401/404/422 均通过。证据目录 `agents/runtime/e2e-T-0074-evidence`；cleanup 确认 `33374/28117/25173` 无监听残留，临时 MySQL datadir 已删除，系统 `3306` 未触碰；未改业务代码、未读 `auth.txt`、未启动 Docker。T-0074 关闭。
 - T-0075 已登记为阶段 5 下一小步：Dashboard 内置模板后端基础。边界为提供最小 Dashboard template 列表/读取/从模板创建 dashboard 能力，内置至少“服务总览”模板，模板 config 使用现有 panels、time_range、variables schema 并复用 Dashboard CRUD/RBAC 校验；创建出的 dashboard 归属目标项目并走现有权限与 JSON 保护。不做前端模板 UI、不做 JSON 导入导出、不做分享/只读模式、不接 ClickHouse、不做告警态势真实数据或模板市场。
 - T-0075 后端实现、审计和 feature CI 通过：Dewey 在 `feature/backend-dev` 提交并推送 `9f530c6`，新增内置 `service-overview` dashboard template、模板列表/读取/从模板创建普通 dashboard 后端能力；模板 config 使用既有 panels/time_range/variables schema，创建路径复用 Dashboard CRUD/RBAC/JSON 保护，创建结果归属目标项目。开发侧 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q` 123 passed、ruff、format、mypy、`uv lock --check`、diff check 均通过；feature CI run `28121599570` 成功。Newton 只读审计未发现 P0/P1/P2/P3，确认权限隐藏语义、深拷贝和文档边界符合任务范围。
-- T-0075 已真实 merge 到 `dev`：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `9f530c6` 合入，merge 提交 `41e1743`。merge 后本地门禁通过：后端 dashboard/config 123 passed、1 条既有 Starlette/TestClient warning；后端 ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。未启动真实服务、数据库、Docker 或浏览器；等待推送 `dev`、读取 CI 并同步两个 feature 分支。
+- T-0075 已真实 merge 到 `dev` 并关闭：总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `9f530c6` 合入，merge 提交 `41e1743`。merge 后本地门禁通过：后端 dashboard/config 123 passed、1 条既有 Starlette/TestClient warning；后端 ruff、format、mypy、`uv lock --check` 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。T-0075 merge 与 T-0076 启动记录 `46fb5b3` 已推送到 `dev`、`feature/frontend-dev` 和 `feature/backend-dev`；CI runs `28122471295`、`28127248601`、`28127248664` 均成功，严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0076 已登记为阶段 5 下一小步：Dashboard 内置模板前端基础。边界为在 `/dashboards` 页面消费 T-0075 模板 API，提供内置模板列表/详情和“从模板创建 dashboard”的最小入口，支持选择项目、模板预览摘要、创建名称/描述、loading/error/401/404/422 状态，创建成功后进入普通 dashboard 编辑/预览流程。不改后端契约，不做 JSON 导入导出、分享/只读、模板市场、告警态势真实数据或复杂模板编辑。
+- 已启动前端开发 agent Pasteur（`019efb50-2ba4-7623-9c87-c19a100438d1`）执行 T-0076：要求先遵守 `frontend-skill`，在 `feature/frontend-dev` 实现 `/dashboards` 模板列表/详情/从模板创建入口、项目选择、名称/描述、loading/error/401/404/422 和创建成功进入普通 dashboard 流程；不改后端契约、不读 `auth.txt`、不启动 Docker，验证后提交并 push。
 
 ### 阻塞与风险
 
@@ -833,7 +834,7 @@
 
 ### 下一步
 
-- 推送 T-0075 merge 与 T-0076 启动记录，读取对应 `dev` CI；随后将 `feature/frontend-dev` 与 `feature/backend-dev` fast-forward 到最新 `dev`、等待三分支 CI 并运行严格 worktree 体检，再启动前端开发 agent 推进 T-0076。
+- 等待 Pasteur 交付 T-0076 前端实现并读取 `feature/frontend-dev` CI；随后启动代码审计 agent，审计通过后真实 merge 到 `dev`，执行本地门禁、推送、读取 CI，并同步两个 feature 分支。
 
 ### 验证
 
@@ -851,6 +852,7 @@
 - T-0074 真实前后端联测通过：Harvey 使用临时 MySQL `127.0.0.1:33374`、真实后端 `28117`、真实前端 `25173` 与 Playwright + Microsoft Edge，`summary.json` 记录 `passed=true`、`failures=[]`、`previewRequestCount=12`，覆盖自动刷新重复请求、关闭停止、最大并发重叠 `1`、运行时变量保留且不写回、未保存草稿停止请求、切换 timer、390px 无横向溢出和 401/404/422；证据目录 `agents/runtime/e2e-T-0074-evidence`，自有资源已清理。
 - T-0075 feature 分支门禁通过：`feature/backend-dev` run `28121599570` 在 `9f530c6` 上成功；Dewey 本地 dashboard/config 123 passed，ruff、format、mypy、uv lock、diff check 均通过；Newton 审计侧 dashboard 专项 110 passed，ruff、format、mypy、diff check 均通过。
 - T-0075 merge 后本地门禁通过：merge 提交 `41e1743` 后，后端 dashboard/config 123 passed、1 条既有 Starlette/TestClient warning；后端 ruff、format、mypy、uv lock 通过；前端 typecheck、lint、build 通过；`git diff --check` 通过。
+- T-0075/T-0076 启动同步 CI 与 worktree 体检通过：`46fb5b3` 在 `dev`、`feature/frontend-dev`、`feature/backend-dev` 上的 GitHub Actions runs `28122471295`、`28127248601`、`28127248664` 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过。
 - T-0049 真实联测未通过：Helmholtz the 2nd 使用本机 MySQL80 临时库、真实后端、真实前端和 Playwright + Microsoft Edge，确认 API 层和 SPA 内部 trace 到 logs 跳转通过；失败集中在已登录后硬导航/刷新查询页首个请求未带 Authorization，证据目录 `agents/runtime/e2e-T-0049-20260623-085949`。
 - T-0049 最终真实联测通过：Godel the 2nd 使用自启动临时本地 MySQL 8.0.42、真实后端、真实前端和 Playwright + Microsoft Edge，确认 trace/log 深链、超长 trace_id 422、auth 恢复、缓存隔离和登录回跳均通过，证据目录 `agents/runtime/e2e-T-0049-final-retest-20260623-123413`。
 - T-0050 merge 后本地门禁通过：`npm.cmd test -- src/features/query/logTraceLinks.test.ts src/pages/QueryPage.test.tsx` 23 passed、`npm.cmd test` 105 passed、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
@@ -962,3 +964,37 @@
 - T-0047 后端开发侧验证通过：`pytest tests/test_query_api.py tests/test_config.py -q`、ruff、format check、mypy、`git diff --check` 通过；测试 agent Lagrange the 2nd 完成 trace 专项、config、排除 Docker compose 静态测试的 pytest、ruff、format、mypy 复验，未启动 Docker/MySQL/服务/浏览器。
 - T-0046 前端开发侧验证通过：targeted Vitest 3 files/22 tests、typecheck、lint、全量 Vitest 13 files/65 tests、build、diff check 通过；开发 agent 用 Playwright CLI + Microsoft Edge 冒烟 `/traces` 未登录态并清理自有 Vite PID/浏览器；测试 agent Kant the 2nd 完成前端专项复验，浏览器冒烟因外层超时未形成有效结论。
 - T-0046/T-0047 merge 后收窄门禁通过：后端 `uv run pytest tests/test_query_api.py tests/test_config.py -q` 59 passed；前端 trace 专项 `npm.cmd run test -- --run src/api/query.test.ts src/features/query/queryFilters.test.ts src/features/query/jsonPreview.test.ts src/pages/QueryPage.test.tsx` 4 files/26 tests passed；`npm.cmd run typecheck` 和 `git diff --check` 通过。
+## 2026-06-25 T-0076 Dashboard 内置模板前端基础
+
+### 已完成
+
+- 前端开发 agent Pasteur（`019efb50-2ba4-7623-9c87-c19a100438d1`）在 `feature/frontend-dev` 完成 T-0076 实现：新增 dashboard templates 列表/详情和从模板创建 dashboard 入口，提交 `a9f5f06`、`7bb4ca7`、`2cd6c09` 并推送到 `origin/feature/frontend-dev`。
+- 新增 `listDashboardTemplates()`、`getDashboardTemplate(templateId)`、`createDashboardFromTemplate(projectId, templateId, payload)` API client 和 query keys。
+- 在 `/dashboards` 新增模板列表面板、模板详情面板和从模板创建表单；模板详情展示 panel/变量/time range 摘要，创建表单支持项目选择、名称/描述覆盖、loading/error/401/404/422 状态。
+- 创建成功后返回普通 dashboard，并进入既有编辑/预览工作流；新增列表缓存 upsert 与当前页面 fallback，避免创建成功但列表刷新暂未包含新记录时编辑态丢失。
+- 模板创建 payload 只发送非空 `name` 和 `description` 覆盖值，不发送 `project_id`、`layout` 或 `config`。
+- 查询 key 按 `sessionRevision` 隔离，挂在 `dashboardQueryRootKey` 下，登出/切换账号会随既有 dashboard cache 清理路径一起清理。
+- 模板区 CSS 有桌面/移动端降列与长文本换行处理。
+- 前端 worktree 本地门禁通过：Dashboard 专项 3 files/60 tests passed，typecheck、lint、build、diff check 均通过。
+- `feature/frontend-dev` CI run `28159443491` 在 `2cd6c09` 上成功，Frontend checks 与 Backend checks 均为 success。
+- 代码审计 agent Parfit 只读审计 `origin/dev..origin/feature/frontend-dev` 未发现 P0/P1/P2/P3 阻断，确认模板创建 API 路径与 T-0075 后端契约一致、创建 body 只由 name/description 组成、查询 key 已按 sessionRevision 隔离、创建成功后会 upsert 当前列表缓存并保留 fallback dashboard、模板区 CSS 有桌面/移动端降列与长文本换行处理。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 将 `a9f5f06`、`7bb4ca7`、`2cd6c09` 合入 `dev`，merge 提交 `28f1a3a`。
+- merge 后本地门禁通过：前端 Dashboard 专项 60 tests passed、typecheck、lint、build；后端 config 13 passed、`uv lock --check`；`git diff --check` 均通过。
+- `dev` CI run `28160157990` 在 `28f1a3a` 上成功，Frontend checks 与 Backend checks 均为 success。
+
+### 阻塞与风险
+
+- 本小步只做前端模板入口基础，不改后端契约；模板详情先以后端返回的 config/panel 摘要可扫描展示，不做复杂模板编辑、拖拽布局设计器、JSON 导入导出、分享/只读或告警态势真实数据。
+- 真实后端/MySQL 联调未在本轮审计中执行。
+
+### 下一步
+
+- 推送 T-0076 进展记录并同步两个 feature 分支到最新 `dev`；随后继续阶段 5 Dashboard RBAC/分享只读、阶段 3 ClickHouse/MongoDB 查询切换或阶段 6 告警规则小步。
+
+### 验证
+
+- 前端 worktree 本地门禁通过：`npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过。
+- `feature/frontend-dev` CI run `28159443491` 在 `2cd6c09` 上 Frontend checks 与 Backend checks 均为 success。
+- Parfit 只读审计 `origin/dev..origin/feature/frontend-dev` 未发现 P0/P1/P2/P3；审计侧 `git status`、`git log`、`git diff --stat`、`git diff --check` 和多次 `git show`/`git grep` 只读核对前端实现、测试、样式和后端契约均通过。
+- merge 后本地门禁通过：merge 提交 `28f1a3a` 后，前端 Dashboard 专项 `npm.cmd run test -- src/api/dashboards.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx` 3 files/60 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`；后端 `uv run pytest tests/test_config.py -q` 13 passed、`uv lock --check`；`git diff --check` 均通过。
+- `dev` CI run `28160157990` 在 `28f1a3a` 上 Frontend checks 与 Backend checks 均为 success。
