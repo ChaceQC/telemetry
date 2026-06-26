@@ -1106,24 +1106,33 @@
 ### 已完成
 
 - 已登记 T-0081 为阶段 6 告警第一小步，限定为后端告警规则 CRUD 基础。
-- API 契约草案新增 `API-0025 告警规则 CRUD`：提供告警规则列表、创建、读取、更新、删除能力，保存项目、名称、描述、启停、严重度、信号类型、条件 JSON、评估 JSON、创建/更新用户和时间。
+- API 契约 `API-0025 告警规则 CRUD` 已关闭：提供告警规则列表、创建、读取、更新、删除能力，保存项目、名称、描述、启停、严重度、信号类型、条件 JSON、评估 JSON、创建/更新用户和时间。
 - 权限边界：读取要求目标项目至少 `viewer`；创建、更新、删除要求至少 `editor`；普通用户无项目成员关系、项目不存在或规则不属于指定项目时沿用隐藏式 `404`。
 - 实现边界已固定：新增 MySQL/SQLite 持久化模型、Alembic 迁移、schema、repository、service、API 路由和后端测试；不做规则周期评估、通知渠道、告警事件/历史、静默/恢复、Webhook 发送、前端页面、ClickHouse/MongoDB/Redis 后台任务或调度器。
 - T-0081 登记提交 `73181f0` 已推送到 `dev`；GitHub Actions run `28237162147` 通过，Backend checks 与 Frontend checks 均为 success。
 - 已启动后端开发 agent Turing（`019f03d7-98d8-7743-8a54-eb6f81fc8d75`）在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081。
+- Turing 完成后端实现并推送 `3298206` 到 `origin/feature/backend-dev`：新增 `alert_rules` ORM、Alembic 迁移 `20260626_0010_create_alert_rules.py`、schema/repository/service/routes、router/dependency 接入和 `backend/tests/test_alert_rules_api.py`，更新后端 README、后端进度和 API 契约。
+- 测试 agent Mencius 独立复验通过；Turing 完成后已关闭。
+- 代码审计 agent Laplace 发现 1 个 P2：初始 `dev` API-0025 草案与实现契约不一致且 merge 会冲突。总 agent 在真实 merge 中以已实现、已测试契约为准解决：`signal=metrics/logs/traces/events`，`name` 1..100 且同项目唯一，`condition/evaluation` 为 16 KiB/深度 16/1024 节点内非空 JSON 对象，`evaluation.window_seconds` 与 `evaluation.interval_seconds` 为 `1..86400` 整数；`heartbeat` 和字符串 `window/frequency/for` 留给后续小步。Laplace 已关闭。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `c561daf` 已推送；`feature/backend-dev` 已同步最新 `dev` 至 `e958709` 并推送。
+- `dev` CI run `28239928546` 与 `feature/backend-dev` 同步 CI run `28239969514` 均通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
-- 当前已完成总 agent 登记、契约草案和后端开发 agent 启动，业务实现由后端 worktree 推进中。
+- T-0081 后端 CRUD 已完成并合入 `dev`，当前无阻塞。
 - 告警规则 JSON 条件/评估先做保存层与基础 schema 校验，不承诺执行语义；后续指标阈值、日志数量、数据断流和通知链路需要独立小步验证。
+- 真实 MySQL `alert_rules` JSON 列读写、同项目唯一约束在 MySQL collation 下的大小写行为、以及 `updated_at` 实际推进仍建议在后续真实库专项中补验。
 
 ### 下一步
 
-- 后端开发 agent Turing 将在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081，并更新 `backend/PROJECT_PROGRESS.md`、`backend/README.md` 和 `agents/runtime/api-contracts/backend.md`。
-- 后端实现完成并推送后，总 agent 读取 feature CI，启动代码审计 agent，审计通过后再合入 `dev`。
+- 登记下一小步 `T-0082` 告警规则 CRUD 前端基础：在前端提供项目内告警规则列表、创建、编辑、启停和删除入口，消费已合入的 `API-0025`，不做规则评估、通知、历史或静默 UI。
+- 后续再安排真实前后端联测，覆盖告警规则 CRUD UI、权限/错误边界和移动端布局。
 
 ### 验证
 
 - 登记文档提交前已通过：`git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md`。
 - 登记文档提交前已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，根、前端、后端三棵 worktree 分支和保护项正常，仅允许本次根文档待提交改动。
 - GitHub Actions run `28237162147` 成功，Backend checks 与 Frontend checks 均通过；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test。
+- Feature CI run `28239050133` 在 `3298206` 上通过，Backend checks 与 Frontend checks 均为 success。
+- Merge 前本地验证通过：`uv run pytest tests/test_alert_rules_api.py tests/test_dashboard_api.py tests/test_config.py -q` 为 182 passed，`uv run pytest -q` 为 342 passed、2 skipped、1 warning；`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv lock --check`、`git diff --check` 均通过。
+- GitHub Actions run `28239928546` 在 `c561daf` 上成功，Backend checks 与 Frontend checks 均通过；GitHub Actions run `28239969514` 在 `feature/backend-dev` 同步提交 `e958709` 上成功。
