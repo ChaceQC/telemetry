@@ -589,3 +589,62 @@
   - `422 Unprocessable Entity`: 请求体字段格式错误
 - auth: 要求当前 session token；前端随请求携带 `Authorization: Bearer <access_token>`，无 token 时 Settings 页面不主动请求。
 - status: aligned
+
+## API-FE-0005 告警规则 CRUD 前端消费
+
+- task: T-0082
+- owner: frontend-agent
+- aligned backend contract: API-0025 告警规则 CRUD
+- endpoints:
+  - `GET /api/v1/alerts/rules`
+  - `POST /api/v1/alerts/rules`
+  - `GET /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - `PATCH /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - `DELETE /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+- list query:
+  - `project_id`: number，可选；前端页面应优先跟随当前项目选择。
+  - `severity`: `info` | `warning` | `critical`，可选。
+  - `signal`: `metrics` | `logs` | `traces` | `events`，可选。
+  - `enabled`: boolean，可选。
+  - `limit`: number，可选，默认 50，范围 1..100。
+  - `offset`: number，可选，默认 0，范围 >= 0。
+- create request:
+  - `project_id`: number，必填。
+  - `name`: string，必填，1 到 100 字符，同项目唯一。
+  - `description`: string | null，可选，最多 500 字符。
+  - `enabled`: boolean，可选，默认 `true`。
+  - `severity`: `info` | `warning` | `critical`，必填。
+  - `signal`: `metrics` | `logs` | `traces` | `events`，必填。
+  - `condition`: JSON object，必填，非空；前端需本地拦截非对象、空对象、非法 JSON、非有限数和明显超限文本。
+  - `evaluation`: JSON object，必填，非空；必须包含整数 `window_seconds` 与 `interval_seconds`，范围 `1..86400`。
+- update request:
+  - 至少提交一个变化字段；`description=null` 表示清空。
+  - 未变字段不提交；`name/enabled/severity/signal/condition/evaluation=null` 不提交，前端应本地拦截。
+  - 启停切换可只 PATCH `{ "enabled": boolean }`。
+- item response:
+  - `id`: number
+  - `project_id`: number
+  - `name`: string
+  - `description`: string | null
+  - `enabled`: boolean
+  - `severity`: `info` | `warning` | `critical`
+  - `signal`: `metrics` | `logs` | `traces` | `events`
+  - `condition`: JSON object
+  - `evaluation`: JSON object
+  - `created_by_user_id`: number
+  - `updated_by_user_id`: number
+  - `created_at`: string，ISO 8601
+  - `updated_at`: string，ISO 8601
+- list response:
+  - `{ "items": AlertRule[], "limit": number, "offset": number, "total": number }`
+- error response:
+  - `401 Unauthorized`: 缺少或无效 token。
+  - `403 Forbidden`: 当前用户在项目内权限不足，常见于 viewer 写入。
+  - `404 Not Found`: 项目不存在、无项目成员关系，或规则不属于指定项目。
+  - `409 Conflict`: 同项目下 `name` 重复或数据库完整性冲突。
+  - `422 Unprocessable Entity`: 请求体、路径参数、分页参数、枚举、JSON 形状、空 PATCH 或 evaluation 窗口字段非法。
+- frontend scope:
+  - 建议新增 `/alerts` 管理入口，使用 restrained operational UI，不做 hero/营销式说明。
+  - 必须覆盖 unauth、loading、empty、error、403/404/409/422、创建成功、编辑成功、启停成功和删除成功状态。
+  - 不新增后端契约，不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路。
+- status: draft

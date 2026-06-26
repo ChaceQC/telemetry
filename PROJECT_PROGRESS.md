@@ -1136,3 +1136,26 @@
 - Feature CI run `28239050133` 在 `3298206` 上通过，Backend checks 与 Frontend checks 均为 success。
 - Merge 前本地验证通过：`uv run pytest tests/test_alert_rules_api.py tests/test_dashboard_api.py tests/test_config.py -q` 为 182 passed，`uv run pytest -q` 为 342 passed、2 skipped、1 warning；`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv lock --check`、`git diff --check` 均通过。
 - GitHub Actions run `28239928546` 在 `c561daf` 上成功，Backend checks 与 Frontend checks 均通过；GitHub Actions run `28239969514` 在 `feature/backend-dev` 同步提交 `e958709` 上成功。
+- T-0081 收口记录提交 `2f31116` 已推送到 `dev`；GitHub Actions run `28240265388` 成功，Backend checks 与 Frontend checks 均通过。
+
+## 2026-06-26 T-0082 告警规则 CRUD 前端基础
+
+### 已完成
+
+- 已登记 T-0082 为阶段 6 告警规则 CRUD 前端基础小步。
+- 前端分支 `feature/frontend-dev` 已先同步最新 `dev` 至 `d9ed7cf`，确保包含 T-0081 后端 API 与最终 API-0025 契约；同步 CI run `28240434042` 已通过，Backend checks 与 Frontend checks 均为 success。
+- 范围限定为消费已合入的 `API-0025`，新增告警规则管理入口，支持项目内列表、过滤、创建、编辑、启停和删除确认。
+
+### 阻塞与风险
+
+- 当前尚未开始前端实现，下一步启动前端开发 agent。
+- 本小步不做真实后端联测；真实 MySQL/真实后端/真实前端/Edge 联测留给后续 T-0083。
+
+### 下一步
+
+- 启动前端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支实现 T-0082，并更新 `frontend/PROJECT_PROGRESS.md`、`frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`。
+- 完成后由总 agent 读取 feature CI、启动代码审计，审计通过后再合入 `dev`。
+
+### 验证
+
+- `feature/frontend-dev` 同步 CI run `28240434042` 成功，Backend checks 与 Frontend checks 均通过。
