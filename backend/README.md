@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础、单个 dashboard JSON 导入导出基础、阶段 6 告警规则 CRUD 后端基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础、单个 dashboard JSON 导入导出基础、阶段 6 告警规则 CRUD 和指标阈值告警手动评估后端基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -419,13 +419,14 @@ Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashb
 
 ## Alert Rules API
 
-当前阶段提供告警规则 CRUD 后端基础，只负责保存和读取规则定义，不执行规则评估、后台调度、通知、告警历史、静默/恢复、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 后台链路。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的告警规则；超级用户可访问全部已存在项目。
+当前阶段提供告警规则 CRUD 后端基础和指标阈值告警手动评估 API；评估只做同步、一次性计算，不做后台调度、通知、告警历史、静默/恢复、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 后台链路。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的告警规则；超级用户可访问全部已存在项目。
 
 权限规则：
 
 | 动作 | 最低角色 | 说明 |
 | --- | --- | --- |
 | 列表/读取 | `viewer` | 全局列表自动过滤为可访问项目；指定无成员关系的 `project_id` 返回 `404 项目不存在` |
+| 手动评估 | `viewer` | 只评估 `signal=metrics` 的指标阈值规则；跨项目 rule ID 按 `404 告警规则不存在` 处理 |
 | 创建/更新/删除 | `editor` | `viewer` 返回 `403 无项目权限`；跨项目 rule ID 按 `404 告警规则不存在` 处理 |
 
 | 方法 | 路径 | 说明 |
@@ -433,6 +434,7 @@ Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashb
 | `GET` | `/api/v1/alerts/rules` | 列出告警规则，可用 `project_id`、`severity`、`signal`、`enabled`、`limit`、`offset` 过滤/分页 |
 | `POST` | `/api/v1/alerts/rules` | 创建告警规则 |
 | `GET` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 读取单个告警规则 |
+| `POST` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` | 手动评估指标阈值告警规则 |
 | `PATCH` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 部分更新告警规则 |
 | `DELETE` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 删除告警规则，成功返回 `204` |
 
@@ -474,6 +476,8 @@ Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashb
 字段规则：`project_id` 必填且为正整数；`name` 必填，1 到 100 字符，首尾空白会裁剪，同一项目内唯一；`description` 可选，最多 500 字符；`enabled` 默认 `true`；`severity` 取 `info`、`warning`、`critical`；`signal` 取 `metrics`、`logs`、`traces`、`events`。`condition` 和 `evaluation` 必须是非空 JSON 对象，单字段序列化后不超过 16 KiB，嵌套深度不超过 16，复杂度不超过 1024 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。`evaluation` 当前还要求 `window_seconds` 和 `interval_seconds` 为 `1..86400` 的整数。
 
 列表响应为对象 envelope：`{"items": [...], "limit": 50, "offset": 0, "total": 1}`。更新至少提供一个字段；未传 `condition/evaluation` 时保持原值，`description=null` 表示清空描述，其他可更新字段传 `null` 返回 `422`。错误边界：缺少或无效 token 返回 `401`；项目不存在、无项目成员关系或规则不在指定项目下返回 `404`；角色不足返回 `403`；同项目规则名称重复或其他数据库完整性冲突返回 `409`；字段、路径参数、分页参数、枚举、JSON 形状或 evaluation 窗口非法返回 `422`。
+
+手动评估接口 `POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` 无请求体，读取已保存规则。当前仅支持 `signal="metrics"`，非 metrics 返回 `422`。`condition.metric` 对应关系库 `ingest_records.event_type` 中保存的指标名，必填且长度 `1..128`；`condition.source` 可选，长度 `1..128`，按 `ingest_records.source` 精确过滤；`operator` 支持 `gt/gte/lt/lte/eq/ne`；`threshold` 必须是有限 JSON number，拒绝 bool 和字符串数字；`aggregation` 默认 `avg`，支持 `avg/sum/min/max/count`。服务端以当前 UTC 时间作为 `checked_at`，按 `[checked_at - evaluation.window_seconds, checked_at]` 查询 `kind=metric` 样本，`evaluation.interval_seconds` 仅原样返回，不做调度。响应状态为 `firing`、`ok`、`no_data` 或 `disabled`；禁用规则返回 `disabled` 且不查询指标样本，无样本返回 `no_data`，有样本时返回规范化 condition、窗口、observed 聚合值/sample_count/unit 和 message。
 
 ## 数据摄入 API
 

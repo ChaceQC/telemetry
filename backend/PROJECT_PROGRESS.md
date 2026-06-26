@@ -2,6 +2,49 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-27 T-0084 指标阈值告警评估后端基础
+
+### 已完成
+
+- 新增 `POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate`，无请求体，读取已保存告警规则并按项目 `viewer` 权限执行一次性手动评估；无项目成员关系、项目不存在和跨项目 rule ID 沿用隐藏式 `404` 语义。
+- 当前仅支持 `signal="metrics"`；非 metrics 返回 `422`。metrics condition 执行时规范化并校验 `metric/source/operator/threshold/aggregation`，其中 `threshold` 必须是有限 JSON number，拒绝 bool 和字符串数字；`aggregation` 默认 `avg`，支持 `avg/sum/min/max/count`。
+- 新增内部单窗口指标聚合辅助 `SqlAlchemyQueryRepository.aggregate_metric_window()`，按 `project_id`、`ingest_records.event_type=condition.metric`、可选 `source` 和 `[checked_at-window_seconds, checked_at]` 闭区间查询 `kind=metric` 样本，不改变既有 `/api/v1/query/metrics/aggregate` 分桶行为。
+- 响应返回 `firing/ok/no_data/disabled` 状态、UTC `checked_at`、窗口、规范化 condition、observed 聚合值/sample_count/unit 和 message；禁用规则短路返回 `disabled` 且不查询指标样本。
+- 扩展 `backend/tests/test_alert_rules_api.py` 覆盖 firing、ok、no_data、disabled、非 metrics 422、非法 condition 422、权限/404 隐藏，以及 viewer 可评估但不能写入的既有边界。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 API-0026 手动评估契约、metric name 使用 `ingest_records.event_type` 的实现事实和当前不做后台 scheduler/通知/历史/持久状态/前端 UI 的边界。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮不启动 Docker，不接真实 MySQL/ClickHouse/MongoDB/Redis；真实 MySQL 下 alert_rules JSON 列读写、单窗口指标聚合执行计划和评估 API 仍需后续专项补验。
+- 当前只提供同步手动评估，不做后台调度、周期执行、状态持久化、通知、告警历史、恢复事件、前端 UI 或 events 自动写入。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_alert_rules_api.py -q`，结果：37 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行改动文件 `ruff check`、`ruff format --check` 和 `mypy` 专项，结果均通过。
+- 后续提交前将继续运行更宽范围相关测试、全量静态检查、`uv lock --check` 和 `git diff --check`。
+
+## 2026-06-27 T-0084 指标阈值告警评估 P2 兜底修复
+
+### 已完成
+
+- 修复 `app/services/alerts.py` 中 `condition.threshold` 规范化路径对超大 JSON integer 的 `float()` 转换溢出兜底，统一映射为 `AlertRuleEvaluationError("condition.threshold 必须是有限 JSON number")`，避免评估接口泄漏为 `500`。
+- 扩展 `backend/tests/test_alert_rules_api.py` 增加回归测试，覆盖 `threshold=int("9" * 309)` 的 metrics rule 评估请求，确认返回 `422` 且 `detail` 与服务层错误信息一致。
+
+### 阻塞与风险
+
+- 暂无新增阻塞；仅为评估规范化补强，未改变保存层 JSON 校验或告警评估语义。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_alert_rules_api.py -q`，结果：38 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/services/alerts.py tests/test_alert_rules_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/services/alerts.py tests/test_alert_rules_api.py`，结果：2 个文件已符合格式。
+- 已运行 `uv run mypy app/services/alerts.py tests/test_alert_rules_api.py`，结果：通过。
+- 已运行 `uv lock --check`，结果：通过，lock 未变。
+- 已运行 `git diff --check`，结果：通过。
+
 ## 2026-06-26 T-0081 告警规则 CRUD 后端基础
 
 ### 已完成

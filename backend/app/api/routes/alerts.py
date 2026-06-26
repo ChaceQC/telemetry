@@ -6,13 +6,21 @@ from app.api.dependencies import get_alert_rule_service, get_current_user
 from app.repositories.auth import UserRecord
 from app.schemas.alerts import (
     AlertRuleCreate,
+    AlertRuleEvaluationConditionResponse,
+    AlertRuleEvaluationObservedResponse,
+    AlertRuleEvaluationResponse,
+    AlertRuleEvaluationWindowResponse,
     AlertRuleListResponse,
     AlertRuleResponse,
     AlertRuleSeverity,
     AlertRuleSignal,
     AlertRuleUpdate,
 )
-from app.services.alerts import AlertRuleService
+from app.services.alerts import (
+    AlertRuleEvaluationError,
+    AlertRuleEvaluationResult,
+    AlertRuleService,
+)
 from app.services.errors import (
     DuplicateResourceError,
     ResourceForbiddenError,
@@ -168,3 +176,64 @@ def delete_project_alert_rule(
         )
     except (ResourceForbiddenError, ResourceNotFoundError) as error:
         raise _map_alert_rule_error(error) from error
+
+
+@router.post(
+    "/projects/{project_id}/alerts/rules/{rule_id}/evaluate",
+    response_model=AlertRuleEvaluationResponse,
+    summary="手动评估指标阈值告警规则",
+)
+def evaluate_project_alert_rule(
+    alert_rule_service: Annotated[AlertRuleService, Depends(get_alert_rule_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int, Path(gt=0)],
+    rule_id: Annotated[int, Path(gt=0)],
+) -> AlertRuleEvaluationResponse:
+    try:
+        result = alert_rule_service.evaluate_alert_rule(
+            user=current_user,
+            project_id=project_id,
+            rule_id=rule_id,
+        )
+    except (ResourceForbiddenError, ResourceNotFoundError) as error:
+        raise _map_alert_rule_error(error) from error
+    except AlertRuleEvaluationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    return _evaluation_response(result)
+
+
+def _evaluation_response(result: AlertRuleEvaluationResult) -> AlertRuleEvaluationResponse:
+    observed = None
+    if result.observed is not None:
+        observed = AlertRuleEvaluationObservedResponse(
+            value=result.observed.value,
+            sample_count=result.observed.sample_count,
+            aggregation=result.observed.aggregation,
+            unit=result.observed.unit,
+        )
+    return AlertRuleEvaluationResponse(
+        project_id=result.project_id,
+        rule_id=result.rule_id,
+        status=result.status,
+        signal=result.signal,
+        severity=result.severity,
+        checked_at=result.checked_at,
+        window=AlertRuleEvaluationWindowResponse(
+            from_=result.window.start,
+            to=result.window.end,
+            window_seconds=result.window.window_seconds,
+            interval_seconds=result.window.interval_seconds,
+        ),
+        condition=AlertRuleEvaluationConditionResponse(
+            metric=result.condition.metric,
+            source=result.condition.source,
+            operator=result.condition.operator,
+            threshold=result.condition.threshold,
+            aggregation=result.condition.aggregation,
+        ),
+        observed=observed,
+        message=result.message,
+    )

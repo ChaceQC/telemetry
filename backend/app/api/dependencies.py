@@ -90,6 +90,7 @@ def get_alert_rule_service(
     management_repository = SqlAlchemyManagementRepository(session)
     return AlertRuleService(
         SqlAlchemyAlertRuleRepository(session),
+        SqlAlchemyQueryRepository(session),
         management_repository,
         permission_service,
     )

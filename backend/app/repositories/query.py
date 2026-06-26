@@ -235,6 +235,17 @@ class QueryRepository(Protocol):
         limit: int,
     ) -> list[MetricAggregateRecord]: ...
 
+    def aggregate_metric_window(
+        self,
+        *,
+        project_id: int,
+        name: str,
+        source: str | None,
+        occurred_from: datetime,
+        occurred_to: datetime,
+        aggregation: str,
+    ) -> MetricAggregateRecord | None: ...
+
 
 def _event_query_record(model: IngestRecordModel) -> EventQueryRecord:
     return EventQueryRecord(
@@ -893,3 +904,45 @@ class SqlAlchemyQueryRepository:
                 )
             )
         return records
+
+    def aggregate_metric_window(
+        self,
+        *,
+        project_id: int,
+        name: str,
+        source: str | None,
+        occurred_from: datetime,
+        occurred_to: datetime,
+        aggregation: str,
+    ) -> MetricAggregateRecord | None:
+        metric_value = cast(IngestRecordModel.payload["value"].as_float(), Float)
+        aggregate_value = _metric_aggregate_value(aggregation, metric_value).label("value")
+        sample_count = func.count(metric_value).label("sample_count")
+        unit = func.min(IngestRecordModel.payload["unit"].as_string()).label("unit")
+
+        statement = select(aggregate_value, sample_count, unit).where(
+            IngestRecordModel.kind == IngestKind.metric.value,
+            IngestRecordModel.project_id == project_id,
+            IngestRecordModel.event_type == name,
+            IngestRecordModel.occurred_at.is_not(None),
+            IngestRecordModel.occurred_at >= occurred_from,
+            IngestRecordModel.occurred_at <= occurred_to,
+        )
+        if source is not None:
+            statement = statement.where(IngestRecordModel.source == source)
+
+        row = self._session.execute(statement).one()
+        if int(row.sample_count) == 0:
+            return None
+
+        return MetricAggregateRecord(
+            project_id=project_id,
+            name=name,
+            source=source,
+            window_start=occurred_from,
+            window_end=occurred_to,
+            aggregation=aggregation,
+            value=float(row.value),
+            sample_count=int(row.sample_count),
+            unit=row.unit,
+        )

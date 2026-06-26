@@ -1,5 +1,6 @@
 import json
 from argparse import Namespace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -16,6 +17,7 @@ from app.core.application import create_app
 from app.core.config import Settings
 from app.db.base import Base
 from app.models.alerts import AlertRuleModel
+from app.models.ingest import IngestRecordModel
 from app.repositories.alerts import SqlAlchemyAlertRuleRepository
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
 from app.repositories.management import SqlAlchemyManagementRepository
@@ -153,20 +155,65 @@ def create_alert_rule(
     severity: str = "critical",
     signal: str = "metrics",
     enabled: bool = True,
+    condition: dict[str, Any] | None = None,
+    evaluation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    payload = alert_rule_payload(
+        project_id=project_id,
+        name=name,
+        severity=severity,
+        signal=signal,
+        enabled=enabled,
+    )
+    if condition is not None:
+        payload["condition"] = condition
+    if evaluation is not None:
+        payload["evaluation"] = evaluation
     response = client.post(
         "/api/v1/alerts/rules",
         headers=auth_headers,
-        json=alert_rule_payload(
-            project_id=project_id,
-            name=name,
-            severity=severity,
-            signal=signal,
-            enabled=enabled,
-        ),
+        json=payload,
     )
     assert response.status_code == 201
     return cast(dict[str, Any], response.json())
+
+
+def create_api_key(
+    client: TestClient,
+    *,
+    project_id: int,
+    auth_headers: dict[str, str],
+) -> str:
+    response = client.post(
+        f"/api/v1/projects/{project_id}/api-keys",
+        headers=auth_headers,
+        json={"name": "alert-evaluation-ingest"},
+    )
+    assert response.status_code == 201
+    return str(response.json()["api_key"])
+
+
+def set_metric_records_occurred_at(
+    client: TestClient,
+    *,
+    project_id: int,
+    timestamps: list[datetime],
+) -> None:
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        records = (
+            session.query(IngestRecordModel)
+            .filter(
+                IngestRecordModel.project_id == project_id,
+                IngestRecordModel.kind == "metric",
+            )
+            .order_by(IngestRecordModel.id)
+            .all()
+        )
+        assert len(records) == len(timestamps)
+        for record, timestamp in zip(records, timestamps, strict=True):
+            record.occurred_at = timestamp
+        session.commit()
 
 
 def _json_request_headers(auth_headers: dict[str, str]) -> dict[str, str]:
@@ -450,6 +497,384 @@ def test_alert_rule_global_list_is_filtered_to_accessible_projects() -> None:
     assert [item["id"] for item in viewer_response.json()["items"]] == [project_a_rule["id"]]
     assert stranger_response.status_code == 200
     assert stranger_response.json() == {"items": [], "limit": 50, "offset": 0, "total": 0}
+
+
+def test_alert_rule_manual_evaluation_returns_firing_ok_no_data_and_disabled() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="evaluation-owner")
+    project = create_project(client, owner_headers, name="评估项目", key="evaluation-project")
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, project_id=project_id, auth_headers=owner_headers)
+    now = datetime.now(UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "http.server.errors",
+                    "value": 2,
+                    "source": "api",
+                    "unit": "count",
+                },
+                {
+                    "name": "http.server.errors",
+                    "value": 3,
+                    "source": "api",
+                    "unit": "count",
+                },
+                {
+                    "name": "http.server.errors",
+                    "value": 100,
+                    "source": "worker",
+                    "unit": "count",
+                },
+                {
+                    "name": "http.server.latency",
+                    "value": 100,
+                    "source": "api",
+                    "unit": "ms",
+                },
+                {
+                    "name": "http.server.errors",
+                    "value": 100,
+                    "source": "api",
+                    "unit": "count",
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_metric_records_occurred_at(
+        client,
+        project_id=project_id,
+        timestamps=[
+            now - timedelta(seconds=60),
+            now - timedelta(seconds=30),
+            now - timedelta(seconds=30),
+            now - timedelta(seconds=30),
+            now - timedelta(seconds=600),
+        ],
+    )
+
+    firing_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="错误数 firing",
+        condition={
+            "metric": " http.server.errors ",
+            "source": " api ",
+            "operator": "gt",
+            "threshold": 4,
+            "aggregation": "sum",
+        },
+    )
+    ok_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="错误数 ok",
+        condition={
+            "metric": "http.server.errors",
+            "source": "api",
+            "operator": "lt",
+            "threshold": 4,
+            "aggregation": "sum",
+        },
+    )
+    no_data_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="无数据",
+        condition={
+            "metric": "missing.metric",
+            "operator": "gt",
+            "threshold": 1,
+            "aggregation": "avg",
+        },
+    )
+    disabled_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="禁用规则",
+        enabled=False,
+        condition={
+            "metric": "http.server.errors",
+            "source": "api",
+            "operator": "gt",
+            "threshold": 1,
+            "aggregation": "sum",
+        },
+    )
+
+    firing_response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{firing_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+    ok_response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{ok_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+    no_data_response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{no_data_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+    disabled_response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{disabled_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+
+    assert firing_response.status_code == 200
+    firing_body = firing_response.json()
+    assert firing_body["project_id"] == project_id
+    assert firing_body["rule_id"] == firing_rule["id"]
+    assert firing_body["status"] == "firing"
+    assert firing_body["signal"] == "metrics"
+    assert firing_body["severity"] == "critical"
+    assert firing_body["condition"] == {
+        "metric": "http.server.errors",
+        "source": "api",
+        "operator": "gt",
+        "threshold": 4.0,
+        "aggregation": "sum",
+    }
+    assert firing_body["window"]["window_seconds"] == 300
+    assert firing_body["window"]["interval_seconds"] == 60
+    assert firing_body["window"]["from"] <= firing_body["checked_at"] <= firing_body["window"]["to"]
+    assert firing_body["observed"] == {
+        "value": 5.0,
+        "sample_count": 2,
+        "aggregation": "sum",
+        "unit": "count",
+    }
+    assert firing_body["message"] == "metric http.server.errors sum 5 > 4"
+
+    assert ok_response.status_code == 200
+    ok_body = ok_response.json()
+    assert ok_body["status"] == "ok"
+    assert ok_body["observed"]["value"] == 5.0
+    assert ok_body["observed"]["sample_count"] == 2
+    assert ok_body["message"] == "metric http.server.errors sum 5 not < 4"
+
+    assert no_data_response.status_code == 200
+    no_data_body = no_data_response.json()
+    assert no_data_body["status"] == "no_data"
+    assert no_data_body["condition"]["aggregation"] == "avg"
+    assert no_data_body["observed"] is None
+
+    assert disabled_response.status_code == 200
+    disabled_body = disabled_response.json()
+    assert disabled_body["status"] == "disabled"
+    assert disabled_body["observed"] is None
+
+
+def test_alert_rule_manual_evaluation_validation_and_permissions() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="evaluation-permission-owner")
+    viewer, viewer_headers = create_auth_headers(client, username="evaluation-viewer")
+    _, stranger_headers = create_auth_headers(client, username="evaluation-stranger")
+    project_a = create_project(client, owner_headers, name="评估权限 A", key="evaluation-perm-a")
+    project_b = create_project(client, owner_headers, name="评估权限 B", key="evaluation-perm-b")
+    project_a_id = cast(int, project_a["id"])
+    project_b_id = cast(int, project_b["id"])
+    grant_project_role(
+        client,
+        project_id=project_a_id,
+        user_id=viewer.id,
+        role=ProjectRole.viewer,
+    )
+    metrics_rule = create_alert_rule(client, owner_headers, project_id=project_a_id)
+    logs_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_a_id,
+        name="日志规则",
+        signal="logs",
+    )
+    invalid_condition_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_a_id,
+        name="非法条件",
+        condition={
+            "metric": "http.server.errors",
+            "operator": "gt",
+            "threshold": "3",
+        },
+    )
+    project_b_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_b_id,
+        name="项目 B 规则",
+    )
+
+    viewer_evaluate_response = client.post(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/{metrics_rule['id']}/evaluate",
+        headers=viewer_headers,
+    )
+    viewer_write_response = client.patch(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/{metrics_rule['id']}",
+        headers=viewer_headers,
+        json={"enabled": False},
+    )
+    logs_response = client.post(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/{logs_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+    invalid_condition_response = client.post(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/{invalid_condition_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+    stranger_response = client.post(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/{metrics_rule['id']}/evaluate",
+        headers=stranger_headers,
+    )
+    cross_project_response = client.post(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/{project_b_rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+    missing_rule_response = client.post(
+        f"/api/v1/projects/{project_a_id}/alerts/rules/999999/evaluate",
+        headers=owner_headers,
+    )
+
+    assert viewer_evaluate_response.status_code == 200
+    assert viewer_evaluate_response.json()["status"] == "no_data"
+    assert viewer_write_response.status_code == 403
+    assert viewer_write_response.json()["detail"] == "无项目权限"
+    assert logs_response.status_code == 422
+    assert logs_response.json()["detail"] == "仅支持 metrics 告警规则评估"
+    assert invalid_condition_response.status_code == 422
+    assert invalid_condition_response.json()["detail"] == (
+        "condition.threshold 必须是有限 JSON number"
+    )
+    assert stranger_response.status_code == 404
+    assert stranger_response.json()["detail"] == "项目不存在"
+    assert cross_project_response.status_code == 404
+    assert cross_project_response.json()["detail"] == "告警规则不存在"
+    assert missing_rule_response.status_code == 404
+    assert missing_rule_response.json()["detail"] == "告警规则不存在"
+
+
+def test_alert_rule_manual_evaluation_rejects_overflowing_threshold_json_integer() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="threshold-overflow-owner")
+    project = create_project(
+        client,
+        owner_headers,
+        name="阈值溢出校验",
+        key="threshold-overflow-check",
+    )
+    project_id = cast(int, project["id"])
+    overflowing_threshold = int("9" * 309)
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="超大阈值规则",
+        condition={
+            "metric": "cpu.usage",
+            "operator": "gt",
+            "threshold": overflowing_threshold,
+        },
+    )
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "condition.threshold 必须是有限 JSON number"
+
+
+@pytest.mark.parametrize(
+    ("condition", "expected_detail"),
+    [
+        (
+            {"operator": "gt", "threshold": 1},
+            "condition.metric 为必填字段",
+        ),
+        (
+            {"metric": "   ", "operator": "gt", "threshold": 1},
+            "condition.metric 不能为空",
+        ),
+        (
+            {"metric": "x" * 129, "operator": "gt", "threshold": 1},
+            "condition.metric 不能超过 128 字符",
+        ),
+        (
+            {"metric": "cpu.usage", "source": "   ", "operator": "gt", "threshold": 1},
+            "condition.source 不能为空",
+        ),
+        (
+            {"metric": "cpu.usage", "source": "x" * 129, "operator": "gt", "threshold": 1},
+            "condition.source 不能超过 128 字符",
+        ),
+        (
+            {"metric": "cpu.usage", "operator": "between", "threshold": 1},
+            "condition.operator 必须是 gt/gte/lt/lte/eq/ne 之一",
+        ),
+        (
+            {"metric": "cpu.usage", "operator": "gt", "threshold": True},
+            "condition.threshold 必须是有限 JSON number",
+        ),
+        (
+            {"metric": "cpu.usage", "operator": "gt", "threshold": "1"},
+            "condition.threshold 必须是有限 JSON number",
+        ),
+        (
+            {
+                "metric": "cpu.usage",
+                "operator": "gt",
+                "threshold": 1,
+                "aggregation": "median",
+            },
+            "condition.aggregation 必须是 avg/sum/min/max/count 之一",
+        ),
+        (
+            {"metric": "cpu.usage", "operator": "gt", "threshold": 1, "aggregation": True},
+            "condition.aggregation 必须是字符串",
+        ),
+    ],
+)
+def test_alert_rule_manual_evaluation_rejects_invalid_metric_condition(
+    condition: dict[str, Any],
+    expected_detail: str,
+) -> None:
+    client = build_client()
+    case_key = f"condition-{len(expected_detail)}-{len(json.dumps(condition, sort_keys=True))}"
+    _, owner_headers = create_auth_headers(
+        client,
+        username=case_key,
+    )
+    project = create_project(
+        client,
+        owner_headers,
+        name=f"条件校验 {case_key}",
+        key=case_key,
+    )
+    project_id = cast(int, project["id"])
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name=f"非法条件 {case_key}",
+        condition=condition,
+    )
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == expected_detail
 
 
 def test_alert_rule_duplicate_name_returns_409() -> None:
