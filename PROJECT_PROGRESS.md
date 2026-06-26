@@ -1210,6 +1210,7 @@
 - 后端 worktree `feature/backend-dev` 已同步最新 `origin/dev` 至 `442a91b` 并推送；后端开发 agent Newton（`019f04b9-4b0e-7761-acf8-e14d38647881`）已启动实现 T-0084。
 - T-0084 启动记录提交 `813e0f0` 已推送到 `dev`；GitHub Actions run `28250769544` 通过，Backend checks 与 Frontend checks 均为 success。
 - 后端同步提交 `442a91b` 的 GitHub Actions run `28250633562` 通过，Backend checks 与 Frontend checks 均为 success。
+- T-0084 启动 CI 结果补记提交 `20605b9` 已推送到 `dev`；GitHub Actions run `28250962881` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
@@ -1230,3 +1231,4 @@
 - GitHub Actions run `28250586744` 成功，Backend checks 与 Frontend checks 均通过。
 - GitHub Actions run `28250769544` 成功，Backend checks 与 Frontend checks 均通过。
 - GitHub Actions run `28250633562` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28250962881` 成功，Backend checks 与 Frontend checks 均通过。
