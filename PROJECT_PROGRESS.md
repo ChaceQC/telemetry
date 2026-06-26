@@ -1208,6 +1208,8 @@
 - 本小步不做后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
 - T-0084 登记提交 `88eb052` 已推送到 `dev`；GitHub Actions run `28250586744` 通过，Backend checks 与 Frontend checks 均为 success。
 - 后端 worktree `feature/backend-dev` 已同步最新 `origin/dev` 至 `442a91b` 并推送；后端开发 agent Newton（`019f04b9-4b0e-7761-acf8-e14d38647881`）已启动实现 T-0084。
+- T-0084 启动记录提交 `813e0f0` 已推送到 `dev`；GitHub Actions run `28250769544` 通过，Backend checks 与 Frontend checks 均为 success。
+- 后端同步提交 `442a91b` 的 GitHub Actions run `28250633562` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
@@ -1226,3 +1228,5 @@
 - `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md` 通过。
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。
 - GitHub Actions run `28250586744` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28250769544` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28250633562` 成功，Backend checks 与 Frontend checks 均通过。
