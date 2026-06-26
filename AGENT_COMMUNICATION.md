@@ -109,7 +109,8 @@ closed      已关闭
 | T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | done | todo | done | done | done |
 | T-0080 | Dashboard JSON 导入导出真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0081 | 告警规则 CRUD 后端基础 | 总 agent | todo | done | done | done | done |
-| T-0082 | 告警规则 CRUD 前端基础 | 总 agent | doing | todo | done | todo | doing |
+| T-0082 | 告警规则 CRUD 前端基础 | 总 agent | done | todo | done | done | done |
+| T-0083 | 告警规则 CRUD 真实前后端联测 | 总 agent | done | done | todo | todo | testing |
 
 ## 4. API 契约登记
 
@@ -127,7 +128,7 @@ closed      已关闭
 | API-0021 | Trace 查询 | GET | `/api/v1/query/traces` | `project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数；`trace_id`/`span_id` trim 后空白按未传处理，超过 128 返回 `422` | 返回 `{ items, next_cursor }`；`items` 为 trace span 列表，展开 trace/span 关键字段、`attributes`、业务 `payload`、`occurred_at` 和 `received_at`；按用户项目权限过滤，当前来源为关系库 `ingest_records.kind=trace` | 总 agent | done |
 | API-0024 | Dashboard panel 查询预览 | GET | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` | 路径参数限定已保存 dashboard 与 `config.panels[].id`；只读取已保存 config，不接受草稿请求体；可选 `variables` query 参数为 JSON 对象字符串，用作本次 preview 的变量覆盖值且不保存；目标项目至少 `viewer` | 返回 `project_id`、`dashboard_id`、`panel_id`、`title`、`panel_type`、原始 `query` 和 `preview`；`metrics` 返回关系库窗口聚合摘要，`logs/events/traces` 返回最近样本，`topology` 返回节点/边摘要；未知变量、非法 `variables`、覆盖值类型不符、缺 default 且无覆盖、非法模板或非法白名单 query 字段返回 `422` | 总 agent | done |
 | API-0025 | 告警规则 CRUD | GET/POST/PATCH/DELETE | `/api/v1/alerts/rules`、`/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 创建提交 `project_id/name/description/enabled/severity/signal/condition/evaluation`；`name` 1..100，同项目唯一；`signal` 为 `metrics/logs/traces/events`；`condition/evaluation` 为非空 JSON 对象，`evaluation.window_seconds` 与 `evaluation.interval_seconds` 为 `1..86400` 整数；项目至少 `editor` 写，`viewer` 读 | 返回告警规则详情或分页列表，包含项目、规则元数据、JSON 条件/评估配置、创建/更新用户和时间；权限隐藏沿用项目语义，同项目重名返回 `409`，非法 signal/severity/JSON/evaluation/分页/空 PATCH 返回 `422`；本小步只做规则保存，不做评估调度、通知、告警历史、静默或前端 UI | 后端开发 agent | done |
-| API-FE-0005 | 告警规则 CRUD 前端消费 | GET/POST/PATCH/DELETE | `/api/v1/alerts/rules`、`/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 前端在 `/alerts` 或现有控制台路由下消费 API-0025；列表按项目、severity、signal、enabled 过滤；创建/编辑提交 `project_id/name/description/enabled/severity/signal/condition/evaluation`，本地校验 signal 四枚举、非空 JSON 对象和 `evaluation.window_seconds/interval_seconds` 整数窗口 | 展示告警规则列表、详情/编辑表单、启停切换、删除确认和 401/403/404/409/422 错误；复用当前 auth token、项目选择和 restrained operational UI；不新增后端契约、不做评估调度、通知、历史、静默或真实联测 | 前端开发 agent | draft |
+| API-FE-0005 | 告警规则 CRUD 前端消费 | GET/POST/PATCH/DELETE | `/api/v1/alerts/rules`、`/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 前端在 `/alerts` 控制台路由消费 API-0025；列表按项目、severity、signal、enabled 过滤；创建/编辑提交 `project_id/name/description/enabled/severity/signal/condition/evaluation`，本地校验 name/description、signal 四枚举、severity 三枚举、非空 JSON 对象、finite/16KiB/深度16/1024节点和 `evaluation.window_seconds/interval_seconds` 整数窗口 | 展示告警规则列表、创建/编辑表单、启停 PATCH `{enabled}`、删除确认和 401/403/404/409/422 错误；复用当前 auth token、项目选择、缓存隔离和 restrained operational UI；不新增后端契约、不做评估调度、通知、历史、静默或真实联测 | 前端开发 agent | done |
 
 ## 5. 前后端对齐记录
 
@@ -641,8 +642,12 @@ closed      已关闭
 | 2026-06-26 | T-0081 | 后端开发 agent / 总 agent | 告警规则 CRUD 后端实现完成 | Turing 在 `feature/backend-dev` 完成提交 `3298206` 并推送；新增 `alert_rules` ORM、Alembic 迁移 `20260626_0010_create_alert_rules.py`、schema/repository/service/routes、router/dependency 接入和 `backend/tests/test_alert_rules_api.py`，更新后端 README、后端进度和 API 契约。Mencius 独立复验通过；Turing 完成后已关闭 | done |
 | 2026-06-26 | T-0081 | 总 agent / 审计 agent | 审计发现契约冲突并已解决 | Laplace 只读审计未发现实现本身 P0/P1 阻断，发现 1 个 P2：`origin/dev` 初始 API-0025 草案与后端实现契约不一致且 merge 会在 `agents/runtime/api-contracts/backend.md` 冲突。总 agent 真实 merge 时以已实现且已测试的契约为准：`signal=metrics/logs/traces/events`、`name` 1..100、`condition/evaluation` 16 KiB/深度 16/1024 节点、`evaluation.window_seconds/interval_seconds` 为 `1..86400` 整数；冲突已清理，Laplace 已关闭 | done |
 | 2026-06-26 | T-0081 | 总 agent | T-0081 合入 dev 并同步 backend 分支 | 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `c561daf`；本地后端验证通过：alert/dashboard/config 专项 182 passed、全量后端 pytest 342 passed/2 skipped/1 warning、ruff、format、mypy、`uv lock --check`、`git diff --check` 均通过。`dev` CI run `28239928546` 通过；`feature/backend-dev` 已同步 `origin/dev` 至 `e958709`，同步 CI run `28239969514` 通过 | done |
-| 2026-06-26 | T-0082 | 总 agent | 登记告警规则 CRUD 前端基础 | 阶段 6 下一小步限定为前端消费已合入的 API-0025：新增告警规则管理入口，在项目范围内展示规则列表，支持按项目、severity、signal、enabled 过滤，创建/编辑名称、描述、启停、严重度、信号类型、condition JSON 和 evaluation 窗口 JSON，支持启停 PATCH 和删除确认；复用现有 auth、项目列表、错误展示、缓存隔离和 restrained operational UI。范围不改后端契约、不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路 | doing |
-| 2026-06-26 | T-0082 | 总 agent | 准备启动前端开发 agent | 将以 `xhigh` 思考强度启动前端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支实现 T-0082。前端 agent 需遵守 Windows/PowerShell/UTF-8、使用 Playwright + Microsoft Edge 做必要 UI 冒烟、不启动 Docker、不读 `auth.txt`、只清理自有资源、更新 `frontend/PROJECT_PROGRESS.md`、`frontend/README.md`、`agents/runtime/api-contracts/frontend-requests.md`，提交并推送到 `feature/frontend-dev`，完成后请求总 agent 审计 | doing |
+| 2026-06-26 | T-0082 | 总 agent | 登记告警规则 CRUD 前端基础 | 阶段 6 下一小步限定为前端消费已合入的 API-0025：新增告警规则管理入口，在项目范围内展示规则列表，支持按项目、severity、signal、enabled 过滤，创建/编辑名称、描述、启停、严重度、信号类型、condition JSON 和 evaluation 窗口 JSON，支持启停 PATCH 和删除确认；复用现有 auth、项目列表、错误展示、缓存隔离和 restrained operational UI。范围不改后端契约、不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路 | done |
+| 2026-06-26 | T-0082 | 总 agent | 准备启动前端开发 agent | 将以 `xhigh` 思考强度启动前端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支实现 T-0082。前端 agent 需遵守 Windows/PowerShell/UTF-8、使用 Playwright + Microsoft Edge 做必要 UI 冒烟、不启动 Docker、不读 `auth.txt`、只清理自有资源、更新 `frontend/PROJECT_PROGRESS.md`、`frontend/README.md`、`agents/runtime/api-contracts/frontend-requests.md`，提交并推送到 `feature/frontend-dev`，完成后请求总 agent 审计 | done |
+| 2026-06-26 | T-0082 | 前端开发 agent / 总 agent | 告警规则 CRUD 前端实现完成 | Carver 在 `feature/frontend-dev` 完成提交 `2d572a8` 并推送；新增 `/alerts` 路由、告警规则 API client、表单校验、React Query cache key/登出清理、列表筛选、创建/编辑/启停/删除确认、页面状态、响应式样式和测试，更新前端 README、前端进度和 API-FE-0005。Carver 完成后已关闭 | done |
+| 2026-06-26 | T-0082 | 总 agent / 审计 agent | 告警规则 CRUD 前端审计通过 | Zeno 只读审计 `2d572a8`，未发现 P0/P1/P2 阻断；仅记录 P3：项目列表查询失败主要通过 header “部分异常”暴露，项目选择区内联错误可后续优化。Zeno 已关闭 | done |
+| 2026-06-26 | T-0082 | 总 agent | T-0082 合入 dev 并同步 frontend 分支 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`；本地前端专项、路由/样式专项、lint、typecheck、全量 test、build、`git diff --check` 均通过；`dev` CI run `28244367891` 通过。随后 `feature/frontend-dev` 已同步 `origin/dev` 至 `2e23e33`，同步 CI run `28244753232` 通过 | done |
+| 2026-06-26 | T-0083 | 总 agent | 登记告警规则 CRUD 真实前后端联测 | 下一小步在最新 `dev/origin/dev` 上用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖 `/alerts` 创建、列表筛选、编辑、启停 PATCH、删除确认、权限/错误边界和 390px 移动端布局；不做规则评估、通知、历史、静默、Webhook 或 ClickHouse/MongoDB/Redis 后台链路 | testing |
 
 ## 6. 测试记录
 
@@ -829,6 +834,9 @@ closed      已关闭
 | 2026-06-26 | T-0081 | dev merge 与 backend 同步 CI | GitHub Actions runs `28239928546`、`28239969514` | 通过 | `c561daf` 在 `dev` 与 `e958709` 在 `feature/backend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；同步后后端 worktree 与远端一致 |
 | 2026-06-26 | T-0081 | T-0081 收口记录 CI | GitHub Actions run `28240265388` | 通过 | `2f31116` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test |
 | 2026-06-26 | T-0082 | 前端分支开工前同步 CI | GitHub Actions run `28240434042` | 通过 | `feature/frontend-dev` 已先同步最新 `origin/dev` 到 `d9ed7cf`，Backend checks 与 Frontend checks 均为 success；可启动前端开发 agent |
+| 2026-06-26 | T-0082 | 告警规则 CRUD 前端基础 feature 门禁 | `feature/frontend-dev` run `28243441077`；Carver 前端门禁与 Edge 冒烟 | 通过 | `2d572a8` 上 Backend checks 与 Frontend checks 均为 success；开发侧 alerts API/form/page 专项 21 passed、router/style 专项 5 passed、全量前端 test 256 passed，lint、typecheck、build、`git diff --check` 均通过；Playwright + Microsoft Edge `149.0.4022.80` 覆盖未登录、mock 列表/筛选、创建、启停 PATCH `{enabled:false}`、删除确认和桌面/390px 移动端无横向溢出 |
+| 2026-06-26 | T-0082 | dev merge 后本地验证 | 前端 alerts API/form/page 专项、router/style 专项、lint、typecheck、全量 test、build、`git diff --check` | 通过 | merge 提交 `ec028ad` 后，`npm.cmd exec -- vitest run src/api/alerts.test.ts src/features/alerts/alertRuleForm.test.ts src/pages/AlertsPage.test.tsx src/pages/AlertsPage.interaction.test.tsx --reporter=dot` 4 files/21 tests passed；router/style 专项 2 files/5 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test` 35 files/256 tests passed、`npm.cmd run build`、`git diff --check` 均通过；仅有既有 React Router future/SSR warning |
+| 2026-06-26 | T-0082 | dev merge 与 frontend 同步 CI | GitHub Actions runs `28244367891`、`28244753232` | 通过 | `ec028ad` 在 `dev` 与 `2e23e33` 在 `feature/frontend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；同步后前端 worktree 与远端一致 |
 
 ## 7. 审计记录
 
@@ -851,6 +859,7 @@ closed      已关闭
 | 2026-06-24 | T-0064 | Dashboard panel preview 继承全局时间范围后端基础（`2da1cca`） | 通过 | Socrates 复审未发现 P0/P1/P2/P3；全局 relative/absolute 范围、panel 显式时间优先、legacy 行为、API 契约不变和测试覆盖均符合当前边界。残余风险为未做真实 MySQL/真实后端/前端浏览器联测 | done |
 | 2026-06-24 | T-0066 | Dashboard 变量配置后端基础（`6d51ded`） | 通过 | Heisenberg 审计未发现 P0/P1/P2/P3；确认 `config.variables` 保存层 schema 与规范化贴合任务边界，legacy config 和 panel preview 语义未被扩展或改写。假设 `variables: []`、`text.default` 空字符串和变量对象保留未知扩展字段为可接受策略；残余风险为未做真实 MySQL JSON 列读写和前端变量控件消费路径 | done |
 | 2026-06-26 | T-0081 | 告警规则 CRUD 后端基础（`3298206`） | 通过 | Laplace 只读审计发现 1 个 P2：初始 `dev` API-0025 草案与实现契约冲突，merge 时需明确最终契约；总 agent 已在真实 merge 中按后端实现/测试结果解决为 `signal=metrics/logs/traces/events`、`evaluation.window_seconds/interval_seconds` 整数窗口契约。未发现实现本身 P0/P1 阻断；残余风险为真实 MySQL `alert_rules` JSON 列读写和唯一约束大小写行为未专项执行，`updated_at` 推进仅靠 ORM `onupdate` | done |
+| 2026-06-26 | T-0082 | 告警规则 CRUD 前端基础（`2d572a8`） | 通过 | Zeno 只读审计未发现 P0/P1/P2 阻断；P3：项目列表查询失败时主要通过 header “部分异常”暴露，缺少项目选择区更明确的内联错误，不阻塞当前 CRUD、列表错误和表单错误展示。残余风险为未做真实后端/MySQL/RBAC 联调，已登记 T-0083 覆盖 | done |
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端基础（`34f2b39`） | 未通过 | Beauvoir 审计发现 1 个 P3：编辑合法 text 变量且显式 `default: ""` 时，前端 draft 会把空字符串 default 与缺省 default 混同，保存后丢失 `default` key。未发现 P0/P1/P2 | blocked |
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
@@ -984,6 +993,7 @@ closed      已关闭
 | 2026-06-26 | T-0079 | feature/frontend-dev | dev | 总 agent | Dashboard JSON 导入导出前端基础 `b62a00a` 与审计修复 `cdccdf2` 已通过 feature CI、Kuhn 审计修复、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` | done |
 | 2026-06-26 | T-0080 | dev | dev | 总 agent | Dashboard JSON 导入导出真实前后端联测已通过；本任务为测试收口，不产生 feature merge。总 agent 在最新 `dev/origin/dev` 上使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖导出导入链路、权限/错误边界、移动端布局和 panel preview 快速回归；证据目录 `agents/runtime/e2e-T-0080-20260626-194034`，资源已清理 | done |
 | 2026-06-26 | T-0081 | feature/backend-dev | dev | 总 agent | 告警规则 CRUD 后端基础 `3298206` 已通过 Turing/Mencius 验证、Laplace 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `c561daf`，并同步 `feature/backend-dev` 至 `e958709` | done |
+| 2026-06-26 | T-0082 | feature/frontend-dev | dev | 总 agent | 告警规则 CRUD 前端基础 `2d572a8` 已通过 Carver 验证、Zeno 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`，并同步 `feature/frontend-dev` 至 `2e23e33` | done |
 
 ## 10. 决策记录
 

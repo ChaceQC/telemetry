@@ -1145,17 +1145,46 @@
 - 已登记 T-0082 为阶段 6 告警规则 CRUD 前端基础小步。
 - 前端分支 `feature/frontend-dev` 已先同步最新 `dev` 至 `d9ed7cf`，确保包含 T-0081 后端 API 与最终 API-0025 契约；同步 CI run `28240434042` 已通过，Backend checks 与 Frontend checks 均为 success。
 - 范围限定为消费已合入的 `API-0025`，新增告警规则管理入口，支持项目内列表、过滤、创建、编辑、启停和删除确认。
+- 前端开发 agent Carver（`019f0415-24fc-78c3-8f30-0a5cdf3b01a8`）完成并推送 `2d572a8`：新增 `/alerts` 路由、告警规则 API client、表单校验、React Query cache key 与登出清理、列表筛选、创建/编辑/启停/删除确认、页面状态、响应式样式和测试，并更新前端 README、前端进度与 API-FE-0005。Carver 已关闭。
+- Feature CI run `28243441077` 在 `2d572a8` 上通过，Backend checks 与 Frontend checks 均为 success。
+- 代码审计 agent Zeno（`019f0446-5664-7560-ac61-941e06a0e935`）审计通过，未发现 P0/P1/P2 阻断；唯一 P3 为项目列表查询失败时项目选择区内联错误可更明确。Zeno 已关闭。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad` 已推送；`dev` CI run `28244367891` 通过，Backend checks 与 Frontend checks 均为 success。
+- `feature/frontend-dev` 已同步最新 `dev` 至 `2e23e33` 并推送；同步 CI run `28244753232` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
-- 当前尚未开始前端实现，下一步启动前端开发 agent。
-- 本小步不做真实后端联测；真实 MySQL/真实后端/真实前端/Edge 联测留给后续 T-0083。
+- T-0082 前端基础已完成并合入 `dev`，当前无阻塞。
+- 本小步未做真实后端/MySQL/RBAC 联调；`401/403/404/409/422` 真实响应链路、真实项目权限、真实数据库持久化和浏览器端完整 CRUD 流程留给 T-0083。
+- 审计 P3：项目列表查询失败时主要通过 header “部分异常”暴露，项目选择区可后续增加更明确的内联错误。测试输出仍有既有 React Router future/SSR warning，不阻塞。
 
 ### 下一步
 
-- 启动前端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 分支实现 T-0082，并更新 `frontend/PROJECT_PROGRESS.md`、`frontend/README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`。
-- 完成后由总 agent 读取 feature CI、启动代码审计，审计通过后再合入 `dev`。
+- 登记并执行下一小步 `T-0083` 告警规则 CRUD 真实前后端联测：在最新 `dev/origin/dev` 上使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge，覆盖创建、列表筛选、编辑、启停 PATCH、删除确认、权限/错误边界和 390px 移动端布局。
+- T-0083 仍不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、ClickHouse/MongoDB/Redis 后台链路。
 
 ### 验证
 
 - `feature/frontend-dev` 同步 CI run `28240434042` 成功，Backend checks 与 Frontend checks 均通过。
+- Carver 开发侧验证通过：alerts API/form/page 专项 4 files/21 tests passed，router/style 专项 2 files/5 tests passed，全量前端测试 35 files/256 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；Playwright + Microsoft Edge `149.0.4022.80` 覆盖 `/alerts` 未登录态、mock 列表/筛选、创建、启停 PATCH `{enabled:false}`、删除确认和桌面/390px 移动端无横向溢出。
+- Merge 后本地验证通过：`npm.cmd exec -- vitest run src/api/alerts.test.ts src/features/alerts/alertRuleForm.test.ts src/pages/AlertsPage.test.tsx src/pages/AlertsPage.interaction.test.tsx --reporter=dot` 为 4 files/21 tests passed；`npm.cmd exec -- vitest run src/app/router.test.tsx src/styles/globalCss.test.ts --reporter=dot` 为 2 files/5 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test` 35 files/256 tests passed、`npm.cmd run build`、`git diff --check` 均通过。
+- GitHub Actions run `28243441077`、`28244367891`、`28244753232` 均成功，Backend checks 与 Frontend checks 均通过。
+
+## 2026-06-26 T-0083 告警规则 CRUD 真实前后端联测
+
+### 已完成
+
+- 已登记 T-0083 为阶段 6 告警规则 CRUD 真实前后端联测小步。
+- 联测目标：基于 T-0081 后端 CRUD 与 T-0082 前端 `/alerts` 页面，在真实运行链路中验证告警规则创建、列表筛选、编辑、启停、删除和权限/错误边界。
+
+### 阻塞与风险
+
+- 暂未执行真实联测；下一步启动测试 agent 或由总 agent 按规则补跑。
+- 不启动 Docker，不读取 `auth.txt`；如需要数据库，使用测试自有真实临时 MySQL 实例或本地临时库，并记录连接、资源 ID 与清理结果。
+
+### 下一步
+
+- 启动测试 agent 在最新 `dev/origin/dev` 上执行 T-0083：真实 FastAPI、真实 Vite、真实临时 MySQL、Playwright + Microsoft Edge，覆盖桌面和 390px 移动端。
+
+### 验证
+
+- 待执行。
