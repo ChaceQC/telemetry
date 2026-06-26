@@ -108,6 +108,7 @@ closed      已关闭
 | T-0078 | Dashboard JSON 导入导出后端基础 | 总 agent | done | done | done | done | done |
 | T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | done | todo | done | done | done |
 | T-0080 | Dashboard JSON 导入导出真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0081 | 告警规则 CRUD 后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -124,6 +125,7 @@ closed      已关闭
 | API-0020 | Trace 摄入 | POST | `/api/v1/ingest/traces` | 使用 `Authorization: Bearer <api_key>` 或 `X-API-Key`；请求体包含 `spans` 数组，每个 span 含 `trace_id`、`span_id`、`name`、`start_time`、可选 `end_time`、`duration_ms`、`parent_span_id`、`source`、`status`、`attributes`、`payload`，最多 100 spans，总体最大 256 KiB；顶层不得提交 `project_id` 覆盖归属 | 返回 `202` 与 accepted/rejected 统计；按 API Key 项目归属写入关系库 `ingest_records`，`kind=trace`，payload 保留 trace/span 关键字段、raw span 与业务 payload；本小步不接 ClickHouse、不提供 trace 查询/waterfall/拓扑 | 总 agent | done |
 | API-0021 | Trace 查询 | GET | `/api/v1/query/traces` | `project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数；`trace_id`/`span_id` trim 后空白按未传处理，超过 128 返回 `422` | 返回 `{ items, next_cursor }`；`items` 为 trace span 列表，展开 trace/span 关键字段、`attributes`、业务 `payload`、`occurred_at` 和 `received_at`；按用户项目权限过滤，当前来源为关系库 `ingest_records.kind=trace` | 总 agent | done |
 | API-0024 | Dashboard panel 查询预览 | GET | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` | 路径参数限定已保存 dashboard 与 `config.panels[].id`；只读取已保存 config，不接受草稿请求体；可选 `variables` query 参数为 JSON 对象字符串，用作本次 preview 的变量覆盖值且不保存；目标项目至少 `viewer` | 返回 `project_id`、`dashboard_id`、`panel_id`、`title`、`panel_type`、原始 `query` 和 `preview`；`metrics` 返回关系库窗口聚合摘要，`logs/events/traces` 返回最近样本，`topology` 返回节点/边摘要；未知变量、非法 `variables`、覆盖值类型不符、缺 default 且无覆盖、非法模板或非法白名单 query 字段返回 `422` | 总 agent | done |
+| API-0025 | 告警规则 CRUD | GET/POST/PATCH/DELETE | `/api/v1/alerts/rules`、`/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 创建提交 `project_id/name/description/enabled/severity/signal/condition/evaluation`；更新可改名称、描述、启停、严重度、信号、条件和评估窗口；项目至少 `editor` 写，`viewer` 读 | 返回告警规则详情或分页列表，包含项目、规则元数据、JSON 条件/评估配置、创建/更新用户和时间；权限隐藏沿用项目语义，非法 signal/severity/JSON/窗口返回 `422`；本小步只做规则保存，不做评估调度、通知、告警历史、静默或前端 UI | 后端开发 agent | draft |
 
 ## 5. 前后端对齐记录
 
@@ -631,6 +633,8 @@ closed      已关闭
 | 2026-06-26 | T-0080 | 总 agent | Boyle 关闭与总 agent 接手联测 | Boyle 仅留下空证据目录，未返回可用结论；按用户要求已关闭。总 agent 在根 `dev` 直接补跑 T-0080 真实联测，未改业务代码、不启动 Docker、不读 `auth.txt`，证据写入 ignored 目录 `agents/runtime/e2e-T-0080-20260626-194034` | testing |
 | 2026-06-26 | T-0080 | 总 agent | Dashboard JSON 导入导出真实联测通过 | `agents/runtime/e2e-T-0080-20260626-194034/summary.json` 记录 `passed=true`、`failures=[]`。API 断言覆盖导出 portable 字段、禁止实例字段、导入覆盖/保留语义、space-separated absolute `time_range`、401/403/404/422 边界和导入后 panel preview `200`；Edge `149.0.4022.80` 覆盖 `/dashboards` UI 导出、导入、前端本地非法 JSON/实例字段错误展示、导入后普通 dashboard 预览、390px 移动端无横向溢出。cleanup 确认临时 MySQL 库/实例/datadir、FastAPI 后端和 Vite 前端均已清理，系统 `3306` 未触碰 | done |
 | 2026-06-26 | CI | 总 agent | T-0080 收口提交 Actions 通过 | `docs: 收口T-0080真实联测` 提交 `0451ebe` 已推送到 `dev`，GitHub Actions run `28236596279` 通过，Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test | done |
+| 2026-06-26 | T-0081 | 总 agent | 登记告警规则 CRUD 后端基础 | 阶段 6 第一小步限定为后端告警规则 CRUD 基础：新增 MySQL 持久化模型/迁移、schema、repository、service 和 API 路由，支持按项目权限创建、列表、读取、更新、删除告警规则，保存名称、描述、启停状态、严重度、信号类型、条件 JSON 和评估配置 JSON；读权限至少 `viewer`，写权限至少 `editor`，无项目权限按既有隐藏语义处理。范围不做规则周期评估、通知渠道、告警事件/历史、静默/恢复、Webhook 发送、前端页面、ClickHouse/MongoDB/Redis 后台任务或调度器 | doing |
+| 2026-06-26 | T-0081 | 总 agent | 启动后端开发 agent | 将以 `xhigh` 思考强度启动后端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081。后端 agent 需遵守 Windows/PowerShell/UTF-8、本地不启动 Docker、必要 MySQL 使用本地临时库或自有实例、可按需启动测试 agent 且不得代跑完整测试流程、只清理自有资源、更新 `backend/PROJECT_PROGRESS.md`、`backend/README.md`、`agents/runtime/api-contracts/backend.md`、提交并推送到 `feature/backend-dev`，完成后请求总 agent 审计 | doing |
 
 ## 6. 测试记录
 
@@ -964,6 +968,7 @@ closed      已关闭
 | 2026-06-25 | T-0078 | feature/backend-dev | dev | 总 agent | Dashboard JSON 导入导出后端基础已完成；后端实现、测试、文档同步与收口已结束，等待真实 merge 到 `dev` 并同步分支 | done |
 | 2026-06-26 | T-0079 | feature/frontend-dev | dev | 总 agent | Dashboard JSON 导入导出前端基础 `b62a00a` 与审计修复 `cdccdf2` 已通过 feature CI、Kuhn 审计修复、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` | done |
 | 2026-06-26 | T-0080 | dev | dev | 总 agent | Dashboard JSON 导入导出真实前后端联测已通过；本任务为测试收口，不产生 feature merge。总 agent 在最新 `dev/origin/dev` 上使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖导出导入链路、权限/错误边界、移动端布局和 panel preview 快速回归；证据目录 `agents/runtime/e2e-T-0080-20260626-194034`，资源已清理 | done |
+| 2026-06-26 | T-0081 | feature/backend-dev | dev | 总 agent | 告警规则 CRUD 后端基础已登记；下一步由后端开发 agent 在 `feature/backend-dev` 实现并推送，完成测试和审计后再由总 agent 真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 

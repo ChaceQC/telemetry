@@ -559,6 +559,116 @@ PATCH 请求体示例：
   - `422 Unprocessable Entity`：路径参数、`variables` 非合法 JSON 对象、未知覆盖变量、变量模板、变量 default/override 或已保存 panel query 中参与预览的白名单字段非法。
 - 当前边界：只读已保存 dashboard `config.panels` 和 `config.variables`；仅支持 GET `variables` query 参数形式的一次性覆盖，不支持未保存草稿 config，不写 dashboard，不接 ClickHouse，不做真实图表渲染、模板 dashboard、缓存、后台任务或告警。
 
+## API-0025 告警规则 CRUD
+
+- 鉴权：所有告警规则接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 权限：
+  - 列表/读取要求目标项目至少 `viewer`；全局列表不传 `project_id` 时自动过滤为当前用户可访问项目。
+  - 创建/更新/删除要求目标项目至少 `editor`；`viewer` 返回 `403 无项目权限`。
+  - 普通用户没有目标项目成员关系时返回 `404 项目不存在`，避免枚举项目；规则 ID 不属于指定项目时返回 `404 告警规则不存在`。
+  - 超级用户可访问全部已存在项目，但项目不存在仍返回 `404 项目不存在`。
+
+### 列出告警规则
+
+- 方法：`GET`
+- 路径：`/api/v1/alerts/rules`
+- 查询参数：
+  - `project_id`：可选，正整数；传入后只返回该项目告警规则。
+  - `enabled`：可选 bool；传入后按启停状态过滤。
+  - `severity`：可选，`info`、`warning`、`critical` 之一。
+  - `signal`：可选，`metrics`、`logs`、`traces`、`events`、`heartbeat` 之一。
+  - `limit`：可选，默认 `50`，范围 `1..100`。
+  - `offset`：可选，默认 `0`，范围 `>=0`。
+- 响应：`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "project_id": 1,
+      "name": "API 5xx 过高",
+      "description": "5 分钟内 5xx 错误率超过阈值",
+      "enabled": true,
+      "severity": "critical",
+      "signal": "metrics",
+      "condition": {"metric": "http.server.errors", "operator": "gt", "threshold": 3},
+      "evaluation": {"window": "5m", "frequency": "1m", "for": "0m"},
+      "created_by_user_id": 1,
+      "updated_by_user_id": 1,
+      "created_at": "2026-06-26T10:20:00Z",
+      "updated_at": "2026-06-26T10:20:00Z"
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "total": 1
+}
+```
+
+### 创建告警规则
+
+- 方法：`POST`
+- 路径：`/api/v1/alerts/rules`
+- 请求体：
+
+```json
+{
+  "project_id": 1,
+  "name": "API 5xx 过高",
+  "description": "5 分钟内 5xx 错误率超过阈值",
+  "enabled": true,
+  "severity": "critical",
+  "signal": "metrics",
+  "condition": {"metric": "http.server.errors", "operator": "gt", "threshold": 3},
+  "evaluation": {"window": "5m", "frequency": "1m", "for": "0m"}
+}
+```
+
+- 字段规则：
+  - `project_id`：必填，正整数。
+  - `name`：必填，1 到 120 字符，首尾空白会裁剪。
+  - `description`：可选，最多 500 字符；`null` 或未传按空描述保存。
+  - `enabled`：可选 bool，默认 `true`。
+  - `severity`：必填，枚举 `info`、`warning`、`critical`。
+  - `signal`：必填，枚举 `metrics`、`logs`、`traces`、`events`、`heartbeat`。
+  - `condition`：必填 JSON 对象，序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。
+  - `evaluation`：必填 JSON 对象，序列化后不超过 16 KiB，嵌套深度不超过 16，复杂度不超过 1024 个节点，且不能包含非有限数；本小步仅要求对象内如存在 `window`、`frequency`、`for` 字段则必须是非空字符串。
+- 响应：`201 Created`，返回告警规则对象。
+
+### 读取 / 更新 / 删除告警规则
+
+- 路径：`/api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+- 路径参数：
+  - `project_id`：正整数，作为权限边界和告警规则归属边界。
+  - `rule_id`：正整数。
+- `GET`：读取告警规则，响应 `200 OK`，返回告警规则对象。
+- `PATCH`：部分更新告警规则，响应 `200 OK`，返回更新后对象。
+- `DELETE`：删除告警规则，成功响应 `204 No Content`。
+
+PATCH 请求体示例：
+
+```json
+{
+  "name": "API 5xx 持续过高",
+  "description": null,
+  "enabled": false,
+  "severity": "warning",
+  "signal": "metrics",
+  "condition": {"metric": "http.server.errors", "operator": "gt", "threshold": 5},
+  "evaluation": {"window": "10m", "frequency": "1m", "for": "3m"}
+}
+```
+
+- 更新规则：至少提供一个字段；未传字段保持原值；`description=null` 表示清空描述；`name=null`、`enabled=null`、`severity=null`、`signal=null`、`condition=null`、`evaluation=null` 返回 `422`；`condition/evaluation` 的大小、深度、复杂度和非有限数限制与创建一致。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `403 Forbidden`：已认证且处于目标项目权限范围内，但缺少本动作要求的角色。
+  - `404 Not Found`：项目不存在、普通用户不在项目权限范围内、告警规则不属于指定项目或不存在。
+  - `409 Conflict`：告警规则数据库完整性约束错误。
+  - `422 Unprocessable Entity`：请求体字段、路径参数或分页参数格式错误，包括非法枚举、空名称、超长描述、`condition/evaluation` 非对象、超过大小/深度/复杂度限制或包含非有限数。
+- 当前边界：本小步只保存和读取告警规则，不执行规则评估，不调度后台任务，不发送通知，不写告警事件/历史，不做静默/恢复/抑制/分组/升级策略，不新增前端页面，不接 ClickHouse/MongoDB/Redis。
+
 ## API-0008 数据摄入
 
 - 方法：`POST`
@@ -1090,6 +1200,7 @@ PATCH 请求体示例：
   - `backend/migrations/versions/20260622_0007_add_ingest_records_query_index.py`
   - `backend/migrations/versions/20260622_0008_ingest_records_mysql_microseconds.py`
   - `backend/migrations/versions/20260623_0009_create_dashboards.py`
+  - `backend/migrations/versions/20260626_0010_create_alert_rules.py`（T-0081 计划新增）
 - MySQL 目标表：
   - `management_projects`：项目，`key` 全局唯一。
   - `management_environments`：环境，外键 `project_id`，同项目下 `key` 唯一，并提供 `(id, project_id)` 唯一约束供服务复合外键引用。
@@ -1100,6 +1211,7 @@ PATCH 请求体示例：
   - `rbac_project_members`：项目成员角色，外键 `project_id`、`user_id`，同项目同用户唯一，`role` 取 `viewer`、`editor`、`admin`。
   - `api_keys`：项目 API Key，外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一，保存 `status`、`revoked_at`、`last_used_at` 和展示前缀。
   - `dashboards`：项目 dashboard，外键 `project_id`、`created_by_user_id`、`updated_by_user_id`，保存 `name`、`description`、`layout` JSON、`config` JSON、`created_at`、`updated_at`；组合索引 `ix_dashboards_project_updated_at_id(project_id, updated_at, id)` 支撑按项目更新时间分页。
+  - `alert_rules`：项目告警规则，外键 `project_id`、`created_by_user_id`、`updated_by_user_id`，保存 `name`、`description`、`enabled`、`severity`、`signal`、`condition` JSON、`evaluation` JSON、`created_at`、`updated_at`；组合索引 `ix_alert_rules_project_updated_at_id(project_id, updated_at, id)` 支撑按项目更新时间分页，`ix_alert_rules_project_enabled_signal(project_id, enabled, signal)` 支撑后续评估器筛选启用规则。
   - `ingest_records`：最小摄入记录，外键 `project_id`、`api_key_id`，保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；MySQL/MariaDB 下 `occurred_at` 和 `received_at` 使用 `DATETIME(6)`，`received_at` 默认值为 `CURRENT_TIMESTAMP(6)`；组合索引 `ix_ingest_records_project_kind_received_at_id(project_id, kind, received_at, id)` 支撑日志上下文 before/after 和带项目过滤的查询分页。
   - `ingest_stats`：摄入统计聚合，外键 `project_id`、`api_key_id`，按 `bucket_start`、`project_id`、`api_key_id`、`kind`、`source` 唯一聚合，保存 accepted/rejected 计数和 payload 字节数。
 - 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
