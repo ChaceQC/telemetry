@@ -141,7 +141,7 @@ class DashboardService:
             dashboard_id=dashboard_id,
         )
         return DashboardExportDocument(
-            schema_name=DASHBOARD_EXPORT_SCHEMA,
+            schema=DASHBOARD_EXPORT_SCHEMA,
             version=DASHBOARD_EXPORT_VERSION,
             name=dashboard.name,
             description=dashboard.description,

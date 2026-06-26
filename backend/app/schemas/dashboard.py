@@ -471,12 +471,11 @@ class DashboardCreateFromTemplate(DashboardSchema):
 class DashboardExportDocument(DashboardSchema):
     model_config = ConfigDict(
         str_strip_whitespace=True,
-        populate_by_name=True,
         extra="forbid",
     )
 
-    schema_name: str = Field(alias="schema", min_length=1, max_length=64)
-    version: int = Field(ge=1)
+    schema_: str = Field(alias="schema", min_length=1, max_length=64)
+    version: int = Field(strict=True, ge=1)
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(max_length=500)
     layout: DashboardJson
@@ -491,7 +490,7 @@ class DashboardExportDocument(DashboardSchema):
                 raise ValueError("导入文档不能包含实例字段: " + ", ".join(forbidden_fields))
         return data
 
-    @field_validator("schema_name")
+    @field_validator("schema_")
     @classmethod
     def validate_schema_name(cls, value: str) -> str:
         if value != DASHBOARD_EXPORT_SCHEMA:

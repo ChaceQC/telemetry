@@ -9,6 +9,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import inspect
 from sqlalchemy.dialects import mysql
 from sqlalchemy.schema import CreateTable, Table
@@ -824,7 +825,10 @@ def test_dashboard_import_uses_project_permissions_and_hiding_semantics() -> Non
 @pytest.mark.parametrize(
     "document_patch",
     [
+        {"schema_name": DASHBOARD_EXPORT_SCHEMA},
         {"schema": "telemetry.dashboard.v2"},
+        {"version": "1"},
+        {"version": True},
         {"version": DASHBOARD_EXPORT_VERSION + 1},
         {"layout": None},
         {"config": None},
@@ -893,6 +897,34 @@ def test_dashboard_import_requires_export_document_fields(missing_field: str) ->
 
     assert response.status_code == 422
     assert any(missing_field in error["loc"] for error in response.json()["detail"])
+
+
+def test_dashboard_export_document_requires_public_schema_and_strict_version() -> None:
+    from app.schemas.dashboard import DashboardExportDocument
+
+    with pytest.raises(ValidationError):
+        DashboardExportDocument.model_validate(
+            {
+                "schema_name": DASHBOARD_EXPORT_SCHEMA,
+                "version": DASHBOARD_EXPORT_VERSION,
+                "name": "导入非法文档",
+                "description": None,
+                "layout": {},
+                "config": {},
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        DashboardExportDocument.model_validate(
+            {
+                "schema": DASHBOARD_EXPORT_SCHEMA,
+                "version": "1",
+                "name": "导入非法文档",
+                "description": None,
+                "layout": {},
+                "config": {},
+            }
+        )
 
 
 @pytest.mark.parametrize(

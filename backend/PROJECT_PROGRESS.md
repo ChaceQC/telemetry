@@ -7,11 +7,11 @@
 ### 已完成
 
 - 新增 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/export`，按已保存 dashboard 读取权限导出单个可移植 JSON 文档。
-- 导出文档固定包含 `schema=telemetry.dashboard`、`version=1`、`name`、`description`、`layout`、`config`，不包含数据库 `id`、`project_id`、创建/更新用户或创建/更新时间等实例字段。
+- 导出文档固定包含公开字段 `schema=telemetry.dashboard`、`version=1`、`name`、`description`、`layout`、`config`，其中 `version` 现在是严格整数 `1`，不接受字符串、浮点数或布尔值；文档不包含数据库 `id`、`project_id`、创建/更新用户或创建/更新时间等实例字段。
 - 新增 `POST /api/v1/projects/{project_id}/dashboards/import`，请求体为 `document` 加可选顶层 `name/description` 覆盖，未覆盖时使用文档内名称和描述。
 - 导入在路径项目下创建普通 dashboard，复用现有 dashboard 创建权限语义：目标项目至少 `editor`，`viewer` 返回 `403 无项目权限`，普通用户无项目成员关系或项目不存在返回 `404 项目不存在`。
-- 导入文档通过 `DashboardExportDocument` 校验 schema/version、必填字段、禁止实例字段，并复用现有 `DashboardCreate` 的 JSON 大小/深度/复杂度/finite-number、panel、time_range 和 variables 校验。
-- 扩展 `backend/tests/test_dashboard_api.py` 覆盖导出成功/权限/实例字段排除、导入成功/覆盖/普通 dashboard 后续可编辑、权限隐藏、非法 schema/version、缺字段、实例字段注入、非法 panel/time_range/variables、超大/过深/过复杂/NaN/Infinity。
+- 导入文档通过 `DashboardExportDocument` 校验公开字段 `schema/version`、必填字段、禁止实例字段，并复用现有 `DashboardCreate` 的 JSON 大小/深度/复杂度/finite-number、panel、time_range 和 variables 校验。
+- 扩展 `backend/tests/test_dashboard_api.py` 覆盖导出成功/权限/实例字段排除、导入成功/覆盖/普通 dashboard 后续可编辑、权限隐藏、非法 schema/version、缺字段、实例字段注入、非法 panel/time_range/variables、超大/过深/过复杂/NaN/Infinity，并新增回归测试显式拒绝 `schema_name`、字符串 `version` 和布尔 `version`。
 - 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录导入/导出 API 路径、请求/响应、权限、错误语义和当前不做前端 UI、批量导入、模板市场、分享/只读、文件上传存储、跨项目权限提升、覆盖已有 dashboard、ClickHouse 数据导出或告警。
 
 ### 阻塞与风险
@@ -22,8 +22,8 @@
 
 ### 开发侧验证
 
-- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：140 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
-- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：153 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py -q`，结果：157 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_dashboard_api.py tests/test_config.py -q`，结果：157 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
 - 已运行 `uv run ruff check .`，结果：通过。
 - 已运行 `uv run ruff format --check .`，结果：88 个文件已符合格式。
 - 已运行 `uv run mypy .`，结果：88 个源文件无类型错误。
