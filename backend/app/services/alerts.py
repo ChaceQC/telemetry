@@ -372,7 +372,10 @@ def _normalize_metric_condition(condition: AlertRuleJson) -> AlertMetricConditio
     threshold_raw = condition["threshold"]
     if isinstance(threshold_raw, bool) or not isinstance(threshold_raw, Real):
         raise AlertRuleEvaluationError("condition.threshold 必须是有限 JSON number")
-    threshold = float(threshold_raw)
+    try:
+        threshold = float(threshold_raw)
+    except (OverflowError, TypeError, ValueError):
+        raise AlertRuleEvaluationError("condition.threshold 必须是有限 JSON number") from None
     if not isfinite(threshold):
         raise AlertRuleEvaluationError("condition.threshold 必须是有限 JSON number")
 

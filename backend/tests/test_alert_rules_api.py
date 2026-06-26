@@ -761,6 +761,38 @@ def test_alert_rule_manual_evaluation_validation_and_permissions() -> None:
     assert missing_rule_response.json()["detail"] == "告警规则不存在"
 
 
+def test_alert_rule_manual_evaluation_rejects_overflowing_threshold_json_integer() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="threshold-overflow-owner")
+    project = create_project(
+        client,
+        owner_headers,
+        name="阈值溢出校验",
+        key="threshold-overflow-check",
+    )
+    project_id = cast(int, project["id"])
+    overflowing_threshold = int("9" * 309)
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="超大阈值规则",
+        condition={
+            "metric": "cpu.usage",
+            "operator": "gt",
+            "threshold": overflowing_threshold,
+        },
+    )
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/alerts/rules/{rule['id']}/evaluate",
+        headers=owner_headers,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "condition.threshold 必须是有限 JSON number"
+
+
 @pytest.mark.parametrize(
     ("condition", "expected_detail"),
     [
