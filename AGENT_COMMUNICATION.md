@@ -110,7 +110,7 @@ closed      已关闭
 | T-0080 | Dashboard JSON 导入导出真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0081 | 告警规则 CRUD 后端基础 | 总 agent | todo | done | done | done | done |
 | T-0082 | 告警规则 CRUD 前端基础 | 总 agent | done | todo | done | done | done |
-| T-0083 | 告警规则 CRUD 真实前后端联测 | 总 agent | done | done | todo | todo | testing |
+| T-0083 | 告警规则 CRUD 真实前后端联测 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -648,6 +648,7 @@ closed      已关闭
 | 2026-06-26 | T-0082 | 总 agent / 审计 agent | 告警规则 CRUD 前端审计通过 | Zeno 只读审计 `2d572a8`，未发现 P0/P1/P2 阻断；仅记录 P3：项目列表查询失败主要通过 header “部分异常”暴露，项目选择区内联错误可后续优化。Zeno 已关闭 | done |
 | 2026-06-26 | T-0082 | 总 agent | T-0082 合入 dev 并同步 frontend 分支 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`；本地前端专项、路由/样式专项、lint、typecheck、全量 test、build、`git diff --check` 均通过；`dev` CI run `28244367891` 通过。随后 `feature/frontend-dev` 已同步 `origin/dev` 至 `2e23e33`，同步 CI run `28244753232` 通过 | done |
 | 2026-06-26 | T-0083 | 总 agent | 登记告警规则 CRUD 真实前后端联测 | 下一小步在最新 `dev/origin/dev` 上用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖 `/alerts` 创建、列表筛选、编辑、启停 PATCH、删除确认、权限/错误边界和 390px 移动端布局；不做规则评估、通知、历史、静默、Webhook 或 ClickHouse/MongoDB/Redis 后台链路 | testing |
+| 2026-06-26 | T-0083 | 测试 agent Euclid / 总 agent | 告警规则 CRUD 真实前后端联测通过 | Euclid 在最新 `dev/origin/dev` 使用真实临时 MySQL `127.0.0.1:33383`（库 `telemetry_t0083_20260626230645`）、真实 FastAPI `28183`、真实 Vite `25183` 与 Playwright + Microsoft Edge 完成联测。API 14/14 通过，UI 12/12 通过；覆盖未登录提示、登录后项目选择、metrics/logs/traces/events 创建、筛选、编辑、启停 PATCH body 精确为 `{"enabled":false}`、删除确认、390px 移动端无横向溢出、401/403/404/409/422 API 边界。证据目录 `agents/runtime/e2e-T-0083-20260626-225623`；后端、前端、临时 MySQL、临时 `node_modules` 均已清理，系统 MySQL `3306` 未触碰；8 个本次 Playwright Edge 临时 profile 进程因 Windows Access denied 未能停止，已记录 PID 与命令行 | done |
 
 ## 6. 测试记录
 
@@ -837,6 +838,7 @@ closed      已关闭
 | 2026-06-26 | T-0082 | 告警规则 CRUD 前端基础 feature 门禁 | `feature/frontend-dev` run `28243441077`；Carver 前端门禁与 Edge 冒烟 | 通过 | `2d572a8` 上 Backend checks 与 Frontend checks 均为 success；开发侧 alerts API/form/page 专项 21 passed、router/style 专项 5 passed、全量前端 test 256 passed，lint、typecheck、build、`git diff --check` 均通过；Playwright + Microsoft Edge `149.0.4022.80` 覆盖未登录、mock 列表/筛选、创建、启停 PATCH `{enabled:false}`、删除确认和桌面/390px 移动端无横向溢出 |
 | 2026-06-26 | T-0082 | dev merge 后本地验证 | 前端 alerts API/form/page 专项、router/style 专项、lint、typecheck、全量 test、build、`git diff --check` | 通过 | merge 提交 `ec028ad` 后，`npm.cmd exec -- vitest run src/api/alerts.test.ts src/features/alerts/alertRuleForm.test.ts src/pages/AlertsPage.test.tsx src/pages/AlertsPage.interaction.test.tsx --reporter=dot` 4 files/21 tests passed；router/style 专项 2 files/5 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test` 35 files/256 tests passed、`npm.cmd run build`、`git diff --check` 均通过；仅有既有 React Router future/SSR warning |
 | 2026-06-26 | T-0082 | dev merge 与 frontend 同步 CI | GitHub Actions runs `28244367891`、`28244753232` | 通过 | `ec028ad` 在 `dev` 与 `2e23e33` 在 `feature/frontend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；同步后前端 worktree 与远端一致 |
+| 2026-06-26 | T-0083 | 告警规则 CRUD 真实前后端联测 | Euclid；真实临时 MySQL、真实 FastAPI、真实 Vite、Playwright + Microsoft Edge | 通过 | 证据目录 `agents/runtime/e2e-T-0083-20260626-225623`；API 14/14 passed，UI 12/12 passed；覆盖四类 signal 创建、筛选、编辑、启停、删除、权限/错误边界和 390px 移动端布局。后端/前端/MySQL 已清理；残留 8 个 Playwright Edge 临时 profile 进程因 Access denied 未能停止 |
 
 ## 7. 审计记录
 
@@ -860,6 +862,7 @@ closed      已关闭
 | 2026-06-24 | T-0066 | Dashboard 变量配置后端基础（`6d51ded`） | 通过 | Heisenberg 审计未发现 P0/P1/P2/P3；确认 `config.variables` 保存层 schema 与规范化贴合任务边界，legacy config 和 panel preview 语义未被扩展或改写。假设 `variables: []`、`text.default` 空字符串和变量对象保留未知扩展字段为可接受策略；残余风险为未做真实 MySQL JSON 列读写和前端变量控件消费路径 | done |
 | 2026-06-26 | T-0081 | 告警规则 CRUD 后端基础（`3298206`） | 通过 | Laplace 只读审计发现 1 个 P2：初始 `dev` API-0025 草案与实现契约冲突，merge 时需明确最终契约；总 agent 已在真实 merge 中按后端实现/测试结果解决为 `signal=metrics/logs/traces/events`、`evaluation.window_seconds/interval_seconds` 整数窗口契约。未发现实现本身 P0/P1 阻断；残余风险为真实 MySQL `alert_rules` JSON 列读写和唯一约束大小写行为未专项执行，`updated_at` 推进仅靠 ORM `onupdate` | done |
 | 2026-06-26 | T-0082 | 告警规则 CRUD 前端基础（`2d572a8`） | 通过 | Zeno 只读审计未发现 P0/P1/P2 阻断；P3：项目列表查询失败时主要通过 header “部分异常”暴露，缺少项目选择区更明确的内联错误，不阻塞当前 CRUD、列表错误和表单错误展示。残余风险为未做真实后端/MySQL/RBAC 联调，已登记 T-0083 覆盖 | done |
+| 2026-06-26 | T-0083 | 告警规则 CRUD 真实前后端联测（`6ab009a`） | 通过 | Euclid 真实联测未发现 P0/P1/P2/P3 业务缺陷；API 14/14 与 Edge UI 12/12 均通过。残余风险为规则评估调度、通知、历史、静默、Webhook 和 ClickHouse/MongoDB/Redis 后台链路仍在后续告警小步范围；另有 8 个本次 Playwright Edge 临时 profile 进程因 Windows Access denied 未能停止 | done |
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端基础（`34f2b39`） | 未通过 | Beauvoir 审计发现 1 个 P3：编辑合法 text 变量且显式 `default: ""` 时，前端 draft 会把空字符串 default 与缺省 default 混同，保存后丢失 `default` key。未发现 P0/P1/P2 | blocked |
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
@@ -994,6 +997,7 @@ closed      已关闭
 | 2026-06-26 | T-0080 | dev | dev | 总 agent | Dashboard JSON 导入导出真实前后端联测已通过；本任务为测试收口，不产生 feature merge。总 agent 在最新 `dev/origin/dev` 上使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖导出导入链路、权限/错误边界、移动端布局和 panel preview 快速回归；证据目录 `agents/runtime/e2e-T-0080-20260626-194034`，资源已清理 | done |
 | 2026-06-26 | T-0081 | feature/backend-dev | dev | 总 agent | 告警规则 CRUD 后端基础 `3298206` 已通过 Turing/Mencius 验证、Laplace 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `c561daf`，并同步 `feature/backend-dev` 至 `e958709` | done |
 | 2026-06-26 | T-0082 | feature/frontend-dev | dev | 总 agent | 告警规则 CRUD 前端基础 `2d572a8` 已通过 Carver 验证、Zeno 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`，并同步 `feature/frontend-dev` 至 `2e23e33` | done |
+| 2026-06-26 | T-0083 | dev | dev | 总 agent | 告警规则 CRUD 真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Euclid 使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖告警规则 CRUD、权限/错误边界、移动端布局；证据目录 `agents/runtime/e2e-T-0083-20260626-225623`，后端/前端/MySQL 已清理 | done |
 
 ## 10. 决策记录
 

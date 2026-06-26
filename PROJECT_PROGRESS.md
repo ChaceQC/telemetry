@@ -1175,16 +1175,24 @@
 
 - 已登记 T-0083 为阶段 6 告警规则 CRUD 真实前后端联测小步。
 - 联测目标：基于 T-0081 后端 CRUD 与 T-0082 前端 `/alerts` 页面，在真实运行链路中验证告警规则创建、列表筛选、编辑、启停、删除和权限/错误边界。
+- 测试 agent Euclid（`019f0469-7517-7b70-89d5-3cb6b0b80f67`）完成真实联测并已关闭。
+- 证据目录 `agents/runtime/e2e-T-0083-20260626-225623`，`summary.json` 记录结论 `passed`、`failures=[]`。
+- API 断言 14/14 通过：覆盖未认证 `401`、创建 baseline rule、project/severity/signal/enabled 列表筛选、编辑字段、启停 PATCH、viewer 写入 `403`、无权限隐藏 `404`、缺失 rule `404`、同项目重名 `409`、非法 JSON/空 PATCH/非法 evaluation/非法分页 `422` 和删除 `204`。
+- Edge UI 断言 12/12 通过：使用 Microsoft Edge 真实浏览器覆盖 `/alerts` 未登录提示、登录后项目选择、metrics/logs/traces/events 四类 signal 创建、筛选、编辑 name/description/severity/signal/condition/evaluation、启停 PATCH 请求体精确为 `{"enabled":false}`、删除确认、390px 移动端无横向溢出且主要控件可达。
+- 资源清理：真实 FastAPI `28183`、真实 Vite `25183`、临时 MySQL `127.0.0.1:33383`/库 `telemetry_t0083_20260626230645` 和临时 `node_modules` 已清理；系统 MySQL `3306` 未触碰。
 
 ### 阻塞与风险
 
-- 暂未执行真实联测；下一步启动测试 agent 或由总 agent 按规则补跑。
-- 不启动 Docker，不读取 `auth.txt`；如需要数据库，使用测试自有真实临时 MySQL 实例或本地临时库，并记录连接、资源 ID 与清理结果。
+- T-0083 真实联测通过，当前无业务阻塞。
+- 8 个本次 Playwright Edge 临时 profile 进程仍残留，命令行均指向 `C:\Users\q-lau\AppData\Local\Temp\playwright_chromiumdev_profile-ClVNPS`，PID 为 `38048,36140,39256,38728,23352,44444,28428,28600`；Euclid 与总 agent 均尝试精确 PID `Stop-Process`/`taskkill /PID ... /T /F`，Windows 返回 `Access is denied`。已记录为清理残余风险；无 `25183/28183/33383` 监听残留。
+- 规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、ClickHouse/MongoDB/Redis 后台链路仍未实现，继续保留给阶段 6 后续小步。
 
 ### 下一步
 
-- 启动测试 agent 在最新 `dev/origin/dev` 上执行 T-0083：真实 FastAPI、真实 Vite、真实临时 MySQL、Playwright + Microsoft Edge，覆盖桌面和 390px 移动端。
+- 阶段 6 下一小步进入告警执行能力：优先登记指标阈值告警的最小调度/评估后端基础，延续 `API-0025` 已保存规则定义，先做可测试的 metrics threshold evaluation，不接通知渠道和历史完整 UI。
 
 ### 验证
 
-- 待执行。
+- `agents/runtime/e2e-T-0083-20260626-225623/api-assertions.json`：`passed=true`，14/14 API assertions passed。
+- `agents/runtime/e2e-T-0083-20260626-225623/ui-e2e-results.json`：`passed=true`，12/12 UI assertions passed，browser 为 Microsoft Edge。
+- `agents/runtime/e2e-T-0083-20260626-225623/summary.json`：`conclusion=passed`，`failures=[]`；`cleanup-final-check-2.json` 记录无后端/前端/MySQL 监听或临时数据目录残留，仍有上述 8 个 Edge/Playwright profile 进程因权限拒绝未能停止。
