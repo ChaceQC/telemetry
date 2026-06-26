@@ -106,7 +106,7 @@ closed      已关闭
 | T-0076 | Dashboard 内置模板前端基础 | 总 agent | done | todo | done | done | done |
 | T-0077 | Dashboard 内置模板真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0078 | Dashboard JSON 导入导出后端基础 | 总 agent | done | done | done | done | done |
-| T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | doing | todo | todo | todo | doing |
+| T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | done | todo | done | done | done |
 
 ## 4. API 契约登记
 
@@ -621,6 +621,9 @@ closed      已关闭
 | 2026-06-26 | CI | 总 agent | T-0078 最新 CI 收口记录 | `docs: 同步T-0078最新CI收口` 提交 `2fd3790` 已推送到 `dev`，GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success | done |
 | 2026-06-26 | T-0079 | 总 agent | 启动 Dashboard JSON 导入导出前端基础 | 阶段 5 剩余小步限定为前端接入 T-0078 已有后端 API：在 `/dashboards` 为已保存 dashboard 提供单个 JSON 导出入口，并在目标项目下提供 JSON 文档导入创建普通 dashboard 的最小表单；需复用既有 auth、项目选择、dashboard 列表缓存和错误展示风格。范围不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警 | doing |
 | 2026-06-26 | CI | 总 agent | T-0079 登记提交 Actions 通过 | `docs: 登记T-0079前端导入导出` 提交 `f34fa21` 已推送到 `dev`，GitHub Actions run `28230192395` 通过，Backend checks 与 Frontend checks 均为 success | done |
+| 2026-06-26 | CI | 总 agent | T-0079 登记 CI 收口记录 Actions 通过 | `docs: 记录T-0079登记CI结果` 提交 `33e3f7a` 已推送到 `dev`，GitHub Actions run `28230309166` 通过，Backend checks 与 Frontend checks 均为 success | done |
+| 2026-06-26 | T-0079 | 前端开发 agent / 总 agent | Dashboard JSON 导入导出前端完成 | `feature/frontend-dev` 提交 `b62a00a` 完成 API client、portable JSON parser/payload helper、`/dashboards` 导入导出面板、缓存 upsert 和测试；Kuhn 审计发现 absolute 空格分隔 ISO 时间被前端误拒的 P2，总 agent 提交 `cdccdf2` 修复并补回归；feature CI runs `28232612067`、`28233976367` 均通过。Kuhn 已关闭 | done |
+| 2026-06-26 | T-0079 | 总 agent | T-0079 真实 merge 与 CI 通过 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee`；GitHub Actions run `28234093644` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
 
 ## 6. 测试记录
 
@@ -796,6 +799,9 @@ closed      已关闭
 | 2026-06-25 | T-0077-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28178199863`、`28178430142`、`28178460331`；feature 分支 merge 同步；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `3556223` 在 `dev`、`7be301a` 在 `feature/frontend-dev`、`e0973e3` 在 `feature/backend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
 | 2026-06-25 | T-0077 | Dashboard 内置模板真实前后端联测 | 测试 agents Hypatia/Euler；临时 MySQL `127.0.0.1:33377`、库 `telemetry_t0077_20260625_233857`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge `149.0.4022.80`；后端 API 与浏览器断言 | 通过 | 最终证据目录 `agents/runtime/e2e-T-0077-browser-rerun-20260625-233732`。`api-summary.json` 与 `browser-summary.json` 均为 `passed=true`、`failures=[]`；覆盖 template 列表/详情、`service-overview` 创建普通 dashboard、创建后 panel preview `200`、payload 只含 `name/description`、模板 hash 前后一致、401/403/404/422 边界、dashboard CRUD 快速回归、桌面/390px 移动端截图与无横向溢出。cleanup 确认临时 MySQL 库/实例/datadir、后端、前端均已清理，系统 `3306` 未触碰 |
 | 2026-06-25 | T-0078-start-sync | CI 与 worktree 同步 | GitHub Actions runs `28182424806`、`28182498486`、`28182498091`；feature 分支 merge 同步；`./scripts/Test-AgentWorktreeState.ps1` | 通过 | `080fc85` 在 `dev`、`1910a1d` 在 `feature/backend-dev`、`63ab2db` 在 `feature/frontend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；严格体检确认三棵 worktree 干净、分支正确且与远端一致 |
+| 2026-06-26 | T-0079 | Dashboard JSON 导入导出前端门禁 | `feature/frontend-dev` runs `28232612067`、`28233976367`；前端 dashboard JSON/time range/API/page 专项、typecheck、lint、build、`git diff --check` | 通过 | 实现提交 `b62a00a` 与审计修复提交 `cdccdf2` 均通过 feature CI，Backend checks 与 Frontend checks 均为 success；本地最终专项 `npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 5 files/88 tests passed，typecheck、lint、build、diff check 均通过 |
+| 2026-06-26 | T-0079 | dev merge 后本地验证 | 前端 dashboard JSON/time range/API/page 专项、typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `f5cfeee` 后，前端专项 5 files/88 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过；未启动真实服务、数据库、Docker 或浏览器 |
+| 2026-06-26 | T-0079 | dev CI | GitHub Actions run `28234093644` | 通过 | `f5cfeee` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有官方 action Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
@@ -823,6 +829,8 @@ closed      已关闭
 | 2026-06-24 | T-0071 | Dashboard preview 请求时变量覆盖前端接入（`67f9ef4`） | 通过 | 总 agent 本地审阅未发现 P0/P1/P2/P3；确认 `variables` 仅在非空 override 时发送，运行时覆盖值不进入保存 payload，number/select/text 边界与 query key signature 隔离符合后端契约。残余风险为真实 MySQL/真实后端/真实前端联调与 URL 长度边界，已登记 T-0072 覆盖 | done |
 | 2026-06-24 | T-0073 | Dashboard 自动刷新前端基础（`9517117`） | 未通过 | Bacon 审计发现 1 个 P3：自动刷新 interval tick 只检查自动刷新自身 in-flight 标记，未感知手动 preview query 已在 fetching，可能在手动刷新 pending 时发起重复 preview 请求。需修复后复审 | blocked |
 | 2026-06-24 | T-0073-fix | Dashboard 自动刷新并发请求保护（`039f352`） | 通过 | Bacon 复审确认原 P3 已关闭：interval tick 同时检查自动刷新 in-flight 和任何 `panelPreviewQuery.isFetching`，手动刷新 pending 时自动刷新不会重复请求；新增交互测试覆盖该场景。未发现新的 P0/P1/P2/P3 | done |
+| 2026-06-26 | T-0079 | Dashboard JSON 导入导出前端基础（`b62a00a`/`0c34032`） | 未通过 | Kuhn 发现 1 个 P2：前端 absolute 时间解析只接受 `T` 分隔 ISO 时间，但后端 `datetime.fromisoformat(value.replace("Z", "+00:00"))` 可接受空格分隔格式，导致后端合法 portable dashboard JSON 可能被前端误拒；未发现 P0/P1/P3 | blocked |
+| 2026-06-26 | T-0079-fix | Dashboard absolute 空格分隔 ISO 兼容修复（`cdccdf2`） | 通过 | 已将前端 absolute 时间解析放宽为接受 `T` 或单个空格分隔，同时保留严格日期、时区、顺序和 finite 校验；新增回归覆盖 `2026-06-24 00:00:00+00:00` 导入/规范化路径。Kuhn 已关闭，未发现剩余阻断项 | done |
 | 2026-06-20 | T-0001 | agent 协作机制文档 | 通过 | 未发现与当前计划冲突的问题；实际 Git 分支尚未创建，已记录为下一步 | done |
 | 2026-06-20 | T-0004 | 前端 React + TypeScript + Vite 骨架 | 未通过 | P2：dev/preview 脚本和 Vite host/port 配置未完全从环境读取，遗留 dev server 占用 `25173`，分支门禁记录和根进度未同步；P3：缺少前端测试脚本、Node LTS 固定和 FastAPI `detail` 错误解析 | blocked |
 | 2026-06-20 | T-0005 | 项目级基础设施 | 通过 | 已修复 `.env.example` 与 Compose 的 MySQL/MongoDB 凭据闭环，清理 `agents/runtime/README.md` 执行日志污染，并补充审计日志与根进度；容器启动后的实际数据库用户登录仍待允许启动容器时补验 | done |
@@ -945,7 +953,7 @@ closed      已关闭
 | 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础 `a9f5f06`、`7bb4ca7`、`2cd6c09` 已通过 feature CI、Parfit 审计、真实 merge、merge 后本地门禁、`dev` CI 和三分支同步 CI；最新同步提交为 `dev` `2e65b01`、`feature/frontend-dev` `4ce1571`、`feature/backend-dev` `e95f26e`，严格 worktree 体检通过 | done |
 | 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hypatia/Euler 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖模板链路、权限/错误边界、创建后普通 dashboard 编辑/预览、模板不被回写、移动端布局和 CRUD 快速回归；资源已清理 | done |
 | 2026-06-25 | T-0078 | feature/backend-dev | dev | 总 agent | Dashboard JSON 导入导出后端基础已完成；后端实现、测试、文档同步与收口已结束，等待真实 merge 到 `dev` 并同步分支 | done |
-| 2026-06-26 | T-0079 | feature/frontend-dev | dev | 前端开发 agent | Dashboard JSON 导入导出前端基础已登记，等待前端 worktree 实现、测试和审计后再真实 merge 到 `dev` | doing |
+| 2026-06-26 | T-0079 | feature/frontend-dev | dev | 总 agent | Dashboard JSON 导入导出前端基础 `b62a00a` 与审计修复 `cdccdf2` 已通过 feature CI、Kuhn 审计修复、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` | done |
 
 ## 10. 决策记录
 

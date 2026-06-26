@@ -1028,6 +1028,7 @@
 - 2026-06-26 收口记录提交 `2fd3790` 已推送到 `dev`；GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success。
 - 已登记 `T-0079` Dashboard JSON 导入导出前端基础：下一步由前端开发 agent 在 `feature/frontend-dev` worktree 接入 T-0078 后端 API，在 `/dashboards` 提供单个 dashboard JSON 导出入口和目标项目下 JSON 文档导入创建普通 dashboard 的最小表单；本小步不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警。
 - T-0079 登记提交 `f34fa21` 已推送到 `dev`；GitHub Actions run `28230192395` 通过，Backend checks 与 Frontend checks 均为 success。
+- T-0079 登记 CI 收口记录 `33e3f7a` 已推送到 `dev`；GitHub Actions run `28230309166` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 验证
 
@@ -1038,3 +1039,32 @@
 - GitHub Actions run `28228008679` 成功，Backend checks 与 Frontend checks 均通过。
 - GitHub Actions run `28229682668` 成功，Backend checks 与 Frontend checks 均通过。
 - GitHub Actions run `28230192395` 成功，Backend checks 与 Frontend checks 均通过。
+
+## 2026-06-26 T-0079 Dashboard JSON 导入导出前端基础
+
+### 已完成
+
+- 前端 worktree `feature/frontend-dev` 完成 T-0079 实现并推送 `b62a00a`：在 `/dashboards` 新增紧凑 JSON 导入导出面板，导出当前已保存 dashboard 的 portable JSON，导入合法 portable JSON 后在目标项目下创建普通 dashboard 并选中。
+- 新增 `exportDashboard()`、`importDashboard()` API client，接入 T-0078 后端 `GET /export` 和 `POST /import` 契约。
+- portable JSON 仅接受 `schema=telemetry.dashboard`、严格整数 `version=1`、`name`、`description`、`layout`、`config`；导入拒绝实例字段、非对象文档、非 finite number、超大/过深/过复杂 JSON。
+- 导入创建成功后会 upsert 当前 dashboard 列表缓存并进入编辑态；不覆盖已有 dashboard，不做批量导入，不做文件上传。
+- Kuhn 代码审计发现 1 个 P2：前端 absolute 时间解析误拒后端可接受的空格分隔 ISO 时间。已在 `cdccdf2` 修复为接受 `T` 或单个空格分隔，同时保留严格日期、时区、前后顺序校验，并补回归测试。
+- `feature/frontend-dev` CI 通过：实现 run `28232612067`、审计修复 run `28233976367` 均为 success；Kuhn 已关闭。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` 已推送。
+- `dev` GitHub Actions run `28234093644` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞。
+
+### 阻塞与风险
+
+- 本小步未启动真实后端、数据库、Docker 或浏览器联测；验证集中在前端单元/交互测试、静态门禁和 CI。
+- 导入导出仍限定为单个 dashboard portable JSON；批量导入、覆盖已有 dashboard、拖拽文件上传、模板市场、分享/只读、ClickHouse 数据导出和告警导出不在本轮范围。
+
+### 下一步
+
+- T-0079 已完成。下一轮可继续阶段 5 后续 dashboard 体验小步，或启动 Dashboard JSON 导入导出真实前后端联测，使用真实 MySQL、真实后端、真实前端与 Playwright + Microsoft Edge 覆盖导出、导入、权限/错误边界和移动端布局。
+
+### 验证
+
+- feature worktree 实现侧通过：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot`，`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
+- 审计修复后通过：`npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot`，5 files/88 tests passed；`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
+- merge 后根工作区通过：前端专项 5 files/88 tests passed，`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
+- GitHub Actions：`feature/frontend-dev` runs `28232612067`、`28233976367` 通过；`dev` run `28234093644` 通过。
