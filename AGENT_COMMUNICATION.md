@@ -630,6 +630,7 @@ closed      已关闭
 | 2026-06-26 | T-0080 | 总 agent | 启动测试 agent Boyle | 已启动测试 agent Boyle（`019f03a8-b1be-7702-9131-0bf56001d4ea`）执行 T-0080，要求使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 JSON 导出导入真实链路；不改业务代码、不提交/不 push、不修改根正式文档、不读 `auth.txt`、不启动 Docker，只在 ignored 的 `agents/runtime/` 下写测试日志和证据并清理自有资源 | testing |
 | 2026-06-26 | T-0080 | 总 agent | Boyle 关闭与总 agent 接手联测 | Boyle 仅留下空证据目录，未返回可用结论；按用户要求已关闭。总 agent 在根 `dev` 直接补跑 T-0080 真实联测，未改业务代码、不启动 Docker、不读 `auth.txt`，证据写入 ignored 目录 `agents/runtime/e2e-T-0080-20260626-194034` | testing |
 | 2026-06-26 | T-0080 | 总 agent | Dashboard JSON 导入导出真实联测通过 | `agents/runtime/e2e-T-0080-20260626-194034/summary.json` 记录 `passed=true`、`failures=[]`。API 断言覆盖导出 portable 字段、禁止实例字段、导入覆盖/保留语义、space-separated absolute `time_range`、401/403/404/422 边界和导入后 panel preview `200`；Edge `149.0.4022.80` 覆盖 `/dashboards` UI 导出、导入、前端本地非法 JSON/实例字段错误展示、导入后普通 dashboard 预览、390px 移动端无横向溢出。cleanup 确认临时 MySQL 库/实例/datadir、FastAPI 后端和 Vite 前端均已清理，系统 `3306` 未触碰 | done |
+| 2026-06-26 | CI | 总 agent | T-0080 收口提交 Actions 通过 | `docs: 收口T-0080真实联测` 提交 `0451ebe` 已推送到 `dev`，GitHub Actions run `28236596279` 通过，Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test | done |
 
 ## 6. 测试记录
 
@@ -809,6 +810,7 @@ closed      已关闭
 | 2026-06-26 | T-0079 | dev merge 后本地验证 | 前端 dashboard JSON/time range/API/page 专项、typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `f5cfeee` 后，前端专项 5 files/88 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过；未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-26 | T-0079 | dev CI | GitHub Actions run `28234093644` | 通过 | `f5cfeee` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有官方 action Node.js runtime 弃用注解 |
 | 2026-06-26 | T-0080 | Dashboard JSON 导入导出真实前后端联测 | `powershell -NoProfile -ExecutionPolicy Bypass -File agents/runtime/e2e-T-0080-20260626-194034/run_t0080.ps1`；临时 MySQL `33380`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge `149.0.4022.80`；API 与浏览器断言 | 通过 | 证据目录 `agents/runtime/e2e-T-0080-20260626-194034`。`api-summary.json` 与 `browser-summary.json` 均为 `passed=true`、`failures=[]`；覆盖 portable JSON 公开字段 `schema/version/name/description/layout/config`、无实例字段泄露、导入覆盖/保留语义、空格分隔 absolute `config.time_range`、401/403/404/422 边界、导入后保存/preview 快速回归、桌面与 390px 移动端截图和无横向溢出。临时 MySQL 库/实例/datadir、后端、前端均已清理，系统 `3306` 未触碰 |
+| 2026-06-26 | T-0080 | T-0080 收口提交 CI | GitHub Actions run `28236596279` | 通过 | `0451ebe` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test |
 
 ## 7. 审计记录
 

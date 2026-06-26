@@ -1082,6 +1082,7 @@
 - API 断言覆盖：导出 portable JSON 仅含 `schema/version/name/description/layout/config`，不含 `id/project_id/created_by_user_id/updated_by_user_id/created_at/updated_at`；导入支持名称/描述覆盖与保留文档字段；空格分隔 absolute `config.time_range` 被接受并保留；401 未认证、403 viewer 导入、404 隐藏/缺失项目、422 非法 JSON/schema/version/实例字段均符合契约；导入后的普通 dashboard 可 patch 并触发 panel preview `200`。
 - Edge 浏览器断言覆盖：真实登录 `/dashboards`，通过 UI 创建导出源 dashboard、导出 JSON、导入目标项目、前端本地非法 JSON 和实例字段错误展示、导入后进入普通 dashboard 编辑/预览流程、panel preview 请求 `200`，并在 390px 移动端验证 JSON 导入导出控件可达且无横向溢出。
 - 清理结果：临时 MySQL `33380` 库/实例/datadir、真实 FastAPI `28117`、真实 Vite `25173` 均由脚本清理；系统 MySQL `3306` 按规则未触碰。未修改业务代码，未启动 Docker，未读取 `auth.txt`。
+- T-0080 收口提交 `0451ebe` 已推送到 `dev`；GitHub Actions run `28236596279` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
@@ -1098,3 +1099,4 @@
 - GitHub Actions run `28234685084` 成功，Backend checks 与 Frontend checks 均通过。
 - `powershell -NoProfile -ExecutionPolicy Bypass -File agents/runtime/e2e-T-0080-20260626-194034/run_t0080.ps1`：通过。真实临时 MySQL、真实 FastAPI、真实 Vite、Playwright + Microsoft Edge `149.0.4022.80`；`api-summary.json` 与 `browser-summary.json` 均 `passed=true`。
 - 证据截图：`desktop-export-json.png`、`desktop-imported-dashboard.png`、`desktop-panel-preview.png`、`mobile-390-json-transfer.png`。
+- GitHub Actions run `28236596279` 成功，Backend checks 与 Frontend checks 均通过；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test。
