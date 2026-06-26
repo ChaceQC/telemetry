@@ -652,6 +652,10 @@ closed      已关闭
 | 2026-06-26 | T-0083 | 总 agent | 登记告警规则 CRUD 真实前后端联测 | 下一小步在最新 `dev/origin/dev` 上用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖 `/alerts` 创建、列表筛选、编辑、启停 PATCH、删除确认、权限/错误边界和 390px 移动端布局；不做规则评估、通知、历史、静默、Webhook 或 ClickHouse/MongoDB/Redis 后台链路 | testing |
 | 2026-06-26 | T-0083 | 测试 agent Euclid / 总 agent | 告警规则 CRUD 真实前后端联测通过 | Euclid 在最新 `dev/origin/dev` 使用真实临时 MySQL `127.0.0.1:33383`（库 `telemetry_t0083_20260626230645`）、真实 FastAPI `28183`、真实 Vite `25183` 与 Playwright + Microsoft Edge 完成联测。API 14/14 通过，UI 12/12 通过；覆盖未登录提示、登录后项目选择、metrics/logs/traces/events 创建、筛选、编辑、启停 PATCH body 精确为 `{"enabled":false}`、删除确认、390px 移动端无横向溢出、401/403/404/409/422 API 边界。证据目录 `agents/runtime/e2e-T-0083-20260626-225623`；后端、前端、临时 MySQL、临时 `node_modules` 均已清理，系统 MySQL `3306` 未触碰；8 个本次 Playwright Edge 临时 profile 进程因 Windows Access denied 未能停止，已记录 PID 与命令行 | done |
 | 2026-06-27 | T-0084 | 总 agent | 登记指标阈值告警评估后端基础 | 阶段 6 下一小步限定为后端手动评估 API：新增 `POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate`，读取已保存告警规则并对 `signal=metrics` 的阈值条件做一次同步评估。条件形状收敛为 `metric/operator/threshold/aggregation?/source?`，评估窗口来自 `evaluation.window_seconds`，返回 `firing/ok/no_data/disabled` 与观测值；非 metrics 或非法条件返回 `422`。范围不做后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、前端 UI 或 ClickHouse/MongoDB/Redis 链路 | doing |
+| 2026-06-27 | CI | 总 agent | T-0084 登记提交 Actions 通过 | `docs: 登记T-0084告警评估后端` 提交 `88eb052` 已推送到 `dev`，GitHub Actions run `28250586744` 通过，Backend checks 与 Frontend checks 均为 success | done |
+| 2026-06-27 | T-0084 | 总 agent | 启动后端开发 agent Newton | 已将 `feature/backend-dev` 同步最新 `origin/dev` 并推送同步提交 `442a91b`；已以 `xhigh` 思考强度启动后端开发 agent Newton（`019f04b9-4b0e-7761-acf8-e14d38647881`）在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 实现 T-0084。Newton 需更新后端代码、测试、`backend/README.md`、`backend/PROJECT_PROGRESS.md` 和 `agents/runtime/api-contracts/backend.md`，提交并推送到 `feature/backend-dev`；完成后请求总 agent 审计 | doing |
+| 2026-06-27 | CI | 总 agent | T-0084 启动记录与后端同步 Actions 通过 | `docs: 记录T-0084登记CI` 提交 `813e0f0` 已推送到 `dev`，GitHub Actions run `28250769544` 通过；`feature/backend-dev` 同步提交 `442a91b` 的 run `28250633562` 通过。两次运行 Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 | done |
+| 2026-06-27 | CI | 总 agent | T-0084 启动 CI 结果补记 Actions 通过 | `docs: 记录T-0084启动CI` 提交 `20605b9` 已推送到 `dev`，GitHub Actions run `28250962881` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 | done |
 
 ## 6. 测试记录
 
@@ -842,6 +846,9 @@ closed      已关闭
 | 2026-06-26 | T-0082 | dev merge 后本地验证 | 前端 alerts API/form/page 专项、router/style 专项、lint、typecheck、全量 test、build、`git diff --check` | 通过 | merge 提交 `ec028ad` 后，`npm.cmd exec -- vitest run src/api/alerts.test.ts src/features/alerts/alertRuleForm.test.ts src/pages/AlertsPage.test.tsx src/pages/AlertsPage.interaction.test.tsx --reporter=dot` 4 files/21 tests passed；router/style 专项 2 files/5 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test` 35 files/256 tests passed、`npm.cmd run build`、`git diff --check` 均通过；仅有既有 React Router future/SSR warning |
 | 2026-06-26 | T-0082 | dev merge 与 frontend 同步 CI | GitHub Actions runs `28244367891`、`28244753232` | 通过 | `ec028ad` 在 `dev` 与 `2e23e33` 在 `feature/frontend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；同步后前端 worktree 与远端一致 |
 | 2026-06-26 | T-0083 | 告警规则 CRUD 真实前后端联测 | Euclid；真实临时 MySQL、真实 FastAPI、真实 Vite、Playwright + Microsoft Edge | 通过 | 证据目录 `agents/runtime/e2e-T-0083-20260626-225623`；API 14/14 passed，UI 12/12 passed；覆盖四类 signal 创建、筛选、编辑、启停、删除、权限/错误边界和 390px 移动端布局。后端/前端/MySQL 已清理；残留 8 个 Playwright Edge 临时 profile 进程因 Access denied 未能停止 |
+| 2026-06-27 | T-0084-start | T-0084 登记提交 CI | GitHub Actions run `28250586744` | 通过 | `88eb052` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test |
+| 2026-06-27 | T-0084-start-sync | 启动记录与后端同步 CI | GitHub Actions runs `28250769544`、`28250633562` | 通过 | `813e0f0` 在 `dev` 与 `442a91b` 在 `feature/backend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 |
+| 2026-06-27 | T-0084-start-doc | 启动 CI 结果补记 | GitHub Actions run `28250962881` | 通过 | `20605b9` 在 `dev` 通过 CI，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 |
 
 ## 7. 审计记录
 
@@ -1001,6 +1008,7 @@ closed      已关闭
 | 2026-06-26 | T-0081 | feature/backend-dev | dev | 总 agent | 告警规则 CRUD 后端基础 `3298206` 已通过 Turing/Mencius 验证、Laplace 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `c561daf`，并同步 `feature/backend-dev` 至 `e958709` | done |
 | 2026-06-26 | T-0082 | feature/frontend-dev | dev | 总 agent | 告警规则 CRUD 前端基础 `2d572a8` 已通过 Carver 验证、Zeno 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`，并同步 `feature/frontend-dev` 至 `2e23e33` | done |
 | 2026-06-26 | T-0083 | dev | dev | 总 agent | 告警规则 CRUD 真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Euclid 使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖告警规则 CRUD、权限/错误边界、移动端布局；证据目录 `agents/runtime/e2e-T-0083-20260626-225623`，后端/前端/MySQL 已清理 | done |
+| 2026-06-27 | T-0084-start | dev | feature/backend-dev | 总 agent | 已登记指标阈值告警手动评估后端基础并推送 `88eb052` 到 `dev`；`feature/backend-dev` 已同步最新 `origin/dev` 至 `442a91b`，后端开发 agent Newton 已启动实现 T-0084；dev 启动记录 CI 和 backend 同步 CI 均通过，等待实现提交 | doing |
 
 ## 10. 决策记录
 

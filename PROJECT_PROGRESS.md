@@ -1206,6 +1206,11 @@
 - 范围收敛为 `signal=metrics`，`condition` 支持 `metric/operator/threshold/aggregation?/source?`；`operator` 为 `gt/gte/lt/lte/eq/ne`，`aggregation` 为 `avg/sum/min/max/count` 且默认 `avg`；窗口使用 `evaluation.window_seconds`，`evaluation.interval_seconds` 原样返回给后续调度使用。
 - 响应状态限定为 `firing/ok/no_data/disabled`，包含规则元数据、服务端 `checked_at`、窗口、规范化条件、观测聚合值和 message；禁用规则不查询指标样本，非 metrics 或非法条件语义返回 `422`。
 - 本小步不做后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
+- T-0084 登记提交 `88eb052` 已推送到 `dev`；GitHub Actions run `28250586744` 通过，Backend checks 与 Frontend checks 均为 success。
+- 后端 worktree `feature/backend-dev` 已同步最新 `origin/dev` 至 `442a91b` 并推送；后端开发 agent Newton（`019f04b9-4b0e-7761-acf8-e14d38647881`）已启动实现 T-0084。
+- T-0084 启动记录提交 `813e0f0` 已推送到 `dev`；GitHub Actions run `28250769544` 通过，Backend checks 与 Frontend checks 均为 success。
+- 后端同步提交 `442a91b` 的 GitHub Actions run `28250633562` 通过，Backend checks 与 Frontend checks 均为 success。
+- T-0084 启动 CI 结果补记提交 `20605b9` 已推送到 `dev`；GitHub Actions run `28250962881` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
@@ -1221,3 +1226,9 @@
 ### 验证
 
 - 本次为根文档和契约登记，提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md` 与 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`。
+- `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md` 通过。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 通过。
+- GitHub Actions run `28250586744` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28250769544` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28250633562` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28250962881` 成功，Backend checks 与 Frontend checks 均通过。
