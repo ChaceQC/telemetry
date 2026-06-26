@@ -18,6 +18,8 @@ from pydantic import (
 from app.schemas.json_validation import validate_json_payload
 
 DashboardJson = dict[str, Any] | list[Any]
+DASHBOARD_EXPORT_SCHEMA = "telemetry.dashboard"
+DASHBOARD_EXPORT_VERSION = 1
 MAX_DASHBOARD_JSON_BYTES = 64 * 1024
 MAX_DASHBOARD_JSON_DEPTH = 32
 MAX_DASHBOARD_JSON_NODES = 4096
@@ -32,6 +34,16 @@ PANEL_TYPES = frozenset({"metrics", "logs", "events", "traces", "topology"})
 DASHBOARD_TIME_RANGE_RELATIVES = frozenset({"15m", "1h", "6h", "24h", "7d"})
 DASHBOARD_VARIABLE_TYPES = frozenset({"text", "number", "select"})
 DASHBOARD_VARIABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+DASHBOARD_IMPORT_FORBIDDEN_FIELDS = frozenset(
+    {
+        "id",
+        "project_id",
+        "created_by_user_id",
+        "updated_by_user_id",
+        "created_at",
+        "updated_at",
+    }
+)
 
 
 def _default_json_object() -> dict[str, Any]:
@@ -452,6 +464,60 @@ class DashboardUpdate(DashboardSchema):
 class DashboardCreateFromTemplate(DashboardSchema):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+
+
+class DashboardExportDocument(DashboardSchema):
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        extra="forbid",
+    )
+
+    schema_: str = Field(alias="schema", min_length=1, max_length=64)
+    version: int = Field(strict=True, ge=1)
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(max_length=500)
+    layout: DashboardJson
+    config: DashboardJson
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_instance_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            forbidden_fields = sorted(set(data) & DASHBOARD_IMPORT_FORBIDDEN_FIELDS)
+            if forbidden_fields:
+                raise ValueError("导入文档不能包含实例字段: " + ", ".join(forbidden_fields))
+        return data
+
+    @field_validator("schema_")
+    @classmethod
+    def validate_schema_name(cls, value: str) -> str:
+        if value != DASHBOARD_EXPORT_SCHEMA:
+            raise ValueError(f"schema 必须是 {DASHBOARD_EXPORT_SCHEMA}")
+        return value
+
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, value: int) -> int:
+        if value != DASHBOARD_EXPORT_VERSION:
+            raise ValueError(f"version 必须是 {DASHBOARD_EXPORT_VERSION}")
+        return value
+
+    @field_validator("layout", "config")
+    @classmethod
+    def validate_json_container(
+        cls,
+        value: DashboardJson,
+        info: ValidationInfo,
+    ) -> DashboardJson:
+        return _validate_dashboard_json(value, field_name=info.field_name or "dashboard JSON")
+
+
+class DashboardImportRequest(DashboardSchema):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    document: DashboardExportDocument
     name: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=500)
 

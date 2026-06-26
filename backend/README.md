@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础、单个 dashboard JSON 导入导出基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -354,7 +354,7 @@ GET /health
 
 ## Dashboard API
 
-当前阶段提供项目范围 dashboard CRUD 后端基础、全局 `time_range` 最小保存校验、顶层 `variables` 最小保存校验、已保存 panel 的只读查询预览 API，以及内置 dashboard template 列表/读取/从模板创建普通 dashboard API；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局时间范围，并在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板。内置模板当前至少包含 `service-overview`（服务总览），使用既有 `panels`、`time_range`、`variables` schema，包含 metrics/logs/traces/topology 最小组合。不包含前端页面、真实图表渲染、保存请求时变量覆盖、自动刷新、ClickHouse 查询、模板市场、导入导出、分享/只读模式或告警规则。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的 dashboard；超级用户可访问全部已存在项目。
+当前阶段提供项目范围 dashboard CRUD 后端基础、全局 `time_range` 最小保存校验、顶层 `variables` 最小保存校验、已保存 panel 的只读查询预览 API、内置 dashboard template 列表/读取/从模板创建普通 dashboard API，以及单个 dashboard JSON 导出/导入 API；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局时间范围，并在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板。内置模板当前至少包含 `service-overview`（服务总览），使用既有 `panels`、`time_range`、`variables` schema，包含 metrics/logs/traces/topology 最小组合。不包含前端页面、真实图表渲染、保存请求时变量覆盖、自动刷新、ClickHouse 查询、模板市场、批量导入、分享/只读模式、文件上传存储、跨项目权限提升、覆盖已有 dashboard 或告警规则。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的 dashboard；超级用户可访问全部已存在项目。
 
 权限规则：
 
@@ -364,6 +364,7 @@ GET /health
 | 列表/读取 | `viewer` | 全局列表自动过滤为可访问项目；指定无成员关系的 `project_id` 返回 `404 项目不存在` |
 | 创建/更新/删除 | `editor` | `viewer` 返回 `403 无项目权限`；跨项目 dashboard ID 按 `404 仪表盘不存在` 处理 |
 | 从模板创建 | `editor` | 使用路径 `project_id` 作为归属；请求体不能覆盖项目或注入 config |
+| 导出 / 导入 | `viewer` / `editor` | 导出不包含实例字段；导入在路径项目下创建普通 dashboard |
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -372,7 +373,9 @@ GET /health
 | `GET` | `/api/v1/dashboards` | 列出 dashboard，可用 `project_id`、`limit`、`offset` 过滤/分页 |
 | `POST` | `/api/v1/dashboards` | 创建 dashboard |
 | `POST` | `/api/v1/projects/{project_id}/dashboard-templates/{template_id}/dashboards` | 从内置模板创建普通 dashboard |
+| `POST` | `/api/v1/projects/{project_id}/dashboards/import` | 导入 dashboard JSON 并创建普通 dashboard |
 | `GET` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}` | 读取单个 dashboard |
+| `GET` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/export` | 导出单个 dashboard 的可移植 JSON 文档 |
 | `PATCH` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}` | 部分更新 dashboard |
 | `DELETE` | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}` | 删除 dashboard，成功返回 `204` |
 
@@ -406,6 +409,8 @@ GET /health
 ```
 
 模板列表响应为 `{"items":[...]}`，每个模板包含 `id`、`name`、`description`、`layout`、`config`。读取未知模板返回 `404 仪表盘模板不存在`。从模板创建使用 `POST /api/v1/projects/{project_id}/dashboard-templates/{template_id}/dashboards`，请求体仅允许可选 `name` 和 `description` 覆盖；未传时使用模板默认值。模板创建会先按目标项目执行现有 dashboard 创建权限语义，普通用户无项目成员关系或项目不存在返回 `404 项目不存在`，`viewer` 返回 `403 无项目权限`；未知模板在目标项目权限通过后返回 `404 仪表盘模板不存在`。创建出的记录持久化为普通 dashboard，后续完全复用现有读取、更新、删除、preview、RBAC 和 `layout/config` 校验；请求体中的 `project_id`、`layout`、`config` 等未声明字段返回 `422`，不能覆盖路径项目或注入模板外 config。服务端读取模板时会深拷贝并通过 `DashboardCreate` 校验内置 `layout/config`，避免共享可变 config 引用。
+
+Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/export`，权限与读取 dashboard 一致，目标项目至少 `viewer`。响应是可移植文档，只包含 `schema`、`version`、`name`、`description`、`layout`、`config`；当前 `schema` 固定为 `telemetry.dashboard`，`version` 固定为严格整数 `1`，不会包含数据库 `id`、`project_id`、创建/更新用户或创建/更新时间。导入使用 `POST /api/v1/projects/{project_id}/dashboards/import`，请求体为 `{"document": <导出文档>, "name": "可选覆盖", "description": "可选覆盖或 null"}`；未提供覆盖时使用导出文档内的 `name/description`。导入会在目标项目下创建普通 dashboard，权限与创建 dashboard 一致，目标项目至少 `editor`；普通用户无项目成员关系或项目不存在返回 `404 项目不存在`，`viewer` 返回 `403 无项目权限`。导入文档必须包含公开字段 `schema/version/name/description/layout/config`，且不得包含 `id/project_id/created_by_user_id/updated_by_user_id/created_at/updated_at` 等实例字段；非法 schema/version、缺必填字段、未声明字段、非法 `layout/config`、超大/过深/过复杂 JSON、非有限数、非法 panel/time_range/variables 均返回 `422`。导入不支持文件上传存储、批量导入、覆盖已有 dashboard、模板市场、分享/只读或跨项目权限提升。
 
 列表响应为对象 envelope：`{"items": [...], "limit": 50, "offset": 0, "total": 1}`。字段规则：`name` 为 1 到 100 字符，`description` 最多 500 字符；`layout` 和 `config` 必须是 JSON 对象或数组，创建时默认 `{}`，单字段序列化后不超过 64 KiB，嵌套深度不超过 32，复杂度不超过 4096 个节点，且不能包含 `NaN`、`Infinity` 或 `-Infinity`。当 `config` 是对象且包含 `time_range` 时，`time_range` 必须是对象；相对范围保存为 `{"mode":"relative","relative":"15m|1h|6h|24h|7d"}`，`mode/relative` 会裁剪首尾空白并按裁剪后值保存；绝对范围保存为 `{"mode":"absolute","from":"ISO 8601","to":"ISO 8601"}`，`mode/from/to` 会裁剪首尾空白并保留裁剪后的原始字符串，`from/to` 必须可解析并可比较为 ISO 8601 时间且 `from < to`。当 `config` 是对象且包含 `panels` 时，`panels` 必须是数组；每个 panel 必须是对象，包含 `id`（1 到 64 字符）、`title`（1 到 120 字符）、`type`（`metrics`、`logs`、`events`、`traces`、`topology` 之一）和对象类型的 `query`；`id/title/type` 会先裁剪首尾空白再校验和保存，同一 `panels` 内重复 `id` 也按裁剪后值判断；可选 `layout` 必须是对象，包含非负 `x/y` 和正数 `w/h`。当 `config` 是对象且包含 `variables` 时，`variables` 必须是数组；每个变量必须是对象，包含 `name`（1 到 64 字符，仅字母、数字、下划线，且不能以数字开头）和 `type`（`text`、`number`、`select` 之一），可选 `label` 最多 120 字符；`name/label/type/default/options` 字符串值会裁剪首尾空白后保存，同一 `variables` 内重复 `name` 也按裁剪后值判断。`text` 变量可选字符串 `default`，`number` 变量可选有限数字 `default`，二者不接受 `options`；`select` 变量必须提供非空字符串数组 `options`，选项裁剪后不能为空且不能重复，可选 `default` 必须匹配某个 option。旧版 `{"refresh_seconds": 30}`、空 `{}`、没有 `time_range`、没有顶层 `panels` 或没有顶层 `variables` 的 JSON 结构仍保持兼容。更新至少提供一个字段；未传 `layout/config` 时保持原值，传入空对象/空数组有效，`description=null` 表示清空描述，`name/layout/config=null` 返回 `422`。错误边界：缺少或无效 token 返回 `401`；项目不存在、无项目成员关系或 dashboard 不在指定项目下返回 `404`；角色不足返回 `403`；数据库完整性冲突返回 `409`；字段、路径参数、分页参数、非法 `config.time_range`、非法 panel config 或非法 `config.variables` 返回 `422`。
 

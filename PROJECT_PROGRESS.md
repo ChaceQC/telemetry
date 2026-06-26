@@ -1022,8 +1022,12 @@
 
 ### 下一步
 
-- 登记并启动 `T-0078` Dashboard JSON 导入导出后端基础：在已保存 dashboard CRUD/RBAC/JSON 保护之上提供最小导出与导入后端能力。导出返回单个 dashboard 的可移植 JSON 文档，包含名称、描述、layout、config 和 schema/version 元数据但不包含数据库 id、项目 id、创建者或时间戳；导入在目标项目下创建普通 dashboard，复用既有 `DashboardCreate`、权限、JSON 大小/深度/finite/panel/time_range/variables 校验和隐藏无权限项目语义，支持可选名称/描述覆盖。
-- T-0078 不改前端 UI，不做批量导入、模板市场、分享/只读、跨项目权限提升、文件上传存储、ClickHouse 数据导出或告警。
+- T-0078 Dashboard JSON 导入导出后端基础已完成：导出返回单个 dashboard 的可移植 JSON 文档，包含公开字段 `schema`、`version`、`name`、`description`、`layout`、`config`，其中 `schema=telemetry.dashboard`、`version=1`，并不会包含数据库 id、项目 id、创建者或时间戳；导入在目标项目下创建普通 dashboard，复用既有 `DashboardCreate`、权限、JSON 大小/深度/finite/panel/time_range/variables 校验和隐藏无权限项目语义，支持可选名称/描述覆盖。
+- T-0078 仍不做前端 UI、批量导入、模板市场、分享/只读、跨项目权限提升、文件上传存储、ClickHouse 数据导出或告警。
+- 2026-06-26 已补推后端 feature `0728fc1` 与 `dev` 文档同步提交 `5f2c8d0`；GitHub Actions run `28228008679` 通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。
+- 2026-06-26 收口记录提交 `2fd3790` 已推送到 `dev`；GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success。
+- 已登记 `T-0079` Dashboard JSON 导入导出前端基础：下一步由前端开发 agent 在 `feature/frontend-dev` worktree 接入 T-0078 后端 API，在 `/dashboards` 提供单个 dashboard JSON 导出入口和目标项目下 JSON 文档导入创建普通 dashboard 的最小表单；本小步不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警。
+- T-0079 登记提交 `f34fa21` 已推送到 `dev`；GitHub Actions run `28230192395` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 验证
 
@@ -1031,3 +1035,6 @@
 - T-0077 API 断言：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732/api-summary.json` 记录 `passed=true`、`failures=[]`。
 - T-0077 Edge 浏览器断言：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732/browser-summary.json` 记录 `passed=true`、`failures=[]`，Microsoft Edge `149.0.4022.80`。
 - 视觉证据：`desktop-dashboard-template.png` 与 `mobile-dashboard-template.png` 已保留在最终证据目录。
+- GitHub Actions run `28228008679` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28229682668` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28230192395` 成功，Backend checks 与 Frontend checks 均通过。
