@@ -656,6 +656,9 @@ closed      已关闭
 | 2026-06-27 | T-0084 | 总 agent | 启动后端开发 agent Newton | 已将 `feature/backend-dev` 同步最新 `origin/dev` 并推送同步提交 `442a91b`；已以 `xhigh` 思考强度启动后端开发 agent Newton（`019f04b9-4b0e-7761-acf8-e14d38647881`）在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 实现 T-0084。Newton 需更新后端代码、测试、`backend/README.md`、`backend/PROJECT_PROGRESS.md` 和 `agents/runtime/api-contracts/backend.md`，提交并推送到 `feature/backend-dev`；完成后请求总 agent 审计 | doing |
 | 2026-06-27 | CI | 总 agent | T-0084 启动记录与后端同步 Actions 通过 | `docs: 记录T-0084登记CI` 提交 `813e0f0` 已推送到 `dev`，GitHub Actions run `28250769544` 通过；`feature/backend-dev` 同步提交 `442a91b` 的 run `28250633562` 通过。两次运行 Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 | done |
 | 2026-06-27 | CI | 总 agent | T-0084 启动 CI 结果补记 Actions 通过 | `docs: 记录T-0084启动CI` 提交 `20605b9` 已推送到 `dev`，GitHub Actions run `28250962881` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 | done |
+| 2026-06-27 | T-0084 | 后端开发 agent / 总 agent | 指标阈值告警评估后端实现完成 | Newton 已完成并推送 `27b832d` 到 `feature/backend-dev`：新增手动评估 API、响应 schema、评估 service、单窗口指标聚合辅助、依赖注入、测试、后端 README/进度和 API-0026 契约更新；后端全量 pytest 354 passed/2 skipped，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。Newton 已关闭；实现提交 feature CI run `28252777813` 通过，随后后端分支同步最新 `dev` 至 `c20d63d`，同步 CI run `28252900674` 通过 | audit |
+| 2026-06-27 | T-0084 | 代码审计 agent / 总 agent | 指标阈值告警评估审计未通过 | Socrates 只读审计发现 1 个 P2：`condition.threshold` 为约 309 位超大 JSON integer 时可通过规则保存层，但评估时 `float(threshold_raw)` 抛 `OverflowError`，未映射为 `422` 而会成为 `500`。当前阻断合入 `dev`；已启动后端修复 agent Archimedes 小范围修复 `backend/app/services/alerts.py` 与回归测试。Socrates 已关闭 | blocked |
+| 2026-06-27 | T-0084-fix | 后端开发 agent / 总 agent | 指标阈值告警评估 P2 修复通过 | Archimedes 已修复并推送 `db32e27` 到 `feature/backend-dev`：`_normalize_metric_condition()` 捕获超大 JSON integer 的 `float()` 溢出并统一返回 `AlertRuleEvaluationError("condition.threshold 必须是有限 JSON number")`，补 `threshold=int("9"*309)` 评估返回 `422` 回归测试，并更新后端进度。Archimedes 已关闭；feature CI run `28253872254` 通过。本地复审 `uv run pytest tests/test_alert_rules_api.py -q` 为 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 均通过 | done |
 
 ## 6. 测试记录
 
@@ -849,6 +852,8 @@ closed      已关闭
 | 2026-06-27 | T-0084-start | T-0084 登记提交 CI | GitHub Actions run `28250586744` | 通过 | `88eb052` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test |
 | 2026-06-27 | T-0084-start-sync | 启动记录与后端同步 CI | GitHub Actions runs `28250769544`、`28250633562` | 通过 | `813e0f0` 在 `dev` 与 `442a91b` 在 `feature/backend-dev` 均通过 CI，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 |
 | 2026-06-27 | T-0084-start-doc | 启动 CI 结果补记 | GitHub Actions run `28250962881` | 通过 | `20605b9` 在 `dev` 通过 CI，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 |
+| 2026-06-27 | T-0084 | 指标阈值告警评估 feature 门禁 | `feature/backend-dev` runs `28252777813`、`28252900674`；Newton 后端门禁 | 通过 | 实现提交 `27b832d` 和审计前同步提交 `c20d63d` 均通过 feature CI，Backend checks 与 Frontend checks 均为 success；Newton 本地后端全量 pytest 354 passed/2 skipped、ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。后续审计发现 P2，当前需修复后复审 |
+| 2026-06-27 | T-0084-fix | 指标阈值告警评估 P2 修复门禁 | `feature/backend-dev` run `28253872254`；本地 alerts 专项与静态门禁 | 通过 | `db32e27` 上 feature CI 通过，Backend checks 与 Frontend checks 均为 success；总 agent 本地复审 `uv run pytest tests/test_alert_rules_api.py -q` 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过 |
 
 ## 7. 审计记录
 
@@ -873,6 +878,8 @@ closed      已关闭
 | 2026-06-26 | T-0081 | 告警规则 CRUD 后端基础（`3298206`） | 通过 | Laplace 只读审计发现 1 个 P2：初始 `dev` API-0025 草案与实现契约冲突，merge 时需明确最终契约；总 agent 已在真实 merge 中按后端实现/测试结果解决为 `signal=metrics/logs/traces/events`、`evaluation.window_seconds/interval_seconds` 整数窗口契约。未发现实现本身 P0/P1 阻断；残余风险为真实 MySQL `alert_rules` JSON 列读写和唯一约束大小写行为未专项执行，`updated_at` 推进仅靠 ORM `onupdate` | done |
 | 2026-06-26 | T-0082 | 告警规则 CRUD 前端基础（`2d572a8`） | 通过 | Zeno 只读审计未发现 P0/P1/P2 阻断；P3：项目列表查询失败时主要通过 header “部分异常”暴露，缺少项目选择区更明确的内联错误，不阻塞当前 CRUD、列表错误和表单错误展示。残余风险为未做真实后端/MySQL/RBAC 联调，已登记 T-0083 覆盖 | done |
 | 2026-06-26 | T-0083 | 告警规则 CRUD 真实前后端联测（`6ab009a`） | 通过 | Euclid 真实联测未发现 P0/P1/P2/P3 业务缺陷；API 14/14 与 Edge UI 12/12 均通过。残余风险为规则评估调度、通知、历史、静默、Webhook 和 ClickHouse/MongoDB/Redis 后台链路仍在后续告警小步范围；另有 8 个本次 Playwright Edge 临时 profile 进程因 Windows Access denied 未能停止 | done |
+| 2026-06-27 | T-0084 | 指标阈值告警评估后端基础（`c20d63d`） | 未通过 | Socrates 发现 P2：超大 JSON integer threshold 评估时 `float()` 溢出导致 500，而契约要求非法 condition 返回 422。阻断合入 `dev`，已派 Archimedes 修复 | blocked |
+| 2026-06-27 | T-0084-fix | 指标阈值告警评估 P2 修复（`db32e27`） | 通过 | Archimedes 修复后，超大 JSON integer threshold 已统一返回 `422 condition.threshold 必须是有限 JSON number`，并补回归测试；总 agent 本地复审未发现新增 P0/P1/P2/P3 阻断，可合入 `dev` | done |
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端基础（`34f2b39`） | 未通过 | Beauvoir 审计发现 1 个 P3：编辑合法 text 变量且显式 `default: ""` 时，前端 draft 会把空字符串 default 与缺省 default 混同，保存后丢失 `default` key。未发现 P0/P1/P2 | blocked |
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
@@ -1009,6 +1016,8 @@ closed      已关闭
 | 2026-06-26 | T-0082 | feature/frontend-dev | dev | 总 agent | 告警规则 CRUD 前端基础 `2d572a8` 已通过 Carver 验证、Zeno 审计、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`，并同步 `feature/frontend-dev` 至 `2e23e33` | done |
 | 2026-06-26 | T-0083 | dev | dev | 总 agent | 告警规则 CRUD 真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Euclid 使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖告警规则 CRUD、权限/错误边界、移动端布局；证据目录 `agents/runtime/e2e-T-0083-20260626-225623`，后端/前端/MySQL 已清理 | done |
 | 2026-06-27 | T-0084-start | dev | feature/backend-dev | 总 agent | 已登记指标阈值告警手动评估后端基础并推送 `88eb052` 到 `dev`；`feature/backend-dev` 已同步最新 `origin/dev` 至 `442a91b`，后端开发 agent Newton 已启动实现 T-0084；dev 启动记录 CI 和 backend 同步 CI 均通过，等待实现提交 | doing |
+| 2026-06-27 | T-0084 | feature/backend-dev | dev | 总 agent | 后端实现 `27b832d` 与审计前同步 `c20d63d` 均通过 CI，但 Socrates 审计发现 P2，当前不得合入 `dev`；已派 Archimedes 在 `feature/backend-dev` 修复 threshold 超大整数溢出 422 语义 | blocked |
+| 2026-06-27 | T-0084-fix | feature/backend-dev | dev | 总 agent | P2 修复 `db32e27` 已通过 feature CI 和本地复审，准备真实 merge 到 `dev`，随后运行后端本地门禁、推送并读取 Actions | doing |
 
 ## 10. 决策记录
 
