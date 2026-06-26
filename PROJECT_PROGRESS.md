@@ -1060,7 +1060,7 @@
 
 ### 下一步
 
-- T-0079 已完成。下一轮可继续阶段 5 后续 dashboard 体验小步，或启动 Dashboard JSON 导入导出真实前后端联测，使用真实 MySQL、真实后端、真实前端与 Playwright + Microsoft Edge 覆盖导出、导入、权限/错误边界和移动端布局。
+- 已登记 T-0080 Dashboard JSON 导入导出真实前后端联测：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实后端、真实前端与 Playwright + Microsoft Edge，覆盖导出、导入、名称/描述覆盖、空格分隔 absolute time_range、权限/错误边界、移动端布局和 dashboard CRUD/panel preview 快速回归。
 
 ### 验证
 
@@ -1068,3 +1068,22 @@
 - 审计修复后通过：`npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot`，5 files/88 tests passed；`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
 - merge 后根工作区通过：前端专项 5 files/88 tests passed，`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
 - GitHub Actions：`feature/frontend-dev` runs `28232612067`、`28233976367` 通过；`dev` run `28234093644` 通过。
+
+## 2026-06-26 T-0080 Dashboard JSON 导入导出真实前后端联测
+
+### 已完成
+
+- 已登记 T-0080 为阶段 5 JSON 导入导出测试收口小步，不产生 feature merge，不改业务代码。
+- 测试边界：使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge；不得启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
+
+### 阻塞与风险
+
+- 联测尚未执行；需验证真实 API、浏览器 UI、权限/错误边界和移动端布局。
+
+### 下一步
+
+- 启动测试 agent 执行 T-0080：覆盖 dashboard JSON 导出、portable JSON 内容不含实例字段、导入创建普通 dashboard、导入后进入编辑/预览流程、名称/描述覆盖、空格分隔 absolute time_range、401/403/404/422 边界、390px 移动端布局和 dashboard CRUD/panel preview 快速回归。
+
+### 验证
+
+- 待执行。

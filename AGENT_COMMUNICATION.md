@@ -107,6 +107,7 @@ closed      已关闭
 | T-0077 | Dashboard 内置模板真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0078 | Dashboard JSON 导入导出后端基础 | 总 agent | done | done | done | done | done |
 | T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | done | todo | done | done | done |
+| T-0080 | Dashboard JSON 导入导出真实前后端联测 | 总 agent | done | done | testing | todo | testing |
 
 ## 4. API 契约登记
 
@@ -624,6 +625,7 @@ closed      已关闭
 | 2026-06-26 | CI | 总 agent | T-0079 登记 CI 收口记录 Actions 通过 | `docs: 记录T-0079登记CI结果` 提交 `33e3f7a` 已推送到 `dev`，GitHub Actions run `28230309166` 通过，Backend checks 与 Frontend checks 均为 success | done |
 | 2026-06-26 | T-0079 | 前端开发 agent / 总 agent | Dashboard JSON 导入导出前端完成 | `feature/frontend-dev` 提交 `b62a00a` 完成 API client、portable JSON parser/payload helper、`/dashboards` 导入导出面板、缓存 upsert 和测试；Kuhn 审计发现 absolute 空格分隔 ISO 时间被前端误拒的 P2，总 agent 提交 `cdccdf2` 修复并补回归；feature CI runs `28232612067`、`28233976367` 均通过。Kuhn 已关闭 | done |
 | 2026-06-26 | T-0079 | 总 agent | T-0079 真实 merge 与 CI 通过 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee`；GitHub Actions run `28234093644` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
+| 2026-06-26 | T-0080 | 总 agent | 登记 Dashboard JSON 导入导出真实前后端联测 | 阶段 5 JSON 导入导出测试收口：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge，覆盖 dashboard JSON 导出、portable JSON 内容不含实例字段、导入创建普通 dashboard、导入后进入编辑/预览流程、名称/描述覆盖、空格分隔 absolute time_range、401/403/404/422 权限与错误边界、390px 移动端布局和 dashboard CRUD/panel preview 快速回归。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
 
 ## 6. 测试记录
 
@@ -954,6 +956,7 @@ closed      已关闭
 | 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hypatia/Euler 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖模板链路、权限/错误边界、创建后普通 dashboard 编辑/预览、模板不被回写、移动端布局和 CRUD 快速回归；资源已清理 | done |
 | 2026-06-25 | T-0078 | feature/backend-dev | dev | 总 agent | Dashboard JSON 导入导出后端基础已完成；后端实现、测试、文档同步与收口已结束，等待真实 merge 到 `dev` 并同步分支 | done |
 | 2026-06-26 | T-0079 | feature/frontend-dev | dev | 总 agent | Dashboard JSON 导入导出前端基础 `b62a00a` 与审计修复 `cdccdf2` 已通过 feature CI、Kuhn 审计修复、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` | done |
+| 2026-06-26 | T-0080 | dev | dev | 总 agent | Dashboard JSON 导入导出真实前后端联测已登记；本任务为测试收口，不产生 feature merge。下一步启动测试 agent 在最新 `dev/origin/dev` 上用真实 MySQL/后端/前端/Edge 验证导出导入链路 | testing |
 
 ## 10. 决策记录
 
