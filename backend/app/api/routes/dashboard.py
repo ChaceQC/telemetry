@@ -11,6 +11,8 @@ from app.repositories.auth import UserRecord
 from app.schemas.dashboard import (
     DashboardCreate,
     DashboardCreateFromTemplate,
+    DashboardExportDocument,
+    DashboardImportRequest,
     DashboardListResponse,
     DashboardPanelPreviewResponse,
     DashboardResponse,
@@ -583,6 +585,29 @@ def create_dashboard(
     return DashboardResponse.model_validate(dashboard)
 
 
+@router.post(
+    "/projects/{project_id}/dashboards/import",
+    response_model=DashboardResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="导入仪表盘 JSON",
+)
+def import_project_dashboard(
+    payload: DashboardImportRequest,
+    dashboard_service: Annotated[DashboardService, Depends(get_dashboard_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int, Path(gt=0)],
+) -> DashboardResponse:
+    try:
+        dashboard = dashboard_service.import_dashboard(
+            user=current_user,
+            project_id=project_id,
+            payload=payload,
+        )
+    except (ResourceForbiddenError, ResourceIntegrityError, ResourceNotFoundError) as error:
+        raise _map_dashboard_error(error) from error
+    return DashboardResponse.model_validate(dashboard)
+
+
 @router.get(
     "/projects/{project_id}/dashboards/{dashboard_id}",
     response_model=DashboardResponse,
@@ -603,6 +628,28 @@ def get_project_dashboard(
     except (ResourceForbiddenError, ResourceNotFoundError) as error:
         raise _map_dashboard_error(error) from error
     return DashboardResponse.model_validate(dashboard)
+
+
+@router.get(
+    "/projects/{project_id}/dashboards/{dashboard_id}/export",
+    response_model=DashboardExportDocument,
+    summary="导出仪表盘 JSON",
+)
+def export_project_dashboard(
+    dashboard_service: Annotated[DashboardService, Depends(get_dashboard_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+    project_id: Annotated[int, Path(gt=0)],
+    dashboard_id: Annotated[int, Path(gt=0)],
+) -> DashboardExportDocument:
+    try:
+        document = dashboard_service.export_dashboard(
+            user=current_user,
+            project_id=project_id,
+            dashboard_id=dashboard_id,
+        )
+    except (ResourceForbiddenError, ResourceNotFoundError) as error:
+        raise _map_dashboard_error(error) from error
+    return document
 
 
 @router.get(
