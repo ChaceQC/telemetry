@@ -107,7 +107,7 @@ closed      已关闭
 | T-0077 | Dashboard 内置模板真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0078 | Dashboard JSON 导入导出后端基础 | 总 agent | done | done | done | done | done |
 | T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | done | todo | done | done | done |
-| T-0080 | Dashboard JSON 导入导出真实前后端联测 | 总 agent | done | done | testing | todo | testing |
+| T-0080 | Dashboard JSON 导入导出真实前后端联测 | 总 agent | done | done | done | done | done |
 
 ## 4. API 契约登记
 
@@ -628,6 +628,8 @@ closed      已关闭
 | 2026-06-26 | T-0080 | 总 agent | 登记 Dashboard JSON 导入导出真实前后端联测 | 阶段 5 JSON 导入导出测试收口：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge，覆盖 dashboard JSON 导出、portable JSON 内容不含实例字段、导入创建普通 dashboard、导入后进入编辑/预览流程、名称/描述覆盖、空格分隔 absolute time_range、401/403/404/422 权限与错误边界、390px 移动端布局和 dashboard CRUD/panel preview 快速回归。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
 | 2026-06-26 | CI | 总 agent | T-0080 登记提交 Actions 通过 | `docs: 登记T-0080真实联测` 提交 `cefb3f5` 已推送到 `dev`，GitHub Actions run `28234685084` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
 | 2026-06-26 | T-0080 | 总 agent | 启动测试 agent Boyle | 已启动测试 agent Boyle（`019f03a8-b1be-7702-9131-0bf56001d4ea`）执行 T-0080，要求使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 JSON 导出导入真实链路；不改业务代码、不提交/不 push、不修改根正式文档、不读 `auth.txt`、不启动 Docker，只在 ignored 的 `agents/runtime/` 下写测试日志和证据并清理自有资源 | testing |
+| 2026-06-26 | T-0080 | 总 agent | Boyle 关闭与总 agent 接手联测 | Boyle 仅留下空证据目录，未返回可用结论；按用户要求已关闭。总 agent 在根 `dev` 直接补跑 T-0080 真实联测，未改业务代码、不启动 Docker、不读 `auth.txt`，证据写入 ignored 目录 `agents/runtime/e2e-T-0080-20260626-194034` | testing |
+| 2026-06-26 | T-0080 | 总 agent | Dashboard JSON 导入导出真实联测通过 | `agents/runtime/e2e-T-0080-20260626-194034/summary.json` 记录 `passed=true`、`failures=[]`。API 断言覆盖导出 portable 字段、禁止实例字段、导入覆盖/保留语义、space-separated absolute `time_range`、401/403/404/422 边界和导入后 panel preview `200`；Edge `149.0.4022.80` 覆盖 `/dashboards` UI 导出、导入、前端本地非法 JSON/实例字段错误展示、导入后普通 dashboard 预览、390px 移动端无横向溢出。cleanup 确认临时 MySQL 库/实例/datadir、FastAPI 后端和 Vite 前端均已清理，系统 `3306` 未触碰 | done |
 
 ## 6. 测试记录
 
@@ -806,6 +808,7 @@ closed      已关闭
 | 2026-06-26 | T-0079 | Dashboard JSON 导入导出前端门禁 | `feature/frontend-dev` runs `28232612067`、`28233976367`；前端 dashboard JSON/time range/API/page 专项、typecheck、lint、build、`git diff --check` | 通过 | 实现提交 `b62a00a` 与审计修复提交 `cdccdf2` 均通过 feature CI，Backend checks 与 Frontend checks 均为 success；本地最终专项 `npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 5 files/88 tests passed，typecheck、lint、build、diff check 均通过 |
 | 2026-06-26 | T-0079 | dev merge 后本地验证 | 前端 dashboard JSON/time range/API/page 专项、typecheck、lint、build；`git diff --check` | 通过 | merge 提交 `f5cfeee` 后，前端专项 5 files/88 tests passed，`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run build`、`git diff --check` 均通过；未启动真实服务、数据库、Docker 或浏览器 |
 | 2026-06-26 | T-0079 | dev CI | GitHub Actions run `28234093644` | 通过 | `f5cfeee` 上 Backend checks 与 Frontend checks 均为 success；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test；仅有既有官方 action Node.js runtime 弃用注解 |
+| 2026-06-26 | T-0080 | Dashboard JSON 导入导出真实前后端联测 | `powershell -NoProfile -ExecutionPolicy Bypass -File agents/runtime/e2e-T-0080-20260626-194034/run_t0080.ps1`；临时 MySQL `33380`、真实 FastAPI `28117`、真实 Vite `25173`、Playwright + Microsoft Edge `149.0.4022.80`；API 与浏览器断言 | 通过 | 证据目录 `agents/runtime/e2e-T-0080-20260626-194034`。`api-summary.json` 与 `browser-summary.json` 均为 `passed=true`、`failures=[]`；覆盖 portable JSON 公开字段 `schema/version/name/description/layout/config`、无实例字段泄露、导入覆盖/保留语义、空格分隔 absolute `config.time_range`、401/403/404/422 边界、导入后保存/preview 快速回归、桌面与 390px 移动端截图和无横向溢出。临时 MySQL 库/实例/datadir、后端、前端均已清理，系统 `3306` 未触碰 |
 
 ## 7. 审计记录
 
@@ -958,7 +961,7 @@ closed      已关闭
 | 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hypatia/Euler 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖模板链路、权限/错误边界、创建后普通 dashboard 编辑/预览、模板不被回写、移动端布局和 CRUD 快速回归；资源已清理 | done |
 | 2026-06-25 | T-0078 | feature/backend-dev | dev | 总 agent | Dashboard JSON 导入导出后端基础已完成；后端实现、测试、文档同步与收口已结束，等待真实 merge 到 `dev` 并同步分支 | done |
 | 2026-06-26 | T-0079 | feature/frontend-dev | dev | 总 agent | Dashboard JSON 导入导出前端基础 `b62a00a` 与审计修复 `cdccdf2` 已通过 feature CI、Kuhn 审计修复、真实 merge、merge 后本地门禁和 `dev` CI；已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` | done |
-| 2026-06-26 | T-0080 | dev | dev | 总 agent | Dashboard JSON 导入导出真实前后端联测已登记；本任务为测试收口，不产生 feature merge。下一步启动测试 agent 在最新 `dev/origin/dev` 上用真实 MySQL/后端/前端/Edge 验证导出导入链路 | testing |
+| 2026-06-26 | T-0080 | dev | dev | 总 agent | Dashboard JSON 导入导出真实前后端联测已通过；本任务为测试收口，不产生 feature merge。总 agent 在最新 `dev/origin/dev` 上使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖导出导入链路、权限/错误边界、移动端布局和 panel preview 快速回归；证据目录 `agents/runtime/e2e-T-0080-20260626-194034`，资源已清理 | done |
 
 ## 10. 决策记录
 

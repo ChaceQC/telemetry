@@ -1077,15 +1077,24 @@
 - 测试边界：使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge；不得启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
 - T-0080 登记提交 `cefb3f5` 已推送到 `dev`；GitHub Actions run `28234685084` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js runtime 弃用注解。
 - 已启动测试 agent Boyle（`019f03a8-b1be-7702-9131-0bf56001d4ea`）执行 T-0080 真实前后端联测。
+- Boyle 仅留下空证据目录且未返回可用结论，已按用户要求关闭；总 agent 接手直接补跑 T-0080 联测。
+- 已在 ignored 证据目录 `agents/runtime/e2e-T-0080-20260626-194034` 完成可重复真实联测脚本与证据收集；最终 `summary.json` 记录 `passed=true`、`failures=[]`。
+- API 断言覆盖：导出 portable JSON 仅含 `schema/version/name/description/layout/config`，不含 `id/project_id/created_by_user_id/updated_by_user_id/created_at/updated_at`；导入支持名称/描述覆盖与保留文档字段；空格分隔 absolute `config.time_range` 被接受并保留；401 未认证、403 viewer 导入、404 隐藏/缺失项目、422 非法 JSON/schema/version/实例字段均符合契约；导入后的普通 dashboard 可 patch 并触发 panel preview `200`。
+- Edge 浏览器断言覆盖：真实登录 `/dashboards`，通过 UI 创建导出源 dashboard、导出 JSON、导入目标项目、前端本地非法 JSON 和实例字段错误展示、导入后进入普通 dashboard 编辑/预览流程、panel preview 请求 `200`，并在 390px 移动端验证 JSON 导入导出控件可达且无横向溢出。
+- 清理结果：临时 MySQL `33380` 库/实例/datadir、真实 FastAPI `28117`、真实 Vite `25173` 均由脚本清理；系统 MySQL `3306` 按规则未触碰。未修改业务代码，未启动 Docker，未读取 `auth.txt`。
 
 ### 阻塞与风险
 
-- Boyle 正在执行联测；需等待真实 API、浏览器 UI、权限/错误边界和移动端布局结论。
+- T-0080 未发现阻塞或业务缺陷。
+- 浏览器日志中存在一次页面 favicon/统计请求的非阻断 404/abort 记录；断言关注的 JSON 导入导出、panel preview 和布局链路均通过。
 
 ### 下一步
 
-- 等待 Boyle 返回 T-0080 联测结论；通过则记录证据目录、覆盖项和 cleanup 结果，未通过则登记失败项并分派修复。
+- T-0080 收口提交推送后读取 GitHub Actions 结果并同步记录。
+- 阶段 5 仪表盘 JSON 导入导出已收口，下一小步进入阶段 6：登记 T-0081 告警规则 CRUD 后端基础。
 
 ### 验证
 
 - GitHub Actions run `28234685084` 成功，Backend checks 与 Frontend checks 均通过。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File agents/runtime/e2e-T-0080-20260626-194034/run_t0080.ps1`：通过。真实临时 MySQL、真实 FastAPI、真实 Vite、Playwright + Microsoft Edge `149.0.4022.80`；`api-summary.json` 与 `browser-summary.json` 均 `passed=true`。
+- 证据截图：`desktop-export-json.png`、`desktop-imported-dashboard.png`、`desktop-panel-preview.png`、`mobile-390-json-transfer.png`。
