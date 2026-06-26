@@ -288,6 +288,27 @@ describe('dashboard time range config helpers', () => {
     });
   });
 
+  it('接受后端兼容的空格分隔 absolute ISO 时间', () => {
+    expect(
+      normalizeDashboardConfigTimeRange({
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24 00:00:00+00:00',
+          to: '2026-06-24 01:00:00+00:00'
+        }
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        time_range: {
+          mode: 'absolute',
+          from: '2026-06-24 00:00:00+00:00',
+          to: '2026-06-24 01:00:00+00:00'
+        }
+      }
+    });
+  });
+
   it('拒绝 absolute 时间字段和 timezone offset 越界', () => {
     expect(
       normalizeDashboardConfigTimeRange({
