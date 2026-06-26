@@ -616,6 +616,7 @@ closed      已关闭
 | 2026-06-25 | T-0077-sync | 总 agent | CI 与 worktree 同步完成 | T-0077 启动记录 `3556223` 已推送到 `dev`，并同步到 `feature/frontend-dev` 提交 `7be301a`、`feature/backend-dev` 提交 `e0973e3`；GitHub Actions runs `28178199863`、`28178430142`、`28178460331` 均通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。T-0077 关闭 | done |
 | 2026-06-25 | T-0078 | 总 agent | Dashboard JSON 导入导出后端基础完成 | 已在 `feature/backend-dev` 完成最小后端 JSON 导入导出能力并通过验证。导出返回单个 dashboard 的可移植 JSON 文档，公开字段为 `schema/version/name/description/layout/config`，其中 `schema=telemetry.dashboard`、`version=1`，且 `version` 是严格整数；导入在目标项目下创建普通 dashboard，复用 `DashboardCreate`、权限、JSON 大小/深度/finite/panel/time_range/variables 校验和隐藏无权限项目语义，支持可选名称/描述覆盖。已完成测试与文档同步，仍不做前端 UI、批量导入、模板市场、分享/只读、跨项目权限提升、文件上传存储、ClickHouse 数据导出或告警 | done |
 | 2026-06-25 | T-0078-sync | 总 agent | CI 与 worktree 同步完成 | T-0078 完成记录 `0728fc1` 已推送到 `dev`，并同步到 `feature/backend-dev` 提交 `0728fc1`；GitHub Actions run `28227406135` 通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致 | done |
+| 2026-06-26 | CI | 总 agent | T-0078 文档同步与后端 feature 补推 | `docs: sync T-0078 completion` 提交 `5f2c8d0` 已推送到 `dev`，GitHub Actions run `28228008679` 通过，Backend checks 与 Frontend checks 均为 success；后端 feature 分支已补推 `0728fc1` 并与 `origin/feature/backend-dev` 一致；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致 | done |
 
 ## 6. 测试记录
 

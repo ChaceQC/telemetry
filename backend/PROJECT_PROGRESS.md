@@ -29,6 +29,7 @@
 - 已运行 `uv run mypy .`，结果：88 个源文件无类型错误。
 - 已运行 `uv lock --check`，结果：通过。
 - 已运行 `git diff --check`，结果：通过。
+- 2026-06-26 已补推 `feature/backend-dev` 到 `0728fc1` 并与 `origin/feature/backend-dev` 一致；随后 `dev` 文档同步提交 `5f2c8d0` 触发 GitHub Actions run `28228008679`，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。
 
 ### 测试 agent 独立复验
 
