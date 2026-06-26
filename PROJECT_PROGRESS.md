@@ -1215,18 +1215,19 @@
 - `feature/backend-dev` 实现提交 `27b832d` 的 GitHub Actions run `28252777813` 通过；后端同步最新 `dev` 至 `c20d63d` 后 run `28252900674` 通过，Backend checks 与 Frontend checks 均为 success。
 - 代码审计 agent Socrates 已关闭，审计结论为未通过：发现 1 个 P2，`condition.threshold` 为约 309 位超大 JSON integer 时评估阶段 `float(threshold_raw)` 会抛 `OverflowError` 并返回 `500`，违反 API-0026 非法 condition 应返回 `422` 的契约。
 - 已启动后端修复 agent Archimedes 修复 T-0084 审计问题，范围限定为 `backend/app/services/alerts.py` 和 `backend/tests/test_alert_rules_api.py` 相关小补丁，要求补超大整数 threshold 回归测试并提交/push 到 `feature/backend-dev`。
+- Archimedes 已修复并推送 `db32e27` 到 `feature/backend-dev`：捕获超大 JSON integer threshold 的 `float()` 溢出并统一返回 `422 condition.threshold 必须是有限 JSON number`，补 `threshold=int("9"*309)` 回归测试，并更新后端进度。Archimedes 已关闭。
+- `db32e27` 的 GitHub Actions run `28253872254` 通过，Backend checks 与 Frontend checks 均为 success；总 agent 本地复审通过，T-0084 已可准备合入 `dev`。
 
 ### 阻塞与风险
 
 - T-0084 仍处于登记/待后端实现状态，当前未改业务代码。
 - 需要后端开发 agent 复用或扩展现有指标查询/聚合能力，并保证项目权限、无权限隐藏、无样本、禁用规则和非法 condition 语义都有测试覆盖。
 - 真实 MySQL 下指标聚合窗口已有历史边界修复；T-0084 首轮可先使用 SQLite/单元 API 覆盖，后续仍建议真实 MySQL 做一次评估链路补验。
-- T-0084 当前因 Socrates 发现的 P2 阻断合入 `dev`；必须等待 Archimedes 修复并复审通过。
+- T-0084 的 Socrates P2 已由 Archimedes 修复并经本地复审通过；剩余风险为仍未做真实 MySQL/ClickHouse/MongoDB/Redis 链路补验。
 
 ### 下一步
 
-- 等待 Archimedes 修复 T-0084 审计 P2；修复后启动代码审计 agent 复审。
-- 复审通过后由总 agent 合入 `dev`，运行本地后端门禁、推送、读取 GitHub Actions，并同步后端分支。
+- 由总 agent 将 T-0084 后端实现与 P2 修复真实 merge 到 `dev`，运行本地后端门禁、推送、读取 GitHub Actions，并同步后端分支。
 
 ### 验证
 
@@ -1240,3 +1241,6 @@
 - GitHub Actions run `28252777813` 成功，Backend checks 与 Frontend checks 均通过。
 - GitHub Actions run `28252900674` 成功，Backend checks 与 Frontend checks 均通过。
 - Newton 本地验证通过：`uv run pytest tests/test_alert_rules_api.py -q`，`uv run pytest tests/test_alert_rules_api.py tests/test_query_api.py tests/test_ingest_api.py tests/test_config.py -q`，`uv run pytest -q` 为 354 passed/2 skipped/1 known warning，`uv run ruff check .`，`uv run ruff format --check .`，`uv run mypy .`，`uv lock --check`，`git diff --check`。
+- GitHub Actions run `28253872254` 成功，Backend checks 与 Frontend checks 均通过。
+- Archimedes 修复侧验证通过：`uv run pytest tests/test_alert_rules_api.py -q`、`uv run ruff check app/services/alerts.py tests/test_alert_rules_api.py`、`uv run ruff format --check app/services/alerts.py tests/test_alert_rules_api.py`、`uv run mypy app/services/alerts.py tests/test_alert_rules_api.py`、`uv lock --check`、`git diff --check`。
+- 总 agent 本地复审通过：`uv run pytest tests/test_alert_rules_api.py -q` 为 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。
