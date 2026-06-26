@@ -2,6 +2,45 @@
 
 前端开发 agent 在本文件追加接口需求、字段需求、错误码需求和筛选分页需求。总 agent 负责与后端草案对齐后合并到 `AGENT_COMMUNICATION.md` 的正式契约表。
 
+## 2026-06-26 T-0082 API-FE-0005 告警规则 CRUD 前端消费
+
+- task: T-0082
+- owner: frontend-agent
+- aligned backend contract: API-0025 告警规则 CRUD
+- status: frontend-ready
+
+### 前端消费接口
+
+- `GET /api/v1/alerts/rules`
+  - query: `project_id`、`severity`、`signal`、`enabled`、`limit`、`offset` 均按后端 API-0025 可选参数传递。
+  - frontend behavior: `/alerts` 默认查询当前账号可访问的全部规则；项目下拉和项目 ID 输入共享同一 `project_id` 筛选；severity/signal/enabled 为空时不传；分页固定 `limit=50`。
+- `POST /api/v1/alerts/rules`
+  - request body: `project_id`、`name`、`description`、`enabled`、`severity`、`signal`、`condition`、`evaluation`。
+  - frontend behavior: `description` trim 后空白提交 `null`；创建成功后切换到新规则所属项目并进入编辑态。
+- `GET /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - 当前页面不主动调用详情接口，类型和 client 已提供给后续详情页/抽屉复用。
+- `PATCH /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - request body: 只提交实际变化字段；`description=null` 表示清空描述；启停入口只提交 `{ "enabled": true|false }`。
+- `DELETE /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - frontend behavior: 删除前确认，成功后刷新列表并按分页边界回退。
+
+### 本地校验与展示
+
+- `name`：trim 后 1 到 100 字符。
+- `description`：trim 后空白按 `null`，非空最多 500 字符。
+- `severity`：仅 `info`、`warning`、`critical`。
+- `signal`：仅 `metrics`、`logs`、`traces`、`events`。
+- `condition` / `evaluation`：必须是非空 JSON object；拒绝非法 JSON、数组、空对象、超大/过深/过复杂 JSON、裸 `NaN`/`Infinity` token 和解析后的非有限数字。
+- `evaluation.window_seconds` / `evaluation.interval_seconds`：必须是 `1..86400` 的整数。
+- 页面展示：未登录、会话恢复、loading、error、empty、项目选择、severity/signal/enabled 筛选、创建、编辑、启停、删除确认、创建/更新时间、创建/更新用户 ID。
+- 错误展示：复用现有 API client 文案和后端 `detail` 解析，覆盖 `401/403/404/409/422`；`401` 进入页面级登录过期提示，其余创建/编辑错误在表单级展示。
+- cache: alert rule query key 使用 `sessionRevision`，登录、登出和切换账号会清理 `alerts/rules` 查询缓存。
+
+### 边界
+
+- 本轮不新增或修改后端契约。
+- 不做规则评估、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路。
+
 ## 2026-06-23 T-0049 Trace 到 Logs 跳转基础
 
 - task: T-0049
@@ -589,3 +628,62 @@
   - `422 Unprocessable Entity`: 请求体字段格式错误
 - auth: 要求当前 session token；前端随请求携带 `Authorization: Bearer <access_token>`，无 token 时 Settings 页面不主动请求。
 - status: aligned
+
+## API-FE-0005 告警规则 CRUD 前端消费
+
+- task: T-0082
+- owner: frontend-agent
+- aligned backend contract: API-0025 告警规则 CRUD
+- endpoints:
+  - `GET /api/v1/alerts/rules`
+  - `POST /api/v1/alerts/rules`
+  - `GET /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - `PATCH /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+  - `DELETE /api/v1/projects/{project_id}/alerts/rules/{rule_id}`
+- list query:
+  - `project_id`: number，可选；前端页面应优先跟随当前项目选择。
+  - `severity`: `info` | `warning` | `critical`，可选。
+  - `signal`: `metrics` | `logs` | `traces` | `events`，可选。
+  - `enabled`: boolean，可选。
+  - `limit`: number，可选，默认 50，范围 1..100。
+  - `offset`: number，可选，默认 0，范围 >= 0。
+- create request:
+  - `project_id`: number，必填。
+  - `name`: string，必填，1 到 100 字符，同项目唯一。
+  - `description`: string | null，可选，最多 500 字符。
+  - `enabled`: boolean，可选，默认 `true`。
+  - `severity`: `info` | `warning` | `critical`，必填。
+  - `signal`: `metrics` | `logs` | `traces` | `events`，必填。
+  - `condition`: JSON object，必填，非空；前端需本地拦截非对象、空对象、非法 JSON、非有限数和明显超限文本。
+  - `evaluation`: JSON object，必填，非空；必须包含整数 `window_seconds` 与 `interval_seconds`，范围 `1..86400`。
+- update request:
+  - 至少提交一个变化字段；`description=null` 表示清空。
+  - 未变字段不提交；`name/enabled/severity/signal/condition/evaluation=null` 不提交，前端应本地拦截。
+  - 启停切换可只 PATCH `{ "enabled": boolean }`。
+- item response:
+  - `id`: number
+  - `project_id`: number
+  - `name`: string
+  - `description`: string | null
+  - `enabled`: boolean
+  - `severity`: `info` | `warning` | `critical`
+  - `signal`: `metrics` | `logs` | `traces` | `events`
+  - `condition`: JSON object
+  - `evaluation`: JSON object
+  - `created_by_user_id`: number
+  - `updated_by_user_id`: number
+  - `created_at`: string，ISO 8601
+  - `updated_at`: string，ISO 8601
+- list response:
+  - `{ "items": AlertRule[], "limit": number, "offset": number, "total": number }`
+- error response:
+  - `401 Unauthorized`: 缺少或无效 token。
+  - `403 Forbidden`: 当前用户在项目内权限不足，常见于 viewer 写入。
+  - `404 Not Found`: 项目不存在、无项目成员关系，或规则不属于指定项目。
+  - `409 Conflict`: 同项目下 `name` 重复或数据库完整性冲突。
+  - `422 Unprocessable Entity`: 请求体、路径参数、分页参数、枚举、JSON 形状、空 PATCH 或 evaluation 窗口字段非法。
+- frontend scope:
+  - 建议新增 `/alerts` 管理入口，使用 restrained operational UI，不做 hero/营销式说明。
+  - 必须覆盖 unauth、loading、empty、error、403/404/409/422、创建成功、编辑成功、启停成功和删除成功状态。
+  - 不新增后端契约，不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路。
+- status: draft

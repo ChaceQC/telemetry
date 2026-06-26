@@ -1106,24 +1106,118 @@
 ### 已完成
 
 - 已登记 T-0081 为阶段 6 告警第一小步，限定为后端告警规则 CRUD 基础。
-- API 契约草案新增 `API-0025 告警规则 CRUD`：提供告警规则列表、创建、读取、更新、删除能力，保存项目、名称、描述、启停、严重度、信号类型、条件 JSON、评估 JSON、创建/更新用户和时间。
+- API 契约 `API-0025 告警规则 CRUD` 已关闭：提供告警规则列表、创建、读取、更新、删除能力，保存项目、名称、描述、启停、严重度、信号类型、条件 JSON、评估 JSON、创建/更新用户和时间。
 - 权限边界：读取要求目标项目至少 `viewer`；创建、更新、删除要求至少 `editor`；普通用户无项目成员关系、项目不存在或规则不属于指定项目时沿用隐藏式 `404`。
 - 实现边界已固定：新增 MySQL/SQLite 持久化模型、Alembic 迁移、schema、repository、service、API 路由和后端测试；不做规则周期评估、通知渠道、告警事件/历史、静默/恢复、Webhook 发送、前端页面、ClickHouse/MongoDB/Redis 后台任务或调度器。
 - T-0081 登记提交 `73181f0` 已推送到 `dev`；GitHub Actions run `28237162147` 通过，Backend checks 与 Frontend checks 均为 success。
 - 已启动后端开发 agent Turing（`019f03d7-98d8-7743-8a54-eb6f81fc8d75`）在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081。
+- Turing 完成后端实现并推送 `3298206` 到 `origin/feature/backend-dev`：新增 `alert_rules` ORM、Alembic 迁移 `20260626_0010_create_alert_rules.py`、schema/repository/service/routes、router/dependency 接入和 `backend/tests/test_alert_rules_api.py`，更新后端 README、后端进度和 API 契约。
+- 测试 agent Mencius 独立复验通过；Turing 完成后已关闭。
+- 代码审计 agent Laplace 发现 1 个 P2：初始 `dev` API-0025 草案与实现契约不一致且 merge 会冲突。总 agent 在真实 merge 中以已实现、已测试契约为准解决：`signal=metrics/logs/traces/events`，`name` 1..100 且同项目唯一，`condition/evaluation` 为 16 KiB/深度 16/1024 节点内非空 JSON 对象，`evaluation.window_seconds` 与 `evaluation.interval_seconds` 为 `1..86400` 整数；`heartbeat` 和字符串 `window/frequency/for` 留给后续小步。Laplace 已关闭。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `c561daf` 已推送；`feature/backend-dev` 已同步最新 `dev` 至 `e958709` 并推送。
+- `dev` CI run `28239928546` 与 `feature/backend-dev` 同步 CI run `28239969514` 均通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 阻塞与风险
 
-- 当前已完成总 agent 登记、契约草案和后端开发 agent 启动，业务实现由后端 worktree 推进中。
+- T-0081 后端 CRUD 已完成并合入 `dev`，当前无阻塞。
 - 告警规则 JSON 条件/评估先做保存层与基础 schema 校验，不承诺执行语义；后续指标阈值、日志数量、数据断流和通知链路需要独立小步验证。
+- 真实 MySQL `alert_rules` JSON 列读写、同项目唯一约束在 MySQL collation 下的大小写行为、以及 `updated_at` 实际推进仍建议在后续真实库专项中补验。
 
 ### 下一步
 
-- 后端开发 agent Turing 将在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081，并更新 `backend/PROJECT_PROGRESS.md`、`backend/README.md` 和 `agents/runtime/api-contracts/backend.md`。
-- 后端实现完成并推送后，总 agent 读取 feature CI，启动代码审计 agent，审计通过后再合入 `dev`。
+- 登记下一小步 `T-0082` 告警规则 CRUD 前端基础：在前端提供项目内告警规则列表、创建、编辑、启停和删除入口，消费已合入的 `API-0025`，不做规则评估、通知、历史或静默 UI。
+- 后续再安排真实前后端联测，覆盖告警规则 CRUD UI、权限/错误边界和移动端布局。
 
 ### 验证
 
 - 登记文档提交前已通过：`git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md`。
 - 登记文档提交前已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，根、前端、后端三棵 worktree 分支和保护项正常，仅允许本次根文档待提交改动。
 - GitHub Actions run `28237162147` 成功，Backend checks 与 Frontend checks 均通过；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test。
+- Feature CI run `28239050133` 在 `3298206` 上通过，Backend checks 与 Frontend checks 均为 success。
+- Merge 前本地验证通过：`uv run pytest tests/test_alert_rules_api.py tests/test_dashboard_api.py tests/test_config.py -q` 为 182 passed，`uv run pytest -q` 为 342 passed、2 skipped、1 warning；`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv lock --check`、`git diff --check` 均通过。
+- GitHub Actions run `28239928546` 在 `c561daf` 上成功，Backend checks 与 Frontend checks 均通过；GitHub Actions run `28239969514` 在 `feature/backend-dev` 同步提交 `e958709` 上成功。
+- T-0081 收口记录提交 `2f31116` 已推送到 `dev`；GitHub Actions run `28240265388` 成功，Backend checks 与 Frontend checks 均通过。
+
+## 2026-06-26 T-0082 告警规则 CRUD 前端基础
+
+### 已完成
+
+- 已登记 T-0082 为阶段 6 告警规则 CRUD 前端基础小步。
+- 前端分支 `feature/frontend-dev` 已先同步最新 `dev` 至 `d9ed7cf`，确保包含 T-0081 后端 API 与最终 API-0025 契约；同步 CI run `28240434042` 已通过，Backend checks 与 Frontend checks 均为 success。
+- 范围限定为消费已合入的 `API-0025`，新增告警规则管理入口，支持项目内列表、过滤、创建、编辑、启停和删除确认。
+- 前端开发 agent Carver（`019f0415-24fc-78c3-8f30-0a5cdf3b01a8`）完成并推送 `2d572a8`：新增 `/alerts` 路由、告警规则 API client、表单校验、React Query cache key 与登出清理、列表筛选、创建/编辑/启停/删除确认、页面状态、响应式样式和测试，并更新前端 README、前端进度与 API-FE-0005。Carver 已关闭。
+- Feature CI run `28243441077` 在 `2d572a8` 上通过，Backend checks 与 Frontend checks 均为 success。
+- 代码审计 agent Zeno（`019f0446-5664-7560-ac61-941e06a0e935`）审计通过，未发现 P0/P1/P2 阻断；唯一 P3 为项目列表查询失败时项目选择区内联错误可更明确。Zeno 已关闭。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad` 已推送；`dev` CI run `28244367891` 通过，Backend checks 与 Frontend checks 均为 success。
+- `feature/frontend-dev` 已同步最新 `dev` 至 `2e23e33` 并推送；同步 CI run `28244753232` 通过，Backend checks 与 Frontend checks 均为 success。
+
+### 阻塞与风险
+
+- T-0082 前端基础已完成并合入 `dev`，当前无阻塞。
+- 本小步未做真实后端/MySQL/RBAC 联调；`401/403/404/409/422` 真实响应链路、真实项目权限、真实数据库持久化和浏览器端完整 CRUD 流程留给 T-0083。
+- 审计 P3：项目列表查询失败时主要通过 header “部分异常”暴露，项目选择区可后续增加更明确的内联错误。测试输出仍有既有 React Router future/SSR warning，不阻塞。
+
+### 下一步
+
+- 登记并执行下一小步 `T-0083` 告警规则 CRUD 真实前后端联测：在最新 `dev/origin/dev` 上使用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge，覆盖创建、列表筛选、编辑、启停 PATCH、删除确认、权限/错误边界和 390px 移动端布局。
+- T-0083 仍不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、ClickHouse/MongoDB/Redis 后台链路。
+
+### 验证
+
+- `feature/frontend-dev` 同步 CI run `28240434042` 成功，Backend checks 与 Frontend checks 均通过。
+- Carver 开发侧验证通过：alerts API/form/page 专项 4 files/21 tests passed，router/style 专项 2 files/5 tests passed，全量前端测试 35 files/256 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；Playwright + Microsoft Edge `149.0.4022.80` 覆盖 `/alerts` 未登录态、mock 列表/筛选、创建、启停 PATCH `{enabled:false}`、删除确认和桌面/390px 移动端无横向溢出。
+- Merge 后本地验证通过：`npm.cmd exec -- vitest run src/api/alerts.test.ts src/features/alerts/alertRuleForm.test.ts src/pages/AlertsPage.test.tsx src/pages/AlertsPage.interaction.test.tsx --reporter=dot` 为 4 files/21 tests passed；`npm.cmd exec -- vitest run src/app/router.test.tsx src/styles/globalCss.test.ts --reporter=dot` 为 2 files/5 tests passed；`npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd run test` 35 files/256 tests passed、`npm.cmd run build`、`git diff --check` 均通过。
+- GitHub Actions run `28243441077`、`28244367891`、`28244753232` 均成功，Backend checks 与 Frontend checks 均通过。
+
+## 2026-06-26 T-0083 告警规则 CRUD 真实前后端联测
+
+### 已完成
+
+- 已登记 T-0083 为阶段 6 告警规则 CRUD 真实前后端联测小步。
+- 联测目标：基于 T-0081 后端 CRUD 与 T-0082 前端 `/alerts` 页面，在真实运行链路中验证告警规则创建、列表筛选、编辑、启停、删除和权限/错误边界。
+- 测试 agent Euclid（`019f0469-7517-7b70-89d5-3cb6b0b80f67`）完成真实联测并已关闭。
+- 证据目录 `agents/runtime/e2e-T-0083-20260626-225623`，`summary.json` 记录结论 `passed`、`failures=[]`。
+- API 断言 14/14 通过：覆盖未认证 `401`、创建 baseline rule、project/severity/signal/enabled 列表筛选、编辑字段、启停 PATCH、viewer 写入 `403`、无权限隐藏 `404`、缺失 rule `404`、同项目重名 `409`、非法 JSON/空 PATCH/非法 evaluation/非法分页 `422` 和删除 `204`。
+- Edge UI 断言 12/12 通过：使用 Microsoft Edge 真实浏览器覆盖 `/alerts` 未登录提示、登录后项目选择、metrics/logs/traces/events 四类 signal 创建、筛选、编辑 name/description/severity/signal/condition/evaluation、启停 PATCH 请求体精确为 `{"enabled":false}`、删除确认、390px 移动端无横向溢出且主要控件可达。
+- 资源清理：真实 FastAPI `28183`、真实 Vite `25183`、临时 MySQL `127.0.0.1:33383`/库 `telemetry_t0083_20260626230645` 和临时 `node_modules` 已清理；系统 MySQL `3306` 未触碰。
+
+### 阻塞与风险
+
+- T-0083 真实联测通过，当前无业务阻塞。
+- 8 个本次 Playwright Edge 临时 profile 进程仍残留，命令行均指向 `C:\Users\q-lau\AppData\Local\Temp\playwright_chromiumdev_profile-ClVNPS`，PID 为 `38048,36140,39256,38728,23352,44444,28428,28600`；Euclid 与总 agent 均尝试精确 PID `Stop-Process`/`taskkill /PID ... /T /F`，Windows 返回 `Access is denied`。已记录为清理残余风险；无 `25183/28183/33383` 监听残留。
+- 规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、ClickHouse/MongoDB/Redis 后台链路仍未实现，继续保留给阶段 6 后续小步。
+
+### 下一步
+
+- 阶段 6 下一小步进入告警执行能力：优先登记指标阈值告警的最小调度/评估后端基础，延续 `API-0025` 已保存规则定义，先做可测试的 metrics threshold evaluation，不接通知渠道和历史完整 UI。
+
+### 验证
+
+- `agents/runtime/e2e-T-0083-20260626-225623/api-assertions.json`：`passed=true`，14/14 API assertions passed。
+- `agents/runtime/e2e-T-0083-20260626-225623/ui-e2e-results.json`：`passed=true`，12/12 UI assertions passed，browser 为 Microsoft Edge。
+- `agents/runtime/e2e-T-0083-20260626-225623/summary.json`：`conclusion=passed`，`failures=[]`；`cleanup-final-check-2.json` 记录无后端/前端/MySQL 监听或临时数据目录残留，仍有上述 8 个 Edge/Playwright profile 进程因权限拒绝未能停止。
+
+## 2026-06-27 T-0084 指标阈值告警评估后端基础
+
+### 已完成
+
+- 已登记 T-0084 为阶段 6 告警执行能力第一小步，限定为后端指标阈值规则的一次性手动评估 API。
+- API 契约草案 `API-0026 指标阈值告警手动评估` 已登记：`POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` 无请求体，读取已保存的 API-0025 规则并即时评估。
+- 范围收敛为 `signal=metrics`，`condition` 支持 `metric/operator/threshold/aggregation?/source?`；`operator` 为 `gt/gte/lt/lte/eq/ne`，`aggregation` 为 `avg/sum/min/max/count` 且默认 `avg`；窗口使用 `evaluation.window_seconds`，`evaluation.interval_seconds` 原样返回给后续调度使用。
+- 响应状态限定为 `firing/ok/no_data/disabled`，包含规则元数据、服务端 `checked_at`、窗口、规范化条件、观测聚合值和 message；禁用规则不查询指标样本，非 metrics 或非法条件语义返回 `422`。
+- 本小步不做后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
+
+### 阻塞与风险
+
+- T-0084 仍处于登记/待后端实现状态，当前未改业务代码。
+- 需要后端开发 agent 复用或扩展现有指标查询/聚合能力，并保证项目权限、无权限隐藏、无样本、禁用规则和非法 condition 语义都有测试覆盖。
+- 真实 MySQL 下指标聚合窗口已有历史边界修复；T-0084 首轮可先使用 SQLite/单元 API 覆盖，后续仍建议真实 MySQL 做一次评估链路补验。
+
+### 下一步
+
+- 将后端 worktree `feature/backend-dev` 同步到最新 `origin/dev`，随后启动后端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 实现 T-0084。
+- 后端实现完成后启动代码审计 agent；审计通过后由总 agent 合入 `dev`，运行本地后端门禁、推送、读取 GitHub Actions，并同步后端分支。
+
+### 验证
+
+- 本次为根文档和契约登记，提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md` 与 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`。

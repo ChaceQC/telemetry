@@ -1,10 +1,10 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { appConfig } from '../api/config';
 import { ConsoleLayout } from '../components/ConsoleLayout';
+import { AlertsPage } from '../pages/AlertsPage';
 import { DashboardsPage } from '../pages/DashboardsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
-import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { QueryPage } from '../pages/QueryPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { TraceTopologyPage } from '../pages/TraceTopologyPage';
@@ -48,7 +48,7 @@ export const routes = [
       },
       {
         path: 'alerts',
-        element: <PlaceholderPage title="告警规则" description="后续接入阈值规则、静默策略和通知渠道。" />
+        element: <AlertsPage />
       },
       {
         path: 'settings',

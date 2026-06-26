@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0081`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力；阶段 6 已提供告警规则 CRUD 后端基础，当前只保存/读取规则定义，不执行规则评估、调度、通知或告警历史。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0084`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力；阶段 6 已提供告警规则 CRUD 后端基础，下一步补指标阈值告警的一次性手动评估 API。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -668,6 +668,76 @@ PATCH 请求体示例：
   - `409 Conflict`：同一项目下 `name` 重复，或告警规则数据库完整性约束错误。
   - `422 Unprocessable Entity`：请求体字段、路径参数、分页参数、枚举、JSON 形状、JSON 大小/深度/复杂度/非有限数、空 PATCH 或 evaluation 窗口字段非法。
 - 当前边界：本小步只保存/读取规则定义；不实现规则评估、后台调度、通知渠道、告警历史、静默/恢复、Webhook、前端 UI、ClickHouse/MongoDB/Redis 后台链路或 events 自动写入。
+
+## API-0026 指标阈值告警手动评估
+
+- 方法：`POST`
+- 路径：`/api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate`
+- 鉴权：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 权限：
+  - 目标项目至少 `viewer` 可手动评估规则。
+  - 普通用户没有目标项目成员关系时返回 `404 项目不存在`；rule ID 不属于指定项目时返回 `404 告警规则不存在`。
+  - 超级用户可评估任意已存在项目的规则。
+- 请求体：无。服务端读取已保存的 API-0025 告警规则、`condition` 与 `evaluation`。
+- 支持范围：
+  - 本小步仅支持 `signal="metrics"` 的指标阈值规则。
+  - `condition.metric`：必填字符串，1 到 128 字符，对应指标 `name`。
+  - `condition.source`：可选字符串，1 到 128 字符，对应指标 `source` 精确过滤。
+  - `condition.operator`：必填，`gt`、`gte`、`lt`、`lte`、`eq`、`ne`。
+  - `condition.threshold`：必填 JSON number，必须为有限数，不能是 bool 或字符串数字。
+  - `condition.aggregation`：可选，默认 `avg`；支持 `avg`、`sum`、`min`、`max`、`count`。
+  - `evaluation.window_seconds`：使用 API-0025 已校验的 `1..86400` 整数作为向前查询窗口。
+  - `evaluation.interval_seconds`：本小步原样返回，用于后续调度；手动评估不根据它调度。
+- 查询规则：
+  - `checked_at` 取服务端当前 UTC 时间。
+  - 查询窗口为 `[checked_at - evaluation.window_seconds, checked_at]`。
+  - 当前查询来源为关系库 `ingest_records.kind=metric`；可复用既有指标聚合 repository/service 能力，也可补内部 window_seconds 聚合辅助，必须保持项目权限过滤、指标 `name/source` 过滤和有限数值处理一致。
+  - 若窗口内没有可聚合样本，返回 `status="no_data"`。
+  - 若规则 `enabled=false`，返回 `status="disabled"`，不得查询指标样本。
+- 响应：`200 OK`。
+
+```json
+{
+  "project_id": 1,
+  "rule_id": 7,
+  "status": "firing",
+  "signal": "metrics",
+  "severity": "critical",
+  "checked_at": "2026-06-27T00:00:00Z",
+  "window": {
+    "from": "2026-06-26T23:55:00Z",
+    "to": "2026-06-27T00:00:00Z",
+    "window_seconds": 300,
+    "interval_seconds": 60
+  },
+  "condition": {
+    "metric": "http.server.errors",
+    "source": "api",
+    "operator": "gt",
+    "threshold": 3,
+    "aggregation": "sum"
+  },
+  "observed": {
+    "value": 4,
+    "sample_count": 10,
+    "aggregation": "sum",
+    "unit": null
+  },
+  "message": "metric http.server.errors sum 4 > 3"
+}
+```
+
+- `status` 枚举：
+  - `firing`：有样本且聚合值满足阈值比较。
+  - `ok`：有样本但聚合值不满足阈值比较。
+  - `no_data`：目标窗口无可聚合指标样本。
+  - `disabled`：规则已禁用，未查询指标样本。
+- `observed`：`disabled` 与 `no_data` 时为 `null`；其他状态下包含聚合值、样本数、aggregation 和 unit。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `404 Not Found`：项目不存在、普通用户不在项目权限范围内，或告警规则不属于指定项目/不存在。
+  - `422 Unprocessable Entity`：规则不是 `signal="metrics"`，或 `condition.metric/operator/threshold/aggregation/source` 不符合本小步执行语义，或已保存 `evaluation.window_seconds/interval_seconds` 不满足执行要求。
+- 当前边界：只提供手动、同步、一次性的指标阈值评估；不实现后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、抑制、分组、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
 
 ## API-0008 数据摄入
 
