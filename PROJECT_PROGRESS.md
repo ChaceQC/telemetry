@@ -1196,3 +1196,28 @@
 - `agents/runtime/e2e-T-0083-20260626-225623/api-assertions.json`：`passed=true`，14/14 API assertions passed。
 - `agents/runtime/e2e-T-0083-20260626-225623/ui-e2e-results.json`：`passed=true`，12/12 UI assertions passed，browser 为 Microsoft Edge。
 - `agents/runtime/e2e-T-0083-20260626-225623/summary.json`：`conclusion=passed`，`failures=[]`；`cleanup-final-check-2.json` 记录无后端/前端/MySQL 监听或临时数据目录残留，仍有上述 8 个 Edge/Playwright profile 进程因权限拒绝未能停止。
+
+## 2026-06-27 T-0084 指标阈值告警评估后端基础
+
+### 已完成
+
+- 已登记 T-0084 为阶段 6 告警执行能力第一小步，限定为后端指标阈值规则的一次性手动评估 API。
+- API 契约草案 `API-0026 指标阈值告警手动评估` 已登记：`POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` 无请求体，读取已保存的 API-0025 规则并即时评估。
+- 范围收敛为 `signal=metrics`，`condition` 支持 `metric/operator/threshold/aggregation?/source?`；`operator` 为 `gt/gte/lt/lte/eq/ne`，`aggregation` 为 `avg/sum/min/max/count` 且默认 `avg`；窗口使用 `evaluation.window_seconds`，`evaluation.interval_seconds` 原样返回给后续调度使用。
+- 响应状态限定为 `firing/ok/no_data/disabled`，包含规则元数据、服务端 `checked_at`、窗口、规范化条件、观测聚合值和 message；禁用规则不查询指标样本，非 metrics 或非法条件语义返回 `422`。
+- 本小步不做后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
+
+### 阻塞与风险
+
+- T-0084 仍处于登记/待后端实现状态，当前未改业务代码。
+- 需要后端开发 agent 复用或扩展现有指标查询/聚合能力，并保证项目权限、无权限隐藏、无样本、禁用规则和非法 condition 语义都有测试覆盖。
+- 真实 MySQL 下指标聚合窗口已有历史边界修复；T-0084 首轮可先使用 SQLite/单元 API 覆盖，后续仍建议真实 MySQL 做一次评估链路补验。
+
+### 下一步
+
+- 将后端 worktree `feature/backend-dev` 同步到最新 `origin/dev`，随后启动后端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 实现 T-0084。
+- 后端实现完成后启动代码审计 agent；审计通过后由总 agent 合入 `dev`，运行本地后端门禁、推送、读取 GitHub Actions，并同步后端分支。
+
+### 验证
+
+- 本次为根文档和契约登记，提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md` 与 `scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`。

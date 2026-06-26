@@ -111,6 +111,7 @@ closed      已关闭
 | T-0081 | 告警规则 CRUD 后端基础 | 总 agent | todo | done | done | done | done |
 | T-0082 | 告警规则 CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 | T-0083 | 告警规则 CRUD 真实前后端联测 | 总 agent | done | done | done | done | done |
+| T-0084 | 指标阈值告警评估后端基础 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -128,6 +129,7 @@ closed      已关闭
 | API-0021 | Trace 查询 | GET | `/api/v1/query/traces` | `project_id`、`trace_id`、`span_id`、`name`、`source`、`occurred_from`、`occurred_to`、`limit`、可选 `cursor` 查询参数；`trace_id`/`span_id` trim 后空白按未传处理，超过 128 返回 `422` | 返回 `{ items, next_cursor }`；`items` 为 trace span 列表，展开 trace/span 关键字段、`attributes`、业务 `payload`、`occurred_at` 和 `received_at`；按用户项目权限过滤，当前来源为关系库 `ingest_records.kind=trace` | 总 agent | done |
 | API-0024 | Dashboard panel 查询预览 | GET | `/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview` | 路径参数限定已保存 dashboard 与 `config.panels[].id`；只读取已保存 config，不接受草稿请求体；可选 `variables` query 参数为 JSON 对象字符串，用作本次 preview 的变量覆盖值且不保存；目标项目至少 `viewer` | 返回 `project_id`、`dashboard_id`、`panel_id`、`title`、`panel_type`、原始 `query` 和 `preview`；`metrics` 返回关系库窗口聚合摘要，`logs/events/traces` 返回最近样本，`topology` 返回节点/边摘要；未知变量、非法 `variables`、覆盖值类型不符、缺 default 且无覆盖、非法模板或非法白名单 query 字段返回 `422` | 总 agent | done |
 | API-0025 | 告警规则 CRUD | GET/POST/PATCH/DELETE | `/api/v1/alerts/rules`、`/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 创建提交 `project_id/name/description/enabled/severity/signal/condition/evaluation`；`name` 1..100，同项目唯一；`signal` 为 `metrics/logs/traces/events`；`condition/evaluation` 为非空 JSON 对象，`evaluation.window_seconds` 与 `evaluation.interval_seconds` 为 `1..86400` 整数；项目至少 `editor` 写，`viewer` 读 | 返回告警规则详情或分页列表，包含项目、规则元数据、JSON 条件/评估配置、创建/更新用户和时间；权限隐藏沿用项目语义，同项目重名返回 `409`，非法 signal/severity/JSON/evaluation/分页/空 PATCH 返回 `422`；本小步只做规则保存，不做评估调度、通知、告警历史、静默或前端 UI | 后端开发 agent | done |
+| API-0026 | 指标阈值告警手动评估 | POST | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` | 无请求体；读取已保存 API-0025 规则并即时评估。目标项目至少 `viewer`；仅支持 `signal=metrics` 且 `condition` 为 `{metric, operator, threshold, aggregation?, source?}`，`operator` 为 `gt/gte/lt/lte/eq/ne`，`aggregation` 默认 `avg` 且为 `avg/sum/min/max/count`；评估窗口使用 `evaluation.window_seconds` | 返回一次性评估结果，包含 `status=firing/ok/no_data/disabled`、规则和窗口元数据、规范化条件、观测值 `observed`、`checked_at` 与 message；禁用规则返回 `disabled` 且不查询指标；无样本返回 `no_data`；非 metrics 或非法条件返回 `422`；本小步不做后台调度、状态持久化、通知、告警历史、恢复事件或前端 UI | 后端开发 agent | draft |
 | API-FE-0005 | 告警规则 CRUD 前端消费 | GET/POST/PATCH/DELETE | `/api/v1/alerts/rules`、`/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 前端在 `/alerts` 控制台路由消费 API-0025；列表按项目、severity、signal、enabled 过滤；创建/编辑提交 `project_id/name/description/enabled/severity/signal/condition/evaluation`，本地校验 name/description、signal 四枚举、severity 三枚举、非空 JSON 对象、finite/16KiB/深度16/1024节点和 `evaluation.window_seconds/interval_seconds` 整数窗口 | 展示告警规则列表、创建/编辑表单、启停 PATCH `{enabled}`、删除确认和 401/403/404/409/422 错误；复用当前 auth token、项目选择、缓存隔离和 restrained operational UI；不新增后端契约、不做评估调度、通知、历史、静默或真实联测 | 前端开发 agent | done |
 
 ## 5. 前后端对齐记录
@@ -649,6 +651,7 @@ closed      已关闭
 | 2026-06-26 | T-0082 | 总 agent | T-0082 合入 dev 并同步 frontend 分支 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `ec028ad`；本地前端专项、路由/样式专项、lint、typecheck、全量 test、build、`git diff --check` 均通过；`dev` CI run `28244367891` 通过。随后 `feature/frontend-dev` 已同步 `origin/dev` 至 `2e23e33`，同步 CI run `28244753232` 通过 | done |
 | 2026-06-26 | T-0083 | 总 agent | 登记告警规则 CRUD 真实前后端联测 | 下一小步在最新 `dev/origin/dev` 上用真实临时 MySQL、真实 FastAPI、真实 Vite 和 Playwright + Microsoft Edge 覆盖 `/alerts` 创建、列表筛选、编辑、启停 PATCH、删除确认、权限/错误边界和 390px 移动端布局；不做规则评估、通知、历史、静默、Webhook 或 ClickHouse/MongoDB/Redis 后台链路 | testing |
 | 2026-06-26 | T-0083 | 测试 agent Euclid / 总 agent | 告警规则 CRUD 真实前后端联测通过 | Euclid 在最新 `dev/origin/dev` 使用真实临时 MySQL `127.0.0.1:33383`（库 `telemetry_t0083_20260626230645`）、真实 FastAPI `28183`、真实 Vite `25183` 与 Playwright + Microsoft Edge 完成联测。API 14/14 通过，UI 12/12 通过；覆盖未登录提示、登录后项目选择、metrics/logs/traces/events 创建、筛选、编辑、启停 PATCH body 精确为 `{"enabled":false}`、删除确认、390px 移动端无横向溢出、401/403/404/409/422 API 边界。证据目录 `agents/runtime/e2e-T-0083-20260626-225623`；后端、前端、临时 MySQL、临时 `node_modules` 均已清理，系统 MySQL `3306` 未触碰；8 个本次 Playwright Edge 临时 profile 进程因 Windows Access denied 未能停止，已记录 PID 与命令行 | done |
+| 2026-06-27 | T-0084 | 总 agent | 登记指标阈值告警评估后端基础 | 阶段 6 下一小步限定为后端手动评估 API：新增 `POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate`，读取已保存告警规则并对 `signal=metrics` 的阈值条件做一次同步评估。条件形状收敛为 `metric/operator/threshold/aggregation?/source?`，评估窗口来自 `evaluation.window_seconds`，返回 `firing/ok/no_data/disabled` 与观测值；非 metrics 或非法条件返回 `422`。范围不做后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、前端 UI 或 ClickHouse/MongoDB/Redis 链路 | doing |
 
 ## 6. 测试记录
 
