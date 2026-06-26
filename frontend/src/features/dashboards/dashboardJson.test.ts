@@ -6,6 +6,7 @@ import {
   createDefaultDashboardForm,
   dashboardToEditForm,
   formatDashboardJson,
+  parseDashboardImportDocument,
   parseDashboardJsonField
 } from './dashboardJson';
 import type { Dashboard } from '../../api/dashboards';
@@ -142,6 +143,106 @@ describe('dashboard JSON helpers', () => {
       description: '值班视图',
       layoutText: JSON.stringify(dashboard.layout, null, 2),
       configText: JSON.stringify(dashboard.config, null, 2)
+    });
+  });
+
+  it('解析合法 dashboard 导入文档并规范化 config', () => {
+    expect(
+      parseDashboardImportDocument(
+        JSON.stringify({
+          schema: 'telemetry.dashboard',
+          version: 1,
+          name: ' 服务总览 ',
+          description: ' 值班入口 ',
+          layout: { version: 1 },
+          config: {
+            variables: [{ name: ' env ', type: 'select', options: [' prod ', 'staging'], default: ' prod ' }]
+          }
+        })
+      )
+    ).toEqual({
+      ok: true,
+      value: {
+        schema: 'telemetry.dashboard',
+        version: 1,
+        name: '服务总览',
+        description: '值班入口',
+        layout: { version: 1 },
+        config: {
+          variables: [{ name: 'env', type: 'select', options: ['prod', 'staging'], default: 'prod' }]
+        }
+      }
+    });
+  });
+
+  it('导入文档拒绝错误 schema/version、实例字段、缺失字段和非有限 token', () => {
+    expect(
+      parseDashboardImportDocument(
+        JSON.stringify({
+          schema: 'wrong',
+          version: 1,
+          name: '服务总览',
+          description: null,
+          layout: {},
+          config: {}
+        })
+      )
+    ).toEqual({
+      ok: false,
+      message: 'schema 必须是 telemetry.dashboard。'
+    });
+
+    expect(
+      parseDashboardImportDocument(
+        JSON.stringify({
+          schema: 'telemetry.dashboard',
+          version: '1',
+          name: '服务总览',
+          description: null,
+          layout: {},
+          config: {}
+        })
+      )
+    ).toEqual({
+      ok: false,
+      message: 'version 必须是 1。'
+    });
+
+    expect(
+      parseDashboardImportDocument(
+        JSON.stringify({
+          schema: 'telemetry.dashboard',
+          version: 1,
+          id: 7,
+          name: '服务总览',
+          description: null,
+          layout: {},
+          config: {}
+        })
+      )
+    ).toEqual({
+      ok: false,
+      message: '导入文档不能包含实例字段: id。'
+    });
+
+    expect(
+      parseDashboardImportDocument(
+        JSON.stringify({
+          schema: 'telemetry.dashboard',
+          version: 1,
+          name: '服务总览',
+          description: null,
+          layout: {}
+        })
+      )
+    ).toEqual({
+      ok: false,
+      message: '导入文档缺少 config 字段。'
+    });
+
+    expect(parseDashboardImportDocument('{"schema":"telemetry.dashboard","version":1,"name":"x","description":null,"layout":{},"config":{"value":NaN}}')).toEqual({
+      ok: false,
+      message: '导入文档不能包含 NaN 或 Infinity。'
     });
   });
 });

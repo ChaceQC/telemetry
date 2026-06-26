@@ -1,5 +1,11 @@
-import { updateDashboard, type CreateDashboardFromTemplateRequest, type Dashboard } from '../../api/dashboards';
-import { parseDashboardJsonField } from './dashboardJson';
+import {
+  updateDashboard,
+  type CreateDashboardFromTemplateRequest,
+  type Dashboard,
+  type DashboardExportDocument,
+  type ImportDashboardRequest
+} from '../../api/dashboards';
+import { parseDashboardImportDocument, parseDashboardJsonField } from './dashboardJson';
 
 export function buildDashboardPayload(input: {
   projectId: number;
@@ -103,6 +109,22 @@ export function buildDashboardTemplateCreatePayload(input: { name: string; descr
   };
 }
 
+export function buildDashboardImportPayload(input: {
+  documentText: string;
+  name: string;
+  description: string;
+}) {
+  const document = parseDashboardImportDocument(input.documentText);
+  if (!document.ok) {
+    return document;
+  }
+
+  return {
+    ok: true as const,
+    value: createDashboardImportPayload(document.value, input)
+  };
+}
+
 export function normalizePositiveInteger(value: string) {
   const numeric = Number(value);
   return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
@@ -111,4 +133,22 @@ export function normalizePositiveInteger(value: string) {
 export function normalizeOptionalText(value: string) {
   const text = value.trim();
   return text.length > 0 ? text : null;
+}
+
+function createDashboardImportPayload(
+  document: DashboardExportDocument,
+  overrides: { name: string; description: string }
+): ImportDashboardRequest {
+  const payload: ImportDashboardRequest = { document };
+  const name = overrides.name.trim();
+  const description = overrides.description.trim();
+
+  if (name.length > 0) {
+    payload.name = name;
+  }
+  if (description.length > 0) {
+    payload.description = description;
+  }
+
+  return payload;
 }

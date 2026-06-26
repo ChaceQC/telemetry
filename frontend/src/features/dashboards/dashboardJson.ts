@@ -1,4 +1,10 @@
-import type { Dashboard, DashboardJson } from '../../api/dashboards';
+import {
+  DASHBOARD_EXPORT_SCHEMA,
+  DASHBOARD_EXPORT_VERSION,
+  type Dashboard,
+  type DashboardExportDocument,
+  type DashboardJson
+} from '../../api/dashboards';
 import { normalizeDashboardConfigPanels } from './dashboardPanels';
 import { normalizeDashboardConfigTimeRange } from './dashboardTimeRange';
 import { normalizeDashboardConfigVariables } from './dashboardVariables';
@@ -21,6 +27,16 @@ export type DashboardJsonParseResult =
   | {
       ok: true;
       value: DashboardJson;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export type DashboardImportDocumentParseResult =
+  | {
+      ok: true;
+      value: DashboardExportDocument;
     }
   | {
       ok: false;
@@ -87,6 +103,104 @@ export function parseDashboardJsonField(value: string, label: string): Dashboard
   }
 }
 
+export function parseDashboardImportDocument(value: string): DashboardImportDocumentParseResult {
+  if (!value.trim()) {
+    return {
+      ok: false,
+      message: '导入文档不能为空。'
+    };
+  }
+
+  if (containsNonFiniteJsonToken(value)) {
+    return {
+      ok: false,
+      message: '导入文档不能包含 NaN 或 Infinity。'
+    };
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+
+    if (!isPlainJsonObject(parsed)) {
+      return {
+        ok: false,
+        message: '导入文档必须是 JSON 对象。'
+      };
+    }
+
+    const forbiddenFields = getDashboardImportForbiddenFields(parsed);
+    if (forbiddenFields.length > 0) {
+      return {
+        ok: false,
+        message: `导入文档不能包含实例字段: ${forbiddenFields.join(', ')}。`
+      };
+    }
+
+    const requiredFields = ['schema', 'version', 'name', 'description', 'layout', 'config'] as const;
+    const missingField = requiredFields.find((field) => !(field in parsed));
+    if (missingField) {
+      return {
+        ok: false,
+        message: `导入文档缺少 ${missingField} 字段。`
+      };
+    }
+
+    if (parsed.schema !== DASHBOARD_EXPORT_SCHEMA) {
+      return {
+        ok: false,
+        message: `schema 必须是 ${DASHBOARD_EXPORT_SCHEMA}。`
+      };
+    }
+
+    if (parsed.version !== DASHBOARD_EXPORT_VERSION) {
+      return {
+        ok: false,
+        message: `version 必须是 ${DASHBOARD_EXPORT_VERSION}。`
+      };
+    }
+
+    const name = normalizeImportName(parsed.name);
+    if (!name) {
+      return {
+        ok: false,
+        message: '导入文档 name 必须是非空字符串。'
+      };
+    }
+
+    const description = normalizeImportDescription(parsed.description);
+    if (!description.ok) {
+      return description;
+    }
+
+    const layout = normalizeDashboardImportJsonField(parsed.layout, 'layout');
+    if (!layout.ok) {
+      return layout;
+    }
+
+    const config = normalizeDashboardImportJsonField(parsed.config, 'config');
+    if (!config.ok) {
+      return config;
+    }
+
+    return {
+      ok: true,
+      value: {
+        schema: DASHBOARD_EXPORT_SCHEMA,
+        version: DASHBOARD_EXPORT_VERSION,
+        name,
+        description: description.value,
+        layout: layout.value,
+        config: config.value
+      }
+    };
+  } catch {
+    return {
+      ok: false,
+      message: '导入文档不是有效 JSON。'
+    };
+  }
+}
+
 export function formatDashboardJson(value: DashboardJson | undefined) {
   return JSON.stringify(value ?? {}, null, 2);
 }
@@ -113,6 +227,113 @@ export function dashboardToEditForm(dashboard: Dashboard | null) {
 
 function isDashboardJsonContainer(value: unknown): value is DashboardJson {
   return Array.isArray(value) || (Boolean(value) && typeof value === 'object');
+}
+
+function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeDashboardImportJsonField(value: unknown, label: 'layout' | 'config'): DashboardJsonParseResult {
+  if (!isDashboardJsonContainer(value)) {
+    return {
+      ok: false,
+      message: `${label} 必须是 JSON 对象或数组。`
+    };
+  }
+
+  const validationError = validateDashboardJsonValue(value, label);
+  if (validationError) {
+    return {
+      ok: false,
+      message: validationError
+    };
+  }
+
+  if (label === 'config') {
+    const normalizedTimeRangeConfig = normalizeDashboardConfigTimeRange(value);
+    if (!normalizedTimeRangeConfig.ok) {
+      return normalizedTimeRangeConfig;
+    }
+
+    const normalizedPanelConfig = normalizeDashboardConfigPanels(normalizedTimeRangeConfig.value);
+    if (!normalizedPanelConfig.ok) {
+      return normalizedPanelConfig;
+    }
+
+    const normalizedVariableConfig = normalizeDashboardConfigVariables(normalizedPanelConfig.value);
+    if (!normalizedVariableConfig.ok) {
+      return normalizedVariableConfig;
+    }
+
+    return {
+      ok: true,
+      value: normalizedVariableConfig.value
+    };
+  }
+
+  return {
+    ok: true,
+    value
+  };
+}
+
+function getDashboardImportForbiddenFields(value: Record<string, unknown>) {
+  const forbiddenFields = [
+    'id',
+    'project_id',
+    'created_by_user_id',
+    'updated_by_user_id',
+    'created_at',
+    'updated_at'
+  ];
+
+  return forbiddenFields.filter((field) => field in value);
+}
+
+function normalizeImportName(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const name = value.trim();
+  return name.length > 0 && name.length <= 100 ? name : null;
+}
+
+function normalizeImportDescription(value: unknown):
+  | {
+      ok: true;
+      value: string | null;
+    }
+  | {
+      ok: false;
+      message: string;
+    } {
+  if (value === null) {
+    return {
+      ok: true,
+      value: null
+    };
+  }
+
+  if (typeof value !== 'string') {
+    return {
+      ok: false,
+      message: '导入文档 description 必须是字符串或 null。'
+    };
+  }
+
+  const description = value.trim();
+  if (description.length > 500) {
+    return {
+      ok: false,
+      message: '导入文档 description 不能超过 500 字符。'
+    };
+  }
+
+  return {
+    ok: true,
+    value: description.length > 0 ? description : null
+  };
 }
 
 function validateDashboardJsonValue(value: DashboardJson, label: string) {

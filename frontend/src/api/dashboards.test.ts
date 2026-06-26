@@ -188,6 +188,54 @@ describe('dashboard api client', () => {
     );
   });
 
+  it('导入导出使用项目边界路径且导入只清理 undefined 字段', async () => {
+    const { importDashboard, exportDashboard } = await loadDashboardClient();
+    const document = {
+      schema: 'telemetry.dashboard',
+      version: 1,
+      name: '服务总览',
+      description: null,
+      layout: { version: 1 },
+      config: { panels: [] }
+    } as const;
+    const dashboard = {
+      id: 7,
+      project_id: 12,
+      name: '服务总览',
+      description: null,
+      layout: document.layout,
+      config: document.config,
+      created_by_user_id: 1,
+      updated_by_user_id: 1,
+      created_at: '2026-06-25T04:20:00Z',
+      updated_at: '2026-06-25T04:20:00Z'
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse(dashboard, 201))
+      .mockResolvedValueOnce(jsonResponse(document));
+
+    await expect(importDashboard(12, { document, name: '核心服务总览', description: undefined })).resolves.toEqual(dashboard);
+    await expect(exportDashboard(12, 7)).resolves.toEqual(document);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:28117/api/v1/projects/12/dashboards/import',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          document,
+          name: '核心服务总览'
+        })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:28117/api/v1/projects/12/dashboards/7/export',
+      expect.any(Object)
+    );
+  });
+
   it('panel 查询预览路径会编码 panel id 并携带当前 token', async () => {
     const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
     const response = {

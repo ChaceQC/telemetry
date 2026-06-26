@@ -2,6 +2,32 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-26 T-0079 Dashboard JSON 导入导出前端基础
+
+### 已完成
+
+- `/dashboards` 新增紧凑 JSON 导入导出区域，复用当前项目选项和选中 dashboard，不新增后端契约。
+- 前端 API client 接入 `GET /api/v1/projects/{project_id}/dashboards/{dashboard_id}/export` 与 `POST /api/v1/projects/{project_id}/dashboards/import`，导入 payload 只清理 `undefined`，保留导入文档和非空名称/描述覆盖值。
+- 新增 portable JSON 本地校验：要求 `schema=telemetry.dashboard`、`version=1`、`name/description/layout/config` 必填，拒绝实例字段、非对象文档、非有限 JSON token、超大/过深/过复杂 JSON，并复用 `config.panels/time_range/variables` 最小 schema 规范化。
+- 导入成功后按普通 dashboard 创建路径进入编辑态，重置导入错误和导出结果，并复用列表缓存 upsert/fallback，避免列表刷新未返回新记录时丢失编辑态。
+- 导出仅针对当前选中的已保存 dashboard，返回文档以只读 JSON textarea 展示；切换项目、分页、选择/删除/保存 dashboard 会清理旧导出结果，避免跨 dashboard 串旧数据。
+- UI 延续现有 operational dashboard 风格，两列导入/导出操作区在移动端折为单列，不引入模板市场、上传存储或覆盖导入抽象。
+- README 已同步 Dashboard JSON 导入导出接口、payload 边界、本地校验和当前不覆盖范围。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行 Dashboard 专项：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot` 通过（4 个测试文件、76 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run build` 通过。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 未做真实后端/MySQL/浏览器联调；本轮以 mock API 交互测试、纯函数校验、类型检查、lint 和生产构建验证为主。
+- 本轮不支持批量导入、覆盖已有 dashboard、导入文件上传存储、模板市场、分享/只读、ClickHouse 图表查询或告警规则。
+- 测试输出仍包含项目既有 React Router SSR/future flag warning。
+
 ## 2026-06-25 T-0076 Dashboard 内置模板创建前端基础
 
 ### 已完成
