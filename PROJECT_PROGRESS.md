@@ -1075,15 +1075,17 @@
 
 - 已登记 T-0080 为阶段 5 JSON 导入导出测试收口小步，不产生 feature merge，不改业务代码。
 - 测试边界：使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge；不得启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
+- T-0080 登记提交 `cefb3f5` 已推送到 `dev`；GitHub Actions run `28234685084` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js runtime 弃用注解。
+- 已启动测试 agent Boyle（`019f03a8-b1be-7702-9131-0bf56001d4ea`）执行 T-0080 真实前后端联测。
 
 ### 阻塞与风险
 
-- 联测尚未执行；需验证真实 API、浏览器 UI、权限/错误边界和移动端布局。
+- Boyle 正在执行联测；需等待真实 API、浏览器 UI、权限/错误边界和移动端布局结论。
 
 ### 下一步
 
-- 启动测试 agent 执行 T-0080：覆盖 dashboard JSON 导出、portable JSON 内容不含实例字段、导入创建普通 dashboard、导入后进入编辑/预览流程、名称/描述覆盖、空格分隔 absolute time_range、401/403/404/422 边界、390px 移动端布局和 dashboard CRUD/panel preview 快速回归。
+- 等待 Boyle 返回 T-0080 联测结论；通过则记录证据目录、覆盖项和 cleanup 结果，未通过则登记失败项并分派修复。
 
 ### 验证
 
-- 待执行。
+- GitHub Actions run `28234685084` 成功，Backend checks 与 Frontend checks 均通过。

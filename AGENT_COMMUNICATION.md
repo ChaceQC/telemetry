@@ -626,6 +626,8 @@ closed      已关闭
 | 2026-06-26 | T-0079 | 前端开发 agent / 总 agent | Dashboard JSON 导入导出前端完成 | `feature/frontend-dev` 提交 `b62a00a` 完成 API client、portable JSON parser/payload helper、`/dashboards` 导入导出面板、缓存 upsert 和测试；Kuhn 审计发现 absolute 空格分隔 ISO 时间被前端误拒的 P2，总 agent 提交 `cdccdf2` 修复并补回归；feature CI runs `28232612067`、`28233976367` 均通过。Kuhn 已关闭 | done |
 | 2026-06-26 | T-0079 | 总 agent | T-0079 真实 merge 与 CI 通过 | 已使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee`；GitHub Actions run `28234093644` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
 | 2026-06-26 | T-0080 | 总 agent | 登记 Dashboard JSON 导入导出真实前后端联测 | 阶段 5 JSON 导入导出测试收口：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge，覆盖 dashboard JSON 导出、portable JSON 内容不含实例字段、导入创建普通 dashboard、导入后进入编辑/预览流程、名称/描述覆盖、空格分隔 absolute time_range、401/403/404/422 权限与错误边界、390px 移动端布局和 dashboard CRUD/panel preview 快速回归。不改业务代码，不启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源 | testing |
+| 2026-06-26 | CI | 总 agent | T-0080 登记提交 Actions 通过 | `docs: 登记T-0080真实联测` 提交 `cefb3f5` 已推送到 `dev`，GitHub Actions run `28234685084` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
+| 2026-06-26 | T-0080 | 总 agent | 启动测试 agent Boyle | 已启动测试 agent Boyle（`019f03a8-b1be-7702-9131-0bf56001d4ea`）执行 T-0080，要求使用真实 MySQL 临时环境、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖 JSON 导出导入真实链路；不改业务代码、不提交/不 push、不修改根正式文档、不读 `auth.txt`、不启动 Docker，只在 ignored 的 `agents/runtime/` 下写测试日志和证据并清理自有资源 | testing |
 
 ## 6. 测试记录
 
