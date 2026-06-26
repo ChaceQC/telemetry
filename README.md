@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前版本为 `0.2.12`，已进入阶段 5 仪表盘的 panel 查询预览基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图、日志上下文查看、关系库 trace span 查询基础、`/traces` 查询页、trace waterfall/树形详情、trace 与 logs 的基础互跳入口、后端关系库 trace 服务拓扑最小查询、`/traces/topology` 服务拓扑基础视图、Dashboard CRUD 后端 API、`/dashboards` 基础管理页、Dashboard panel 配置/只读预览，以及已保存 panel 的后端查询预览 API；traces 目前先写入关系库 `ingest_records`，`GET /api/v1/query/traces` 已支持 trace/span/name/source/status/duration/time 过滤，`GET /api/v1/query/traces/topology` 已支持单项目服务拓扑摘要，Dashboard 已支持按项目权限创建、列表、读取、更新删除和按已保存 `config.panels[].id` 生成 metrics/logs/events/traces/topology 查询预览，尚未接入真实前端图表渲染、ClickHouse 图表查询、变量时间范围或告警能力。
+当前版本为 `0.5.0`，已进入阶段 6 告警规则 CRUD 与指标阈值告警评估基础。当前已具备认证与基础管理、API Key、metrics/logs/events/traces 摄入、摄入统计、查询 API、查询页分页、metrics 当前页趋势图、日志上下文查看、关系库 trace span 查询基础、`/traces` 查询页、trace waterfall/树形详情、trace 与 logs 的基础互跳入口、后端关系库 trace 服务拓扑最小查询、`/traces/topology` 服务拓扑基础视图、Dashboard CRUD 后端 API、`/dashboards` 基础管理页、Dashboard panel 配置/只读预览、已保存 panel 的后端查询预览 API、告警规则 CRUD 前后端基础，以及指标阈值告警手动评估后端基础；traces 目前先写入关系库 `ingest_records`，`GET /api/v1/query/traces` 已支持 trace/span/name/source/status/duration/time 过滤，`GET /api/v1/query/traces/topology` 已支持单项目服务拓扑摘要，Dashboard 已支持按项目权限创建、列表、读取、更新删除和按已保存 `config.panels[].id` 生成 metrics/logs/events/traces/topology 查询预览，告警评估目前仍是手动后端基础，尚未接入真实前端图表渲染、ClickHouse 图表查询、变量时间范围、调度器或通知链路。
 
 ## 目录结构
 

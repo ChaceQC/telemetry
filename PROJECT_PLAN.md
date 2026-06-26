@@ -1,6 +1,6 @@
 # 遥测应用项目计划书
 
-版本：0.2.12
+版本：0.5.0
 日期：2026-06-20  
 状态：草案  
 目标环境：Windows 11 开发，Debian 部署  
@@ -1042,7 +1042,7 @@ npm run preview -- --host 127.0.0.1 --port 25174
 
 ```text
 APP_ENV=development
-APP_VERSION=0.2.12
+APP_VERSION=0.5.0
 APP_SECRET_KEY=change-me
 
 API_HOST=127.0.0.1
