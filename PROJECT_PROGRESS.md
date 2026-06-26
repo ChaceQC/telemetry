@@ -1027,6 +1027,7 @@
 - 2026-06-26 已补推后端 feature `0728fc1` 与 `dev` 文档同步提交 `5f2c8d0`；GitHub Actions run `28228008679` 通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。
 - 2026-06-26 收口记录提交 `2fd3790` 已推送到 `dev`；GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success。
 - 已登记 `T-0079` Dashboard JSON 导入导出前端基础：下一步由前端开发 agent 在 `feature/frontend-dev` worktree 接入 T-0078 后端 API，在 `/dashboards` 提供单个 dashboard JSON 导出入口和目标项目下 JSON 文档导入创建普通 dashboard 的最小表单；本小步不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警。
+- T-0079 登记提交 `f34fa21` 已推送到 `dev`；GitHub Actions run `28230192395` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 验证
 
@@ -1036,3 +1037,4 @@
 - 视觉证据：`desktop-dashboard-template.png` 与 `mobile-dashboard-template.png` 已保留在最终证据目录。
 - GitHub Actions run `28228008679` 成功，Backend checks 与 Frontend checks 均通过。
 - GitHub Actions run `28229682668` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28230192395` 成功，Backend checks 与 Frontend checks 均通过。

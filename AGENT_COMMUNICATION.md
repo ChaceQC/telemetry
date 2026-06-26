@@ -620,6 +620,7 @@ closed      已关闭
 | 2026-06-26 | CI | 总 agent | T-0078 文档同步与后端 feature 补推 | `docs: sync T-0078 completion` 提交 `5f2c8d0` 已推送到 `dev`，GitHub Actions run `28228008679` 通过，Backend checks 与 Frontend checks 均为 success；后端 feature 分支已补推 `0728fc1` 并与 `origin/feature/backend-dev` 一致；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致 | done |
 | 2026-06-26 | CI | 总 agent | T-0078 最新 CI 收口记录 | `docs: 同步T-0078最新CI收口` 提交 `2fd3790` 已推送到 `dev`，GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success | done |
 | 2026-06-26 | T-0079 | 总 agent | 启动 Dashboard JSON 导入导出前端基础 | 阶段 5 剩余小步限定为前端接入 T-0078 已有后端 API：在 `/dashboards` 为已保存 dashboard 提供单个 JSON 导出入口，并在目标项目下提供 JSON 文档导入创建普通 dashboard 的最小表单；需复用既有 auth、项目选择、dashboard 列表缓存和错误展示风格。范围不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警 | doing |
+| 2026-06-26 | CI | 总 agent | T-0079 登记提交 Actions 通过 | `docs: 登记T-0079前端导入导出` 提交 `f34fa21` 已推送到 `dev`，GitHub Actions run `28230192395` 通过，Backend checks 与 Frontend checks 均为 success | done |
 
 ## 6. 测试记录
 
