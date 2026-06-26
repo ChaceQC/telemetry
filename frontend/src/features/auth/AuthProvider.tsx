@@ -4,6 +4,7 @@ import type { PropsWithChildren } from 'react';
 import { getCurrentUser, login } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
 import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
+import { clearAlertRuleQueryCache } from '../alerts/queryKeys';
 import { clearDashboardQueryCache } from '../dashboards/queryKeys';
 import { clearIngestStatsQueryCache } from '../overview/queryKeys';
 import { clearTelemetryQueryCache } from '../query/querySession';
@@ -148,4 +149,5 @@ function clearAuthenticatedQueryCaches(queryClient: Parameters<typeof clearTelem
   clearSettingsQueryCache(queryClient);
   clearIngestStatsQueryCache(queryClient);
   clearDashboardQueryCache(queryClient);
+  clearAlertRuleQueryCache(queryClient);
 }

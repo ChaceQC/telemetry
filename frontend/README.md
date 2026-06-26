@@ -1,6 +1,6 @@
 # 遥测前端
 
-遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Dashboard CRUD 基础页面、Metrics/Logs/Traces/Events 查询页、Trace 服务拓扑基础展示、健康检查/API client 和环境变量示例。
+遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Dashboard CRUD 基础页面、告警规则 CRUD 基础页面、Metrics/Logs/Traces/Events 查询页、Trace 服务拓扑基础展示、健康检查/API client 和环境变量示例。
 
 ## 环境要求
 
@@ -90,6 +90,18 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 
 从模板创建和 JSON 导入时，前端只发送 `name` 和 `description` 覆盖字段，不发送 `project_id`、`layout` 或 `config` 覆盖；创建成功后返回普通 dashboard，并进入既有编辑/预览工作流。`layout` 和 `config` 在前端以 JSON textarea 编辑，提交前会先校验必须是 JSON 对象或数组；`config.panels` 若存在会按后端最小 schema 校验并规范化。编辑区提供最小 panel 列表和添加/编辑/删除表单，字段包含 `id`、`title`、`type`、`query` JSON 和 layout `x/y/w/h`；操作会写回 `config.panels` 并保留其他顶层 legacy config 字段，最终仍通过既有 Dashboard update API 保存。编辑区同时提供只读 Panel 预览，直接消费当前 `config JSON` textarea 文本，展示 panel 标题、type/id、layout `x/y/w/h` 和稳定 query 摘要，并覆盖 legacy config、空 panels、invalid `config.panels`、未登录和未选择 dashboard 状态；预览不会触发保存 API 或图表数据请求。若选择 panel 后手动改动 `config JSON` 导致当前 index 不再指向原 panel id，更新会提示重新选择，避免覆盖错误 panel。页面展示 loading、error、empty、未登录/会话恢复、模板和导入导出 `401/404/422` 状态；Dashboard 查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `dashboards` 缓存，避免显示上一 session 数据。当前不做分享/只读、模板市场、复杂模板编辑、批量导入、覆盖导入、文件上传存储、ClickHouse 图表查询或告警规则。
 
+## 告警规则 CRUD 页面
+
+`/alerts` 页面提供阶段 6 的告警规则管理基础，使用当前 session token 访问 API-0025：
+
+- 列表：调用 `GET /api/v1/alerts/rules`，支持可选 `project_id`、`severity`、`signal`、`enabled`、固定 `limit=50` 和 `offset` 分页；页面复用 `GET /api/v1/projects` 展示项目下拉，也允许手动输入项目 ID。
+- 创建：调用 `POST /api/v1/alerts/rules`，提交 `project_id`、`name`、可空 `description`、`enabled`、`severity`、`signal`、`condition` 和 `evaluation`。
+- 编辑：调用 `PATCH /api/v1/projects/{project_id}/alerts/rules/{rule_id}`，只提交实际变化字段；描述清空会提交 `description=null`。
+- 启停：列表和编辑区的启停操作只 PATCH `{ "enabled": true|false }`。
+- 删除：调用 `DELETE /api/v1/projects/{project_id}/alerts/rules/{rule_id}`，删除前使用确认提示。
+
+本地校验对齐后端契约：`name` 1 到 100 字符，`description` 最多 500 字符；`severity=info/warning/critical`；`signal=metrics/logs/traces/events`；`condition` 和 `evaluation` 必须是非空 JSON 对象，拒绝非法 JSON、数组、空对象、超大/过深/过复杂 JSON 和 `NaN`/`Infinity`；`evaluation.window_seconds` 与 `evaluation.interval_seconds` 必须是 `1..86400` 的整数。页面覆盖未登录、会话恢复、loading、error、empty、筛选、分页、创建、编辑、启停、删除确认、`401/403/404/409/422` 错误提示，并展示创建/更新时间与用户 ID。告警规则查询缓存按 `sessionRevision` 隔离，登录、登出和切换账号会清理 `alerts/rules` 缓存。当前不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路。
+
 ## 总览页摄入统计
 
 `/` 总览页会在登录后调用 `GET /api/v1/ingest/stats?limit=100`，按当前账号可访问项目汇总 metrics、logs 和 events 的 `accepted_count`、`rejected_count`、`bytes_count`、来源数量和最近统计时间。
@@ -119,7 +131,7 @@ src/
   app/          应用 Provider 和路由
   api/          API client、配置和接口封装
   components/   通用布局和展示组件
-  features/     领域组件，当前包含 auth、settings、dashboards 和 query 相关能力
+  features/     领域组件，当前包含 auth、settings、dashboards、alerts 和 query 相关能力
   pages/        页面入口
   styles/       全局样式
 ```
@@ -135,6 +147,6 @@ npm.cmd run test
 npm.cmd run build
 ```
 
-Vitest 单元测试默认使用 Node 环境；Dashboard CRUD 交互测试通过文件级 `jsdom` 环境和 Testing Library 覆盖创建、更新、删除和本地 JSON 校验。
+Vitest 单元测试默认使用 Node 环境；Dashboard CRUD 和告警规则 CRUD 交互测试通过文件级 `jsdom` 环境和 Testing Library 覆盖创建、更新、删除和本地 JSON 校验。
 
 当前首屏会调用 `GET /health`。后端未启动时页面会显示“待连接”状态，这是预期的可恢复错误态。

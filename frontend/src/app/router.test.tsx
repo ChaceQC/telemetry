@@ -24,14 +24,14 @@ function flattenRoutePaths(routeItems: typeof routes) {
   return routeItems.flatMap((route) => [route.path, ...(route.children?.map((child) => child.path ?? '/') ?? [])]);
 }
 
-describe('router dashboard entry', () => {
-  it('保留既有查询路由并新增 dashboards 路由', () => {
+describe('router console entries', () => {
+  it('保留既有查询路由并提供 dashboards/alerts 路由', () => {
     expect(flattenRoutePaths(routes)).toEqual(
-      expect.arrayContaining(['/', 'metrics', 'logs', 'traces/topology', 'traces', 'events', 'dashboards', 'settings'])
+      expect.arrayContaining(['/', 'metrics', 'logs', 'traces/topology', 'traces', 'events', 'dashboards', 'alerts', 'settings'])
     );
   });
 
-  it('侧边导航包含仪表盘入口且不移除既有查询入口', () => {
+  it('侧边导航包含仪表盘和告警入口且不移除既有查询入口', () => {
     const html = renderToString(
       <AuthContext.Provider value={signedOutAuth}>
         <MemoryRouter>
@@ -42,6 +42,8 @@ describe('router dashboard entry', () => {
 
     expect(html).toContain('href="/dashboards"');
     expect(html).toContain('仪表盘');
+    expect(html).toContain('href="/alerts"');
+    expect(html).toContain('告警');
     expect(html).toContain('href="/metrics"');
     expect(html).toContain('href="/logs"');
     expect(html).toContain('href="/traces"');

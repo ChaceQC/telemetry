@@ -25,6 +25,18 @@ describe('global trace waterfall styles', () => {
     expect(mobileBreakpoint).toContain('.topology-edge-route');
     expect(mobileBreakpoint).toContain('flex-direction: column');
   });
+
+  it('告警规则工作台在窄屏切换为单列布局', () => {
+    const tabletBreakpoint = sliceMediaBlock('@media (max-width: 960px)', '@media (max-width: 720px)');
+    const mobileBreakpoint = sliceMediaBlock('@media (max-width: 560px)');
+
+    expect(tabletBreakpoint).toContain('.alerts-summary');
+    expect(tabletBreakpoint).toContain('.alerts-grid');
+    expect(tabletBreakpoint).toContain('.alerts-filter-grid');
+    expect(tabletBreakpoint).toContain('grid-template-columns: 1fr');
+    expect(mobileBreakpoint).toContain('.alerts-rule-list li');
+    expect(mobileBreakpoint).toContain('grid-template-columns: minmax(0, 1fr)');
+  });
 });
 
 function sliceMediaBlock(startMarker: string, endMarker?: string) {

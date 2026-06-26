@@ -1,4 +1,4 @@
-export function buildQueryPath(path: string, params: Record<string, string | number | undefined | null>) {
+export function buildQueryPath(path: string, params: Record<string, string | number | boolean | undefined | null>) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
