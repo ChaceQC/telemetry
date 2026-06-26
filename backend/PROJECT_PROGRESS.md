@@ -2,6 +2,47 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-26 T-0081 告警规则 CRUD 后端基础
+
+### 已完成
+
+- 新增 `alert_rules` SQLAlchemy model 和 Alembic 迁移 `20260626_0010_create_alert_rules.py`，保存项目告警规则 `name/description/enabled/severity/signal/condition/evaluation` 与创建/更新审计字段；MySQL/MariaDB 使用 JSON 列，SQLite 走 SQLAlchemy JSON 兼容类型。
+- 新增 `app/schemas/alerts.py`、`app/repositories/alerts.py`、`app/services/alerts.py` 和 `app/api/routes/alerts.py`，并在 `api/dependencies.py`、`api/router.py`、`models/__init__.py`、`migrations/env.py` 接入。
+- 提供 `GET /api/v1/alerts/rules`、`POST /api/v1/alerts/rules`、`GET/PATCH/DELETE /api/v1/projects/{project_id}/alerts/rules/{rule_id}`。
+- 权限语义按 API-0025：viewer 可读，editor 可写；普通用户无项目成员关系和不存在项目隐藏为 `404 项目不存在`；跨项目 rule ID 隐藏为 `404 告警规则不存在`；viewer 写入返回 `403 无项目权限`；同项目规则名称重复返回 `409`。
+- 保存层校验覆盖 `severity`、`signal`、`condition`、`evaluation`、空 patch、分页参数等 `422` 边界；`condition/evaluation` 限制为非空 JSON 对象、16 KiB、深度 16、1024 节点且拒绝非有限数；`evaluation` 要求 `window_seconds` 和 `interval_seconds` 为 `1..86400` 的整数。
+- 新增 `backend/tests/test_alert_rules_api.py` 覆盖成功路径、权限边界、隐藏式 404、viewer 写 403、重复名称 409、非法字段/枚举/JSON/空 patch/分页过滤、repository 缺失项目/重复名称映射、SQLite 迁移升降级和 MySQL JSON DDL 元数据。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 Alert Rules API、迁移、实现位置和当前只保存/读取规则的边界。
+
+### 阻塞与风险
+
+- 暂无实现阻塞。
+- 本轮不实现规则评估、后台调度、通知、告警历史、静默/恢复、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 后台链路。
+- 未启动 Docker、真实 MySQL、真实后端服务、前端或浏览器；真实 MySQL `alert_rules` JSON 列读写、唯一约束和 API CRUD 执行路径仍需后续专项补验。
+
+### 开发侧验证
+
+- 已运行 `uv run pytest tests/test_alert_rules_api.py -q`，结果：25 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_alert_rules_api.py tests/test_config.py -q`，结果：38 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_alert_rules_api.py tests/test_dashboard_api.py tests/test_config.py -q`，结果：182 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest -q`，结果：342 个测试通过、2 个真实 MySQL 用例因未设置 `TELEMETRY_MYSQL_TEST_DATABASE_URL` 跳过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run ruff check app/models/alerts.py app/schemas/alerts.py app/repositories/alerts.py app/services/alerts.py app/api/routes/alerts.py tests/test_alert_rules_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/models/alerts.py app/schemas/alerts.py app/repositories/alerts.py app/services/alerts.py app/api/routes/alerts.py tests/test_alert_rules_api.py`，结果：6 个文件已符合格式。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run ruff format --check .`，结果：95 个文件已符合格式。
+- 已运行 `uv run mypy .`，结果：95 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过，lock 未变。
+- 已运行 `git diff --check`，结果：通过。
+
+### 测试 agent 独立复验
+
+- 已启动测试 agent `Mencius`（思考强度 xhigh）对 T-0081 后端告警规则 CRUD 做独立复验；结论：通过，未发现需要开发 agent 修复的问题。
+- `Mencius` 已运行 `uv run pytest tests/test_alert_rules_api.py -q`，结果：25 个测试通过。
+- `Mencius` 已运行 `uv run pytest tests/test_alert_rules_api.py tests/test_dashboard_api.py tests/test_config.py -q`，结果：182 个测试通过。
+- `Mencius` 已运行相关告警文件 `ruff check`、`ruff format --check`、`mypy`、`uv lock --check` 和 `git diff --check`，结果均通过。
+- `Mencius` 额外执行 TestClient 探针，覆盖更新重名 `409`、无效分页/项目参数 `422`、无成员/缺失项目 `404`、跨项目 rule `404`、viewer 删除 `403` 和 OpenAPI 路径注册，结果通过。
+- 未启动 Docker，未连接真实 MySQL，未创建临时库；本轮使用 SQLite/TestClient、SQLite 迁移测试和 MySQL DDL 编译覆盖。既有 Starlette TestClient/httpx deprecation warning 不影响本次结论。
+
 ## 2026-06-25 T-0078 Dashboard JSON 导入导出后端基础
 
 ### 已完成
