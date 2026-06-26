@@ -2,6 +2,34 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-26 T-0082 告警规则 CRUD 前端基础
+
+### 已完成
+
+- 新增 `frontend/src/api/alerts.ts`，封装 `GET/POST /api/v1/alerts/rules` 与 `GET/PATCH/DELETE /api/v1/projects/{project_id}/alerts/rules/{rule_id}`，列表支持 `project_id/severity/signal/enabled/limit/offset`，更新保留 `description=null` 清空语义。
+- 新增 `frontend/src/features/alerts/alertRuleForm.ts` 和 query keys，提供告警规则表单默认值、JSON 格式化、创建 payload、差异 PATCH payload、启停 `{enabled}` payload，以及 `sessionRevision` 隔离的 alerts/rules 查询缓存清理。
+- `/alerts` 已从占位页替换为告警规则管理工作台，包含未登录/会话恢复提示、项目选择、severity/signal/enabled 筛选、列表分页、loading/error/empty 状态、创建、选择编辑、启停切换、删除确认和创建/更新用户 ID 与时间展示。
+- 表单本地校验对齐 API-0025：`name` 1..100、`description` <=500、`signal=metrics/logs/traces/events`、`severity=info/warning/critical`、`condition/evaluation` 必须是非空 JSON object，拒绝明显非法 JSON/数组/空对象/非有限数、超大/过深/过复杂 JSON；`evaluation.window_seconds` 与 `interval_seconds` 必须是 `1..86400` 整数。
+- 错误展示沿用现有 API client 和表单/页面错误风格，覆盖 `401/403/404/409/422`；登录、登出和切换账号会清理告警规则缓存，避免跨 session 残留。
+- UI 保持运维工作台式密度，新增响应式 alerts 栅格样式和 CSS 测试，移动端折为单列；不引入规则评估、通知渠道、告警历史、静默/恢复、Webhook 或真实后端联测。
+- 更新 `frontend/README.md`、`agents/runtime/api-contracts/frontend-requests.md` 和本进度文件；运行时过程记录写入 ignored 的 `agents/runtime/frontend-agent.log.md`。
+
+### 验证
+
+- 测试子 agent Hooke 已按前端 agent 规则启动并完成测试计划/早期观察，因实现当时尚未落入 worktree 未执行完整验证，结论已写入 `agents/runtime/test-agent.log.md`。
+- 已在 `frontend/` 包目录执行告警专项：`npm.cmd exec -- vitest run src/api/alerts.test.ts src/features/alerts/alertRuleForm.test.ts src/pages/AlertsPage.test.tsx src/pages/AlertsPage.interaction.test.tsx --reporter=dot` 通过（4 个测试文件、21 个测试）。
+- 已在 `frontend/` 包目录执行路由/样式专项：`npm.cmd exec -- vitest run src/app/router.test.tsx src/styles/globalCss.test.ts --reporter=dot` 通过（2 个测试文件、5 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过，`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行全量：`npm.cmd run test` 通过（35 个测试文件、256 个测试），`npm.cmd run build` 通过。
+- 已用 Playwright + Microsoft Edge `149.0.4022.80` 在自启动 Vite `http://127.0.0.1:25173/alerts` 上完成 mock 冒烟：未登录提示、mock 项目/规则列表、severity 筛选、创建 POST payload、启停 PATCH `{ "enabled": false }`、删除确认、桌面与 390px 移动端无横向溢出均通过。自启动 Vite 进程链 PID `13512 -> 38448 -> 39976 -> 39916` 已停止，端口 `25173` 已释放，临时 Playwright 包与 Vite 日志已清理。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 未做真实后端/MySQL 联调；告警规则 CRUD 行为以 mock API、纯函数校验、类型检查、lint、构建和浏览器 mock 冒烟验证为主。
+- 当前只保存/读取规则定义，不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、ClickHouse/MongoDB/Redis 后台链路。
+- 测试输出仍包含项目既有 React Router SSR/future flag warning。
+
 ## 2026-06-26 T-0079 Dashboard JSON 导入导出前端基础
 
 ### 已完成
