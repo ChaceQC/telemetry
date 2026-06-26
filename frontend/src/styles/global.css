@@ -679,6 +679,7 @@ h2 {
 
 .dashboard-control-panel,
 .dashboard-template-panel,
+.dashboard-json-transfer-panel,
 .dashboard-list-panel,
 .dashboard-form-panel {
   min-width: 0;
@@ -701,11 +702,59 @@ h2 {
   gap: 14px;
 }
 
+.dashboard-json-transfer-panel {
+  display: grid;
+  gap: 14px;
+}
+
 .dashboard-template-grid {
   display: grid;
   grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.15fr);
   gap: 16px;
   align-items: start;
+}
+
+.dashboard-json-transfer-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(280px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-json-import-form,
+.dashboard-json-export-panel {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.dashboard-transfer-heading {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.dashboard-transfer-heading strong,
+.dashboard-transfer-heading span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-transfer-heading strong {
+  color: #172026;
+}
+
+.dashboard-transfer-heading span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dashboard-json-transfer-field textarea {
+  min-height: 160px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .dashboard-template-list {
@@ -3137,6 +3186,7 @@ h2 {
   .management-grid,
   .dashboard-grid,
   .dashboard-template-grid,
+  .dashboard-json-transfer-grid,
   .dashboard-pagination,
   .dashboard-project-controls,
   .topology-grid,
@@ -3247,6 +3297,7 @@ h2 {
   .placeholder-page,
   .management-panel,
   .dashboard-control-panel,
+  .dashboard-json-transfer-panel,
   .dashboard-list-panel,
   .dashboard-form-panel {
     padding: 18px;

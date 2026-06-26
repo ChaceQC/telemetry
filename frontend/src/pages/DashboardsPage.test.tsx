@@ -10,6 +10,7 @@ import { AuthContext } from '../features/auth/authContext';
 import type { AuthContextValue } from '../features/auth/authContext';
 import {
   buildDashboardPatchPayload,
+  buildDashboardImportPayload,
   buildDashboardPayload,
   buildDashboardTemplateCreatePayload
 } from '../features/dashboards/dashboardPayload';
@@ -399,6 +400,59 @@ describe('Dashboard page helpers', () => {
       ok: true,
       value: {
         description: '支付团队值班入口'
+      }
+    });
+  });
+
+  it('导入 payload 解析 portable JSON 并只发送非空覆盖字段', () => {
+    const documentText = JSON.stringify({
+      schema: 'telemetry.dashboard',
+      version: 1,
+      name: '服务总览',
+      description: null,
+      layout: { version: 1 },
+      config: { panels: [] }
+    });
+
+    expect(
+      buildDashboardImportPayload({
+        documentText,
+        name: ' 核心服务总览 ',
+        description: ' '
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        document: {
+          schema: 'telemetry.dashboard',
+          version: 1,
+          name: '服务总览',
+          description: null,
+          layout: { version: 1 },
+          config: { panels: [] }
+        },
+        name: '核心服务总览'
+      }
+    });
+
+    expect(
+      buildDashboardImportPayload({
+        documentText,
+        name: '',
+        description: ' 值班入口 '
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        document: {
+          schema: 'telemetry.dashboard',
+          version: 1,
+          name: '服务总览',
+          description: null,
+          layout: { version: 1 },
+          config: { panels: [] }
+        },
+        description: '值班入口'
       }
     });
   });

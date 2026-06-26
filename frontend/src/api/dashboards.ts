@@ -10,6 +10,8 @@ import type {
 import { buildQueryPath } from './queryParams';
 
 export type DashboardJson = Record<string, unknown> | unknown[];
+export const DASHBOARD_EXPORT_SCHEMA = 'telemetry.dashboard';
+export const DASHBOARD_EXPORT_VERSION = 1;
 
 export type Dashboard = {
   id: number;
@@ -47,6 +49,15 @@ export type DashboardTemplate = {
 
 export type DashboardTemplateListResponse = {
   items: DashboardTemplate[];
+};
+
+export type DashboardExportDocument = {
+  schema: typeof DASHBOARD_EXPORT_SCHEMA;
+  version: typeof DASHBOARD_EXPORT_VERSION;
+  name: string;
+  description: string | null;
+  layout: DashboardJson;
+  config: DashboardJson;
 };
 
 export type DashboardPanelPreviewPayload =
@@ -109,6 +120,12 @@ export type CreateDashboardFromTemplateRequest = {
   description?: string | null;
 };
 
+export type ImportDashboardRequest = {
+  document: DashboardExportDocument;
+  name?: string | null;
+  description?: string | null;
+};
+
 export function listDashboards(params: DashboardListParams = {}) {
   return apiRequest<DashboardListResponse>(
     buildQueryPath('/api/v1/dashboards', {
@@ -145,8 +162,19 @@ export function createDashboardFromTemplate(
   });
 }
 
+export function importDashboard(projectId: number, payload: ImportDashboardRequest) {
+  return apiRequest<Dashboard>(`${buildProjectDashboardsPath(projectId)}/import`, {
+    method: 'POST',
+    body: JSON.stringify(cleanDashboardPayload(payload))
+  });
+}
+
 export function getDashboard(projectId: number, dashboardId: number) {
   return apiRequest<Dashboard>(buildProjectDashboardPath(projectId, dashboardId));
+}
+
+export function exportDashboard(projectId: number, dashboardId: number) {
+  return apiRequest<DashboardExportDocument>(`${buildProjectDashboardPath(projectId, dashboardId)}/export`);
 }
 
 export function updateDashboard(projectId: number, dashboardId: number, payload: UpdateDashboardRequest) {
@@ -178,7 +206,11 @@ export function previewDashboardPanel(
 }
 
 function buildProjectDashboardPath(projectId: number, dashboardId: number) {
-  return `/api/v1/projects/${encodeURIComponent(`${projectId}`)}/dashboards/${encodeURIComponent(`${dashboardId}`)}`;
+  return `${buildProjectDashboardsPath(projectId)}/${encodeURIComponent(`${dashboardId}`)}`;
+}
+
+function buildProjectDashboardsPath(projectId: number) {
+  return `/api/v1/projects/${encodeURIComponent(`${projectId}`)}/dashboards`;
 }
 
 function buildDashboardTemplatePath(templateId: string) {
