@@ -1024,6 +1024,11 @@
 
 - T-0078 Dashboard JSON 导入导出后端基础已完成：导出返回单个 dashboard 的可移植 JSON 文档，包含公开字段 `schema`、`version`、`name`、`description`、`layout`、`config`，其中 `schema=telemetry.dashboard`、`version=1`，并不会包含数据库 id、项目 id、创建者或时间戳；导入在目标项目下创建普通 dashboard，复用既有 `DashboardCreate`、权限、JSON 大小/深度/finite/panel/time_range/variables 校验和隐藏无权限项目语义，支持可选名称/描述覆盖。
 - T-0078 仍不做前端 UI、批量导入、模板市场、分享/只读、跨项目权限提升、文件上传存储、ClickHouse 数据导出或告警。
+- 2026-06-26 已补推后端 feature `0728fc1` 与 `dev` 文档同步提交 `5f2c8d0`；GitHub Actions run `28228008679` 通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致。
+- 2026-06-26 收口记录提交 `2fd3790` 已推送到 `dev`；GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success。
+- 已登记 `T-0079` Dashboard JSON 导入导出前端基础：下一步由前端开发 agent 在 `feature/frontend-dev` worktree 接入 T-0078 后端 API，在 `/dashboards` 提供单个 dashboard JSON 导出入口和目标项目下 JSON 文档导入创建普通 dashboard 的最小表单；本小步不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警。
+- T-0079 登记提交 `f34fa21` 已推送到 `dev`；GitHub Actions run `28230192395` 通过，Backend checks 与 Frontend checks 均为 success。
+- T-0079 登记 CI 收口记录 `33e3f7a` 已推送到 `dev`；GitHub Actions run `28230309166` 通过，Backend checks 与 Frontend checks 均为 success。
 
 ### 验证
 
@@ -1031,3 +1036,94 @@
 - T-0077 API 断言：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732/api-summary.json` 记录 `passed=true`、`failures=[]`。
 - T-0077 Edge 浏览器断言：`agents/runtime/e2e-T-0077-browser-rerun-20260625-233732/browser-summary.json` 记录 `passed=true`、`failures=[]`，Microsoft Edge `149.0.4022.80`。
 - 视觉证据：`desktop-dashboard-template.png` 与 `mobile-dashboard-template.png` 已保留在最终证据目录。
+- GitHub Actions run `28228008679` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28229682668` 成功，Backend checks 与 Frontend checks 均通过。
+- GitHub Actions run `28230192395` 成功，Backend checks 与 Frontend checks 均通过。
+
+## 2026-06-26 T-0079 Dashboard JSON 导入导出前端基础
+
+### 已完成
+
+- 前端 worktree `feature/frontend-dev` 完成 T-0079 实现并推送 `b62a00a`：在 `/dashboards` 新增紧凑 JSON 导入导出面板，导出当前已保存 dashboard 的 portable JSON，导入合法 portable JSON 后在目标项目下创建普通 dashboard 并选中。
+- 新增 `exportDashboard()`、`importDashboard()` API client，接入 T-0078 后端 `GET /export` 和 `POST /import` 契约。
+- portable JSON 仅接受 `schema=telemetry.dashboard`、严格整数 `version=1`、`name`、`description`、`layout`、`config`；导入拒绝实例字段、非对象文档、非 finite number、超大/过深/过复杂 JSON。
+- 导入创建成功后会 upsert 当前 dashboard 列表缓存并进入编辑态；不覆盖已有 dashboard，不做批量导入，不做文件上传。
+- Kuhn 代码审计发现 1 个 P2：前端 absolute 时间解析误拒后端可接受的空格分隔 ISO 时间。已在 `cdccdf2` 修复为接受 `T` 或单个空格分隔，同时保留严格日期、时区、前后顺序校验，并补回归测试。
+- `feature/frontend-dev` CI 通过：实现 run `28232612067`、审计修复 run `28233976367` 均为 success；Kuhn 已关闭。
+- 总 agent 使用真实 `git merge --no-ff origin/feature/frontend-dev` 合入 `dev`，merge 提交 `f5cfeee` 已推送。
+- `dev` GitHub Actions run `28234093644` 通过，Backend checks 与 Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解，不阻塞。
+
+### 阻塞与风险
+
+- 本小步未启动真实后端、数据库、Docker 或浏览器联测；验证集中在前端单元/交互测试、静态门禁和 CI。
+- 导入导出仍限定为单个 dashboard portable JSON；批量导入、覆盖已有 dashboard、拖拽文件上传、模板市场、分享/只读、ClickHouse 数据导出和告警导出不在本轮范围。
+
+### 下一步
+
+- 已登记 T-0080 Dashboard JSON 导入导出真实前后端联测：在最新 `dev/origin/dev` 上使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实后端、真实前端与 Playwright + Microsoft Edge，覆盖导出、导入、名称/描述覆盖、空格分隔 absolute time_range、权限/错误边界、移动端布局和 dashboard CRUD/panel preview 快速回归。
+
+### 验证
+
+- feature worktree 实现侧通过：`npm.cmd run test -- src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot`，`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
+- 审计修复后通过：`npm.cmd run test -- src/features/dashboards/dashboardTimeRange.test.ts src/api/dashboards.test.ts src/features/dashboards/dashboardJson.test.ts src/pages/DashboardsPage.test.tsx src/pages/DashboardsPage.interaction.test.tsx --reporter=dot`，5 files/88 tests passed；`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
+- merge 后根工作区通过：前端专项 5 files/88 tests passed，`npm.cmd run typecheck`，`npm.cmd run lint`，`npm.cmd run build`，`git diff --check`。
+- GitHub Actions：`feature/frontend-dev` runs `28232612067`、`28233976367` 通过；`dev` run `28234093644` 通过。
+
+## 2026-06-26 T-0080 Dashboard JSON 导入导出真实前后端联测
+
+### 已完成
+
+- 已登记 T-0080 为阶段 5 JSON 导入导出测试收口小步，不产生 feature merge，不改业务代码。
+- 测试边界：使用真实 MySQL 临时环境或测试 agent 自有本地 MySQL 实例、真实 FastAPI 后端、真实 Vite 前端和 Playwright + Microsoft Edge；不得启动 Docker，不读 `auth.txt`，只清理测试 agent 自己启动并记录的资源。
+- T-0080 登记提交 `cefb3f5` 已推送到 `dev`；GitHub Actions run `28234685084` 通过，Backend checks 与 Frontend checks 均为 success，仅有既有官方 action Node.js runtime 弃用注解。
+- 已启动测试 agent Boyle（`019f03a8-b1be-7702-9131-0bf56001d4ea`）执行 T-0080 真实前后端联测。
+- Boyle 仅留下空证据目录且未返回可用结论，已按用户要求关闭；总 agent 接手直接补跑 T-0080 联测。
+- 已在 ignored 证据目录 `agents/runtime/e2e-T-0080-20260626-194034` 完成可重复真实联测脚本与证据收集；最终 `summary.json` 记录 `passed=true`、`failures=[]`。
+- API 断言覆盖：导出 portable JSON 仅含 `schema/version/name/description/layout/config`，不含 `id/project_id/created_by_user_id/updated_by_user_id/created_at/updated_at`；导入支持名称/描述覆盖与保留文档字段；空格分隔 absolute `config.time_range` 被接受并保留；401 未认证、403 viewer 导入、404 隐藏/缺失项目、422 非法 JSON/schema/version/实例字段均符合契约；导入后的普通 dashboard 可 patch 并触发 panel preview `200`。
+- Edge 浏览器断言覆盖：真实登录 `/dashboards`，通过 UI 创建导出源 dashboard、导出 JSON、导入目标项目、前端本地非法 JSON 和实例字段错误展示、导入后进入普通 dashboard 编辑/预览流程、panel preview 请求 `200`，并在 390px 移动端验证 JSON 导入导出控件可达且无横向溢出。
+- 清理结果：临时 MySQL `33380` 库/实例/datadir、真实 FastAPI `28117`、真实 Vite `25173` 均由脚本清理；系统 MySQL `3306` 按规则未触碰。未修改业务代码，未启动 Docker，未读取 `auth.txt`。
+- T-0080 收口提交 `0451ebe` 已推送到 `dev`；GitHub Actions run `28236596279` 通过，Backend checks 与 Frontend checks 均为 success。
+
+### 阻塞与风险
+
+- T-0080 未发现阻塞或业务缺陷。
+- 浏览器日志中存在一次页面 favicon/统计请求的非阻断 404/abort 记录；断言关注的 JSON 导入导出、panel preview 和布局链路均通过。
+
+### 下一步
+
+- T-0080 收口提交推送后读取 GitHub Actions 结果并同步记录。
+- 阶段 5 仪表盘 JSON 导入导出已收口，下一小步进入阶段 6：登记 T-0081 告警规则 CRUD 后端基础。
+
+### 验证
+
+- GitHub Actions run `28234685084` 成功，Backend checks 与 Frontend checks 均通过。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File agents/runtime/e2e-T-0080-20260626-194034/run_t0080.ps1`：通过。真实临时 MySQL、真实 FastAPI、真实 Vite、Playwright + Microsoft Edge `149.0.4022.80`；`api-summary.json` 与 `browser-summary.json` 均 `passed=true`。
+- 证据截图：`desktop-export-json.png`、`desktop-imported-dashboard.png`、`desktop-panel-preview.png`、`mobile-390-json-transfer.png`。
+- GitHub Actions run `28236596279` 成功，Backend checks 与 Frontend checks 均通过；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test。
+
+## 2026-06-26 T-0081 告警规则 CRUD 后端基础
+
+### 已完成
+
+- 已登记 T-0081 为阶段 6 告警第一小步，限定为后端告警规则 CRUD 基础。
+- API 契约草案新增 `API-0025 告警规则 CRUD`：提供告警规则列表、创建、读取、更新、删除能力，保存项目、名称、描述、启停、严重度、信号类型、条件 JSON、评估 JSON、创建/更新用户和时间。
+- 权限边界：读取要求目标项目至少 `viewer`；创建、更新、删除要求至少 `editor`；普通用户无项目成员关系、项目不存在或规则不属于指定项目时沿用隐藏式 `404`。
+- 实现边界已固定：新增 MySQL/SQLite 持久化模型、Alembic 迁移、schema、repository、service、API 路由和后端测试；不做规则周期评估、通知渠道、告警事件/历史、静默/恢复、Webhook 发送、前端页面、ClickHouse/MongoDB/Redis 后台任务或调度器。
+- T-0081 登记提交 `73181f0` 已推送到 `dev`；GitHub Actions run `28237162147` 通过，Backend checks 与 Frontend checks 均为 success。
+- 已启动后端开发 agent Turing（`019f03d7-98d8-7743-8a54-eb6f81fc8d75`）在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081。
+
+### 阻塞与风险
+
+- 当前已完成总 agent 登记、契约草案和后端开发 agent 启动，业务实现由后端 worktree 推进中。
+- 告警规则 JSON 条件/评估先做保存层与基础 schema 校验，不承诺执行语义；后续指标阈值、日志数量、数据断流和通知链路需要独立小步验证。
+
+### 下一步
+
+- 后端开发 agent Turing 将在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支实现 T-0081，并更新 `backend/PROJECT_PROGRESS.md`、`backend/README.md` 和 `agents/runtime/api-contracts/backend.md`。
+- 后端实现完成并推送后，总 agent 读取 feature CI，启动代码审计 agent，审计通过后再合入 `dev`。
+
+### 验证
+
+- 登记文档提交前已通过：`git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md agents/runtime/api-contracts/backend.md`。
+- 登记文档提交前已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges`，根、前端、后端三棵 worktree 分支和保护项正常，仅允许本次根文档待提交改动。
+- GitHub Actions run `28237162147` 成功，Backend checks 与 Frontend checks 均通过；后端完成 ruff lint、ruff format check、type check、pytest，前端完成 lint、typecheck、test。

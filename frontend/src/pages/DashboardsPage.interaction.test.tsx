@@ -27,6 +27,8 @@ const apiMocks = vi.hoisted(() => ({
     >(),
   createDashboard: vi.fn(),
   createDashboardFromTemplate: vi.fn(),
+  importDashboard: vi.fn(),
+  exportDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn()
 }));
@@ -36,10 +38,14 @@ vi.mock('../api/settings', () => ({
 }));
 
 vi.mock('../api/dashboards', () => ({
+  DASHBOARD_EXPORT_SCHEMA: 'telemetry.dashboard',
+  DASHBOARD_EXPORT_VERSION: 1,
   createDashboard: apiMocks.createDashboard,
   createDashboardFromTemplate: apiMocks.createDashboardFromTemplate,
   deleteDashboard: apiMocks.deleteDashboard,
+  exportDashboard: apiMocks.exportDashboard,
   getDashboardTemplate: apiMocks.getDashboardTemplate,
+  importDashboard: apiMocks.importDashboard,
   listDashboardTemplates: apiMocks.listDashboardTemplates,
   listDashboards: apiMocks.listDashboards,
   previewDashboardPanel: apiMocks.previewDashboardPanel,
@@ -212,6 +218,20 @@ beforeEach(() => {
     layout: dashboardTemplate.layout,
     config: dashboardTemplate.config
   });
+  apiMocks.importDashboard.mockResolvedValue({
+    ...dashboard,
+    id: 10,
+    name: '导入服务总览',
+    description: '导入后的入口'
+  });
+  apiMocks.exportDashboard.mockResolvedValue({
+    schema: 'telemetry.dashboard',
+    version: 1,
+    name: dashboard.name,
+    description: dashboard.description,
+    layout: dashboard.layout,
+    config: dashboard.config
+  });
   apiMocks.updateDashboard.mockResolvedValue({ ...dashboard, name: '服务健康概览', description: null });
   apiMocks.deleteDashboard.mockResolvedValue(null);
 });
@@ -368,6 +388,97 @@ describe('DashboardsPage interactions', () => {
     expect(apiMocks.createDashboardFromTemplate.mock.calls[0]?.[2]).not.toHaveProperty('layout');
     expect(apiMocks.createDashboardFromTemplate.mock.calls[0]?.[2]).not.toHaveProperty('config');
     expect(apiMocks.createDashboardFromTemplate.mock.calls[0]?.[2]).not.toHaveProperty('project_id');
+  });
+
+  it('导出选中 dashboard 后显示 portable JSON', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /SLO 值班看板/ }));
+    const transferPanel = screen.getByLabelText('JSON 导入导出');
+    await user.click(within(transferPanel).getByRole('button', { name: '导出选中 dashboard' }));
+
+    await waitFor(() => expect(apiMocks.exportDashboard).toHaveBeenCalledWith(12, 7));
+    const exportedJson = within(transferPanel).getByLabelText('导出 JSON') as HTMLTextAreaElement;
+    expect(JSON.parse(exportedJson.value)).toEqual({
+      schema: 'telemetry.dashboard',
+      version: 1,
+      name: 'SLO 值班看板',
+      description: '核心服务面板',
+      layout: { version: 1, widgets: [] },
+      config: { refresh_seconds: 30 }
+    });
+  });
+
+  it('导入合法 portable JSON 后创建 dashboard 并进入编辑态', async () => {
+    const user = userEvent.setup();
+    const importedDashboard = createDashboardFixture({
+      id: 10,
+      project_id: project.id,
+      name: '导入服务总览',
+      description: '导入后的入口',
+      layout: { version: 1 },
+      config: { panels: [] }
+    });
+    let imported = false;
+    const pendingRefresh = createDeferred<DashboardListResult>();
+    apiMocks.importDashboard.mockImplementation(async () => {
+      imported = true;
+      return importedDashboard;
+    });
+    apiMocks.listDashboards.mockImplementation(async () => {
+      if (imported) {
+        return pendingRefresh.promise;
+      }
+
+      return { items: [dashboard], limit: 50, offset: 0, total: 1 };
+    });
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('SLO 值班看板');
+    const transferPanel = screen.getByLabelText('JSON 导入导出');
+    await within(transferPanel).findByRole('option', { name: '核心平台 / #12' });
+    fireEvent.change(within(transferPanel).getByLabelText('目标项目'), { target: { value: `${project.id}` } });
+    const importDocument = {
+      schema: 'telemetry.dashboard',
+      version: 1,
+      name: '服务总览',
+      description: null,
+      layout: { version: 1 },
+      config: { panels: [] }
+    };
+    fireEvent.change(within(transferPanel).getByLabelText('导入 JSON'), {
+      target: { value: JSON.stringify(importDocument) }
+    });
+    await user.type(within(transferPanel).getByLabelText('导入名称覆盖'), '导入服务总览');
+    await user.click(within(transferPanel).getByRole('button', { name: '导入 JSON' }));
+
+    await waitFor(() =>
+      expect(apiMocks.importDashboard).toHaveBeenCalledWith(12, {
+        document: importDocument,
+        name: '导入服务总览'
+      })
+    );
+    expect(await screen.findByDisplayValue('导入服务总览')).toBeTruthy();
+    expect(screen.getByDisplayValue('导入后的入口')).toBeTruthy();
+
+    pendingRefresh.resolve({ items: [importedDashboard, dashboard], limit: 50, offset: 0, total: 2 });
+    await waitFor(() => expect(screen.getByDisplayValue('导入服务总览')).toBeTruthy());
+  });
+
+  it('导入非法 JSON 文档时显示本地错误且不请求导入接口', async () => {
+    const user = userEvent.setup();
+    renderPage(<DashboardsPage />);
+
+    await screen.findAllByText('SLO 值班看板');
+    const transferPanel = screen.getByLabelText('JSON 导入导出');
+    fireEvent.change(within(transferPanel).getByLabelText('导入 JSON'), {
+      target: { value: JSON.stringify({ schema: 'telemetry.dashboard', version: 1, name: '坏文档' }) }
+    });
+    await user.click(within(transferPanel).getByRole('button', { name: '导入 JSON' }));
+
+    expect(await within(transferPanel).findByText('导入文档缺少 description 字段。')).toBeTruthy();
+    expect(apiMocks.importDashboard).not.toHaveBeenCalled();
   });
 
   it('选择列表项后可更新名称、清空描述并删除 dashboard', async () => {

@@ -396,7 +396,7 @@ type IsoDateTimeParts = {
 
 function parseIsoDateTimeParts(value: string): ValidationResult<IsoDateTimeParts> {
   const match =
-    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.(?<fraction>\d+))?(?<timezone>Z|[+-]\d{2}:\d{2})?$/i.exec(
+    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})[T ](?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2})(?:\.(?<fraction>\d+))?(?<timezone>Z|[+-]\d{2}:\d{2})?$/i.exec(
       value
     );
 

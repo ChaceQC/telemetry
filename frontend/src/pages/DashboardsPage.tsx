@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Download,
   FileJson,
   LayoutDashboard,
   LoaderCircle,
@@ -24,7 +25,9 @@ import {
   createDashboard,
   createDashboardFromTemplate,
   deleteDashboard,
+  exportDashboard,
   getDashboardTemplate,
+  importDashboard,
   listDashboardTemplates,
   listDashboards,
   previewDashboardPanel,
@@ -47,6 +50,7 @@ import {
 } from '../features/dashboards/dashboardJson';
 import {
   buildDashboardPatchPayload,
+  buildDashboardImportPayload,
   buildDashboardPayload,
   buildDashboardTemplateCreatePayload,
   normalizePositiveInteger
@@ -116,6 +120,12 @@ type TemplateCreateFormState = {
   name: string;
   description: string;
 };
+type DashboardImportFormState = {
+  projectId: string;
+  documentText: string;
+  name: string;
+  description: string;
+};
 type EditFormState = ReturnType<typeof dashboardToEditForm>;
 type PanelDraftState = DashboardPanelDraft;
 type VariableDraftState = DashboardVariableDraft;
@@ -152,6 +162,14 @@ export function DashboardsPage() {
     scopeKey: '',
     value: createDefaultDashboardTemplateForm()
   }));
+  const [importFormState, setImportFormState] = useState<ScopedState<DashboardImportFormState>>(() => ({
+    scopeKey: '',
+    value: createDefaultDashboardImportForm()
+  }));
+  const [exportedJsonState, setExportedJsonState] = useState<ScopedState<string>>({
+    scopeKey: '',
+    value: ''
+  });
   const [editFormState, setEditFormState] = useState<ScopedState<EditFormState>>(() => ({
     scopeKey: '',
     value: dashboardToEditForm(null)
@@ -189,6 +207,14 @@ export function DashboardsPage() {
     scopeKey: '',
     value: null
   });
+  const [importRemoteErrorState, setImportRemoteErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [exportRemoteErrorState, setExportRemoteErrorState] = useState<ScopedState<unknown | null>>({
+    scopeKey: '',
+    value: null
+  });
   const [updateRemoteErrorState, setUpdateRemoteErrorState] = useState<ScopedState<unknown | null>>({
     scopeKey: '',
     value: null
@@ -218,6 +244,10 @@ export function DashboardsPage() {
     value: null
   });
   const [localTemplateCreateErrorState, setLocalTemplateCreateErrorState] = useState<ScopedState<string | null>>({
+    scopeKey: '',
+    value: null
+  });
+  const [localImportErrorState, setLocalImportErrorState] = useState<ScopedState<string | null>>({
     scopeKey: '',
     value: null
   });
@@ -279,6 +309,12 @@ export function DashboardsPage() {
     scopedTemplateCreateForm && (scopedTemplateCreateForm.templateId || rawTemplates.length === 0)
       ? scopedTemplateCreateForm
       : createDefaultDashboardTemplateForm(scopedTemplateCreateForm?.projectId ?? defaultTemplateProjectId, rawTemplates[0]);
+  const scopedImportForm =
+    shouldRequest && importFormState.scopeKey === pageScopeKey ? importFormState.value : null;
+  const activeImportForm =
+    scopedImportForm && (scopedImportForm.projectId || rawProjects.length === 0)
+      ? scopedImportForm
+      : createDefaultDashboardImportForm(scopedImportForm?.projectId ?? defaultTemplateProjectId);
   const activeTemplateId = activeTemplateCreateForm.templateId.trim();
   const templateDetailQuery = useQuery({
     queryKey: dashboardQueryKeys.template(auth.sessionRevision, activeTemplateId),
@@ -318,6 +354,10 @@ export function DashboardsPage() {
     canUseAuthDataBeforePanelPreview && localTemplateCreateErrorState.scopeKey === pageScopeKey
       ? localTemplateCreateErrorState.value
       : null;
+  const localImportError =
+    canUseAuthDataBeforePanelPreview && localImportErrorState.scopeKey === pageScopeKey
+      ? localImportErrorState.value
+      : null;
   const localEditError =
     canUseDashboardData && localEditErrorState.scopeKey === pageScopeKey ? localEditErrorState.value : null;
   const projects = canUseAuthDataBeforePanelPreview ? rawProjects : emptyProjects;
@@ -353,7 +393,7 @@ export function DashboardsPage() {
   const hasNextPage = dashboardOffset + dashboards.length < total;
   const isPageChanging = canUseDashboardData && dashboardsQuery.isFetching;
 
-  function activateCreatedDashboard(dashboard: Dashboard, options: { source: 'manual' | 'template' }) {
+  function activateCreatedDashboard(dashboard: Dashboard, options: { source: 'manual' | 'template' | 'import' }) {
     const nextProjectId = `${dashboard.project_id}`;
     const nextDashboardParams: DashboardListParams = {
       project_id: dashboard.project_id,
@@ -379,14 +419,18 @@ export function DashboardsPage() {
     setPanelAutoRefreshState({ scopeKey: nextPanelScopeKey, value: createInactivePanelAutoRefreshState() });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalTemplateCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setLocalImportErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
     setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     setTemplateCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setImportRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setExportRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setExportedJsonState({ scopeKey: buildDashboardExportScopeKey(nextPageScopeKey, dashboard.id), value: '' });
     upsertDashboardListCache(queryClient, auth.sessionRevision, nextDashboardParams, dashboard);
 
     if (options.source === 'manual') {
       setCreateFormState({ scopeKey: nextPageScopeKey, value: createDefaultDashboardForm(nextProjectId) });
-    } else {
+    } else if (options.source === 'template') {
       setTemplateCreateFormState({
         scopeKey: nextPageScopeKey,
         value: createDefaultDashboardTemplateForm(
@@ -394,6 +438,8 @@ export function DashboardsPage() {
           selectedDashboardTemplateDetail ?? selectedDashboardTemplate ?? dashboardTemplates[0]
         )
       });
+    } else {
+      setImportFormState({ scopeKey: nextPageScopeKey, value: createDefaultDashboardImportForm(nextProjectId) });
     }
 
     invalidateDashboards(queryClient);
@@ -435,6 +481,39 @@ export function DashboardsPage() {
     }
   });
 
+  const importMutation = useMutation({
+    mutationFn: ({ projectId, payload }: { projectId: number; payload: Parameters<typeof importDashboard>[1] }) =>
+      importDashboard(projectId, payload),
+    onSuccess: (dashboard) => {
+      activateCreatedDashboard(dashboard, { source: 'import' });
+    },
+    onError: (error) => {
+      if (isAuthError(error)) {
+        setFormUnauthorizedErrorState({ scopeKey: authScopeKey, value: error });
+        return;
+      }
+      setImportRemoteErrorState({ scopeKey: pageScopeKey, value: error });
+    }
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: (dashboard: Dashboard) => exportDashboard(dashboard.project_id, dashboard.id),
+    onSuccess: (document, dashboard) => {
+      setExportedJsonState({
+        scopeKey: buildDashboardExportScopeKey(pageScopeKey, dashboard.id),
+        value: formatDashboardJson(document)
+      });
+      setExportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+    },
+    onError: (error) => {
+      if (isAuthError(error)) {
+        setFormUnauthorizedErrorState({ scopeKey: authScopeKey, value: error });
+        return;
+      }
+      setExportRemoteErrorState({ scopeKey: pageScopeKey, value: error });
+    }
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ dashboard, payload }: { dashboard: Dashboard; payload: Parameters<typeof updateDashboard>[2] }) =>
       updateDashboard(dashboard.project_id, dashboard.id, payload),
@@ -452,8 +531,10 @@ export function DashboardsPage() {
         scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
         value: createInactivePanelAutoRefreshState()
       });
+      setExportedJsonState({ scopeKey: buildDashboardExportScopeKey(pageScopeKey, dashboard.id), value: '' });
       setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
       setUpdateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setExportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
       invalidateDashboards(queryClient);
     },
     onError: (error) => {
@@ -476,6 +557,7 @@ export function DashboardsPage() {
         setVariableRuntimeDraftState({ scopeKey: '', value: {} });
         setPreviewVariablesState({ scopeKey: panelScopeKey, value: createEmptyPreviewVariablesState() });
         setPanelAutoRefreshState({ scopeKey: panelScopeKey, value: createInactivePanelAutoRefreshState() });
+        setExportedJsonState({ scopeKey: '', value: '' });
       }
       if (nextOffset !== dashboardOffset) {
         setDashboardOffsetState({ scopeKey: dashboardOffsetScopeKey, value: nextOffset });
@@ -499,6 +581,8 @@ export function DashboardsPage() {
   const createFormError = createRemoteErrorState.scopeKey === pageScopeKey ? createRemoteErrorState.value : null;
   const templateCreateFormError =
     templateCreateRemoteErrorState.scopeKey === pageScopeKey ? templateCreateRemoteErrorState.value : null;
+  const importFormError = importRemoteErrorState.scopeKey === pageScopeKey ? importRemoteErrorState.value : null;
+  const exportFormError = exportRemoteErrorState.scopeKey === pageScopeKey ? exportRemoteErrorState.value : null;
   const updateFormError = updateRemoteErrorState.scopeKey === pageScopeKey ? updateRemoteErrorState.value : null;
   const deleteFormError = deleteRemoteErrorState.scopeKey === pageScopeKey ? deleteRemoteErrorState.value : null;
   const isDeleteLocked = deleteLocked || deleteMutation.isPending;
@@ -662,6 +746,11 @@ export function DashboardsPage() {
       scopeKey: nextPageScopeKey,
       value: createDefaultDashboardTemplateForm(nextProjectId, dashboardTemplates[0])
     });
+    setImportFormState({
+      scopeKey: nextPageScopeKey,
+      value: createDefaultDashboardImportForm(nextProjectId)
+    });
+    setExportedJsonState({ scopeKey: '', value: '' });
     setEditFormState({ scopeKey: nextPageScopeKey, value: dashboardToEditForm(null) });
     setActiveDashboardFallbackState({ scopeKey: nextPageScopeKey, value: null });
     setPanelDraftState({
@@ -686,13 +775,18 @@ export function DashboardsPage() {
     setDashboardOffsetState({ scopeKey: nextOffsetScopeKey, value: 0 });
     setLocalCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalTemplateCreateErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setLocalImportErrorState({ scopeKey: nextPageScopeKey, value: null });
     setLocalEditErrorState({ scopeKey: nextPageScopeKey, value: null });
     setCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     setTemplateCreateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setImportRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
+    setExportRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     setUpdateRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     setDeleteRemoteErrorState({ scopeKey: nextPageScopeKey, value: null });
     createMutation.reset();
     templateCreateMutation.reset();
+    importMutation.reset();
+    exportMutation.reset();
     updateMutation.reset();
     deleteMutation.reset();
   }
@@ -703,6 +797,23 @@ export function DashboardsPage() {
 
   function updateTemplateCreateForm(value: TemplateCreateFormState) {
     setTemplateCreateFormState({ scopeKey: pageScopeKey, value });
+  }
+
+  function updateImportFormField<TKey extends keyof DashboardImportFormState>(
+    key: TKey,
+    value: DashboardImportFormState[TKey]
+  ) {
+    setImportFormState((current) => {
+      const currentValue = current.scopeKey === pageScopeKey ? current.value : activeImportForm;
+
+      return {
+        scopeKey: pageScopeKey,
+        value: {
+          ...currentValue,
+          [key]: value
+        }
+      };
+    });
   }
 
   function updateEditForm(value: EditFormState) {
@@ -807,6 +918,42 @@ export function DashboardsPage() {
     setLocalTemplateCreateErrorState({ scopeKey: pageScopeKey, value: null });
     setTemplateCreateRemoteErrorState({ scopeKey: pageScopeKey, value: null });
     templateCreateMutation.mutate({ projectId: parsedProjectId, templateId, payload: payload.value });
+  }
+
+  function handleImportSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!authState.shouldRequest) {
+      return;
+    }
+    const parsedProjectId = normalizePositiveInteger(activeImportForm.projectId);
+    if (!parsedProjectId) {
+      importMutation.reset();
+      setImportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalImportErrorState({ scopeKey: pageScopeKey, value: '请选择一个有效项目。' });
+      return;
+    }
+
+    const payload = buildDashboardImportPayload(activeImportForm);
+    if (!payload.ok) {
+      importMutation.reset();
+      setImportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+      setLocalImportErrorState({ scopeKey: pageScopeKey, value: payload.message });
+      return;
+    }
+
+    clearLocalImportError();
+    setImportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+    importMutation.mutate({ projectId: parsedProjectId, payload: payload.value });
+  }
+
+  function handleExportSelectedDashboard() {
+    if (!authState.shouldRequest || !selectedDashboard) {
+      return;
+    }
+
+    setExportedJsonState({ scopeKey: buildDashboardExportScopeKey(pageScopeKey, selectedDashboard.id), value: '' });
+    setExportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+    exportMutation.mutate(selectedDashboard);
   }
 
   function handleEditSubmit(event: FormEvent) {
@@ -987,17 +1134,25 @@ export function DashboardsPage() {
   }
 
   const clearLocalCreateError = () => setLocalCreateErrorState({ scopeKey: pageScopeKey, value: null });
+  const clearLocalImportError = () => setLocalImportErrorState({ scopeKey: pageScopeKey, value: null });
   const clearLocalEditError = () => setLocalEditErrorState({ scopeKey: pageScopeKey, value: null });
   const templatePanelLoading =
     canUseAuthDataBeforePanelPreview && (templatesQuery.isLoading || templateDetailQuery.isLoading);
   const templatePanelError = canUseAuthDataBeforePanelPreview && (templatesQuery.isError || templateDetailQuery.isError);
   const templateProjectOptions = resolveDashboardTemplateProjectOptions(activeTemplateCreateForm.projectId, projects);
+  const importProjectOptions = resolveDashboardTemplateProjectOptions(activeImportForm.projectId, projects);
+  const exportScopeKey =
+    selectedDashboard && canUseDashboardData ? buildDashboardExportScopeKey(pageScopeKey, selectedDashboard.id) : '';
+  const exportedJson = exportedJsonState.scopeKey === exportScopeKey ? exportedJsonState.value : '';
   const templateCreateDisabled =
     !authState.shouldRequest ||
     templateCreateMutation.isPending ||
     templatePanelLoading ||
     dashboardTemplates.length === 0 ||
     templateProjectOptions.length === 0;
+  const importDisabled =
+    !authState.shouldRequest || importMutation.isPending || importProjectOptions.length === 0;
+  const exportDisabled = !authState.shouldRequest || !selectedDashboard || exportMutation.isPending;
 
   return (
     <div className="dashboards-page">
@@ -1248,6 +1403,103 @@ export function DashboardsPage() {
         </div>
       </section>
 
+      <section className="dashboard-json-transfer-panel" aria-label="JSON 导入导出">
+        <div className="section-heading">
+          <div>
+            <h2>JSON 导入导出</h2>
+            <p>导入使用后端导出的 portable JSON；导出仅包含名称、描述、layout 和 config。</p>
+          </div>
+          <FileJson size={20} aria-hidden="true" />
+        </div>
+
+        <div className="dashboard-json-transfer-grid">
+          <form className="dashboard-json-import-form" onSubmit={handleImportSubmit}>
+            <div className="dashboard-transfer-heading">
+              <strong>导入</strong>
+              <span>创建为目标项目下的新 dashboard。</span>
+            </div>
+            <div className="dashboard-template-fields">
+              <label className="field">
+                <span>目标项目</span>
+                <select
+                  value={activeImportForm.projectId}
+                  onChange={(event) => updateImportFormField('projectId', event.target.value)}
+                  disabled={!authState.shouldRequest || importProjectOptions.length === 0}
+                >
+                  {importProjectOptions.length === 0 ? <option value="">暂无可用项目</option> : null}
+                  {importProjectOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>名称覆盖</span>
+                <input
+                  aria-label="导入名称覆盖"
+                  maxLength={100}
+                  value={activeImportForm.name}
+                  onChange={(event) => updateImportFormField('name', event.target.value)}
+                  placeholder="留空使用文档名称"
+                  disabled={!authState.shouldRequest}
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span>描述覆盖</span>
+              <textarea
+                aria-label="导入描述覆盖"
+                maxLength={500}
+                value={activeImportForm.description}
+                onChange={(event) => updateImportFormField('description', event.target.value)}
+                placeholder="留空使用文档描述"
+                disabled={!authState.shouldRequest}
+              />
+            </label>
+            <label className="field dashboard-json-transfer-field">
+              <span>导入 JSON</span>
+              <textarea
+                aria-label="导入 JSON"
+                value={activeImportForm.documentText}
+                onChange={(event) => updateImportFormField('documentText', event.target.value)}
+                maxLength={DASHBOARD_JSON_TEXT_MAX_LENGTH}
+                placeholder={`{"schema":"telemetry.dashboard","version":1,...}`}
+                disabled={!authState.shouldRequest}
+                spellCheck={false}
+              />
+            </label>
+            <InlineError message={localImportError} error={importFormError} />
+            <button className="primary-button" type="submit" disabled={importDisabled}>
+              {importMutation.isPending ? <LoaderCircle size={16} aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+              <span>{importMutation.isPending ? '导入中' : '导入 JSON'}</span>
+            </button>
+          </form>
+
+          <div className="dashboard-json-export-panel">
+            <div className="dashboard-transfer-heading">
+              <strong>导出</strong>
+              <span>{selectedDashboard ? `${selectedDashboard.name} / #${selectedDashboard.id}` : '先在列表中选择一个 dashboard。'}</span>
+            </div>
+            <button className="text-button" type="button" onClick={handleExportSelectedDashboard} disabled={exportDisabled}>
+              {exportMutation.isPending ? <LoaderCircle size={16} aria-hidden="true" /> : <FileJson size={16} aria-hidden="true" />}
+              <span>{exportMutation.isPending ? '导出中' : '导出选中 dashboard'}</span>
+            </button>
+            <InlineError error={exportFormError} />
+            <label className="field dashboard-json-transfer-field">
+              <span>导出 JSON</span>
+              <textarea
+                aria-label="导出 JSON"
+                value={exportedJson}
+                readOnly
+                placeholder="导出后显示 portable JSON。"
+                spellCheck={false}
+              />
+            </label>
+          </div>
+        </div>
+      </section>
+
       <section className="dashboard-grid" aria-label="仪表盘列表和表单">
         <article className="dashboard-list-panel">
           <div className="section-heading">
@@ -1306,6 +1558,9 @@ export function DashboardsPage() {
                 scopeKey: buildDashboardPanelScopeKey(pageScopeKey, dashboard.id),
                 value: createInactivePanelAutoRefreshState()
               });
+              setExportedJsonState({ scopeKey: buildDashboardExportScopeKey(pageScopeKey, dashboard.id), value: '' });
+              setExportRemoteErrorState({ scopeKey: pageScopeKey, value: null });
+              exportMutation.reset();
               clearLocalEditError();
             }}
             onDelete={handleDelete}
@@ -1331,6 +1586,7 @@ export function DashboardsPage() {
                 scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
                 value: createInactivePanelAutoRefreshState()
               });
+              setExportedJsonState({ scopeKey: '', value: '' });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: Math.max(0, dashboardOffset - DASHBOARD_PAGE_LIMIT)
@@ -1348,6 +1604,7 @@ export function DashboardsPage() {
                 scopeKey: buildDashboardPanelScopeKey(pageScopeKey, null),
                 value: createInactivePanelAutoRefreshState()
               });
+              setExportedJsonState({ scopeKey: '', value: '' });
               setDashboardOffsetState({
                 scopeKey: dashboardOffsetScopeKey,
                 value: dashboardOffset + DASHBOARD_PAGE_LIMIT
@@ -2901,6 +3158,15 @@ function createDefaultDashboardTemplateForm(projectId = '', template?: Dashboard
   };
 }
 
+function createDefaultDashboardImportForm(projectId = ''): DashboardImportFormState {
+  return {
+    projectId,
+    documentText: '',
+    name: '',
+    description: ''
+  };
+}
+
 function resolveDefaultDashboardTemplateProjectId(projectId: number | null, projects: Project[]) {
   if (projectId) {
     return `${projectId}`;
@@ -3006,6 +3272,10 @@ function buildDashboardVariableScopeKey(pageScopeKey: string, dashboardId: numbe
 }
 
 function buildDashboardTimeRangeScopeKey(pageScopeKey: string, dashboardId: number | null) {
+  return JSON.stringify({ pageScopeKey, dashboardId });
+}
+
+function buildDashboardExportScopeKey(pageScopeKey: string, dashboardId: number | null) {
   return JSON.stringify({ pageScopeKey, dashboardId });
 }
 
