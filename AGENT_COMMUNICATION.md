@@ -106,6 +106,7 @@ closed      已关闭
 | T-0076 | Dashboard 内置模板前端基础 | 总 agent | done | todo | done | done | done |
 | T-0077 | Dashboard 内置模板真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0078 | Dashboard JSON 导入导出后端基础 | 总 agent | done | done | done | done | done |
+| T-0079 | Dashboard JSON 导入导出前端基础 | 总 agent | doing | todo | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -618,6 +619,7 @@ closed      已关闭
 | 2026-06-25 | T-0078-sync | 总 agent | CI 与 worktree 同步完成 | T-0078 完成记录 `0728fc1` 已推送到 `dev`，并同步到 `feature/backend-dev` 提交 `0728fc1`；GitHub Actions run `28227406135` 通过，Backend checks 与 Frontend checks 均为 success；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致 | done |
 | 2026-06-26 | CI | 总 agent | T-0078 文档同步与后端 feature 补推 | `docs: sync T-0078 completion` 提交 `5f2c8d0` 已推送到 `dev`，GitHub Actions run `28228008679` 通过，Backend checks 与 Frontend checks 均为 success；后端 feature 分支已补推 `0728fc1` 并与 `origin/feature/backend-dev` 一致；严格 `./scripts/Test-AgentWorktreeState.ps1` 通过，三棵 worktree 干净且本地/远端一致 | done |
 | 2026-06-26 | CI | 总 agent | T-0078 最新 CI 收口记录 | `docs: 同步T-0078最新CI收口` 提交 `2fd3790` 已推送到 `dev`，GitHub Actions run `28229682668` 通过，Backend checks 与 Frontend checks 均为 success | done |
+| 2026-06-26 | T-0079 | 总 agent | 启动 Dashboard JSON 导入导出前端基础 | 阶段 5 剩余小步限定为前端接入 T-0078 已有后端 API：在 `/dashboards` 为已保存 dashboard 提供单个 JSON 导出入口，并在目标项目下提供 JSON 文档导入创建普通 dashboard 的最小表单；需复用既有 auth、项目选择、dashboard 列表缓存和错误展示风格。范围不改后端契约，不做批量导入、模板市场、分享/只读、覆盖已有 dashboard、文件上传存储、跨项目权限提升、ClickHouse 数据导出或告警 | doing |
 
 ## 6. 测试记录
 
@@ -942,6 +944,7 @@ closed      已关闭
 | 2026-06-25 | T-0076 | feature/frontend-dev | dev | 总 agent | Dashboard 内置模板前端基础 `a9f5f06`、`7bb4ca7`、`2cd6c09` 已通过 feature CI、Parfit 审计、真实 merge、merge 后本地门禁、`dev` CI 和三分支同步 CI；最新同步提交为 `dev` `2e65b01`、`feature/frontend-dev` `4ce1571`、`feature/backend-dev` `e95f26e`，严格 worktree 体检通过 | done |
 | 2026-06-25 | T-0077 | dev | dev | 总 agent | Dashboard 内置模板真实前后端联测已通过；本任务为测试收口，不产生 feature merge。Hypatia/Euler 使用真实 MySQL、真实后端、真实前端和 Playwright + Microsoft Edge 覆盖模板链路、权限/错误边界、创建后普通 dashboard 编辑/预览、模板不被回写、移动端布局和 CRUD 快速回归；资源已清理 | done |
 | 2026-06-25 | T-0078 | feature/backend-dev | dev | 总 agent | Dashboard JSON 导入导出后端基础已完成；后端实现、测试、文档同步与收口已结束，等待真实 merge 到 `dev` 并同步分支 | done |
+| 2026-06-26 | T-0079 | feature/frontend-dev | dev | 前端开发 agent | Dashboard JSON 导入导出前端基础已登记，等待前端 worktree 实现、测试和审计后再真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
