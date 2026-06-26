@@ -145,3 +145,40 @@ class AlertRuleListResponse(BaseModel):
     limit: int
     offset: int
     total: int
+
+
+class AlertRuleEvaluationWindowResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: datetime = Field(alias="from")
+    to: datetime
+    window_seconds: int
+    interval_seconds: int
+
+
+class AlertRuleEvaluationConditionResponse(BaseModel):
+    metric: str
+    source: str | None = None
+    operator: str
+    threshold: float
+    aggregation: str
+
+
+class AlertRuleEvaluationObservedResponse(BaseModel):
+    value: float
+    sample_count: int
+    aggregation: str
+    unit: str | None
+
+
+class AlertRuleEvaluationResponse(BaseModel):
+    project_id: int
+    rule_id: int
+    status: str
+    signal: AlertRuleSignal
+    severity: AlertRuleSeverity
+    checked_at: datetime
+    window: AlertRuleEvaluationWindowResponse
+    condition: AlertRuleEvaluationConditionResponse
+    observed: AlertRuleEvaluationObservedResponse | None
+    message: str
