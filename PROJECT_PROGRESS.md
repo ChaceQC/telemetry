@@ -1275,3 +1275,25 @@
 - 总 agent 本地验证已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`、`uv lock --check`、`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q`、`npm.cmd run typecheck`、`npm.cmd run lint`、`git diff --check`。
 - 总 agent 追加全量本地门禁通过：后端 `uv run mypy .`、`uv run pytest -q` 为 355 passed、2 skipped、1 warning；前端 `npm.cmd test` 为 35 files、256 tests passed。
 - GitHub Actions run `28284267753` 成功：Repository format checks、Backend checks、Frontend checks 均通过。
+- GitHub Actions run `28284355064` 成功：Repository format checks、Backend checks、Frontend checks 均通过。
+
+## 2026-06-27 T-0085 告警周期评估状态持久化后端骨架
+
+### 已完成
+
+- 已登记 T-0085 为阶段 6 告警执行能力后端小步，目标是把 T-0084 的一次性指标阈值评估推进到“可按 interval 判定 due 并持久化当前状态”的后端骨架。
+- API 契约草案 `API-0027 告警周期评估状态骨架` 已登记：`POST /api/v1/alerts/evaluations/run-due` 无请求体，超级用户触发一次 due 规则扫描；后端读取 enabled 告警规则，依据 `evaluation.interval_seconds` 与状态表 `next_evaluate_at/last_evaluated_at` 判断 due，当前只执行 `signal=metrics` 且满足 API-0026 条件的规则。
+- 预期新增持久化当前状态表，记录 `status=firing/ok/no_data/disabled/error`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error` 等字段；本小步先做当前状态，不做完整告警历史。
+
+### 阻塞与风险
+
+- 当前无业务阻塞；T-0085 尚未启动后端开发实现。
+- 本小步不做后台常驻 scheduler 进程、通知渠道、告警历史表、恢复事件、静默/抑制、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 链路。
+
+### 下一步
+
+- 同步 `feature/backend-dev` 到最新 `origin/dev`，启动后端开发 agent 实现 T-0085；完成后进入测试、审计、合入和 CI 读取流程。
+
+### 验证
+
+- T-0085 登记提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md`、`scripts/Test-NoUtf8Bom.ps1` 和 worktree 体检。
