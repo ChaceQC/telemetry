@@ -112,6 +112,7 @@ closed      已关闭
 | T-0082 | 告警规则 CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 | T-0083 | 告警规则 CRUD 真实前后端联测 | 总 agent | done | done | done | done | done |
 | T-0084 | 指标阈值告警评估后端基础 | 总 agent | todo | done | done | done | done |
+| T-0084-format | T-0084 后端格式化 CI 修复 | 总 agent | todo | doing | todo | todo | doing |
 
 ## 4. API 契约登记
 
@@ -659,6 +660,9 @@ closed      已关闭
 | 2026-06-27 | T-0084 | 后端开发 agent / 总 agent | 指标阈值告警评估后端实现完成 | Newton 已完成并推送 `27b832d` 到 `feature/backend-dev`：新增手动评估 API、响应 schema、评估 service、单窗口指标聚合辅助、依赖注入、测试、后端 README/进度和 API-0026 契约更新；后端全量 pytest 354 passed/2 skipped，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。Newton 已关闭；实现提交 feature CI run `28252777813` 通过，随后后端分支同步最新 `dev` 至 `c20d63d`，同步 CI run `28252900674` 通过 | audit |
 | 2026-06-27 | T-0084 | 代码审计 agent / 总 agent | 指标阈值告警评估审计未通过 | Socrates 只读审计发现 1 个 P2：`condition.threshold` 为约 309 位超大 JSON integer 时可通过规则保存层，但评估时 `float(threshold_raw)` 抛 `OverflowError`，未映射为 `422` 而会成为 `500`。当前阻断合入 `dev`；已启动后端修复 agent Archimedes 小范围修复 `backend/app/services/alerts.py` 与回归测试。Socrates 已关闭 | blocked |
 | 2026-06-27 | T-0084-fix | 后端开发 agent / 总 agent | 指标阈值告警评估 P2 修复通过 | Archimedes 已修复并推送 `db32e27` 到 `feature/backend-dev`：`_normalize_metric_condition()` 捕获超大 JSON integer 的 `float()` 溢出并统一返回 `AlertRuleEvaluationError("condition.threshold 必须是有限 JSON number")`，补 `threshold=int("9"*309)` 评估返回 `422` 回归测试，并更新后端进度。Archimedes 已关闭；feature CI run `28253872254` 通过。本地复审 `uv run pytest tests/test_alert_rules_api.py -q` 为 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 均通过 | done |
+| 2026-06-27 | T-0084-format | 总 agent | T-0084 收口 CI 格式化失败并分派后端修复 | `dev` 收口提交 `bfbb463` 的 GitHub Actions run `28283450319` 失败，Frontend checks 通过，Backend checks 在 `Ruff format check` 失败；日志显示 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 需要 ruff format。已登记为后端格式化修复小步，需在 `feature/backend-dev` 同步最新 `origin/dev` 后修复、验证、提交并推送，再由总 agent 合入 `dev`。范围只做格式化，不改业务语义、不启动 Docker、不清理非自有资源 | doing |
+| 2026-06-27 | T-0084-format | 总 agent | 启动后端开发 agent Hume | 已以 `xhigh` 思考强度启动后端开发 agent Hume（`019f0826-1c25-7272-9842-276d9396e53c`）在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支修复 T-0084 收口 CI 格式化失败。Hume 需同步最新 `origin/dev`，只格式化 `backend/app/core/config.py` 和 `backend/tests/test_config.py`，更新后端进度与运行时日志，执行 ruff format/check、`tests/test_config.py` 和 diff check，提交并推送到 `feature/backend-dev`，完成后请求总 agent 集成 | doing |
+| 2026-06-27 | T-0084-format | 总 agent | 扩大格式化修复范围处理 pyproject BOM | Hume 首轮验证显示 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 已可通过 ruff format/check，但 `uv run pytest tests/test_config.py -q` 在读取 `backend/pyproject.toml` 时因文件开头 UTF-8 BOM 报 `Invalid statement (at line 1, column 1)`，未进入测试。该 BOM 阻塞后端 pytest/CI 且不涉及业务语义，已允许 Hume 额外移除 `backend/pyproject.toml` BOM，并重新执行全后端 ruff format/check、`tests/test_config.py` 和 diff check 后提交推送 | doing |
 
 ## 6. 测试记录
 

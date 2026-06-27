@@ -1244,3 +1244,25 @@
 - GitHub Actions run `28253872254` 成功，Backend checks 与 Frontend checks 均通过。
 - Archimedes 修复侧验证通过：`uv run pytest tests/test_alert_rules_api.py -q`、`uv run ruff check app/services/alerts.py tests/test_alert_rules_api.py`、`uv run ruff format --check app/services/alerts.py tests/test_alert_rules_api.py`、`uv run mypy app/services/alerts.py tests/test_alert_rules_api.py`、`uv lock --check`、`git diff --check`。
 - 总 agent 本地复审通过：`uv run pytest tests/test_alert_rules_api.py -q` 为 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。
+- T-0084 收口提交 `bfbb463` 的 GitHub Actions run `28283450319` 未通过：Frontend checks 通过，Backend checks 在 `Ruff format check` 失败，日志显示 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 需要格式化。已登记 `T-0084-format` 后端格式化修复小步，先修复该 CI 阻塞后再登记 T-0085。
+
+## 2026-06-27 T-0084-format 后端格式化 CI 修复
+
+### 已完成
+
+- 已登记 T-0084-format 为 T-0084 收口 CI 修复小步，范围只包含 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 的 ruff format 格式化，不改业务语义。
+- 已确认失败 run `28283450319`：Frontend checks success，Backend checks 的 `Ruff lint` success，`Ruff format check` failure。
+- 已启动后端开发 agent Hume（`019f0826-1c25-7272-9842-276d9396e53c`）在 `feature/backend-dev` 执行 T-0084-format；要求同步最新 `origin/dev`，只做两个后端文件的 ruff format，更新后端进度和运行时日志，验证后提交并推送。
+- Hume 首轮验证确认 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 的 format failure 已关闭，但 `uv run pytest tests/test_config.py -q` 被 `backend/pyproject.toml` 文件开头 UTF-8 BOM 阻塞，报 `Invalid statement (at line 1, column 1)`。总 agent 已将 T-0084-format 范围扩大为同时移除 `backend/pyproject.toml` BOM；该修复仍为编码/格式门禁修复，不改业务语义。
+
+### 阻塞与风险
+
+- 当前 `dev` 最新 CI 仍处于失败状态，需后端分支修复格式化与 `pyproject.toml` BOM 后合回并重新读取 Actions。
+
+### 下一步
+
+- 后端开发 agent 在 `feature/backend-dev` 同步最新 `origin/dev` 后运行 ruff format/check、`tests/test_config.py`、diff check 并推送；总 agent 再合入 `dev`、推送并读取 CI。
+
+### 验证
+
+- 待后端开发 agent 提交修复后补记。
