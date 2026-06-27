@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from app.api.dependencies import get_alert_rule_service, get_current_user
 from app.repositories.auth import UserRecord
 from app.schemas.alerts import (
+    AlertDueEvaluationRunItemResponse,
+    AlertDueEvaluationRunResponse,
     AlertRuleCreate,
     AlertRuleEvaluationConditionResponse,
     AlertRuleEvaluationObservedResponse,
@@ -203,6 +205,40 @@ def evaluate_project_alert_rule(
             detail=str(error),
         ) from error
     return _evaluation_response(result)
+
+
+@router.post(
+    "/alerts/evaluations/run-due",
+    response_model=AlertDueEvaluationRunResponse,
+    summary="触发一次到期告警规则扫描",
+)
+def run_due_alert_evaluations(
+    alert_rule_service: Annotated[AlertRuleService, Depends(get_alert_rule_service)],
+    current_user: Annotated[UserRecord, Depends(get_current_user)],
+) -> AlertDueEvaluationRunResponse:
+    try:
+        summary = alert_rule_service.run_due_alert_evaluations(user=current_user)
+    except ResourceForbiddenError as error:
+        raise _map_alert_rule_error(error) from error
+    return AlertDueEvaluationRunResponse(
+        checked_at=summary.checked_at,
+        evaluated_count=summary.evaluated_count,
+        skipped_count=summary.skipped_count,
+        created_state_count=summary.created_state_count,
+        updated_state_count=summary.updated_state_count,
+        items=[
+            AlertDueEvaluationRunItemResponse(
+                project_id=item.project_id,
+                rule_id=item.rule_id,
+                old_status=item.old_status,
+                new_status=item.new_status,
+                due=item.due,
+                next_evaluate_at=item.next_evaluate_at,
+                error_summary=item.error_summary,
+            )
+            for item in summary.items
+        ],
+    )
 
 
 def _evaluation_response(result: AlertRuleEvaluationResult) -> AlertRuleEvaluationResponse:

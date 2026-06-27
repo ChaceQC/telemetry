@@ -5,7 +5,12 @@ from datetime import UTC, datetime, timedelta
 from math import isfinite
 from numbers import Real
 
-from app.repositories.alerts import AlertRulePage, AlertRuleRecord, AlertRuleRepository
+from app.repositories.alerts import (
+    AlertEvaluationStateRecord,
+    AlertRulePage,
+    AlertRuleRecord,
+    AlertRuleRepository,
+)
 from app.repositories.auth import UserRecord
 from app.repositories.management import ManagementRepository
 from app.repositories.query import MetricAggregateRecord, QueryRepository
@@ -75,6 +80,27 @@ class AlertRuleEvaluationResult:
     condition: AlertMetricCondition
     observed: AlertRuleEvaluationObserved | None
     message: str
+
+
+@dataclass(frozen=True)
+class AlertDueEvaluationRunItem:
+    project_id: int
+    rule_id: int
+    old_status: str | None
+    new_status: str | None
+    due: bool
+    next_evaluate_at: datetime | None
+    error_summary: str | None
+
+
+@dataclass(frozen=True)
+class AlertDueEvaluationRunSummary:
+    checked_at: datetime
+    evaluated_count: int
+    skipped_count: int
+    created_state_count: int
+    updated_state_count: int
+    items: list[AlertDueEvaluationRunItem]
 
 
 class AlertRuleService:
@@ -242,12 +268,125 @@ class AlertRuleService:
         )
         if rule is None:
             raise ResourceNotFoundError("告警规则不存在")
+        return self._evaluate_rule_record(rule, checked_at=datetime.now(UTC))
+
+    def run_due_alert_evaluations(
+        self,
+        *,
+        user: UserRecord,
+    ) -> AlertDueEvaluationRunSummary:
+        if not user.is_superuser:
+            raise ResourceForbiddenError("需要超级用户权限")
+
+        checked_at = datetime.now(UTC)
+        evaluated_count = 0
+        skipped_count = 0
+        created_state_count = 0
+        updated_state_count = 0
+        items: list[AlertDueEvaluationRunItem] = []
+
+        for rule, state in self._repository.list_alert_rules_for_evaluation():
+            old_status = None if state is None else state.status
+            force_disabled_update = (
+                not rule.enabled and state is not None and state.status != "disabled"
+            )
+            if not force_disabled_update and not _is_rule_due(rule, state, checked_at=checked_at):
+                skipped_count += 1
+                items.append(
+                    AlertDueEvaluationRunItem(
+                        project_id=rule.project_id,
+                        rule_id=rule.id,
+                        old_status=old_status,
+                        new_status=old_status,
+                        due=False,
+                        next_evaluate_at=_next_evaluate_at_for_response(rule, state),
+                        error_summary=None,
+                    )
+                )
+                continue
+
+            try:
+                if not rule.enabled:
+                    state_record, created, wrote = self._persist_disabled_evaluation_state(
+                        rule,
+                        checked_at=checked_at,
+                        force=force_disabled_update,
+                    )
+                    error_summary = None
+                else:
+                    result = self._evaluate_rule_record(rule, checked_at=checked_at)
+                    next_evaluate_at = checked_at + timedelta(
+                        seconds=result.window.interval_seconds
+                    )
+                    state_record, created, wrote = self._repository.upsert_evaluation_state(
+                        rule_id=rule.id,
+                        project_id=rule.project_id,
+                        status=result.status,
+                        last_evaluated_at=checked_at,
+                        next_evaluate_at=next_evaluate_at,
+                        last_result=_evaluation_result_payload(result),
+                        last_error=None,
+                        due_checked_at=checked_at,
+                        interval_seconds=result.window.interval_seconds,
+                    )
+                    error_summary = None
+            except AlertRuleEvaluationError as error:
+                interval_seconds = _interval_seconds_for_recheck(rule.evaluation)
+                next_evaluate_at = checked_at + timedelta(seconds=interval_seconds)
+                error_summary = _truncate_error(str(error))
+                state_record, created, wrote = self._repository.upsert_evaluation_state(
+                    rule_id=rule.id,
+                    project_id=rule.project_id,
+                    status="error",
+                    last_evaluated_at=checked_at,
+                    next_evaluate_at=next_evaluate_at,
+                    last_result=None,
+                    last_error=error_summary,
+                    due_checked_at=checked_at,
+                    interval_seconds=interval_seconds,
+                    preserve_last_result=True,
+                )
+
+            if wrote:
+                evaluated_count += 1
+                if created:
+                    created_state_count += 1
+                else:
+                    updated_state_count += 1
+            else:
+                skipped_count += 1
+            items.append(
+                AlertDueEvaluationRunItem(
+                    project_id=rule.project_id,
+                    rule_id=rule.id,
+                    old_status=old_status,
+                    new_status=state_record.status,
+                    due=wrote,
+                    next_evaluate_at=state_record.next_evaluate_at,
+                    error_summary=error_summary if wrote else None,
+                )
+            )
+
+        return AlertDueEvaluationRunSummary(
+            checked_at=checked_at,
+            evaluated_count=evaluated_count,
+            skipped_count=skipped_count,
+            created_state_count=created_state_count,
+            updated_state_count=updated_state_count,
+            items=items,
+        )
+
+    def _evaluate_rule_record(
+        self,
+        rule: AlertRuleRecord,
+        *,
+        checked_at: datetime,
+    ) -> AlertRuleEvaluationResult:
         if rule.signal != AlertRuleSignal.metrics:
             raise AlertRuleEvaluationError("仅支持 metrics 告警规则评估")
 
         condition = _normalize_metric_condition(rule.condition)
         window_seconds, interval_seconds = _normalize_evaluation(rule.evaluation)
-        checked_at = datetime.now(UTC)
         window = AlertRuleEvaluationWindow(
             start=checked_at - timedelta(seconds=window_seconds),
             end=checked_at,
@@ -270,7 +409,7 @@ class AlertRuleService:
             )
 
         aggregate = self._query_repository.aggregate_metric_window(
-            project_id=project_id,
+            project_id=rule.project_id,
             name=condition.metric,
             source=condition.source,
             occurred_from=window.start,
@@ -322,6 +461,32 @@ class AlertRuleService:
             condition=condition,
             observed=observed,
             message=message,
+        )
+
+    def _persist_disabled_evaluation_state(
+        self,
+        rule: AlertRuleRecord,
+        *,
+        checked_at: datetime,
+        force: bool,
+    ) -> tuple[AlertEvaluationStateRecord, bool, bool]:
+        interval_seconds = _interval_seconds_for_recheck(rule.evaluation)
+        next_evaluate_at = checked_at + timedelta(seconds=interval_seconds)
+        return self._repository.upsert_evaluation_state(
+            rule_id=rule.id,
+            project_id=rule.project_id,
+            status="disabled",
+            last_evaluated_at=checked_at,
+            next_evaluate_at=next_evaluate_at,
+            last_result=_disabled_evaluation_result_payload(
+                rule,
+                checked_at=checked_at,
+                interval_seconds=interval_seconds,
+            ),
+            last_error=None,
+            due_checked_at=checked_at,
+            interval_seconds=interval_seconds,
+            force=force,
         )
 
     def _ensure_project_role_hidden(
@@ -475,6 +640,110 @@ def _compare_metric_threshold(value: float, *, operator: str, threshold: float) 
     if operator == "ne":
         return value != threshold
     raise AlertRuleEvaluationError("condition.operator 必须是 gt/gte/lt/lte/eq/ne 之一")
+
+
+def _is_rule_due(
+    rule: AlertRuleRecord,
+    state: AlertEvaluationStateRecord | None,
+    *,
+    checked_at: datetime,
+) -> bool:
+    if state is None:
+        return True
+    next_evaluate_at = _next_evaluate_at_for_response(rule, state)
+    if next_evaluate_at is None:
+        return True
+    return _as_utc(next_evaluate_at) <= checked_at
+
+
+def _next_evaluate_at_for_response(
+    rule: AlertRuleRecord,
+    state: AlertEvaluationStateRecord | None,
+) -> datetime | None:
+    if state is None:
+        return None
+    if state.next_evaluate_at is not None:
+        return _as_utc(state.next_evaluate_at)
+    if state.last_evaluated_at is None:
+        return None
+    try:
+        _, interval_seconds = _normalize_evaluation(rule.evaluation)
+    except AlertRuleEvaluationError:
+        return None
+    return _as_utc(state.last_evaluated_at) + timedelta(seconds=interval_seconds)
+
+
+def _interval_seconds_for_recheck(evaluation: AlertRuleJson) -> int:
+    try:
+        _, interval_seconds = _normalize_evaluation(evaluation)
+    except AlertRuleEvaluationError:
+        interval_seconds = MIN_ALERT_EVALUATION_SECONDS
+    return interval_seconds
+
+
+def _evaluation_result_payload(result: AlertRuleEvaluationResult) -> AlertRuleJson:
+    observed: AlertRuleJson | None = None
+    if result.observed is not None:
+        observed = {
+            "value": result.observed.value,
+            "sample_count": result.observed.sample_count,
+            "aggregation": result.observed.aggregation,
+            "unit": result.observed.unit,
+        }
+    return {
+        "status": result.status,
+        "signal": result.signal.value,
+        "severity": result.severity.value,
+        "checked_at": result.checked_at.isoformat(),
+        "window": {
+            "from": result.window.start.isoformat(),
+            "to": result.window.end.isoformat(),
+            "window_seconds": result.window.window_seconds,
+            "interval_seconds": result.window.interval_seconds,
+        },
+        "condition": {
+            "metric": result.condition.metric,
+            "source": result.condition.source,
+            "operator": result.condition.operator,
+            "threshold": result.condition.threshold,
+            "aggregation": result.condition.aggregation,
+        },
+        "observed": observed,
+        "message": result.message,
+    }
+
+
+def _disabled_evaluation_result_payload(
+    rule: AlertRuleRecord,
+    *,
+    checked_at: datetime,
+    interval_seconds: int,
+) -> AlertRuleJson:
+    return {
+        "status": "disabled",
+        "signal": rule.signal.value,
+        "severity": rule.severity.value,
+        "checked_at": checked_at.isoformat(),
+        "window": {
+            "from": checked_at.isoformat(),
+            "to": checked_at.isoformat(),
+            "window_seconds": 0,
+            "interval_seconds": interval_seconds,
+        },
+        "condition": None,
+        "observed": None,
+        "message": f"alert rule {rule.id} is disabled",
+    }
+
+
+def _truncate_error(message: str) -> str:
+    return message[:1000]
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _format_number(value: float) -> str:

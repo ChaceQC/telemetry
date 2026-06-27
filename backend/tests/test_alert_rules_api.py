@@ -11,12 +11,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
 from sqlalchemy.dialects import mysql
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.schema import CreateTable, Table
 
+import app.repositories.alerts as alerts_repository_module
 from app.core.application import create_app
 from app.core.config import Settings
 from app.db.base import Base
-from app.models.alerts import AlertRuleModel
+from app.models.alerts import AlertEvaluationStateModel, AlertRuleModel
 from app.models.ingest import IngestRecordModel
 from app.repositories.alerts import SqlAlchemyAlertRuleRepository
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
@@ -213,6 +215,39 @@ def set_metric_records_occurred_at(
         assert len(records) == len(timestamps)
         for record, timestamp in zip(records, timestamps, strict=True):
             record.occurred_at = timestamp
+        session.commit()
+
+
+def get_alert_evaluation_states(client: TestClient) -> dict[int, AlertEvaluationStateModel]:
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        states = (
+            session.query(AlertEvaluationStateModel)
+            .order_by(AlertEvaluationStateModel.rule_id)
+            .all()
+        )
+        for state in states:
+            session.expunge(state)
+        return {state.rule_id: state for state in states}
+
+
+def set_alert_evaluation_state_due_at(
+    client: TestClient,
+    *,
+    rule_id: int,
+    due_at: datetime | None,
+    last_evaluated_at: datetime | None = None,
+) -> None:
+    app = _tested_app(client)
+    with app.state.db_session_factory() as session:
+        state = (
+            session.query(AlertEvaluationStateModel)
+            .filter(AlertEvaluationStateModel.rule_id == rule_id)
+            .one()
+        )
+        state.next_evaluate_at = due_at
+        if last_evaluated_at is not None:
+            state.last_evaluated_at = last_evaluated_at
         session.commit()
 
 
@@ -670,6 +705,448 @@ def test_alert_rule_manual_evaluation_returns_firing_ok_no_data_and_disabled() -
     disabled_body = disabled_response.json()
     assert disabled_body["status"] == "disabled"
     assert disabled_body["observed"] is None
+
+
+def test_alert_due_evaluation_run_persists_state_and_skips_until_next_run() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="due-owner")
+    _, superuser_headers = create_auth_headers(
+        client,
+        username="due-superuser",
+        is_superuser=True,
+    )
+    project = create_project(client, owner_headers, name="周期评估项目", key="due-project")
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, project_id=project_id, auth_headers=owner_headers)
+    now = datetime.now(UTC)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={
+            "metrics": [
+                {
+                    "name": "http.server.errors",
+                    "value": 2,
+                    "source": "api",
+                    "unit": "count",
+                },
+                {
+                    "name": "http.server.errors",
+                    "value": 3,
+                    "source": "api",
+                    "unit": "count",
+                },
+            ]
+        },
+    )
+    assert ingest_response.status_code == 202
+    set_metric_records_occurred_at(
+        client,
+        project_id=project_id,
+        timestamps=[now - timedelta(seconds=60), now - timedelta(seconds=30)],
+    )
+
+    firing_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="周期 firing",
+        condition={
+            "metric": "http.server.errors",
+            "source": "api",
+            "operator": "gt",
+            "threshold": 4,
+            "aggregation": "sum",
+        },
+    )
+    no_data_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="周期 no data",
+        condition={
+            "metric": "missing.metric",
+            "operator": "gt",
+            "threshold": 1,
+            "aggregation": "avg",
+        },
+    )
+    logs_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="周期 unsupported",
+        signal="logs",
+    )
+    disabled_rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="禁用不扫描",
+        enabled=False,
+    )
+
+    first_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+
+    assert first_response.status_code == 200
+    first_body = first_response.json()
+    assert first_body["evaluated_count"] == 3
+    assert first_body["skipped_count"] == 0
+    assert first_body["created_state_count"] == 3
+    assert first_body["updated_state_count"] == 0
+    assert {item["rule_id"] for item in first_body["items"]} == {
+        firing_rule["id"],
+        no_data_rule["id"],
+        logs_rule["id"],
+    }
+    assert disabled_rule["id"] not in {item["rule_id"] for item in first_body["items"]}
+
+    items = {item["rule_id"]: item for item in first_body["items"]}
+    assert items[firing_rule["id"]]["old_status"] is None
+    assert items[firing_rule["id"]]["new_status"] == "firing"
+    assert items[firing_rule["id"]]["due"] is True
+    assert items[firing_rule["id"]]["next_evaluate_at"] > first_body["checked_at"]
+    assert items[firing_rule["id"]]["error_summary"] is None
+    assert items[no_data_rule["id"]]["new_status"] == "no_data"
+    assert items[logs_rule["id"]]["new_status"] == "error"
+    assert items[logs_rule["id"]]["error_summary"] == "仅支持 metrics 告警规则评估"
+
+    states = get_alert_evaluation_states(client)
+    assert states[firing_rule["id"]].status == "firing"
+    assert states[firing_rule["id"]].last_error is None
+    firing_last_result = states[firing_rule["id"]].last_result
+    assert firing_last_result is not None
+    assert firing_last_result["status"] == "firing"
+    assert firing_last_result["observed"]["value"] == 5.0
+    assert states[no_data_rule["id"]].status == "no_data"
+    assert states[logs_rule["id"]].status == "error"
+    assert states[logs_rule["id"]].last_result is None
+    assert states[logs_rule["id"]].last_error == "仅支持 metrics 告警规则评估"
+
+    second_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert second_body["evaluated_count"] == 0
+    assert second_body["skipped_count"] == 3
+    assert second_body["created_state_count"] == 0
+    assert second_body["updated_state_count"] == 0
+    assert all(item["due"] is False for item in second_body["items"])
+    assert {item["new_status"] for item in second_body["items"]} == {
+        "firing",
+        "no_data",
+        "error",
+    }
+
+
+def test_alert_due_evaluation_run_marks_existing_disabled_state() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="due-disabled-owner")
+    _, superuser_headers = create_auth_headers(
+        client,
+        username="due-disabled-superuser",
+        is_superuser=True,
+    )
+    project = create_project(client, owner_headers, name="禁用状态项目", key="due-disabled")
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, project_id=project_id, auth_headers=owner_headers)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "http.server.errors", "value": 5, "unit": "count"}]},
+    )
+    assert ingest_response.status_code == 202
+    set_metric_records_occurred_at(
+        client,
+        project_id=project_id,
+        timestamps=[datetime.now(UTC) - timedelta(seconds=30)],
+    )
+
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="已有 firing 后禁用",
+        condition={
+            "metric": "http.server.errors",
+            "operator": "gt",
+            "threshold": 1,
+        },
+    )
+
+    first_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+    assert first_response.status_code == 200
+    assert get_alert_evaluation_states(client)[rule["id"]].status == "firing"
+
+    patch_response = client.patch(
+        f"/api/v1/projects/{project_id}/alerts/rules/{rule['id']}",
+        headers=owner_headers,
+        json={"enabled": False},
+    )
+    assert patch_response.status_code == 200
+
+    second_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+
+    assert second_response.status_code == 200
+    body = second_response.json()
+    assert body["evaluated_count"] == 1
+    assert body["skipped_count"] == 0
+    assert body["created_state_count"] == 0
+    assert body["updated_state_count"] == 1
+    assert body["items"] == [
+        {
+            "project_id": project_id,
+            "rule_id": rule["id"],
+            "old_status": "firing",
+            "new_status": "disabled",
+            "due": True,
+            "next_evaluate_at": body["items"][0]["next_evaluate_at"],
+            "error_summary": None,
+        }
+    ]
+    state = get_alert_evaluation_states(client)[rule["id"]]
+    assert state.status == "disabled"
+    assert state.last_error is None
+    assert state.last_result is not None
+    assert state.last_result["status"] == "disabled"
+
+
+def test_alert_due_evaluation_error_preserves_previous_success_result() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="due-error-owner")
+    _, superuser_headers = create_auth_headers(
+        client,
+        username="due-error-superuser",
+        is_superuser=True,
+    )
+    project = create_project(client, owner_headers, name="错误保留项目", key="due-error")
+    project_id = cast(int, project["id"])
+    raw_key = create_api_key(client, project_id=project_id, auth_headers=owner_headers)
+
+    ingest_response = client.post(
+        "/api/v1/ingest/metrics",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={"metrics": [{"name": "http.server.errors", "value": 5, "unit": "count"}]},
+    )
+    assert ingest_response.status_code == 202
+    set_metric_records_occurred_at(
+        client,
+        project_id=project_id,
+        timestamps=[datetime.now(UTC) - timedelta(seconds=30)],
+    )
+
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="成功后变错误",
+        condition={
+            "metric": "http.server.errors",
+            "operator": "gt",
+            "threshold": 1,
+        },
+    )
+    first_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+    assert first_response.status_code == 200
+    first_state = get_alert_evaluation_states(client)[rule["id"]]
+    assert first_state.status == "firing"
+    assert first_state.last_result is not None
+    assert first_state.last_result["status"] == "firing"
+
+    patch_response = client.patch(
+        f"/api/v1/projects/{project_id}/alerts/rules/{rule['id']}",
+        headers=owner_headers,
+        json={"signal": "logs"},
+    )
+    assert patch_response.status_code == 200
+    set_alert_evaluation_state_due_at(
+        client,
+        rule_id=rule["id"],
+        due_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    second_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+
+    assert second_response.status_code == 200
+    body = second_response.json()
+    assert body["evaluated_count"] == 1
+    assert body["updated_state_count"] == 1
+    assert body["items"][0]["old_status"] == "firing"
+    assert body["items"][0]["new_status"] == "error"
+    assert body["items"][0]["error_summary"] == "仅支持 metrics 告警规则评估"
+    state = get_alert_evaluation_states(client)[rule["id"]]
+    assert state.status == "error"
+    assert state.last_error == "仅支持 metrics 告警规则评估"
+    assert state.last_result is not None
+    assert state.last_result["status"] == "firing"
+
+
+def test_alert_due_evaluation_missing_next_uses_last_evaluated_plus_interval() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="due-next-owner")
+    _, superuser_headers = create_auth_headers(
+        client,
+        username="due-next-superuser",
+        is_superuser=True,
+    )
+    project = create_project(client, owner_headers, name="缺失 next 项目", key="due-next")
+    project_id = cast(int, project["id"])
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="缺失 next 规则",
+    )
+    app = _tested_app(client)
+    now = datetime.now(UTC)
+    with app.state.db_session_factory() as session:
+        session.add(
+            AlertEvaluationStateModel(
+                rule_id=rule["id"],
+                project_id=project_id,
+                status="ok",
+                last_evaluated_at=now,
+                next_evaluate_at=None,
+                last_result={"status": "ok"},
+                last_error=None,
+            )
+        )
+        session.commit()
+
+    first_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+
+    assert first_response.status_code == 200
+    first_body = first_response.json()
+    assert first_body["evaluated_count"] == 0
+    assert first_body["skipped_count"] == 1
+    assert first_body["items"][0]["due"] is False
+    assert first_body["items"][0]["new_status"] == "ok"
+    assert first_body["items"][0]["next_evaluate_at"] is not None
+
+    set_alert_evaluation_state_due_at(
+        client,
+        rule_id=rule["id"],
+        due_at=None,
+        last_evaluated_at=now - timedelta(seconds=61),
+    )
+    second_response = client.post(
+        "/api/v1/alerts/evaluations/run-due",
+        headers=superuser_headers,
+    )
+
+    assert second_response.status_code == 200
+    second_body = second_response.json()
+    assert second_body["evaluated_count"] == 1
+    assert second_body["skipped_count"] == 0
+    assert second_body["items"][0]["due"] is True
+    assert second_body["items"][0]["new_status"] == "no_data"
+
+
+def test_alert_evaluation_state_upsert_conflict_refetches_and_skips_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="due-conflict-owner")
+    project = create_project(client, owner_headers, name="并发冲突项目", key="due-conflict")
+    project_id = cast(int, project["id"])
+    rule = create_alert_rule(
+        client,
+        owner_headers,
+        project_id=project_id,
+        name="首次创建冲突",
+    )
+    app = _tested_app(client)
+    checked_at = datetime.now(UTC)
+    next_evaluate_at = checked_at + timedelta(seconds=60)
+    original_flush_or_commit = alerts_repository_module.flush_or_commit
+    call_count = 0
+
+    def fake_flush_or_commit(session: Any) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            session.rollback()
+            with app.state.db_session_factory() as other_session:
+                other_session.add(
+                    AlertEvaluationStateModel(
+                        rule_id=rule["id"],
+                        project_id=project_id,
+                        status="firing",
+                        last_evaluated_at=checked_at,
+                        next_evaluate_at=next_evaluate_at,
+                        last_result={"status": "firing"},
+                        last_error=None,
+                    )
+                )
+                other_session.commit()
+            raise IntegrityError(
+                "INSERT",
+                {},
+                Exception("UNIQUE constraint failed: alert_evaluation_states.rule_id"),
+            )
+        original_flush_or_commit(session)
+
+    monkeypatch.setattr(alerts_repository_module, "flush_or_commit", fake_flush_or_commit)
+
+    with app.state.db_session_factory() as session:
+        state, created, wrote = SqlAlchemyAlertRuleRepository(session).upsert_evaluation_state(
+            rule_id=rule["id"],
+            project_id=project_id,
+            status="firing",
+            last_evaluated_at=checked_at,
+            next_evaluate_at=next_evaluate_at,
+            last_result={"status": "duplicate"},
+            last_error=None,
+            due_checked_at=checked_at,
+            interval_seconds=60,
+        )
+
+    assert call_count == 1
+    assert created is False
+    assert wrote is False
+    assert state.status == "firing"
+    assert state.last_result == {"status": "firing"}
+    states = get_alert_evaluation_states(client)
+    assert len(states) == 1
+    assert states[rule["id"]].last_result == {"status": "firing"}
+
+
+def test_alert_due_evaluation_run_requires_superuser() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="due-forbidden-owner")
+    _, viewer_headers = create_auth_headers(client, username="due-forbidden-viewer")
+    project = create_project(client, owner_headers, name="周期权限项目", key="due-forbidden")
+    project_id = cast(int, project["id"])
+    create_alert_rule(client, owner_headers, project_id=project_id)
+
+    response = client.post("/api/v1/alerts/evaluations/run-due", headers=viewer_headers)
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "需要超级用户权限"
+    assert get_alert_evaluation_states(client) == {}
 
 
 def test_alert_rule_manual_evaluation_validation_and_permissions() -> None:
@@ -1142,6 +1619,7 @@ def test_alert_rule_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> No
     try:
         inspector = inspect(app.state.db_engine)
         assert "alert_rules" in inspector.get_table_names()
+        assert "alert_evaluation_states" in inspector.get_table_names()
         columns = {column["name"] for column in inspector.get_columns("alert_rules")}
         assert {
             "id",
@@ -1164,6 +1642,30 @@ def test_alert_rule_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> No
             constraint["name"] for constraint in inspector.get_unique_constraints("alert_rules")
         }
         assert "uq_alert_rules_project_name" in unique_constraints
+        state_columns = {
+            column["name"] for column in inspector.get_columns("alert_evaluation_states")
+        }
+        assert {
+            "id",
+            "rule_id",
+            "project_id",
+            "status",
+            "last_evaluated_at",
+            "next_evaluate_at",
+            "last_result",
+            "last_error",
+            "created_at",
+            "updated_at",
+        } <= state_columns
+        state_indexes = {
+            index["name"] for index in inspector.get_indexes("alert_evaluation_states")
+        }
+        assert "ix_alert_evaluation_states_project_next_at" in state_indexes
+        state_unique_constraints = {
+            constraint["name"]
+            for constraint in inspector.get_unique_constraints("alert_evaluation_states")
+        }
+        assert "uq_alert_evaluation_states_rule_id" in state_unique_constraints
     finally:
         app.state.db_engine.dispose()
 
@@ -1178,7 +1680,9 @@ def test_alert_rule_migration_sqlite_upgrade_and_downgrade(tmp_path: Path) -> No
         )
     )
     try:
-        assert "alert_rules" not in inspect(app.state.db_engine).get_table_names()
+        table_names = inspect(app.state.db_engine).get_table_names()
+        assert "alert_rules" not in table_names
+        assert "alert_evaluation_states" not in table_names
     finally:
         app.state.db_engine.dispose()
 
@@ -1191,4 +1695,15 @@ def test_alert_rule_model_mysql_ddl_uses_json_columns_and_utf8mb4() -> None:
     assert "`condition` JSON NOT NULL" in compiled
     assert "evaluation JSON NOT NULL" in compiled
     assert "UNIQUE (project_id, name)" in compiled
+    assert "CHARSET=utf8mb4" in compiled
+
+
+def test_alert_evaluation_state_model_mysql_ddl_uses_json_columns_and_utf8mb4() -> None:
+    table = cast(Table, AlertEvaluationStateModel.__table__)
+    compiled = str(CreateTable(table).compile(dialect=mysql.dialect()))
+
+    assert "CREATE TABLE alert_evaluation_states" in compiled
+    assert "last_result JSON" in compiled
+    assert "UNIQUE (rule_id)" in compiled
+    assert "FOREIGN KEY(rule_id) REFERENCES alert_rules (id) ON DELETE CASCADE" in compiled
     assert "CHARSET=utf8mb4" in compiled

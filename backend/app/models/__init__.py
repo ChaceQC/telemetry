@@ -1,4 +1,4 @@
-from app.models.alerts import AlertRuleModel
+from app.models.alerts import AlertEvaluationStateModel, AlertRuleModel
 from app.models.api_keys import ApiKeyModel
 from app.models.auth import UserModel
 from app.models.dashboard import DashboardModel
@@ -8,6 +8,7 @@ from app.models.permissions import ProjectMemberModel, TeamMemberModel, TeamMode
 
 __all__ = [
     "ApiKeyModel",
+    "AlertEvaluationStateModel",
     "AlertRuleModel",
     "DashboardModel",
     "EnvironmentModel",

@@ -1,6 +1,6 @@
 # 遥测后端
 
-本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础、单个 dashboard JSON 导入导出基础、阶段 6 告警规则 CRUD 和指标阈值告警手动评估后端基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
+本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础、单个 dashboard JSON 导入导出基础、阶段 6 告警规则 CRUD、指标阈值告警手动评估和告警周期评估当前状态持久化后端骨架，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 
 ## 环境要求
 
@@ -123,9 +123,10 @@ uv run python main.py
 | `api_keys` | 项目 API Key | 外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一；只保存哈希和展示前缀，不保存明文 key |
 | `dashboards` | 项目仪表盘 | 外键 `project_id`、`created_by_user_id`、`updated_by_user_id`；保存 `name`、`description`、`layout` JSON、`config` JSON、创建/更新时间；`(project_id, updated_at, id)` 索引支撑项目内列表分页 |
 | `alert_rules` | 项目告警规则 | 外键 `project_id`、`created_by_user_id`、`updated_by_user_id`；保存 `name`、`description`、`enabled`、`severity`、`signal`、`condition` JSON、`evaluation` JSON、创建/更新时间；同项目下 `name` 唯一，`(project_id, updated_at, id)` 索引支撑项目内列表分页 |
+| `alert_evaluation_states` | 告警当前评估状态 | 外键 `rule_id`、`project_id`；每条规则唯一一条当前状态，保存 `status`、`last_evaluated_at`、`next_evaluate_at`、`last_result` JSON、`last_error` 和更新时间；`(project_id, next_evaluate_at, rule_id)` 索引支撑到期扫描 |
 | `ingest_records` | 最小摄入记录 | 外键 `project_id`、`api_key_id`；保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；MySQL/MariaDB 下 `occurred_at` 和 `received_at` 使用 `DATETIME(6)` 保留微秒精度；`(project_id, kind, received_at, id)` 组合索引支撑日志上下文窗口和带项目过滤的查询分页 |
 
-MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。`20260622_0008` 迁移会把已有 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 调整为 `DATETIME(6)`，并将 `received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`；SQLAlchemy 模型在 MySQL/MariaDB 方言下的建表 DDL 也会编译为 `DATETIME(6)` 与 `CURRENT_TIMESTAMP(6)`，SQLite 仍保持 `CURRENT_TIMESTAMP` 以兼容本地测试。`20260623_0009` 新增 `dashboards` 表，MySQL/MariaDB 下 `layout` 和 `config` 使用原生 JSON 列，SQLite 测试路径使用 SQLAlchemy JSON 兼容类型。`20260626_0010` 新增 `alert_rules` 表，MySQL/MariaDB 下 `condition` 和 `evaluation` 使用原生 JSON 列，SQLite 测试路径使用 SQLAlchemy JSON 兼容类型。生产建库和升级必须使用 Alembic 迁移，`Base.metadata.create_all()` 仅用于测试或一次性临时库初始化，不作为生产 schema 管理入口。Alembic 生成的 MySQL/MariaDB 离线 SQL 为标准 `ALTER TABLE ... CHANGE ... DATETIME(6)` 语法，兼容 Debian 常见 MySQL 8 和 MariaDB 包。由于 0008 会修改 `received_at` 这个已参与索引的列，真实 MySQL/MariaDB 大表执行前必须评估表规模、锁等待、备份/回滚、复制延迟和维护窗口，必要时先在同版本影子库演练或采用在线 schema 变更工具。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级、MySQL DDL 编译和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
+MySQL 表使用 `utf8mb4` 字符集和 `utf8mb4_unicode_ci` 排序规则。`20260622_0008` 迁移会把已有 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 调整为 `DATETIME(6)`，并将 `received_at` 默认值调整为 `CURRENT_TIMESTAMP(6)`；SQLAlchemy 模型在 MySQL/MariaDB 方言下的建表 DDL 也会编译为 `DATETIME(6)` 与 `CURRENT_TIMESTAMP(6)`，SQLite 仍保持 `CURRENT_TIMESTAMP` 以兼容本地测试。`20260623_0009` 新增 `dashboards` 表，MySQL/MariaDB 下 `layout` 和 `config` 使用原生 JSON 列，SQLite 测试路径使用 SQLAlchemy JSON 兼容类型。`20260626_0010` 新增 `alert_rules` 表，MySQL/MariaDB 下 `condition` 和 `evaluation` 使用原生 JSON 列，SQLite 测试路径使用 SQLAlchemy JSON 兼容类型。`20260627_0011` 新增 `alert_evaluation_states` 表，MySQL/MariaDB 下 `last_result` 使用原生 JSON 列，SQLite 测试路径使用 SQLAlchemy JSON 兼容类型。生产建库和升级必须使用 Alembic 迁移，`Base.metadata.create_all()` 仅用于测试或一次性临时库初始化，不作为生产 schema 管理入口。Alembic 生成的 MySQL/MariaDB 离线 SQL 为标准 `ALTER TABLE ... CHANGE ... DATETIME(6)` 语法，兼容 Debian 常见 MySQL 8 和 MariaDB 包。由于 0008 会修改 `received_at` 这个已参与索引的列，真实 MySQL/MariaDB 大表执行前必须评估表规模、锁等待、备份/回滚、复制延迟和维护窗口，必要时先在同版本影子库演练或采用在线 schema 变更工具。当前环境没有真实 MySQL 服务，因此已完成 SQLite 迁移升降级、MySQL DDL 编译和 repository 单元测试；后续接入 MySQL 容器后需要补跑 MySQL migration、外键、唯一索引、JSON 字段和 API 集成验证。
 
 ### 真实 MySQL 回归测试
 
@@ -419,7 +420,7 @@ Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashb
 
 ## Alert Rules API
 
-当前阶段提供告警规则 CRUD 后端基础和指标阈值告警手动评估 API；评估只做同步、一次性计算，不做后台调度、通知、告警历史、静默/恢复、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 后台链路。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的告警规则；超级用户可访问全部已存在项目。
+当前阶段提供告警规则 CRUD 后端基础、指标阈值告警手动评估 API 和超级用户触发的到期规则扫描 API。周期扫描会把每条 due 规则的当前状态持久化到 `alert_evaluation_states`；除 `next_evaluate_at` 驱动的到期写入外，旧状态非 `disabled` 的禁用规则会触发一次强制 disabled 收敛写入。当前不启动后台常驻 scheduler，不做通知、告警历史、静默/恢复、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 后台链路。所有接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。普通用户只能访问自己有项目角色的告警规则；超级用户可访问全部已存在项目。
 
 权限规则：
 
@@ -427,12 +428,14 @@ Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashb
 | --- | --- | --- |
 | 列表/读取 | `viewer` | 全局列表自动过滤为可访问项目；指定无成员关系的 `project_id` 返回 `404 项目不存在` |
 | 手动评估 | `viewer` | 只评估 `signal=metrics` 的指标阈值规则；跨项目 rule ID 按 `404 告警规则不存在` 处理 |
+| 到期扫描 | 超级用户 | `POST /api/v1/alerts/evaluations/run-due` 只允许超级用户触发；普通用户返回 `403` |
 | 创建/更新/删除 | `editor` | `viewer` 返回 `403 无项目权限`；跨项目 rule ID 按 `404 告警规则不存在` 处理 |
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/alerts/rules` | 列出告警规则，可用 `project_id`、`severity`、`signal`、`enabled`、`limit`、`offset` 过滤/分页 |
 | `POST` | `/api/v1/alerts/rules` | 创建告警规则 |
+| `POST` | `/api/v1/alerts/evaluations/run-due` | 超级用户触发一次 due 规则扫描并持久化当前状态 |
 | `GET` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 读取单个告警规则 |
 | `POST` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` | 手动评估指标阈值告警规则 |
 | `PATCH` | `/api/v1/projects/{project_id}/alerts/rules/{rule_id}` | 部分更新告警规则 |
@@ -478,6 +481,8 @@ Dashboard JSON 导出使用 `GET /api/v1/projects/{project_id}/dashboards/{dashb
 列表响应为对象 envelope：`{"items": [...], "limit": 50, "offset": 0, "total": 1}`。更新至少提供一个字段；未传 `condition/evaluation` 时保持原值，`description=null` 表示清空描述，其他可更新字段传 `null` 返回 `422`。错误边界：缺少或无效 token 返回 `401`；项目不存在、无项目成员关系或规则不在指定项目下返回 `404`；角色不足返回 `403`；同项目规则名称重复或其他数据库完整性冲突返回 `409`；字段、路径参数、分页参数、枚举、JSON 形状或 evaluation 窗口非法返回 `422`。
 
 手动评估接口 `POST /api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate` 无请求体，读取已保存规则。当前仅支持 `signal="metrics"`，非 metrics 返回 `422`。`condition.metric` 对应关系库 `ingest_records.event_type` 中保存的指标名，必填且长度 `1..128`；`condition.source` 可选，长度 `1..128`，按 `ingest_records.source` 精确过滤；`operator` 支持 `gt/gte/lt/lte/eq/ne`；`threshold` 必须是有限 JSON number，拒绝 bool 和字符串数字；`aggregation` 默认 `avg`，支持 `avg/sum/min/max/count`。服务端以当前 UTC 时间作为 `checked_at`，按 `[checked_at - evaluation.window_seconds, checked_at]` 查询 `kind=metric` 样本，`evaluation.interval_seconds` 仅原样返回，不做调度。响应状态为 `firing`、`ok`、`no_data` 或 `disabled`；禁用规则返回 `disabled` 且不查询指标样本，无样本返回 `no_data`，有样本时返回规范化 condition、窗口、observed 聚合值/sample_count/unit 和 message。
+
+到期扫描接口 `POST /api/v1/alerts/evaluations/run-due` 无请求体，当前也不实现 `limit` 或 `project_id` 可选参数。服务端扫描 enabled 告警规则，以及已存在当前状态的 disabled 规则；disabled 且没有当前状态的规则不会创建新状态。schedule due 判断优先使用状态表 `next_evaluate_at`：缺少状态或 `next_evaluate_at <= checked_at` 时视为 due；若缺少 `next_evaluate_at` 但有 `last_evaluated_at`，则按 `last_evaluated_at + evaluation.interval_seconds` 计算下一次时间，只有两者都缺失才视为 due。旧状态非 `disabled` 的禁用规则是 `next_evaluate_at` 之外的强制 due/write 例外：只要 disabled 且已有当前状态、旧状态为 `firing/ok/no_data/error`，本轮就会立即写入 `status=disabled`、清空 `last_error`、计入 `evaluated_count` 和 `updated_state_count`，并在对应 `items[]` 中返回 `due=true`；disabled 且没有当前状态仍不创建新状态；已是 `disabled` 且未到期则只计入 skipped，响应 `due=false`。due 规则复用手动评估的 metrics 阈值语义执行，成功后写入 `status=firing/ok/no_data`、`last_evaluated_at`、`next_evaluate_at=checked_at+evaluation.interval_seconds`、`last_result` 和清空 `last_error`；当前非 metrics 或不满足 API-0026 执行语义的 enabled 规则写入 `status=error` 和 `last_error`，推进下一次评估时间，并保留之前最近一次成功评估的 `last_result`。其他未到期规则只计入 skipped，不更新状态；首次并发创建当前状态时，repository 会在唯一约束冲突后 rollback、重新读取并复查 due 状态，避免把重复扫描暴露为 `500`。响应为本轮扫描摘要：`checked_at`、`evaluated_count`、`skipped_count`、`created_state_count`、`updated_state_count`、`items[]`，每项包含 `rule_id`、`project_id`、`old_status`、`new_status`、`due`、`next_evaluate_at` 和 `error_summary`。
 
 ## 数据摄入 API
 
@@ -742,27 +747,27 @@ tests/              # pytest 测试
 - `app/api/dependencies.py`：请求级数据库 session、管理服务、认证服务和当前用户依赖。
 - `app/api/routes/auth.py`：登录和当前用户接口。
 - `app/api/routes/api_keys.py`：项目 API Key 创建、列表和撤销接口。
-- `app/api/routes/alerts.py`：项目告警规则创建、列表、读取、更新和删除接口。
+- `app/api/routes/alerts.py`：项目告警规则创建、列表、读取、更新、删除、手动评估和到期扫描接口。
 - `app/api/routes/dashboard.py`：项目 dashboard 创建、列表、读取、更新、删除、panel preview 和内置模板接口。
 - `app/api/routes/health.py`：健康检查接口。
 - `app/api/routes/ingest.py`：API Key 鉴权的数据摄入接口。
 - `app/api/routes/management.py`：项目、环境、服务管理接口。
 - `app/models/api_keys.py`：API Key ORM 模型。
-- `app/models/alerts.py`：Alert Rule ORM 模型。
+- `app/models/alerts.py`：Alert Rule 和 Alert Evaluation State ORM 模型。
 - `app/models/auth.py`：用户 ORM 模型。
 - `app/models/dashboard.py`：Dashboard ORM 模型。
 - `app/models/ingest.py`：最小摄入记录 ORM 模型。
 - `app/models/management.py`：项目、环境、服务 ORM 模型。
 - `app/schemas/auth.py`：认证 API 的 Pydantic 请求和响应模型。
 - `app/schemas/api_keys.py`：API Key API 的 Pydantic 请求和响应模型。
-- `app/schemas/alerts.py`：Alert Rules API 的 Pydantic 请求、更新和响应模型。
+- `app/schemas/alerts.py`：Alert Rules API 的 Pydantic 请求、更新、评估和扫描响应模型。
 - `app/schemas/dashboard.py`：Dashboard API 的 Pydantic 请求、更新、模板和响应模型。
 - `app/schemas/ingest.py`：摄入 API 的 Pydantic 请求和响应模型。
 - `app/schemas/management.py`：基础管理 API 的 Pydantic 请求和响应模型。
 - `app/schemas/permissions.py`：项目角色枚举和角色层级判断。
 - `app/services/auth.py`：密码哈希、token 签发/解析和认证规则。
 - `app/services/api_keys.py`：API Key 生成、哈希、权限校验、撤销和后续摄入校验入口。
-- `app/services/alerts.py`：Alert Rules CRUD、项目权限和资源隐藏规则。
+- `app/services/alerts.py`：Alert Rules CRUD、项目权限、资源隐藏、手动评估和到期扫描规则。
 - `app/services/dashboard.py`：Dashboard CRUD、模板创建用例、项目权限和资源隐藏规则。
 - `app/services/dashboard_templates.py`：内置 dashboard template 定义、读取、深拷贝和保存层校验入口。
 - `app/services/ingest.py`：摄入用例服务，按 API Key 上下文写入项目范围记录。
@@ -770,7 +775,7 @@ tests/              # pytest 测试
 - `app/services/permissions.py`：项目级权限判断入口，包含超级用户绕过和角色校验。
 - `app/repositories/auth.py`：认证 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/api_keys.py`：API Key repository 协议和 SQLAlchemy 实现。
-- `app/repositories/alerts.py`：Alert Rules repository 协议和 SQLAlchemy 实现。
+- `app/repositories/alerts.py`：Alert Rules 和 Alert Evaluation States repository 协议及 SQLAlchemy 实现。
 - `app/repositories/dashboard.py`：Dashboard repository 协议和 SQLAlchemy 实现。
 - `app/repositories/ingest.py`：摄入记录 repository 协议和 SQLAlchemy 实现。
 - `app/repositories/management.py`：基础管理 repository 协议、SQLAlchemy 实现和测试用内存实现。
@@ -784,6 +789,7 @@ tests/              # pytest 测试
 - `migrations/versions/20260622_0008_ingest_records_mysql_microseconds.py`：将 MySQL/MariaDB `ingest_records.occurred_at` 与 `received_at` 升级为 `DATETIME(6)`，保证毫秒/微秒级时间范围过滤。
 - `migrations/versions/20260623_0009_create_dashboards.py`：创建项目 dashboard 元数据表、JSON 配置列和项目列表索引。
 - `migrations/versions/20260626_0010_create_alert_rules.py`：创建项目告警规则表、JSON 条件/评估列、项目内名称唯一约束和项目列表索引。
+- `migrations/versions/20260627_0011_create_alert_evaluation_states.py`：创建告警当前评估状态表、JSON 最新结果列、规则唯一状态约束和到期扫描索引。
 
 ## 验证命令
 

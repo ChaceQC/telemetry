@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0084`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力；阶段 6 已提供告警规则 CRUD 后端基础和指标阈值告警的一次性手动评估 API。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0085`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力；阶段 6 已提供告警规则 CRUD 后端基础、指标阈值告警的一次性手动评估 API 和告警周期评估当前状态持久化骨架。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -737,7 +737,72 @@ PATCH 请求体示例：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `404 Not Found`：项目不存在、普通用户不在项目权限范围内，或告警规则不属于指定项目/不存在。
   - `422 Unprocessable Entity`：规则不是 `signal="metrics"`，或 `condition.metric/operator/threshold/aggregation/source` 不符合本小步执行语义，或已保存 `evaluation.window_seconds/interval_seconds` 不满足执行要求。
-- 当前边界：只提供手动、同步、一次性的指标阈值评估；不实现后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、抑制、分组、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
+- 当前边界：只提供手动、同步、一次性的指标阈值评估；不实现后台 scheduler、周期执行、状态持久化、通知渠道、告警历史、恢复事件、静默、抑制、分组、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。周期执行入口见 API-0027。
+
+## API-0027 告警周期评估状态骨架
+
+- 方法：`POST`
+- 路径：`/api/v1/alerts/evaluations/run-due`
+- 鉴权：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 权限：仅超级用户可触发；非超级用户返回 `403 Forbidden`，`detail="需要超级用户权限"`。
+- 请求体：无。
+- 查询参数：当前不实现 `limit` 或 `project_id`，因此传入未声明 query 参数不会改变扫描范围；如后续引入必须补充明确校验和权限语义。
+- 扫描规则：
+  - 读取所有 `enabled=true` 告警规则；`enabled=false` 且已有当前状态的规则也会进入扫描，用于把旧 `firing/ok/no_data/error` 状态收敛为 `disabled`。禁用且没有当前状态的规则不扫描、不创建状态。
+  - 状态表 `alert_evaluation_states` 每条规则最多一条当前状态，按 `rule_id` 唯一。
+  - schedule due 优先使用状态表 `next_evaluate_at`：缺少状态或 `next_evaluate_at <= checked_at` 时视为 due；状态缺少 `next_evaluate_at` 但有 `last_evaluated_at` 时，按 `last_evaluated_at + evaluation.interval_seconds` 计算下一次时间，只有两者都缺失才视为 due。
+  - disabled 收敛是 `next_evaluate_at` 之外的强制 due/write 例外：规则已禁用、已有当前状态且旧状态不是 `disabled` 时，即使 schedule 未到期，也会立即持久化 `status=disabled`、`last_evaluated_at`、`next_evaluate_at`、`last_result` 和 `last_error=null`，不查询指标样本；本项计入 `evaluated_count` 和 `updated_state_count`，响应 `items[].due=true`。
+  - disabled 且没有当前状态时不创建状态、不返回 item；已是 `disabled` 且 schedule 未到期时只返回 skipped item，不更新状态，响应 `items[].due=false`。
+  - due 规则当前只执行 `signal="metrics"` 且满足 API-0026 condition/evaluation 语义的指标阈值评估，复用 API-0026 的单窗口关系库 metrics 聚合。
+  - due 且成功评估后持久化 `status=firing/ok/no_data`、`last_evaluated_at=checked_at`、`next_evaluate_at=checked_at+evaluation.interval_seconds`、`last_result` 和 `last_error=null`。
+  - due 且规则已禁用时，持久化 `status=disabled`、`last_evaluated_at`、`next_evaluate_at`、`last_result` 和 `last_error=null`，不查询指标样本；该 due 可以来自 schedule 到期，也可以来自上述 disabled 强制收敛。
+  - due 但非 metrics 或已保存 condition/evaluation 不满足 API-0026 执行语义时，持久化 `status=error`、`last_evaluated_at`、`next_evaluate_at` 和 `last_error` 错误摘要，并保留之前最近一次成功评估的 `last_result`。
+  - 首次并发创建当前状态时，repository 会在 `rule_id` 唯一约束冲突后 rollback、重新读取并复查 due；若另一轮扫描已写入同状态且未到期，本轮按 skipped 返回，避免重复写入和 `500`。
+- 响应：`200 OK`。
+
+```json
+{
+  "checked_at": "2026-06-27T00:00:00Z",
+  "evaluated_count": 2,
+  "skipped_count": 1,
+  "created_state_count": 1,
+  "updated_state_count": 1,
+  "items": [
+    {
+      "project_id": 1,
+      "rule_id": 7,
+      "old_status": null,
+      "new_status": "firing",
+      "due": true,
+      "next_evaluate_at": "2026-06-27T00:01:00Z",
+      "error_summary": null
+    },
+    {
+      "project_id": 1,
+      "rule_id": 8,
+      "old_status": "firing",
+      "new_status": "firing",
+      "due": false,
+      "next_evaluate_at": "2026-06-27T00:02:00Z",
+      "error_summary": null
+    }
+  ]
+}
+```
+
+- 响应字段：
+  - `evaluated_count`：本轮 due 并实际写入当前状态的规则数，包括成功评估、`error` 和 disabled 强制收敛写入。
+  - `skipped_count`：扫描到但未写入的规则数，包括 enabled 未到期，以及已是 `disabled` 且 schedule 未到期的规则。
+  - `created_state_count` / `updated_state_count`：本轮创建或更新 `alert_evaluation_states` 的数量。
+  - `items[].old_status`：扫描前状态，缺少状态时为 `null`。
+  - `items[].new_status`：本轮后的状态；未到期时等于旧状态。
+  - `items[].due`：本项本轮是否 due；旧状态非 `disabled` 的禁用规则执行强制收敛写入时返回 `true`，已是 `disabled` 且未到期时返回 `false`。
+  - `items[].error_summary`：成功或未到期时为 `null`；执行语义错误时为摘要。
+- 持久化表：`alert_evaluation_states` 保存 `rule_id`、`project_id`、`status`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error`、`created_at`、`updated_at`；`last_result` 为最近一次成功评估的 JSON 摘要，`error` 状态不会清空该字段，不保存完整历史。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `403 Forbidden`：已认证但不是超级用户。
+- 当前边界：不做后台常驻 scheduler、不做通知渠道、告警历史表、恢复事件、静默/抑制、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
 
 ## API-0008 数据摄入
 
@@ -1251,7 +1316,7 @@ PATCH 请求体示例：
 - 认证实现位于 `backend/app/services/auth.py`、`backend/app/repositories/auth.py`、`backend/app/api/routes/auth.py`，默认使用 `SqlAlchemyAuthRepository`。
 - API Key 实现位于 `backend/app/services/api_keys.py`、`backend/app/repositories/api_keys.py`、`backend/app/api/routes/api_keys.py`，默认使用 `SqlAlchemyApiKeyRepository`。
 - Dashboard 实现位于 `backend/app/services/dashboard.py`、`backend/app/repositories/dashboard.py`、`backend/app/api/routes/dashboard.py`，默认使用 `SqlAlchemyDashboardRepository`。
-- Alert Rules 实现位于 `backend/app/services/alerts.py`、`backend/app/repositories/alerts.py`、`backend/app/api/routes/alerts.py`，默认使用 `SqlAlchemyAlertRuleRepository`；手动评估复用 `SqlAlchemyQueryRepository.aggregate_metric_window()` 读取关系库指标样本。
+- Alert Rules 实现位于 `backend/app/services/alerts.py`、`backend/app/repositories/alerts.py`、`backend/app/api/routes/alerts.py`，默认使用 `SqlAlchemyAlertRuleRepository`；手动评估和到期扫描复用 `SqlAlchemyQueryRepository.aggregate_metric_window()` 读取关系库指标样本；当前状态保存到 `alert_evaluation_states`。
 - 摄入实现位于 `backend/app/services/ingest.py`、`backend/app/repositories/ingest.py`、`backend/app/api/routes/ingest.py`，默认使用 `SqlAlchemyIngestRepository`。
 - 查询实现位于 `backend/app/services/query.py`、`backend/app/repositories/query.py`、`backend/app/api/routes/query.py`，当前事件/日志/指标/trace 查询默认使用 `SqlAlchemyQueryRepository`。
 - 权限实现位于 `backend/app/services/permissions.py`、`backend/app/repositories/permissions.py` 和 `backend/app/schemas/permissions.py`；管理 service 统一调用 `PermissionService`，路由不散落角色判断。
@@ -1272,6 +1337,7 @@ PATCH 请求体示例：
   - `backend/migrations/versions/20260622_0008_ingest_records_mysql_microseconds.py`
   - `backend/migrations/versions/20260623_0009_create_dashboards.py`
   - `backend/migrations/versions/20260626_0010_create_alert_rules.py`
+  - `backend/migrations/versions/20260627_0011_create_alert_evaluation_states.py`
 - MySQL 目标表：
   - `management_projects`：项目，`key` 全局唯一。
   - `management_environments`：环境，外键 `project_id`，同项目下 `key` 唯一，并提供 `(id, project_id)` 唯一约束供服务复合外键引用。
@@ -1283,6 +1349,7 @@ PATCH 请求体示例：
   - `api_keys`：项目 API Key，外键 `project_id`、`created_by_user_id`，`key_hash` 全局唯一，保存 `status`、`revoked_at`、`last_used_at` 和展示前缀。
   - `dashboards`：项目 dashboard，外键 `project_id`、`created_by_user_id`、`updated_by_user_id`，保存 `name`、`description`、`layout` JSON、`config` JSON、`created_at`、`updated_at`；组合索引 `ix_dashboards_project_updated_at_id(project_id, updated_at, id)` 支撑按项目更新时间分页。
   - `alert_rules`：项目告警规则，外键 `project_id`、`created_by_user_id`、`updated_by_user_id`，保存 `name`、`description`、`enabled`、`severity`、`signal`、`condition` JSON、`evaluation` JSON、`created_at`、`updated_at`；同项目下 `name` 唯一，组合索引 `ix_alert_rules_project_updated_at_id(project_id, updated_at, id)` 支撑按项目更新时间分页。
+  - `alert_evaluation_states`：告警当前评估状态，外键 `rule_id`、`project_id`，按 `rule_id` 唯一保存当前 `status`、`last_evaluated_at`、`next_evaluate_at`、`last_result` JSON、`last_error`、`created_at`、`updated_at`；组合索引 `ix_alert_evaluation_states_project_next_at(project_id, next_evaluate_at, rule_id)` 支撑后续到期扫描。
   - `ingest_records`：最小摄入记录，外键 `project_id`、`api_key_id`，保存 `kind`、`event_type`、`source`、`payload` JSON、`occurred_at` 和 `received_at`；MySQL/MariaDB 下 `occurred_at` 和 `received_at` 使用 `DATETIME(6)`，`received_at` 默认值为 `CURRENT_TIMESTAMP(6)`；组合索引 `ix_ingest_records_project_kind_received_at_id(project_id, kind, received_at, id)` 支撑日志上下文 before/after 和带项目过滤的查询分页。
   - `ingest_stats`：摄入统计聚合，外键 `project_id`、`api_key_id`，按 `bucket_start`、`project_id`、`api_key_id`、`kind`、`source` 唯一聚合，保存 accepted/rejected 计数和 payload 字节数。
 - 表字符集：MySQL `utf8mb4` / `utf8mb4_unicode_ci`。
