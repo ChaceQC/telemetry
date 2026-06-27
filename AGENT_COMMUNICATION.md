@@ -111,7 +111,7 @@ closed      已关闭
 | T-0081 | 告警规则 CRUD 后端基础 | 总 agent | todo | done | done | done | done |
 | T-0082 | 告警规则 CRUD 前端基础 | 总 agent | done | todo | done | done | done |
 | T-0083 | 告警规则 CRUD 真实前后端联测 | 总 agent | done | done | done | done | done |
-| T-0084 | 指标阈值告警评估后端基础 | 总 agent | todo | doing | todo | todo | doing |
+| T-0084 | 指标阈值告警评估后端基础 | 总 agent | todo | done | done | done | done |
 
 ## 4. API 契约登记
 
