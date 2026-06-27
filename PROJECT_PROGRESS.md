@@ -1258,16 +1258,20 @@
 - 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`。
 - 按用户要求更新 CI：新增 `scripts/Test-NoUtf8Bom.ps1`，并在 `.github/workflows/ci.yml` 增加 `Repository format checks` job，Backend checks 与 Frontend checks 均依赖该 job；它会在依赖安装前扫描所有已跟踪文件，发现 UTF-8 BOM 时直接列出文件并失败。
 - 新 guard 首次本地运行发现 `.env.example`、`backend/README.md`、`backend/uv.lock`、`frontend/.env.example`、`frontend/README.md`、`frontend/package-lock.json`、`frontend/package.json`、`frontend/src/api/config.ts` 仍带既有 BOM；总 agent 已机械移除这些文件的 BOM，不改业务语义，并更新根 `README.md` 的 CI 说明。
+- T-0084-format 与 CI guard 提交 `e56027f` 已推送到 `dev`；GitHub Actions run `28284267753` 通过，Repository format checks、Backend checks、Frontend checks 均为 success。
 
 ### 阻塞与风险
 
-- 当前 `dev` 最新 CI 仍处于失败状态，需提交 T-0084-format 后端修复与 CI BOM guard 后重新读取 Actions。
+- T-0084-format 已完成，当前 `dev` 最新 CI 已恢复通过。
+- GitHub Actions 仍有既有官方 action Node.js runtime 弃用注解，不阻塞当前交付。
 
 ### 下一步
 
-- 总 agent 运行本地 BOM guard、前后端关键门禁和 worktree 体检，提交并推送 `dev`，随后读取 GitHub Actions 结果；通过后再登记 T-0085。
+- 登记阶段 6 下一小步 T-0085：推进告警执行能力的周期调度/状态持久化后端骨架，继续沿用已保存规则和 API-0026 语义，不接通知、历史或前端 UI。
 
 ### 验证
 
 - Hume 后端验证通过：`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q` 为 13 passed、`git diff --check`。
 - 总 agent 本地验证已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`、`uv lock --check`、`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q`、`npm.cmd run typecheck`、`npm.cmd run lint`、`git diff --check`。
+- 总 agent 追加全量本地门禁通过：后端 `uv run mypy .`、`uv run pytest -q` 为 355 passed、2 skipped、1 warning；前端 `npm.cmd test` 为 35 files、256 tests passed。
+- GitHub Actions run `28284267753` 成功：Repository format checks、Backend checks、Frontend checks 均通过。
