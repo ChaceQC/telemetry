@@ -182,3 +182,22 @@ class AlertRuleEvaluationResponse(BaseModel):
     condition: AlertRuleEvaluationConditionResponse
     observed: AlertRuleEvaluationObservedResponse | None
     message: str
+
+
+class AlertDueEvaluationRunItemResponse(BaseModel):
+    project_id: int
+    rule_id: int
+    old_status: str | None
+    new_status: str | None
+    due: bool
+    next_evaluate_at: datetime | None
+    error_summary: str | None
+
+
+class AlertDueEvaluationRunResponse(BaseModel):
+    checked_at: datetime
+    evaluated_count: int
+    skipped_count: int
+    created_state_count: int
+    updated_state_count: int
+    items: list[AlertDueEvaluationRunItemResponse]

@@ -8,7 +8,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.alerts import AlertRuleModel
+from app.models.alerts import AlertEvaluationStateModel, AlertRuleModel
 from app.models.management import ProjectModel
 from app.repositories.management import _is_constraint, _is_foreign_key_violation
 from app.repositories.unit_of_work import flush_or_commit
@@ -43,6 +43,20 @@ class AlertRuleRecord:
 class AlertRulePage:
     items: list[AlertRuleRecord]
     total: int
+
+
+@dataclass(frozen=True)
+class AlertEvaluationStateRecord:
+    id: int
+    rule_id: int
+    project_id: int
+    status: str
+    last_evaluated_at: datetime | None
+    next_evaluate_at: datetime | None
+    last_result: AlertRuleJson | None
+    last_error: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class AlertRuleRepository(Protocol):
@@ -96,6 +110,24 @@ class AlertRuleRepository(Protocol):
 
     def delete_alert_rule(self, rule_id: int) -> bool: ...
 
+    def list_enabled_alert_rules_for_evaluation(
+        self,
+        *,
+        project_id: int | None = None,
+    ) -> list[tuple[AlertRuleRecord, AlertEvaluationStateRecord | None]]: ...
+
+    def upsert_evaluation_state(
+        self,
+        *,
+        rule_id: int,
+        project_id: int,
+        status: str,
+        last_evaluated_at: datetime,
+        next_evaluate_at: datetime,
+        last_result: AlertRuleJson | None,
+        last_error: str | None,
+    ) -> tuple[AlertEvaluationStateRecord, bool]: ...
+
 
 def _alert_rule_record(model: AlertRuleModel) -> AlertRuleRecord:
     return AlertRuleRecord(
@@ -110,6 +142,23 @@ def _alert_rule_record(model: AlertRuleModel) -> AlertRuleRecord:
         evaluation=model.evaluation,
         created_by_user_id=model.created_by_user_id,
         updated_by_user_id=model.updated_by_user_id,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+def _alert_evaluation_state_record(
+    model: AlertEvaluationStateModel,
+) -> AlertEvaluationStateRecord:
+    return AlertEvaluationStateRecord(
+        id=model.id,
+        rule_id=model.rule_id,
+        project_id=model.project_id,
+        status=model.status,
+        last_evaluated_at=model.last_evaluated_at,
+        next_evaluate_at=model.next_evaluate_at,
+        last_result=model.last_result,
+        last_error=model.last_error,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -314,3 +363,75 @@ class SqlAlchemyAlertRuleRepository:
         self._session.delete(rule)
         flush_or_commit(self._session)
         return True
+
+    def list_enabled_alert_rules_for_evaluation(
+        self,
+        *,
+        project_id: int | None = None,
+    ) -> list[tuple[AlertRuleRecord, AlertEvaluationStateRecord | None]]:
+        statement = (
+            select(AlertRuleModel, AlertEvaluationStateModel)
+            .outerjoin(
+                AlertEvaluationStateModel,
+                AlertEvaluationStateModel.rule_id == AlertRuleModel.id,
+            )
+            .where(AlertRuleModel.enabled.is_(True))
+            .order_by(AlertRuleModel.project_id.asc(), AlertRuleModel.id.asc())
+        )
+        if project_id is not None:
+            statement = statement.where(AlertRuleModel.project_id == project_id)
+
+        rows = self._session.execute(statement).all()
+        return [
+            (
+                _alert_rule_record(rule),
+                None if state is None else _alert_evaluation_state_record(state),
+            )
+            for rule, state in rows
+        ]
+
+    def upsert_evaluation_state(
+        self,
+        *,
+        rule_id: int,
+        project_id: int,
+        status: str,
+        last_evaluated_at: datetime,
+        next_evaluate_at: datetime,
+        last_result: AlertRuleJson | None,
+        last_error: str | None,
+    ) -> tuple[AlertEvaluationStateRecord, bool]:
+        state = self._session.scalar(
+            select(AlertEvaluationStateModel).where(AlertEvaluationStateModel.rule_id == rule_id)
+        )
+        created = state is None
+        if state is None:
+            state = AlertEvaluationStateModel(
+                rule_id=rule_id,
+                project_id=project_id,
+                status=status,
+                last_evaluated_at=last_evaluated_at,
+                next_evaluate_at=next_evaluate_at,
+                last_result=last_result,
+                last_error=last_error,
+            )
+            self._session.add(state)
+        else:
+            state.project_id = project_id
+            state.status = status
+            state.last_evaluated_at = last_evaluated_at
+            state.next_evaluate_at = next_evaluate_at
+            state.last_result = last_result
+            state.last_error = last_error
+
+        try:
+            flush_or_commit(self._session)
+        except IntegrityError as error:
+            self._session.rollback()
+            raise _alert_rule_integrity_error(
+                error,
+                session=self._session,
+                project_id=project_id,
+            ) from error
+        self._session.refresh(state)
+        return _alert_evaluation_state_record(state), created

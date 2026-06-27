@@ -2,6 +2,51 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-27 T-0085 告警周期评估状态持久化后端骨架
+
+### 已完成
+
+- 在后端独立 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支继续 T-0085；确认本轮不再写入根工作树。
+- 新增 `alert_evaluation_states` SQLAlchemy model 和 Alembic 迁移 `20260627_0011_create_alert_evaluation_states.py`，每条告警规则最多一条当前状态，保存 `status`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error` 和更新时间；MySQL/MariaDB 下 `last_result` 使用 JSON 列。
+- 新增 `POST /api/v1/alerts/evaluations/run-due`，无请求体，仅超级用户可触发一次 enabled 规则 due 扫描；当前不实现 `limit` / `project_id` 可选参数。
+- due 判断按状态表 `next_evaluate_at` 执行：缺少状态、缺少 `next_evaluate_at` 或 `next_evaluate_at <= checked_at` 视为 due；未到期规则返回 skipped item 且不更新状态。
+- due 规则复用 T-0084 / API-0026 的 metrics 阈值评估语义，成功持久化 `firing/ok/no_data`、`last_result` 和下一次评估时间；非 metrics 或不满足 API-0026 执行条件的 enabled 规则持久化 `error` 和 `last_error`。
+- 响应返回 `checked_at`、`evaluated_count`、`skipped_count`、`created_state_count`、`updated_state_count` 和 `items[]`，每项包含规则 ID、项目、旧/新状态、是否 due、下一次评估时间和错误摘要。
+- 扩展 `backend/tests/test_alert_rules_api.py` 覆盖 run-due 创建状态、后续未到期跳过、非 metrics 规则写入 `error`、非超级用户 `403`、SQLite 迁移升降级和 MySQL DDL 编译。
+- 已更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，记录 API-0027、状态表、迁移和当前不做 scheduler/通知/历史/恢复/静默/Webhook/前端 UI/ClickHouse/MongoDB/Redis 的边界。
+- 后端版本保持 `0.5.0`，本小步不改 `backend/VERSION`。
+
+### 阻塞与风险
+
+- Feynman 测试子 agent 已完成独立复验，初始结论为未通过：`uv run mypy .` 在 `tests/test_alert_rules_api.py` 中发现 `last_result` 可空后直接索引的类型问题；开发侧已修复为先断言非空再索引，待重新执行完整最低验证确认关闭。
+- 本轮不启动 Docker，不连接真实 MySQL/ClickHouse/MongoDB/Redis；真实 MySQL 下 `alert_evaluation_states` 迁移、JSON 列读写、唯一约束和外键级联仍需后续专项补验。
+- 不实现后台常驻 scheduler、通知渠道、告警历史、恢复事件、静默/抑制、Webhook、前端 UI、ClickHouse/MongoDB/Redis 链路或 events 自动写入。
+- 测试过程中曾出现本地 SQLite 文件 `backend/telemetry-dev.db`；Feynman 已确认该文件由本次 TestClient 探针产生并删除，开发侧复查该路径已不存在，未删除其他资源。
+
+### 验证
+
+- 已运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`，结果：通过，`No tracked files start with a UTF-8 BOM.`。
+- 已运行 `uv run pytest tests/test_alert_rules_api.py -q`，结果：41 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行迁移/schema 相关筛选 `uv run pytest tests/test_alert_rules_api.py -k "migration or ddl or due_evaluation" -q`，结果：5 个测试通过、36 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run alembic heads`，结果：通过，当前 head 为 `20260627_0011`。
+- 已运行 `uv run ruff check .`，结果：通过，`All checks passed!`。
+- 已运行 `uv run ruff format --check .`，结果：通过，`96 files already formatted`。
+- 已运行 `uv run mypy .`，结果：通过，96 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过，lock 未变。
+- 已运行 `git diff --check`，结果：通过。
+
+### 测试 agent 独立复验
+
+- 已启动测试 agent `Feynman`（思考强度 xhigh）对 T-0085 后端状态评估骨架做独立复验。
+- 初始复验命令中 `uv run pytest tests/test_alert_rules_api.py -q` 通过，结果：41 passed，1 warning；`uv run ruff format --check .`、`uv run ruff check .`、`uv run alembic heads`、OpenAPI 路径探针、`uv lock --check` 和 `git diff --check -- backend` 通过。
+- 初始复验的唯一阻断为 `uv run mypy .` 失败，原因是测试中 `last_result` 类型为 `dict[str, Any] | None` 时直接索引；已由开发侧修复，并通过最终 `uv run mypy .` 确认关闭。
+- `Feynman` 未启动 Docker、真实 MySQL、后端服务、前端或浏览器；它产生的 `backend/telemetry-dev.db` 已删除。
+
+### 下一步
+
+- 检查状态、敏感文件、锁文件和 BOM guard 后，提交 `feat: 增加告警状态评估骨架` 并推送到 `origin/feature/backend-dev`。
+- 推送后由总 agent 读取对应 GitHub Actions run、汇总根进度并启动代码审计 agent。
+
 ## 2026-06-27 T-0084-format 后端 Ruff format 门禁修复
 
 ### 已完成

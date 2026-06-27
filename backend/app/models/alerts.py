@@ -75,3 +75,56 @@ class AlertRuleModel(Base):
         onupdate=utc_now,
         server_default=func.current_timestamp(),
     )
+
+
+class AlertEvaluationStateModel(Base):
+    __tablename__ = "alert_evaluation_states"
+    __table_args__ = (
+        UniqueConstraint("rule_id", name="uq_alert_evaluation_states_rule_id"),
+        Index(
+            "ix_alert_evaluation_states_project_next_at",
+            "project_id",
+            "next_evaluate_at",
+            "rule_id",
+        ),
+        {
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
+    )
+
+    id: Mapped[int] = mapped_column(ID_COLUMN, primary_key=True, autoincrement=True)
+    rule_id: Mapped[int] = mapped_column(
+        ID_COLUMN,
+        ForeignKey(
+            "alert_rules.id",
+            name="fk_alert_evaluation_states_rule_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+    project_id: Mapped[int] = mapped_column(
+        ID_COLUMN,
+        ForeignKey("management_projects.id", name="fk_alert_evaluation_states_project_id"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_evaluate_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    last_error: Mapped[str | None] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.current_timestamp(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.current_timestamp(),
+    )
