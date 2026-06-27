@@ -670,6 +670,8 @@ closed      已关闭
 | 2026-06-27 | CI | 总 agent | T-0084-format 与 BOM guard Actions 通过 | `ci: 增加UTF-8 BOM守卫` 提交 `e56027f` 已推送到 `dev`，GitHub Actions run `28284267753` 通过；新增 Repository format checks、Backend checks、Frontend checks 均为 success。仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
 | 2026-06-27 | CI | 总 agent | BOM 守卫结果记录 Actions 通过 | `docs: 记录BOM守卫CI结果` 提交 `51e0e34` 已推送到 `dev`，GitHub Actions run `28284355064` 通过；Repository format checks、Backend checks、Frontend checks 均为 success。仅有既有官方 action Node.js runtime 弃用注解，不阻塞 | done |
 | 2026-06-27 | T-0085 | 总 agent | 登记告警周期评估状态持久化后端骨架 | 阶段 6 下一小步限定为后端周期评估/状态持久化骨架：新增告警规则当前状态持久化表、repository/service/tasks 分层和一次性 due 规则扫描入口，复用 API-0026 metrics 阈值评估语义，按 `evaluation.interval_seconds` 计算 `next_evaluate_at`，记录 `last_evaluated_at`、`last_result`、`last_error` 与当前状态。范围不做后台常驻 scheduler 进程、不做通知渠道、告警历史表、恢复事件、静默/抑制、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 链路 | doing |
+| 2026-06-27 | CI | 总 agent | T-0085 登记与后端同步 Actions 通过 | `docs: 登记T-0085告警状态后端` 提交 `4d58b9c` 已推送到 `dev`，GitHub Actions run `28284472342` 通过；`feature/backend-dev` 同步提交 `90f31fe` 的 run `28284550597` 通过。两次运行均为 Repository format checks、Backend checks、Frontend checks success；仅有既有官方 action Node.js runtime 弃用注解 | done |
+| 2026-06-27 | T-0085 | 总 agent | 准备启动后端开发 agent | 后端 worktree `feature/backend-dev` 已同步最新 `origin/dev` 至 `90f31fe` 并推送；同步 CI 已通过。将以 `xhigh` 思考强度启动后端开发 agent 在 `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 实现 T-0085，要求遵守 Windows/PowerShell/UTF-8、不启动 Docker、必要 MySQL 使用本地临时库或自有实例、可按需启动测试 agent 且不得代跑完整测试流程、只清理自有资源、更新后端进度/README/API 契约，提交并推送到 `feature/backend-dev` | doing |
 
 ## 6. 测试记录
 
