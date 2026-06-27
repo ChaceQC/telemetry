@@ -148,6 +148,7 @@ http://127.0.0.1:28117
 
 1. 后端：`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv run pytest`。
 2. 前端：`npm ci`、`npm run lint`、`npm run typecheck`、`npm test`。
+3. 仓库格式：`scripts/Test-NoUtf8Bom.ps1` 检查所有已跟踪文件不得以 UTF-8 BOM 开头，避免配置或源码在 CI 中被解析失败。
 
 工作流会先检测对应项目文件是否存在。当前 `dev` 分支的前后端骨架尚未完全合入时，对应 job 会跳过执行并输出原因。
 

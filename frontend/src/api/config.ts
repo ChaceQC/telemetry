@@ -1,4 +1,4 @@
-﻿import { normalizePublicBasePath, publicBasePathToRouterBasename, resolveApiBaseUrl } from '../config/basePaths';
+import { normalizePublicBasePath, publicBasePathToRouterBasename, resolveApiBaseUrl } from '../config/basePaths';
 
 export const appConfig = {
   appName: import.meta.env.VITE_APP_NAME || '遥测平台',

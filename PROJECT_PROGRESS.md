@@ -1244,3 +1244,56 @@
 - GitHub Actions run `28253872254` 成功，Backend checks 与 Frontend checks 均通过。
 - Archimedes 修复侧验证通过：`uv run pytest tests/test_alert_rules_api.py -q`、`uv run ruff check app/services/alerts.py tests/test_alert_rules_api.py`、`uv run ruff format --check app/services/alerts.py tests/test_alert_rules_api.py`、`uv run mypy app/services/alerts.py tests/test_alert_rules_api.py`、`uv lock --check`、`git diff --check`。
 - 总 agent 本地复审通过：`uv run pytest tests/test_alert_rules_api.py -q` 为 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。
+- T-0084 收口提交 `bfbb463` 的 GitHub Actions run `28283450319` 未通过：Frontend checks 通过，Backend checks 在 `Ruff format check` 失败，日志显示 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 需要格式化。已登记 `T-0084-format` 后端格式化修复小步，先修复该 CI 阻塞后再登记 T-0085。
+
+## 2026-06-27 T-0084-format 后端格式化 CI 修复
+
+### 已完成
+
+- 已登记 T-0084-format 为 T-0084 收口 CI 修复小步，范围只包含 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 的 ruff format 格式化，不改业务语义。
+- 已确认失败 run `28283450319`：Frontend checks success，Backend checks 的 `Ruff lint` success，`Ruff format check` failure。
+- 已启动后端开发 agent Hume（`019f0826-1c25-7272-9842-276d9396e53c`）在 `feature/backend-dev` 执行 T-0084-format；要求同步最新 `origin/dev`，只做两个后端文件的 ruff format，更新后端进度和运行时日志，验证后提交并推送。
+- Hume 首轮验证确认 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 的 format failure 已关闭，但 `uv run pytest tests/test_config.py -q` 被 `backend/pyproject.toml` 文件开头 UTF-8 BOM 阻塞，报 `Invalid statement (at line 1, column 1)`。总 agent 已将 T-0084-format 范围扩大为同时移除 `backend/pyproject.toml` BOM；该修复仍为编码/格式门禁修复，不改业务语义。
+- Hume 已提交并推送 `66876c9` 到 `feature/backend-dev`，移除 `backend/app/core/config.py`、`backend/tests/test_config.py` 与 `backend/pyproject.toml` 开头 BOM，并更新 `backend/PROJECT_PROGRESS.md`；后端验证 `uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q`、`git diff --check` 均通过。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`。
+- 按用户要求更新 CI：新增 `scripts/Test-NoUtf8Bom.ps1`，并在 `.github/workflows/ci.yml` 增加 `Repository format checks` job，Backend checks 与 Frontend checks 均依赖该 job；它会在依赖安装前扫描所有已跟踪文件，发现 UTF-8 BOM 时直接列出文件并失败。
+- 新 guard 首次本地运行发现 `.env.example`、`backend/README.md`、`backend/uv.lock`、`frontend/.env.example`、`frontend/README.md`、`frontend/package-lock.json`、`frontend/package.json`、`frontend/src/api/config.ts` 仍带既有 BOM；总 agent 已机械移除这些文件的 BOM，不改业务语义，并更新根 `README.md` 的 CI 说明。
+- T-0084-format 与 CI guard 提交 `e56027f` 已推送到 `dev`；GitHub Actions run `28284267753` 通过，Repository format checks、Backend checks、Frontend checks 均为 success。
+
+### 阻塞与风险
+
+- T-0084-format 已完成，当前 `dev` 最新 CI 已恢复通过。
+- GitHub Actions 仍有既有官方 action Node.js runtime 弃用注解，不阻塞当前交付。
+
+### 下一步
+
+- 登记阶段 6 下一小步 T-0085：推进告警执行能力的周期调度/状态持久化后端骨架，继续沿用已保存规则和 API-0026 语义，不接通知、历史或前端 UI。
+
+### 验证
+
+- Hume 后端验证通过：`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q` 为 13 passed、`git diff --check`。
+- 总 agent 本地验证已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`、`uv lock --check`、`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q`、`npm.cmd run typecheck`、`npm.cmd run lint`、`git diff --check`。
+- 总 agent 追加全量本地门禁通过：后端 `uv run mypy .`、`uv run pytest -q` 为 355 passed、2 skipped、1 warning；前端 `npm.cmd test` 为 35 files、256 tests passed。
+- GitHub Actions run `28284267753` 成功：Repository format checks、Backend checks、Frontend checks 均通过。
+- GitHub Actions run `28284355064` 成功：Repository format checks、Backend checks、Frontend checks 均通过。
+
+## 2026-06-27 T-0085 告警周期评估状态持久化后端骨架
+
+### 已完成
+
+- 已登记 T-0085 为阶段 6 告警执行能力后端小步，目标是把 T-0084 的一次性指标阈值评估推进到“可按 interval 判定 due 并持久化当前状态”的后端骨架。
+- API 契约草案 `API-0027 告警周期评估状态骨架` 已登记：`POST /api/v1/alerts/evaluations/run-due` 无请求体，超级用户触发一次 due 规则扫描；后端读取 enabled 告警规则，依据 `evaluation.interval_seconds` 与状态表 `next_evaluate_at/last_evaluated_at` 判断 due，当前只执行 `signal=metrics` 且满足 API-0026 条件的规则。
+- 预期新增持久化当前状态表，记录 `status=firing/ok/no_data/disabled/error`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error` 等字段；本小步先做当前状态，不做完整告警历史。
+
+### 阻塞与风险
+
+- 当前无业务阻塞；T-0085 尚未启动后端开发实现。
+- 本小步不做后台常驻 scheduler 进程、通知渠道、告警历史表、恢复事件、静默/抑制、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 链路。
+
+### 下一步
+
+- 同步 `feature/backend-dev` 到最新 `origin/dev`，启动后端开发 agent 实现 T-0085；完成后进入测试、审计、合入和 CI 读取流程。
+
+### 验证
+
+- T-0085 登记提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md`、`scripts/Test-NoUtf8Bom.ps1` 和 worktree 体检。
