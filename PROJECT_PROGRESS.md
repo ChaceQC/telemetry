@@ -1254,15 +1254,20 @@
 - 已确认失败 run `28283450319`：Frontend checks success，Backend checks 的 `Ruff lint` success，`Ruff format check` failure。
 - 已启动后端开发 agent Hume（`019f0826-1c25-7272-9842-276d9396e53c`）在 `feature/backend-dev` 执行 T-0084-format；要求同步最新 `origin/dev`，只做两个后端文件的 ruff format，更新后端进度和运行时日志，验证后提交并推送。
 - Hume 首轮验证确认 `backend/app/core/config.py` 与 `backend/tests/test_config.py` 的 format failure 已关闭，但 `uv run pytest tests/test_config.py -q` 被 `backend/pyproject.toml` 文件开头 UTF-8 BOM 阻塞，报 `Invalid statement (at line 1, column 1)`。总 agent 已将 T-0084-format 范围扩大为同时移除 `backend/pyproject.toml` BOM；该修复仍为编码/格式门禁修复，不改业务语义。
+- Hume 已提交并推送 `66876c9` 到 `feature/backend-dev`，移除 `backend/app/core/config.py`、`backend/tests/test_config.py` 与 `backend/pyproject.toml` 开头 BOM，并更新 `backend/PROJECT_PROGRESS.md`；后端验证 `uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q`、`git diff --check` 均通过。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`。
+- 按用户要求更新 CI：新增 `scripts/Test-NoUtf8Bom.ps1`，并在 `.github/workflows/ci.yml` 增加 `Repository format checks` job，Backend checks 与 Frontend checks 均依赖该 job；它会在依赖安装前扫描所有已跟踪文件，发现 UTF-8 BOM 时直接列出文件并失败。
+- 新 guard 首次本地运行发现 `.env.example`、`backend/README.md`、`backend/uv.lock`、`frontend/.env.example`、`frontend/README.md`、`frontend/package-lock.json`、`frontend/package.json`、`frontend/src/api/config.ts` 仍带既有 BOM；总 agent 已机械移除这些文件的 BOM，不改业务语义，并更新根 `README.md` 的 CI 说明。
 
 ### 阻塞与风险
 
-- 当前 `dev` 最新 CI 仍处于失败状态，需后端分支修复格式化与 `pyproject.toml` BOM 后合回并重新读取 Actions。
+- 当前 `dev` 最新 CI 仍处于失败状态，需提交 T-0084-format 后端修复与 CI BOM guard 后重新读取 Actions。
 
 ### 下一步
 
-- 后端开发 agent 在 `feature/backend-dev` 同步最新 `origin/dev` 后运行 ruff format/check、`tests/test_config.py`、diff check 并推送；总 agent 再合入 `dev`、推送并读取 CI。
+- 总 agent 运行本地 BOM guard、前后端关键门禁和 worktree 体检，提交并推送 `dev`，随后读取 GitHub Actions 结果；通过后再登记 T-0085。
 
 ### 验证
 
-- 待后端开发 agent 提交修复后补记。
+- Hume 后端验证通过：`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q` 为 13 passed、`git diff --check`。
+- 总 agent 本地验证已通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`、`uv lock --check`、`uv run ruff format --check .`、`uv run ruff check .`、`uv run pytest tests/test_config.py -q`、`npm.cmd run typecheck`、`npm.cmd run lint`、`git diff --check`。

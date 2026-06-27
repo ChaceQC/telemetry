@@ -1,4 +1,4 @@
-﻿# 遥测后端
+# 遥测后端
 
 本目录是遥测平台后端服务，当前阶段提供 Python + uv + FastAPI 基础骨架、配置读取、健康检查接口、阶段 1 基础管理 API 的 SQLAlchemy 持久化基础、认证/当前用户依赖、项目级 RBAC 基础、项目范围 API Key 创建/列表/撤销基础、阶段 2 events/metrics/logs/traces 摄入 API 基础、阶段 3 events/logs/metrics 查询 API 与日志上下文 API 基础、阶段 4 traces 查询与服务拓扑最小后端基础、阶段 5 dashboard CRUD 后端基础、panel config schema 最小校验、dashboard 全局 `time_range` 最小保存校验、已保存 panel 查询预览 API 与 preview 执行前变量默认值替换、内置 dashboard template 列表/读取/从模板创建基础、单个 dashboard JSON 导入导出基础、阶段 6 告警规则 CRUD 和指标阈值告警手动评估后端基础，以及浏览器联调所需的 CORS、Trusted Host、反向代理 root path 配置入口。
 

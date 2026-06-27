@@ -1,4 +1,4 @@
-﻿# 遥测前端
+# 遥测前端
 
 遥测前端使用 React、TypeScript、Vite 和 npm 构建。当前阶段提供可运行的控制台骨架、基础导航、总览页摄入统计、登录页、Settings 基础管理页面、Dashboard CRUD 基础页面、告警规则 CRUD 基础页面、Metrics/Logs/Traces/Events 查询页、Trace 服务拓扑基础展示、健康检查/API client 和环境变量示例。
 
