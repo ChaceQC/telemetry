@@ -750,10 +750,12 @@ PATCH 请求体示例：
 - 扫描规则：
   - 读取所有 `enabled=true` 告警规则；`enabled=false` 且已有当前状态的规则也会进入扫描，用于把旧 `firing/ok/no_data/error` 状态收敛为 `disabled`。禁用且没有当前状态的规则不扫描、不创建状态。
   - 状态表 `alert_evaluation_states` 每条规则最多一条当前状态，按 `rule_id` 唯一。
-  - 缺少状态或 `next_evaluate_at <= checked_at` 时视为 due；状态缺少 `next_evaluate_at` 但有 `last_evaluated_at` 时，按 `last_evaluated_at + evaluation.interval_seconds` 计算下一次时间，只有两者都缺失才视为 due；未到期规则只返回 skipped item，不更新状态。
+  - schedule due 优先使用状态表 `next_evaluate_at`：缺少状态或 `next_evaluate_at <= checked_at` 时视为 due；状态缺少 `next_evaluate_at` 但有 `last_evaluated_at` 时，按 `last_evaluated_at + evaluation.interval_seconds` 计算下一次时间，只有两者都缺失才视为 due。
+  - disabled 收敛是 `next_evaluate_at` 之外的强制 due/write 例外：规则已禁用、已有当前状态且旧状态不是 `disabled` 时，即使 schedule 未到期，也会立即持久化 `status=disabled`、`last_evaluated_at`、`next_evaluate_at`、`last_result` 和 `last_error=null`，不查询指标样本；本项计入 `evaluated_count` 和 `updated_state_count`，响应 `items[].due=true`。
+  - disabled 且没有当前状态时不创建状态、不返回 item；已是 `disabled` 且 schedule 未到期时只返回 skipped item，不更新状态，响应 `items[].due=false`。
   - due 规则当前只执行 `signal="metrics"` 且满足 API-0026 condition/evaluation 语义的指标阈值评估，复用 API-0026 的单窗口关系库 metrics 聚合。
   - due 且成功评估后持久化 `status=firing/ok/no_data`、`last_evaluated_at=checked_at`、`next_evaluate_at=checked_at+evaluation.interval_seconds`、`last_result` 和 `last_error=null`。
-  - due 且规则已禁用时，持久化 `status=disabled`、`last_evaluated_at`、`next_evaluate_at`、`last_result` 和 `last_error=null`，不查询指标样本。
+  - due 且规则已禁用时，持久化 `status=disabled`、`last_evaluated_at`、`next_evaluate_at`、`last_result` 和 `last_error=null`，不查询指标样本；该 due 可以来自 schedule 到期，也可以来自上述 disabled 强制收敛。
   - due 但非 metrics 或已保存 condition/evaluation 不满足 API-0026 执行语义时，持久化 `status=error`、`last_evaluated_at`、`next_evaluate_at` 和 `last_error` 错误摘要，并保留之前最近一次成功评估的 `last_result`。
   - 首次并发创建当前状态时，repository 会在 `rule_id` 唯一约束冲突后 rollback、重新读取并复查 due；若另一轮扫描已写入同状态且未到期，本轮按 skipped 返回，避免重复写入和 `500`。
 - 响应：`200 OK`。
@@ -789,12 +791,12 @@ PATCH 请求体示例：
 ```
 
 - 响应字段：
-  - `evaluated_count`：本轮 due 并实际写入当前状态的规则数，包括成功评估和 `error`。
-  - `skipped_count`：enabled 但未到期的规则数。
+  - `evaluated_count`：本轮 due 并实际写入当前状态的规则数，包括成功评估、`error` 和 disabled 强制收敛写入。
+  - `skipped_count`：扫描到但未写入的规则数，包括 enabled 未到期，以及已是 `disabled` 且 schedule 未到期的规则。
   - `created_state_count` / `updated_state_count`：本轮创建或更新 `alert_evaluation_states` 的数量。
   - `items[].old_status`：扫描前状态，缺少状态时为 `null`。
   - `items[].new_status`：本轮后的状态；未到期时等于旧状态。
-  - `items[].due`：本项本轮是否 due。
+  - `items[].due`：本项本轮是否 due；旧状态非 `disabled` 的禁用规则执行强制收敛写入时返回 `true`，已是 `disabled` 且未到期时返回 `false`。
   - `items[].error_summary`：成功或未到期时为 `null`；执行语义错误时为摘要。
 - 持久化表：`alert_evaluation_states` 保存 `rule_id`、`project_id`、`status`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error`、`created_at`、`updated_at`；`last_result` 为最近一次成功评估的 JSON 摘要，`error` 状态不会清空该字段，不保存完整历史。
 - 错误：

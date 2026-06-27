@@ -4,6 +4,12 @@
 
 ## 2026-06-27 T-0085 告警周期评估状态持久化审计修复
 
+### 复审剩余 P3 修复
+
+- 补充 `run-due` 文档契约：disabled 收敛写入是 `next_evaluate_at` 之外的强制 due/write 例外；disabled 且已有当前状态、旧状态非 `disabled` 会立即更新为 `disabled`，计入 `evaluated_count` / `updated_state_count`，响应 `due=true`。
+- 明确 disabled 边界：disabled 且无状态仍不创建新状态；已是 `disabled` 且 schedule 未到期只计入 skipped，响应 `due=false`。
+- 本次只更新 `backend/README.md`、`agents/runtime/api-contracts/backend.md` 和本进度文件，未改业务代码。
+
 ### 已完成
 
 - 修复 Newton 审计提出的 disabled 周期路径：run-due 现在会扫描所有 enabled 规则，以及已经存在当前状态的 disabled 规则；已有 `firing/ok/no_data/error` 状态的规则被禁用后，下次 run-due 会更新为 `disabled`，禁用且没有状态的规则仍不创建新状态。
@@ -32,6 +38,8 @@
 - 已运行 `uv run mypy .`，结果：通过，96 个源文件无类型错误。
 - 已运行 `uv lock --check`，结果：通过，lock 未变。
 - 已运行 `git diff --check`，结果：通过。
+- 复审 P3 文档修复后，已运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`，结果：通过，`No tracked files start with a UTF-8 BOM.`。
+- 复审 P3 文档修复后，已运行 `git diff --check`，结果：通过。
 
 ### 下一步
 
