@@ -2,6 +2,42 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-27 T-0085 告警周期评估状态持久化审计修复
+
+### 已完成
+
+- 修复 Newton 审计提出的 disabled 周期路径：run-due 现在会扫描所有 enabled 规则，以及已经存在当前状态的 disabled 规则；已有 `firing/ok/no_data/error` 状态的规则被禁用后，下次 run-due 会更新为 `disabled`，禁用且没有状态的规则仍不创建新状态。
+- 修复 error 状态写入语义：非 metrics 或执行语义错误只更新 `status/last_error/last_evaluated_at/next_evaluate_at`，保留之前最近一次成功评估的 `last_result`。
+- 补强并发创建状态兜底：repository 在 `rule_id` 唯一约束冲突后 rollback、重新读取并复查 due；若另一轮已写入同状态且未到期，本轮按 skipped 返回，避免重复写入和 500。
+- 将缺失 `next_evaluate_at` 的 due 语义统一为：有 `last_evaluated_at` 时按 `last_evaluated_at + evaluation.interval_seconds` 计算；两者都缺失才视为 due。
+- 扩展 `backend/tests/test_alert_rules_api.py`，覆盖已有 firing 状态禁用后更新为 disabled、error 保留上次成功 `last_result`、缺失 `next_evaluate_at` fallback 语义、首次并发创建唯一约束冲突后的 rollback/re-fetch/recheck。
+- 更新 `backend/README.md` 和 `agents/runtime/api-contracts/backend.md`，同步 API-0027 的 disabled、error、due fallback 和并发冲突兜底语义。
+
+### 阻塞与风险
+
+- 本轮未启动 Docker，未读取或输出真实密钥，未连接真实 MySQL/ClickHouse/MongoDB/Redis；真实 MySQL 下的并发锁等待、事务隔离和 JSON 列读写仍需后续专项补验。
+- 当前方案是 repository 层保守冲突兜底和复查，不实现跨进程分布式 claim、后台 scheduler、通知、告警历史、恢复事件、静默/抑制、Webhook、前端 UI 或 events 自动写入。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_alert_rules_api.py -q`，结果：45 个测试通过、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `uv run pytest tests/test_alert_rules_api.py -k "due_evaluation or migration or ddl" -q`，结果：8 个测试通过、37 个 deselected、1 条 FastAPI/Starlette TestClient 上游弃用警告。
+- 已运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`，结果：通过，`No tracked files start with a UTF-8 BOM.`。
+- 已运行 `uv run alembic heads`，结果：通过，当前 head 为 `20260627_0011`。
+- 已运行 `uv run ruff check app/repositories/alerts.py app/services/alerts.py tests/test_alert_rules_api.py`，结果：通过。
+- 已运行 `uv run ruff format --check app/repositories/alerts.py app/services/alerts.py tests/test_alert_rules_api.py`，结果：3 个文件已符合格式。
+- 已运行 `uv run mypy app/repositories/alerts.py app/services/alerts.py tests/test_alert_rules_api.py`，结果：通过。
+- 已运行 `uv run ruff check .`，结果：通过，`All checks passed!`。
+- 已运行 `uv run ruff format --check .`，结果：通过，96 个文件已符合格式。
+- 已运行 `uv run mypy .`，结果：通过，96 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过，lock 未变。
+- 已运行 `git diff --check`，结果：通过。
+
+### 下一步
+
+- 提交并推送到 `origin/feature/backend-dev`。
+- 推送后由总 agent 读取 GitHub Actions run 并触发复审。
+
 ## 2026-06-27 T-0085 告警周期评估状态持久化后端骨架
 
 ### 已完成

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -110,11 +110,17 @@ class AlertRuleRepository(Protocol):
 
     def delete_alert_rule(self, rule_id: int) -> bool: ...
 
-    def list_enabled_alert_rules_for_evaluation(
+    def list_alert_rules_for_evaluation(
         self,
         *,
         project_id: int | None = None,
     ) -> list[tuple[AlertRuleRecord, AlertEvaluationStateRecord | None]]: ...
+
+    def get_evaluation_state(
+        self,
+        *,
+        rule_id: int,
+    ) -> AlertEvaluationStateRecord | None: ...
 
     def upsert_evaluation_state(
         self,
@@ -126,7 +132,11 @@ class AlertRuleRepository(Protocol):
         next_evaluate_at: datetime,
         last_result: AlertRuleJson | None,
         last_error: str | None,
-    ) -> tuple[AlertEvaluationStateRecord, bool]: ...
+        due_checked_at: datetime,
+        interval_seconds: int,
+        preserve_last_result: bool = False,
+        force: bool = False,
+    ) -> tuple[AlertEvaluationStateRecord, bool, bool]: ...
 
 
 def _alert_rule_record(model: AlertRuleModel) -> AlertRuleRecord:
@@ -364,7 +374,7 @@ class SqlAlchemyAlertRuleRepository:
         flush_or_commit(self._session)
         return True
 
-    def list_enabled_alert_rules_for_evaluation(
+    def list_alert_rules_for_evaluation(
         self,
         *,
         project_id: int | None = None,
@@ -375,7 +385,12 @@ class SqlAlchemyAlertRuleRepository:
                 AlertEvaluationStateModel,
                 AlertEvaluationStateModel.rule_id == AlertRuleModel.id,
             )
-            .where(AlertRuleModel.enabled.is_(True))
+            .where(
+                or_(
+                    AlertRuleModel.enabled.is_(True),
+                    AlertEvaluationStateModel.id.is_not(None),
+                )
+            )
             .order_by(AlertRuleModel.project_id.asc(), AlertRuleModel.id.asc())
         )
         if project_id is not None:
@@ -390,6 +405,18 @@ class SqlAlchemyAlertRuleRepository:
             for rule, state in rows
         ]
 
+    def get_evaluation_state(
+        self,
+        *,
+        rule_id: int,
+    ) -> AlertEvaluationStateRecord | None:
+        state = self._session.scalar(
+            select(AlertEvaluationStateModel).where(AlertEvaluationStateModel.rule_id == rule_id)
+        )
+        if state is None:
+            return None
+        return _alert_evaluation_state_record(state)
+
     def upsert_evaluation_state(
         self,
         *,
@@ -400,10 +427,23 @@ class SqlAlchemyAlertRuleRepository:
         next_evaluate_at: datetime,
         last_result: AlertRuleJson | None,
         last_error: str | None,
-    ) -> tuple[AlertEvaluationStateRecord, bool]:
+        due_checked_at: datetime,
+        interval_seconds: int,
+        preserve_last_result: bool = False,
+        force: bool = False,
+    ) -> tuple[AlertEvaluationStateRecord, bool, bool]:
         state = self._session.scalar(
             select(AlertEvaluationStateModel).where(AlertEvaluationStateModel.rule_id == rule_id)
         )
+        if state is not None and _should_skip_state_write(
+            state,
+            status=status,
+            due_checked_at=due_checked_at,
+            interval_seconds=interval_seconds,
+            force=force,
+        ):
+            return _alert_evaluation_state_record(state), False, False
+
         created = state is None
         if state is None:
             state = AlertEvaluationStateModel(
@@ -417,21 +457,122 @@ class SqlAlchemyAlertRuleRepository:
             )
             self._session.add(state)
         else:
-            state.project_id = project_id
-            state.status = status
-            state.last_evaluated_at = last_evaluated_at
-            state.next_evaluate_at = next_evaluate_at
-            state.last_result = last_result
-            state.last_error = last_error
+            _apply_evaluation_state_update(
+                state,
+                project_id=project_id,
+                status=status,
+                last_evaluated_at=last_evaluated_at,
+                next_evaluate_at=next_evaluate_at,
+                last_result=last_result,
+                last_error=last_error,
+                preserve_last_result=preserve_last_result,
+            )
 
         try:
             flush_or_commit(self._session)
         except IntegrityError as error:
             self._session.rollback()
+            state = self._session.scalar(
+                select(AlertEvaluationStateModel).where(
+                    AlertEvaluationStateModel.rule_id == rule_id
+                )
+            )
+            if state is not None:
+                if _should_skip_state_write(
+                    state,
+                    status=status,
+                    due_checked_at=due_checked_at,
+                    interval_seconds=interval_seconds,
+                    force=force,
+                ):
+                    return _alert_evaluation_state_record(state), False, False
+                _apply_evaluation_state_update(
+                    state,
+                    project_id=project_id,
+                    status=status,
+                    last_evaluated_at=last_evaluated_at,
+                    next_evaluate_at=next_evaluate_at,
+                    last_result=last_result,
+                    last_error=last_error,
+                    preserve_last_result=preserve_last_result,
+                )
+                try:
+                    flush_or_commit(self._session)
+                except IntegrityError as retry_error:
+                    self._session.rollback()
+                    raise _alert_rule_integrity_error(
+                        retry_error,
+                        session=self._session,
+                        project_id=project_id,
+                    ) from retry_error
+                self._session.refresh(state)
+                return _alert_evaluation_state_record(state), False, True
             raise _alert_rule_integrity_error(
                 error,
                 session=self._session,
                 project_id=project_id,
             ) from error
         self._session.refresh(state)
-        return _alert_evaluation_state_record(state), created
+        return _alert_evaluation_state_record(state), created, True
+
+
+def _apply_evaluation_state_update(
+    state: AlertEvaluationStateModel,
+    *,
+    project_id: int,
+    status: str,
+    last_evaluated_at: datetime,
+    next_evaluate_at: datetime,
+    last_result: AlertRuleJson | None,
+    last_error: str | None,
+    preserve_last_result: bool,
+) -> None:
+    state.project_id = project_id
+    state.status = status
+    state.last_evaluated_at = last_evaluated_at
+    state.next_evaluate_at = next_evaluate_at
+    if not preserve_last_result:
+        state.last_result = last_result
+    state.last_error = last_error
+
+
+def _should_skip_state_write(
+    state: AlertEvaluationStateModel,
+    *,
+    status: str,
+    due_checked_at: datetime,
+    interval_seconds: int,
+    force: bool,
+) -> bool:
+    if state.status == status and not _is_state_due_for_write(
+        state,
+        checked_at=due_checked_at,
+        interval_seconds=interval_seconds,
+    ):
+        return True
+    if force:
+        return False
+    return not _is_state_due_for_write(
+        state,
+        checked_at=due_checked_at,
+        interval_seconds=interval_seconds,
+    )
+
+
+def _is_state_due_for_write(
+    state: AlertEvaluationStateModel,
+    *,
+    checked_at: datetime,
+    interval_seconds: int,
+) -> bool:
+    if state.next_evaluate_at is not None:
+        return _as_utc(state.next_evaluate_at) <= checked_at
+    if state.last_evaluated_at is None:
+        return True
+    return _as_utc(state.last_evaluated_at) + timedelta(seconds=interval_seconds) <= checked_at
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

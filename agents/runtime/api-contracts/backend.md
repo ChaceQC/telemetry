@@ -748,12 +748,14 @@ PATCH 请求体示例：
 - 请求体：无。
 - 查询参数：当前不实现 `limit` 或 `project_id`，因此传入未声明 query 参数不会改变扫描范围；如后续引入必须补充明确校验和权限语义。
 - 扫描规则：
-  - 读取所有 `enabled=true` 告警规则；禁用规则不扫描、不创建状态。
+  - 读取所有 `enabled=true` 告警规则；`enabled=false` 且已有当前状态的规则也会进入扫描，用于把旧 `firing/ok/no_data/error` 状态收敛为 `disabled`。禁用且没有当前状态的规则不扫描、不创建状态。
   - 状态表 `alert_evaluation_states` 每条规则最多一条当前状态，按 `rule_id` 唯一。
-  - 缺少状态、状态缺少 `next_evaluate_at`，或 `next_evaluate_at <= checked_at` 时视为 due；未到期规则只返回 skipped item，不更新状态。
+  - 缺少状态或 `next_evaluate_at <= checked_at` 时视为 due；状态缺少 `next_evaluate_at` 但有 `last_evaluated_at` 时，按 `last_evaluated_at + evaluation.interval_seconds` 计算下一次时间，只有两者都缺失才视为 due；未到期规则只返回 skipped item，不更新状态。
   - due 规则当前只执行 `signal="metrics"` 且满足 API-0026 condition/evaluation 语义的指标阈值评估，复用 API-0026 的单窗口关系库 metrics 聚合。
   - due 且成功评估后持久化 `status=firing/ok/no_data`、`last_evaluated_at=checked_at`、`next_evaluate_at=checked_at+evaluation.interval_seconds`、`last_result` 和 `last_error=null`。
-  - due 但非 metrics 或已保存 condition/evaluation 不满足 API-0026 执行语义时，持久化 `status=error`、`last_evaluated_at`、`next_evaluate_at`、`last_result=null` 和 `last_error` 错误摘要。
+  - due 且规则已禁用时，持久化 `status=disabled`、`last_evaluated_at`、`next_evaluate_at`、`last_result` 和 `last_error=null`，不查询指标样本。
+  - due 但非 metrics 或已保存 condition/evaluation 不满足 API-0026 执行语义时，持久化 `status=error`、`last_evaluated_at`、`next_evaluate_at` 和 `last_error` 错误摘要，并保留之前最近一次成功评估的 `last_result`。
+  - 首次并发创建当前状态时，repository 会在 `rule_id` 唯一约束冲突后 rollback、重新读取并复查 due；若另一轮扫描已写入同状态且未到期，本轮按 skipped 返回，避免重复写入和 `500`。
 - 响应：`200 OK`。
 
 ```json
@@ -794,7 +796,7 @@ PATCH 请求体示例：
   - `items[].new_status`：本轮后的状态；未到期时等于旧状态。
   - `items[].due`：本项本轮是否 due。
   - `items[].error_summary`：成功或未到期时为 `null`；执行语义错误时为摘要。
-- 持久化表：`alert_evaluation_states` 保存 `rule_id`、`project_id`、`status`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error`、`created_at`、`updated_at`；`last_result` 为最近一次成功评估的 JSON 摘要，不保存完整历史。
+- 持久化表：`alert_evaluation_states` 保存 `rule_id`、`project_id`、`status`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error`、`created_at`、`updated_at`；`last_result` 为最近一次成功评估的 JSON 摘要，`error` 状态不会清空该字段，不保存完整历史。
 - 错误：
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `403 Forbidden`：已认证但不是超级用户。

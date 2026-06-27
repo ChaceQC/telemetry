@@ -285,9 +285,12 @@ class AlertRuleService:
         updated_state_count = 0
         items: list[AlertDueEvaluationRunItem] = []
 
-        for rule, state in self._repository.list_enabled_alert_rules_for_evaluation():
+        for rule, state in self._repository.list_alert_rules_for_evaluation():
             old_status = None if state is None else state.status
-            if not _is_rule_due(rule, state, checked_at=checked_at):
+            force_disabled_update = (
+                not rule.enabled and state is not None and state.status != "disabled"
+            )
+            if not force_disabled_update and not _is_rule_due(rule, state, checked_at=checked_at):
                 skipped_count += 1
                 items.append(
                     AlertDueEvaluationRunItem(
@@ -302,28 +305,36 @@ class AlertRuleService:
                 )
                 continue
 
-            evaluated_count += 1
             try:
-                result = self._evaluate_rule_record(rule, checked_at=checked_at)
-                _, interval_seconds = _normalize_evaluation(rule.evaluation)
-                next_evaluate_at = checked_at + timedelta(seconds=interval_seconds)
-                state_record, created = self._repository.upsert_evaluation_state(
-                    rule_id=rule.id,
-                    project_id=rule.project_id,
-                    status=result.status,
-                    last_evaluated_at=checked_at,
-                    next_evaluate_at=next_evaluate_at,
-                    last_result=_evaluation_result_payload(result),
-                    last_error=None,
-                )
-                error_summary = None
+                if not rule.enabled:
+                    state_record, created, wrote = self._persist_disabled_evaluation_state(
+                        rule,
+                        checked_at=checked_at,
+                        force=force_disabled_update,
+                    )
+                    error_summary = None
+                else:
+                    result = self._evaluate_rule_record(rule, checked_at=checked_at)
+                    next_evaluate_at = checked_at + timedelta(
+                        seconds=result.window.interval_seconds
+                    )
+                    state_record, created, wrote = self._repository.upsert_evaluation_state(
+                        rule_id=rule.id,
+                        project_id=rule.project_id,
+                        status=result.status,
+                        last_evaluated_at=checked_at,
+                        next_evaluate_at=next_evaluate_at,
+                        last_result=_evaluation_result_payload(result),
+                        last_error=None,
+                        due_checked_at=checked_at,
+                        interval_seconds=result.window.interval_seconds,
+                    )
+                    error_summary = None
             except AlertRuleEvaluationError as error:
-                next_evaluate_at = _next_evaluate_at_after_error(
-                    rule.evaluation,
-                    checked_at=checked_at,
-                )
+                interval_seconds = _interval_seconds_for_recheck(rule.evaluation)
+                next_evaluate_at = checked_at + timedelta(seconds=interval_seconds)
                 error_summary = _truncate_error(str(error))
-                state_record, created = self._repository.upsert_evaluation_state(
+                state_record, created, wrote = self._repository.upsert_evaluation_state(
                     rule_id=rule.id,
                     project_id=rule.project_id,
                     status="error",
@@ -331,21 +342,28 @@ class AlertRuleService:
                     next_evaluate_at=next_evaluate_at,
                     last_result=None,
                     last_error=error_summary,
+                    due_checked_at=checked_at,
+                    interval_seconds=interval_seconds,
+                    preserve_last_result=True,
                 )
 
-            if created:
-                created_state_count += 1
+            if wrote:
+                evaluated_count += 1
+                if created:
+                    created_state_count += 1
+                else:
+                    updated_state_count += 1
             else:
-                updated_state_count += 1
+                skipped_count += 1
             items.append(
                 AlertDueEvaluationRunItem(
                     project_id=rule.project_id,
                     rule_id=rule.id,
                     old_status=old_status,
                     new_status=state_record.status,
-                    due=True,
+                    due=wrote,
                     next_evaluate_at=state_record.next_evaluate_at,
-                    error_summary=error_summary,
+                    error_summary=error_summary if wrote else None,
                 )
             )
 
@@ -443,6 +461,32 @@ class AlertRuleService:
             condition=condition,
             observed=observed,
             message=message,
+        )
+
+    def _persist_disabled_evaluation_state(
+        self,
+        rule: AlertRuleRecord,
+        *,
+        checked_at: datetime,
+        force: bool,
+    ) -> tuple[AlertEvaluationStateRecord, bool, bool]:
+        interval_seconds = _interval_seconds_for_recheck(rule.evaluation)
+        next_evaluate_at = checked_at + timedelta(seconds=interval_seconds)
+        return self._repository.upsert_evaluation_state(
+            rule_id=rule.id,
+            project_id=rule.project_id,
+            status="disabled",
+            last_evaluated_at=checked_at,
+            next_evaluate_at=next_evaluate_at,
+            last_result=_disabled_evaluation_result_payload(
+                rule,
+                checked_at=checked_at,
+                interval_seconds=interval_seconds,
+            ),
+            last_error=None,
+            due_checked_at=checked_at,
+            interval_seconds=interval_seconds,
+            force=force,
         )
 
     def _ensure_project_role_hidden(
@@ -629,16 +673,12 @@ def _next_evaluate_at_for_response(
     return _as_utc(state.last_evaluated_at) + timedelta(seconds=interval_seconds)
 
 
-def _next_evaluate_at_after_error(
-    evaluation: AlertRuleJson,
-    *,
-    checked_at: datetime,
-) -> datetime:
+def _interval_seconds_for_recheck(evaluation: AlertRuleJson) -> int:
     try:
         _, interval_seconds = _normalize_evaluation(evaluation)
     except AlertRuleEvaluationError:
         interval_seconds = MIN_ALERT_EVALUATION_SECONDS
-    return checked_at + timedelta(seconds=interval_seconds)
+    return interval_seconds
 
 
 def _evaluation_result_payload(result: AlertRuleEvaluationResult) -> AlertRuleJson:
@@ -670,6 +710,29 @@ def _evaluation_result_payload(result: AlertRuleEvaluationResult) -> AlertRuleJs
         },
         "observed": observed,
         "message": result.message,
+    }
+
+
+def _disabled_evaluation_result_payload(
+    rule: AlertRuleRecord,
+    *,
+    checked_at: datetime,
+    interval_seconds: int,
+) -> AlertRuleJson:
+    return {
+        "status": "disabled",
+        "signal": rule.signal.value,
+        "severity": rule.severity.value,
+        "checked_at": checked_at.isoformat(),
+        "window": {
+            "from": checked_at.isoformat(),
+            "to": checked_at.isoformat(),
+            "window_seconds": 0,
+            "interval_seconds": interval_seconds,
+        },
+        "condition": None,
+        "observed": None,
+        "message": f"alert rule {rule.id} is disabled",
     }
 
 
