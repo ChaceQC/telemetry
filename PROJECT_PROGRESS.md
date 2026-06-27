@@ -1290,19 +1290,29 @@
 - Hilbert 中断汇报确认曾将 T-0085 后端实现误写入根工作树 `dev`，未启动服务、Docker、数据库、前端或浏览器；总 agent 已将相关后端代码、迁移和测试改动通过精确 patch 迁移到后端 worktree `feature/backend-dev`，并从根工作树移除，根工作树仅保留总协调文档改动。
 - Hilbert 已在后端 worktree 提交并推送 `a7ba54f` 到 `feature/backend-dev`，新增告警当前状态表、repository/service/schema/route、`POST /api/v1/alerts/evaluations/run-due`、Alembic 迁移、测试和后端文档/API 契约。Feature CI run `28285487426` 通过。
 - 代码审计 agent Newton 已关闭，审计结论为未通过：未发现 P0，但发现 1 个 P1、2 个 P2、1 个 P3。P1：禁用规则在周期路径不可达，已持久化 firing 的规则禁用后状态不会更新为 `disabled`。P2：并发 `run-due` 没有原子 claim/复查 due，可能重复评估或首创建撞唯一约束导致 500。P2：error 状态写入会清空上一轮成功 `last_result`，违反“最近一次成功评估摘要”契约。P3：README/API 契约与实现对缺失 `next_evaluate_at` 的 due 语义不一致。
+- 后端修复 agent Jason 已提交并推送 `ae92820`：run-due 扫描 enabled 规则及已有状态的 disabled 规则，已有状态禁用后收敛为 `disabled`；error 状态保留上一轮成功 `last_result`；状态 upsert 首次并发唯一约束冲突后 rollback、重新读取并复查 due；缺失 `next_evaluate_at` 但有 `last_evaluated_at` 时按 interval 计算下一次 due。
+- 代码审计 agent Maxwell 复审 `ae92820` 未发现 P0/P1/P2，确认 Newton 前三项已关闭；仅发现 P3 文档未明确 disabled 强制收敛是 `next_evaluate_at` 之外的 due/write 例外。后端文档 agent Carver 已提交并推送 `a1c1101`，补充 README/API 契约和后端进度，明确 disabled 强制收敛、计数和 `due` 响应语义。
+- `ae92820` feature CI run `28286428661` 与 `a1c1101` feature CI run `28286743006` 均通过，Repository format checks、Backend checks、Frontend checks 均为 success。
+- 总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 将 `a7ba54f`、`ae92820`、`a1c1101` 合入 `dev`，merge 提交 `596ac8b` 已推送；GitHub Actions run `28286821481` 通过，Repository format checks、Backend checks、Frontend checks 均为 success。
 
 ### 阻塞与风险
 
-- T-0085 初版实现已完成但审计未通过，当前阻塞合入 `dev`；需后端修复 P1/P2/P3 后复审。
-- 已修正一次 worktree 边界偏离；后续修复必须只在后端 worktree 执行。
+- T-0085 审计阻塞已关闭并合入 `dev`。
+- 当前并发兜底避免首次创建当前状态撞唯一约束暴露为 `500`；但对已有 due 状态的并发 `run-due` 仍可能重复读取指标并写入当前状态。当前范围没有通知、历史、Webhook 等外部副作用，暂不阻塞；后续加入通知、告警事件或 Webhook 前需升级为真正的 claim、行锁或 compare-and-swap 语义。
+- 已修正一次 worktree 边界偏离；后续后端实现仍必须只在后端 worktree 执行。
 - 本小步不做后台常驻 scheduler 进程、通知渠道、告警历史表、恢复事件、静默/抑制、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 链路。
 
 ### 下一步
 
-- 启动后端修复 agent 处理 Newton 审计问题；修复后执行后端验证、推送 feature 分支并复审。
+- 继续阶段 6 告警能力小步：优先推进告警触发/恢复记录或日志数量告警后端基础；若涉及通知、历史、事件写入或后台 scheduler，需先登记明确契约并补并发 claim 方案。
 
 ### 验证
 
 - T-0085 登记提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md`、`scripts/Test-NoUtf8Bom.ps1` 和 worktree 体检。
 - T-0085 登记与后端同步 CI 均已通过；仅有既有官方 action Node.js runtime 弃用注解，不阻塞。
 - Hilbert 开发侧验证通过：BOM guard、`uv run pytest tests/test_alert_rules_api.py -q` 为 41 passed、migration/DDL/due 专项 5 passed、`uv run alembic heads`、ruff、format、mypy、`uv lock --check`、`git diff --check`。Feature CI run `28285487426` 成功。
+- Jason 修复侧验证通过：BOM guard、`uv run pytest tests/test_alert_rules_api.py -q` 为 45 passed、due/migration/DDL 专项 8 passed、`uv run alembic heads` 为 `20260627_0011`、ruff、format、mypy、`uv lock --check`、`git diff --check`；feature CI run `28286428661` 成功。
+- Carver 文档修复验证通过：BOM guard、`git diff --check`；feature CI run `28286743006` 成功。
+- Maxwell 复审验证 `uv run pytest tests/test_alert_rules_api.py -q` 为 45 passed、1 warning，未发现剩余 P0/P1/P2，P3 已由 `a1c1101` 关闭。
+- merge 后本地验证通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`、`git diff --check HEAD^..HEAD`、`uv run pytest tests/test_alert_rules_api.py -q` 为 45 passed、1 warning、`uv run alembic heads` 为 `20260627_0011`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv lock --check`。
+- dev CI run `28286821481` 成功：Repository format checks、Backend checks、Frontend checks 均通过；仅有既有官方 action Node.js runtime 弃用注解，不阻塞。
