@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "telemetry-backend"
 version = "0.5.0"
 description = "遥测平台后端服务"

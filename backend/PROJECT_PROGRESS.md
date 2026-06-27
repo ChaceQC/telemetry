@@ -2,6 +2,39 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-27 T-0084-format 后端 Ruff format 门禁修复
+
+### 已完成
+
+- 在后端独立 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 分支上，已 fetch `origin` 并将当前分支 fast-forward 同步到 `origin/dev` 的 T-0084 收口提交 `bfbb463`。
+- 针对 GitHub Actions run `28283450319` 的 `uv run ruff format --check .` 失败，仅运行 Ruff formatter 处理 `backend/app/core/config.py` 和 `backend/tests/test_config.py`。
+- 实际变更为移除上述两个 Python 文件开头的 UTF-8 BOM，未改业务语义、配置值、测试断言或 API 契约。
+- 根据总 agent 后续决策扩大本格式化修复小步范围，额外移除 `backend/pyproject.toml` 开头 UTF-8 BOM；原因是该 BOM 会阻塞 pytest/TOML 配置解析和 CI 后续验证门禁，且不改业务语义。
+- `backend/README.md` 无实质行为变化，无需更新；未启动 Docker、后端服务、数据库、前端或浏览器，未读取 `auth.txt`。
+
+### 阻塞与风险
+
+- pytest/TOML 配置解析阻塞已通过移除 `backend/pyproject.toml` BOM 关闭，并已用 `uv run pytest tests/test_config.py -q` 复验通过。
+- 本轮只修复格式化门禁；不改变 T-0084 告警评估行为，也不扩大测试矩阵到真实 MySQL、ClickHouse、MongoDB 或 Redis。
+
+### 验证
+
+- 已运行 `uv run ruff format --check app/core/config.py tests/test_config.py`，结果：通过，`2 files already formatted`。
+- 已运行 `uv run ruff check app/core/config.py tests/test_config.py`，结果：通过，`All checks passed!`。
+- 已运行 `uv run pytest tests/test_config.py -q`，结果：未进入测试用例，因 `backend/pyproject.toml` 第 1 字符 BOM 导致配置解析失败：`Invalid statement (at line 1, column 1)`。
+- 已运行 `git diff --check`，结果：通过。
+- 已补充运行 `uv run ruff format --check .`，结果：通过，`95 files already formatted`。
+- 已补充运行 `uv run ruff check .`，结果：通过，`All checks passed!`。
+- 移除 `backend/pyproject.toml` BOM 后已重新运行 `uv run ruff format --check .`，结果：通过，`95 files already formatted`。
+- 移除 `backend/pyproject.toml` BOM 后已重新运行 `uv run ruff check .`，结果：通过，`All checks passed!`。
+- 移除 `backend/pyproject.toml` BOM 后已重新运行 `uv run pytest tests/test_config.py -q`，结果：13 个测试通过。
+- 移除 `backend/pyproject.toml` BOM 后已重新运行 `git diff --check`，结果：通过。
+
+### 下一步
+
+- 提交 `style: 修复后端UTF-8 BOM格式门禁` 并推送到 `origin/feature/backend-dev`。
+- 由总 agent 后续读取对应 GitHub Actions run，并将结果合并到正式沟通板和根进度。
+
 ## 2026-06-27 T-0084 指标阈值告警评估后端基础
 
 ### 已完成
