@@ -1286,17 +1286,23 @@
 - 预期新增持久化当前状态表，记录 `status=firing/ok/no_data/disabled/error`、`last_evaluated_at`、`next_evaluate_at`、`last_result`、`last_error` 等字段；本小步先做当前状态，不做完整告警历史。
 - T-0085 登记提交 `4d58b9c` 已推送到 `dev`；GitHub Actions run `28284472342` 通过，Repository format checks、Backend checks、Frontend checks 均为 success。
 - 后端 worktree `feature/backend-dev` 已同步最新 `origin/dev` 至 `90f31fe` 并推送；同步 CI run `28284550597` 通过，Repository format checks、Backend checks、Frontend checks 均为 success。
+- 已启动后端开发 agent Hilbert（`019f0851-fd1b-7100-9c82-4674da000ca6`）在 `feature/backend-dev` 实现 T-0085；任务范围为告警当前状态持久化表、repository/service/tasks 分层和 `POST /api/v1/alerts/evaluations/run-due`，完成后提交推送并请求审计。
+- Hilbert 中断汇报确认曾将 T-0085 后端实现误写入根工作树 `dev`，未启动服务、Docker、数据库、前端或浏览器；总 agent 已将相关后端代码、迁移和测试改动通过精确 patch 迁移到后端 worktree `feature/backend-dev`，并从根工作树移除，根工作树仅保留总协调文档改动。
+- Hilbert 已在后端 worktree 提交并推送 `a7ba54f` 到 `feature/backend-dev`，新增告警当前状态表、repository/service/schema/route、`POST /api/v1/alerts/evaluations/run-due`、Alembic 迁移、测试和后端文档/API 契约。Feature CI run `28285487426` 通过。
+- 代码审计 agent Newton 已关闭，审计结论为未通过：未发现 P0，但发现 1 个 P1、2 个 P2、1 个 P3。P1：禁用规则在周期路径不可达，已持久化 firing 的规则禁用后状态不会更新为 `disabled`。P2：并发 `run-due` 没有原子 claim/复查 due，可能重复评估或首创建撞唯一约束导致 500。P2：error 状态写入会清空上一轮成功 `last_result`，违反“最近一次成功评估摘要”契约。P3：README/API 契约与实现对缺失 `next_evaluate_at` 的 due 语义不一致。
 
 ### 阻塞与风险
 
-- 当前无业务阻塞；T-0085 尚未启动后端开发实现。
+- T-0085 初版实现已完成但审计未通过，当前阻塞合入 `dev`；需后端修复 P1/P2/P3 后复审。
+- 已修正一次 worktree 边界偏离；后续修复必须只在后端 worktree 执行。
 - 本小步不做后台常驻 scheduler 进程、通知渠道、告警历史表、恢复事件、静默/抑制、Webhook、前端 UI 或 ClickHouse/MongoDB/Redis 链路。
 
 ### 下一步
 
-- 启动后端开发 agent 实现 T-0085；完成后进入测试、审计、合入和 CI 读取流程。
+- 启动后端修复 agent 处理 Newton 审计问题；修复后执行后端验证、推送 feature 分支并复审。
 
 ### 验证
 
 - T-0085 登记提交前需通过 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md`、`scripts/Test-NoUtf8Bom.ps1` 和 worktree 体检。
 - T-0085 登记与后端同步 CI 均已通过；仅有既有官方 action Node.js runtime 弃用注解，不阻塞。
+- Hilbert 开发侧验证通过：BOM guard、`uv run pytest tests/test_alert_rules_api.py -q` 为 41 passed、migration/DDL/due 专项 5 passed、`uv run alembic heads`、ruff、format、mypy、`uv lock --check`、`git diff --check`。Feature CI run `28285487426` 成功。
