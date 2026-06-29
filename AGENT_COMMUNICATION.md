@@ -684,6 +684,7 @@ closed      已关闭
 | 2026-06-29 | CI | 总 agent | T-0086 登记提交 Actions 通过 | `docs: 登记T-0086安全审计修复` 提交 `31379f7` 已推送到 `dev`，GitHub Actions run `28379614090` 通过；Repository format checks、Backend checks、Frontend checks 均为 success | done |
 | 2026-06-29 | T-0086 | 前端开发 agent / 总 agent | 前端/CI 安全审计修复阶段性交付 | Avicenna 已在前端 worktree提交并推送 `55e5caa` 到 `feature/frontend-dev`：前端 CI 改为读取 `frontend/.node-version` 以对齐 Node `24.13.0`；根 README 与前端 README 补充生产 Nginx CSP/安全头基线和 `sessionStorage` access token 风险说明；前端进度已更新。Avicenna 验证 `npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd test`、`git diff --check` 通过；feature CI run `28380120822` 通过。该提交的文档硬化方案已被用户要求的 Cookie 会话迁移范围取代，将在同一分支继续实现 | doing |
 | 2026-06-29 | T-0086 | 用户 / 总 agent | 扩大范围为生产级 Cookie 会话迁移 | 用户确认现在即可迁移 `sessionStorage access token` 临时方案。T-0086 范围扩大为后端设置 HttpOnly/Secure/SameSite 会话 cookie、支持 cookie 主路径认证、增加 logout、实现 cookie 认证下的 CSRF 防护；前端停止持久化 access token，改用 `credentials: include`、自动附加 `X-CSRF-Token`、适配登录/登出/会话恢复。已中断旧前端文档方案复审，并通知后端 agent Raman 与前端 agent Avicenna 按新范围继续修复 | doing |
+| 2026-06-29 | CI | 总 agent | T-0086 会话迁移范围提交 Actions 通过 | `docs: 更新T-0086会话迁移范围` 提交 `3abf17b` 已推送到 `dev`，GitHub Actions run `28381283957` 通过；Repository format checks、Frontend checks、Backend checks 均为 success | done |
 
 ## 6. 测试记录
 

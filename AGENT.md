@@ -71,7 +71,7 @@ agents/runtime/
 20. 每次推送到会触发 GitHub Actions 的分支后，总 agent 必须读取对应 Actions run 结果，将成功、失败 job、失败步骤和后续处理写入 `AGENT_COMMUNICATION.md` 与根 `PROJECT_PROGRESS.md`。
 21. 每次开工、集成或提交后，总 agent 必须执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1` 进行严格只读体检；提交前如根工作树正有本次待提交改动，可执行 `powershell -ExecutionPolicy Bypass -File scripts/Test-AgentWorktreeState.ps1 -AllowPendingChanges` 检查分支和保护项。若失败，先整理 worktree、分支、敏感文件、运行日志和未提交改动，再继续开发或集成。
 22. 总 agent、开发 agent、测试 agent 和审计 agent 只允许关闭或清理由自己本次明确启动并记录的进程、端口、浏览器会话、临时数据库和临时资源；不得按端口或进程名宽泛关闭可能属于用户或其他 agent 的服务。
-23. 总 agent 启动子 agent 后不得频繁打扰或轮询；除交付结果、明确阻塞、超时、用户要求或必须追加边界约束外，不主动插话、催促或要求中间汇报。
+23. 总 agent 启动子 agent 后默认进入静默协调模式，不得干扰正在工作的子 agent：不得主动催促、插话、追加非必要要求、要求中间汇报，或进行短间隔重复轮询。只有在子 agent 已交付最终结果、明确阻塞、用户要求介入、发现会导致返工的硬性边界冲突、必须关闭已结束 agent、或超出合理等待窗口且下一步确实被阻塞时，才允许一次性、具体、必要地介入；介入后继续保持静默等待。
 24. 后续启动开发、测试或审计子 agent 时，思考强度默认选择 `xhigh`，并在启动记录中写明任务边界、是否可再启动测试 agent、不得代跑完整测试流程和只清理自有资源等约束。
 
 ## 4. 并行开发规则
