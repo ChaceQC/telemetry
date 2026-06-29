@@ -1,4 +1,5 @@
 from argparse import Namespace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -15,8 +16,11 @@ from sqlalchemy.schema import CreateTable
 from app.core.application import create_app
 from app.core.config import Settings
 from app.db.base import Base
-from app.models.ingest import IngestRecordModel
+from app.models.ingest import IngestRecordModel, IngestStatModel
+from app.repositories import ingest as ingest_repository_module
 from app.repositories.auth import SqlAlchemyAuthRepository, UserRecord
+from app.repositories.ingest import SqlAlchemyIngestRepository
+from app.schemas.ingest import IngestKind
 from app.services.auth import AuthService, hash_password
 from app.services.rate_limit import RateLimiterUnavailableError
 
@@ -46,6 +50,20 @@ def build_rate_limited_client(*, limit_per_minute: int) -> TestClient:
         auth_secret_key=TEST_AUTH_SECRET,
         ingest_rate_limit_enabled=True,
         ingest_rate_limit_per_minute=limit_per_minute,
+    )
+    app = create_app(settings)
+    Base.metadata.create_all(app.state.db_engine)
+    return TestClient(app)
+
+
+def build_api_key_precheck_limited_client(*, limit_per_minute: int) -> TestClient:
+    settings = Settings(
+        app_name="telemetry-backend-test",
+        app_version="0.1.0",
+        database_url="sqlite:///:memory:",
+        auth_secret_key=TEST_AUTH_SECRET,
+        ingest_api_key_precheck_rate_limit_enabled=True,
+        ingest_api_key_precheck_rate_limit_per_minute=limit_per_minute,
     )
     app = create_app(settings)
     Base.metadata.create_all(app.state.db_engine)
@@ -371,6 +389,79 @@ def test_ingest_stats_record_rejected_rate_limit_after_api_key_verification() ->
     assert stats[0]["bytes_count"] > 0
 
 
+def test_ingest_stats_upsert_accumulates_counts_across_sessions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> Any:
+            if tz is None:
+                return fixed_now.replace(tzinfo=None)
+            return fixed_now
+
+    fixed_now = datetime(2026, 6, 20, 10, 23, 15, tzinfo=UTC)
+    client = build_client()
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="stats-upsert",
+        project_key="stats-upsert-project",
+    )
+    api_keys_response = client.get(
+        f"/api/v1/projects/{project['id']}/api-keys",
+        headers=admin_headers,
+    )
+    assert api_keys_response.status_code == 200
+    api_key_id = api_keys_response.json()[0]["id"]
+    app = _tested_app(client)
+    monkeypatch.setattr(ingest_repository_module, "datetime", FrozenDatetime)
+
+    with app.state.db_session_factory() as first_session:
+        SqlAlchemyIngestRepository(first_session).create_records(
+            [
+                (
+                    cast(int, project["id"]),
+                    api_key_id,
+                    IngestKind.event,
+                    "deployment",
+                    "ci",
+                    {"attempt": 1},
+                    None,
+                )
+            ]
+        )
+    with app.state.db_session_factory() as second_session:
+        SqlAlchemyIngestRepository(second_session).create_records(
+            [
+                (
+                    cast(int, project["id"]),
+                    api_key_id,
+                    IngestKind.event,
+                    "deployment",
+                    "ci",
+                    {"attempt": 2},
+                    None,
+                )
+            ]
+        )
+    with app.state.db_session_factory() as third_session:
+        SqlAlchemyIngestRepository(third_session).record_rejected(
+            project_id=cast(int, project["id"]),
+            api_key_id=api_key_id,
+            kind=IngestKind.event,
+            source="ci",
+        )
+
+    with app.state.db_session_factory() as assertion_session:
+        stats = list(assertion_session.scalars(select(IngestStatModel)))
+
+    assert len(stats) == 1
+    stat = stats[0]
+    assert stat.bucket_start == fixed_now.replace(second=0, microsecond=0, tzinfo=None)
+    assert stat.accepted_count == 2
+    assert stat.rejected_count == 1
+    assert stat.bytes_count > 0
+
+
 def test_ingest_stats_record_trace_rejected_rate_limit_after_api_key_verification() -> None:
     client = build_rate_limited_client(limit_per_minute=1)
     project, raw_key, admin_headers = create_ingest_api_key(
@@ -431,6 +522,44 @@ def test_ingest_stats_do_not_record_rejected_without_valid_api_key() -> None:
     )
 
     assert invalid_response.status_code == 401
+    assert stats_response.status_code == 200
+    assert stats_response.json() == []
+
+
+def test_ingest_invalid_api_key_precheck_rate_limit_blocks_probe_burst() -> None:
+    client = build_api_key_precheck_limited_client(limit_per_minute=2)
+    project, _raw_key, admin_headers = create_ingest_api_key(
+        client,
+        username="precheck-limit",
+        project_key="precheck-limit-project",
+    )
+
+    first_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": "Bearer tlm_invalid_one"},
+        json={"type": "deployment", "payload": {"attempt": 1}},
+    )
+    second_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"X-API-Key": "tlm_invalid_two"},
+        json={"type": "deployment", "payload": {"attempt": 2}},
+    )
+    limited_response = client.post(
+        "/api/v1/ingest/events",
+        headers={"Authorization": "Bearer tlm_invalid_three"},
+        json={"type": "deployment", "payload": {"attempt": 3}},
+    )
+    stats_response = client.get(
+        "/api/v1/ingest/stats",
+        headers=admin_headers,
+        params={"project_id": project["id"], "kind": "event"},
+    )
+
+    assert first_response.status_code == 401
+    assert second_response.status_code == 401
+    assert limited_response.status_code == 429
+    assert limited_response.json()["detail"] == "摄入认证尝试过于频繁"
+    assert limited_response.headers["retry-after"] == "60"
     assert stats_response.status_code == 200
     assert stats_response.json() == []
 

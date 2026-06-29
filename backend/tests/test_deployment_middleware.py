@@ -36,6 +36,29 @@ def test_auth_login_preflight_allows_local_frontend_origin() -> None:
     assert "Content-Type" in response.headers["access-control-allow-headers"]
 
 
+def test_auth_preflight_allows_csrf_header_and_credentials_when_configured() -> None:
+    client = build_client(
+        cors_allow_credentials=True,
+        cors_allowed_origins="https://telemetry.example.com",
+        trusted_hosts="testserver,telemetry.example.com",
+    )
+
+    response = client.options(
+        "/api/v1/auth/logout",
+        headers={
+            "Origin": "https://telemetry.example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "X-CSRF-Token,Content-Type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://telemetry.example.com"
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert "X-CSRF-Token" in response.headers["access-control-allow-headers"]
+    assert "Content-Type" in response.headers["access-control-allow-headers"]
+
+
 def test_ingest_preflight_allows_x_api_key_header_by_default() -> None:
     client = build_client()
 
@@ -105,3 +128,42 @@ def test_root_path_is_exposed_in_openapi_servers() -> None:
 
     assert response.status_code == 200
     assert response.json()["servers"] == [{"url": "/xxx"}]
+
+
+def test_non_local_environment_disables_openapi_and_docs_by_default() -> None:
+    client = build_client(
+        environment="production",
+        cors_allowed_origins="https://telemetry.example.com",
+        trusted_hosts="testserver,telemetry.example.com",
+    )
+
+    assert client.get("/openapi.json").status_code == 404
+    assert client.get("/docs").status_code == 404
+    assert client.get("/redoc").status_code == 404
+
+
+def test_openapi_and_docs_can_be_enabled_explicitly() -> None:
+    client = build_client(
+        environment="production",
+        cors_allowed_origins="https://telemetry.example.com",
+        trusted_hosts="testserver,telemetry.example.com",
+        openapi_enabled=True,
+        docs_enabled=True,
+    )
+
+    assert client.get("/openapi.json").status_code == 200
+    assert client.get("/docs").status_code == 200
+    assert client.get("/redoc").status_code == 200
+
+
+def test_security_headers_are_added_to_api_responses() -> None:
+    client = build_client(security_headers_csp="default-src 'none'")
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["permissions-policy"] == "camera=(), microphone=(), geolocation=()"
+    assert response.headers["content-security-policy"] == "default-src 'none'"

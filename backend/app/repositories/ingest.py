@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from sqlalchemy import Select, select
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.models.ingest import IngestRecordModel, IngestStatModel
@@ -14,6 +16,7 @@ from app.repositories.unit_of_work import flush_or_commit
 from app.schemas.ingest import IngestKind
 
 IngestRecordCreate = tuple[int, int, IngestKind, str, str | None, dict[str, Any], datetime | None]
+IngestStatKey = tuple[datetime, int, int, IngestKind, str]
 
 
 @dataclass(frozen=True)
@@ -171,34 +174,24 @@ class SqlAlchemyIngestRepository:
     ) -> None:
         bucket_start = _minute_bucket(datetime.now(UTC))
         normalized_source = source or ""
-        stat = self._session.scalar(
-            select(IngestStatModel).where(
-                IngestStatModel.bucket_start == bucket_start,
-                IngestStatModel.project_id == project_id,
-                IngestStatModel.api_key_id == api_key_id,
-                IngestStatModel.kind == kind.value,
-                IngestStatModel.source == normalized_source,
-            )
+        self._upsert_stats(
+            [
+                {
+                    "bucket_start": bucket_start,
+                    "project_id": project_id,
+                    "api_key_id": api_key_id,
+                    "kind": kind.value,
+                    "source": normalized_source,
+                    "accepted_count": 0,
+                    "rejected_count": 1,
+                    "bytes_count": 0,
+                }
+            ]
         )
-        if stat is None:
-            self._session.add(
-                IngestStatModel(
-                    bucket_start=bucket_start,
-                    project_id=project_id,
-                    api_key_id=api_key_id,
-                    kind=kind.value,
-                    source=normalized_source,
-                    rejected_count=1,
-                )
-            )
-        else:
-            stat.rejected_count += 1
         flush_or_commit(self._session)
 
     def _increment_accepted_stats(self, records: list[IngestRecordCreate]) -> None:
-        grouped_stats: dict[tuple[datetime, int, int, IngestKind, str], tuple[int, int]] = (
-            defaultdict(lambda: (0, 0))
-        )
+        grouped_stats: dict[IngestStatKey, tuple[int, int]] = defaultdict(lambda: (0, 0))
         for project_id, api_key_id, kind, _event_type, source, payload, occurred_at in records:
             bucket_start = _minute_bucket(occurred_at or datetime.now(UTC))
             normalized_source = source or ""
@@ -206,35 +199,85 @@ class SqlAlchemyIngestRepository:
             accepted_count, bytes_count = grouped_stats[key]
             grouped_stats[key] = (accepted_count + 1, bytes_count + _payload_size(payload))
 
-        for (
-            bucket_start,
-            project_id,
-            api_key_id,
-            kind,
-            normalized_source,
-        ), (accepted_count, bytes_count) in grouped_stats.items():
-            stat = self._session.scalar(
-                select(IngestStatModel).where(
-                    IngestStatModel.bucket_start == bucket_start,
-                    IngestStatModel.project_id == project_id,
-                    IngestStatModel.api_key_id == api_key_id,
-                    IngestStatModel.kind == kind.value,
-                    IngestStatModel.source == normalized_source,
-                )
-            )
-            if stat is None:
-                self._session.add(
-                    IngestStatModel(
-                        bucket_start=bucket_start,
-                        project_id=project_id,
-                        api_key_id=api_key_id,
-                        kind=kind.value,
-                        source=normalized_source,
-                        accepted_count=accepted_count,
-                        bytes_count=bytes_count,
-                    )
-                )
-                continue
+        self._upsert_stats(
+            [
+                {
+                    "bucket_start": bucket_start,
+                    "project_id": project_id,
+                    "api_key_id": api_key_id,
+                    "kind": kind.value,
+                    "source": normalized_source,
+                    "accepted_count": accepted_count,
+                    "rejected_count": 0,
+                    "bytes_count": bytes_count,
+                }
+                for (
+                    bucket_start,
+                    project_id,
+                    api_key_id,
+                    kind,
+                    normalized_source,
+                ), (accepted_count, bytes_count) in grouped_stats.items()
+            ]
+        )
 
-            stat.accepted_count += accepted_count
-            stat.bytes_count += bytes_count
+    def _upsert_stats(self, rows: list[dict[str, Any]]) -> None:
+        if not rows:
+            return
+
+        now = datetime.now(UTC)
+        values = [
+            {
+                **row,
+                "created_at": now,
+                "updated_at": now,
+            }
+            for row in rows
+        ]
+        bind = self._session.get_bind()
+        if bind is None:
+            raise RuntimeError("ingest stats upsert requires a bound session")
+        dialect_name = bind.dialect.name
+
+        if dialect_name == "sqlite":
+            sqlite_statement = sqlite_insert(IngestStatModel).values(values)
+            sqlite_upsert_statement = sqlite_statement.on_conflict_do_update(
+                index_elements=[
+                    IngestStatModel.bucket_start,
+                    IngestStatModel.project_id,
+                    IngestStatModel.api_key_id,
+                    IngestStatModel.kind,
+                    IngestStatModel.source,
+                ],
+                set_={
+                    "accepted_count": (
+                        IngestStatModel.accepted_count + sqlite_statement.excluded.accepted_count
+                    ),
+                    "rejected_count": (
+                        IngestStatModel.rejected_count + sqlite_statement.excluded.rejected_count
+                    ),
+                    "bytes_count": (
+                        IngestStatModel.bytes_count + sqlite_statement.excluded.bytes_count
+                    ),
+                    "updated_at": sqlite_statement.excluded.updated_at,
+                },
+            )
+            self._session.execute(sqlite_upsert_statement)
+            return
+
+        if dialect_name in {"mysql", "mariadb"}:
+            mysql_statement = mysql_insert(IngestStatModel).values(values)
+            mysql_upsert_statement = mysql_statement.on_duplicate_key_update(
+                accepted_count=(
+                    IngestStatModel.accepted_count + mysql_statement.inserted.accepted_count
+                ),
+                rejected_count=(
+                    IngestStatModel.rejected_count + mysql_statement.inserted.rejected_count
+                ),
+                bytes_count=IngestStatModel.bytes_count + mysql_statement.inserted.bytes_count,
+                updated_at=mysql_statement.inserted.updated_at,
+            )
+            self._session.execute(mysql_upsert_statement)
+            return
+
+        raise RuntimeError(f"unsupported ingest stats upsert dialect: {dialect_name}")

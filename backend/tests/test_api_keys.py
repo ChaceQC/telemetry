@@ -146,6 +146,20 @@ def test_create_api_key_returns_plaintext_once_and_stores_only_hash() -> None:
     assert records[0].key_prefix in raw_key
 
 
+def test_api_key_create_rejects_extra_body_fields() -> None:
+    client = build_client()
+    _, admin_headers = create_auth_headers(client, username="admin")
+    project = create_project(client, admin_headers)
+
+    response = client.post(
+        f"/api/v1/projects/{project['id']}/api-keys",
+        headers=admin_headers,
+        json={"name": "生产摄入", "scope": "extra"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_verify_key_succeeds_then_fails_after_revoke() -> None:
     client = build_client()
     _, admin_headers = create_auth_headers(client, username="admin")

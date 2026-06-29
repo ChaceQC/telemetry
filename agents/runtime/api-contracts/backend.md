@@ -1,6 +1,6 @@
 # 后端 API 契约草案
 
-本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0085`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力；阶段 6 已提供告警规则 CRUD 后端基础、指标阈值告警的一次性手动评估 API 和告警周期评估当前状态持久化骨架。管理 API 需要有效 Bearer token 和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
+本文件由后端开发 agent 维护，供总 agent 汇总到 `AGENT_COMMUNICATION.md`。当前草案对应 `T-0086`：阶段 1 已将项目、环境和服务管理 API 接入项目级 RBAC 基础，并新增项目范围 API Key 创建、列表、撤销；阶段 2 已提供 events/metrics/logs/traces 摄入 API 基础，并使用 API Key 作为上报鉴权入口；ClickHouse/MongoDB 开发容器初始化基础已补齐，摄入 API Key 限流支持内存和 Redis 固定窗口后端，摄入统计可按项目查询并记录部分拒绝路径；阶段 3 已提供 events/logs/metrics 查询 API、统一 envelope 游标分页基础、logs 最小上下文查询 API、logs 基础关键词搜索、logs 顶层 `trace_id`/`span_id` 结构化字段精确过滤和 logs `attributes.request_id`/`attributes.user_id` 白名单字段精确过滤，并补充 `ingest_records(project_id, kind, received_at, id)` 组合索引以支撑日志上下文窗口和带项目过滤的查询分页；阶段 4 已提供 traces 摄入、关系库 trace span 查询和关系库 trace 服务拓扑最小基础；阶段 5 已提供 dashboard CRUD 后端基础，对 dashboard `config.panels` 增加最小 panel schema 校验，新增 dashboard 全局 `config.time_range` 最小保存校验，新增已保存 dashboard panel 的只读查询预览 API，并对 dashboard `config.variables` 增加最小变量 schema 校验与规范化；panel preview 会在 panel query 未显式设置对应时间边界时继承 dashboard 全局 `config.time_range`，并会在执行前用请求 query 参数 `variables` 中的一次性变量覆盖值或已保存变量 default 替换顶层 query 字段中的完整 `${变量名}` 模板；dashboard 现已提供内置 template 列表/读取和从模板创建普通 dashboard 的最小后端基础，内置 `service-overview` 服务总览模板使用既有 `panels`、`time_range`、`variables` schema；dashboard 现已提供单个已保存 dashboard 的可移植 JSON 导出和导入创建普通 dashboard 的最小后端能力；阶段 6 已提供告警规则 CRUD 后端基础、指标阈值告警的一次性手动评估 API 和告警周期评估当前状态持久化骨架。浏览器主路径已迁移到后端托管 HttpOnly Cookie session + double-submit CSRF；非浏览器/API 客户端暂时兼容 Bearer token，但登录响应不再返回可由 JS 读取或持久化的 access token。管理 API 需要有效用户会话和启用用户；超级用户可访问全部资源，普通用户只能访问自己拥有项目角色的资源。
 
 ## 部署与浏览器访问配置
 
@@ -14,8 +14,8 @@
 - CORS 配置项：
   - `BACKEND_CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGINS`：逗号分隔 origin 白名单。
   - `BACKEND_CORS_ALLOWED_METHODS` / `CORS_ALLOWED_METHODS`：默认 `GET,POST,PUT,PATCH,DELETE,OPTIONS`。
-  - `BACKEND_CORS_ALLOWED_HEADERS` / `CORS_ALLOWED_HEADERS`：默认 `Authorization,X-API-Key,Content-Type,Accept,Origin`。
-  - `BACKEND_CORS_ALLOW_CREDENTIALS` / `CORS_ALLOW_CREDENTIALS`：默认 `false`；当前 Bearer token 模式推荐保持关闭。开启时必须使用明确 origin 白名单，后端会拒绝与 `BACKEND_CORS_ALLOWED_ORIGINS=*` 同时配置。
+  - `BACKEND_CORS_ALLOWED_HEADERS` / `CORS_ALLOWED_HEADERS`：默认 `Authorization,X-API-Key,X-CSRF-Token,Content-Type,Accept,Origin`。
+  - `BACKEND_CORS_ALLOW_CREDENTIALS` / `CORS_ALLOW_CREDENTIALS`：默认 `false`；浏览器 Cookie 会话生产部署通常设置为 `true`。开启时必须使用明确 origin 白名单，后端会拒绝与 `BACKEND_CORS_ALLOWED_ORIGINS=*` 同时配置。
 - Trusted Host 配置项：
   - `BACKEND_TRUSTED_HOSTS` / `TRUSTED_HOSTS`：逗号分隔 Host 白名单。
   - 本地/测试默认 `localhost,127.0.0.1,[::1],testserver`；非本地默认仅保留 `localhost,127.0.0.1` 作为反代内侧兜底，生产必须显式加入公网域名和 Nginx 传给后端的 Host。
@@ -40,8 +40,22 @@
   - `INGEST_RATE_LIMIT_PER_MINUTE`：默认 `600`；超限返回 `429 Too Many Requests`、`detail=摄入请求过于频繁` 和 `Retry-After` 秒数。
   - `INGEST_RATE_LIMIT_BACKEND`：默认 `memory`；支持 `memory` 和 `redis`，多实例部署应使用 `redis`。
   - `INGEST_RATE_LIMIT_KEY_PREFIX`：默认 `telemetry`，Redis 限流 key 前缀。
+  - `INGEST_API_KEY_PRECHECK_RATE_LIMIT_ENABLED`：默认 `true`；在 API Key 入库校验前按客户端 IP 做粗限流，避免无效 key 探测绕过 API Key 级限流造成 DB 查询 DoS。
+  - `INGEST_API_KEY_PRECHECK_RATE_LIMIT_PER_MINUTE`：默认 `1200`；超限返回 `429 Too Many Requests`、`detail=摄入认证尝试过于频繁` 和 `Retry-After` 秒数。
+  - `INGEST_API_KEY_PRECHECK_RATE_LIMIT_BACKEND`：默认 `memory`；支持 `memory` 和 `redis`。
   - `REDIS_URL`：默认 `redis://127.0.0.1:26380/0`；启用 Redis 限流后端时使用。
   - Redis 限流后端不可用时返回 `503 Service Unavailable`、`detail=摄入限流服务不可用`。
+- 认证 Cookie 与生产硬化配置：
+  - `AUTH_SESSION_COOKIE_NAME`：默认 `telemetry_session`，HttpOnly session Cookie 名。
+  - `AUTH_CSRF_COOKIE_NAME`：默认 `telemetry_csrf`，可由前端读取并回传到 CSRF header 的 double-submit Cookie。
+  - `AUTH_CSRF_HEADER_NAME`：默认 `X-CSRF-Token`。
+  - `AUTH_COOKIE_SECURE`：未显式设置时 local/test 为 `false`，非本地为 `true`；生产必须为 `true`。
+  - `AUTH_COOKIE_SAMESITE`：默认 `lax`，支持 `lax/strict/none`；`none` 必须配合 Secure。
+  - `AUTH_LOGIN_RATE_LIMIT_ENABLED`：默认 `true`；登录按客户端 IP + 用户名哈希限流。
+  - `AUTH_LOGIN_RATE_LIMIT_PER_MINUTE`：默认 `5`。
+  - `OPENAPI_ENABLED` / `DOCS_ENABLED`：本地默认开放，非本地默认关闭；可显式配置。
+  - `HEALTH_INCLUDE_RUNTIME_DETAILS`：默认 `false`，健康检查默认不公开 `environment` / `port`。
+  - `SECURITY_HEADERS_ENABLED`：默认 `true`，API 响应添加 `X-Content-Type-Options`、`Referrer-Policy`、`X-Frame-Options` 和 `Permissions-Policy`。
 - 查询保护配置：
   - `QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT`：默认 `10000`；限制 `GET /api/v1/query/traces/topology` 在数据库侧读取的匹配 trace span 数。该配置用于控制拓扑扫描窗口，不等同于接口 `limit`。
 
@@ -66,28 +80,43 @@
 
 ```json
 {
-  "access_token": "<jwt>",
-  "token_type": "bearer",
-  "expires_in": 3600
+  "auth_scheme": "cookie",
+  "expires_in": 3600,
+  "csrf_header_name": "X-CSRF-Token",
+  "user": {
+    "id": 1,
+    "username": "admin",
+    "email": "admin@example.test",
+    "display_name": "管理员",
+    "is_active": true,
+    "is_superuser": true,
+    "created_at": "2026-06-20T12:00:00Z"
+  }
 }
 ```
 
 - 响应字段：
-  - `access_token`：JWT access token，payload 仅包含 `sub`、`iat`、`exp` 等最小必要 claim。
-  - `token_type`：固定为 `bearer`。
-  - `expires_in`：token 有效秒数，来自 `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES`。
+  - `auth_scheme`：固定为 `cookie`，表示浏览器主路径使用 HttpOnly session Cookie。
+  - `expires_in`：session 有效秒数，来自 `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES`；session Cookie `Max-Age/Expires` 与该值对齐。
+  - `csrf_header_name`：前端对 Cookie 鉴权的非安全方法应使用的 CSRF 请求头名，默认 `X-CSRF-Token`。
+  - `user`：当前登录用户摘要。
+  - 响应体不包含 `access_token` 或 `token_type`；前端不得从登录响应读取或持久化 token。
+- 响应 Cookie：
+  - `telemetry_session`：HttpOnly session Cookie，默认 Path `/`，SameSite 默认 `lax`，Secure 本地可为 `false`、生产必须为 `true`。
+  - `telemetry_csrf`：可读 CSRF Cookie，Path/SameSite/Secure 与 session Cookie 对齐，前端读取后放入 `X-CSRF-Token` 请求头。
 - 错误：
   - `401 Unauthorized`：用户名或密码错误；账号不存在、密码错误和停用账号统一返回同一错误，避免账号枚举。
+  - `429 Too Many Requests`：登录尝试过于频繁，响应包含 `Retry-After`。
   - `503 Service Unavailable`：`AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节。
-  - `422 Unprocessable Entity`：请求体字段格式错误。
-- 安全边界：账号不存在时服务端仍执行固定 Argon2 dummy hash 校验，减少用户名枚举时序差异。
-- 敏感字段：请求中的 `password`、响应中的 `access_token` 不得写入应用日志、测试日志或 agent 运行日志。
+  - `422 Unprocessable Entity`：请求体字段格式错误或出现额外字段。
+- 安全边界：账号不存在时服务端仍执行固定 Argon2 dummy hash 校验，减少用户名枚举时序差异；登录限流 key 使用客户端 IP + 用户名哈希，避免在限流存储中直接落用户名。
+- 敏感字段：请求中的 `password`、session token、`Authorization`、Cookie、API Key 不得写入应用日志、测试日志或 agent 运行日志。
 
 ## API-0006 当前用户
 
 - 方法：`GET`
 - 路径：`/api/v1/auth/me`
-- 权限：需要 `Authorization: Bearer <access_token>`；OpenAPI 使用 HTTP Bearer security scheme，不声明 OAuth2 password flow。
+- 权限：浏览器主路径需要有效 `telemetry_session` Cookie；非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。如请求同时带有 session Cookie 和 Bearer 头，后端按 Cookie 鉴权处理。
 - 请求体：无。
 - 响应：`200 OK`
 
@@ -108,10 +137,31 @@
   - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
   - `503 Service Unavailable`：`AUTH_SECRET_KEY` 未配置或少于 32 个 UTF-8 字节。
 
+## API-0028 用户退出
+
+- 方法：`POST`
+- 路径：`/api/v1/auth/logout`
+- 权限：需要有效用户会话；Cookie 鉴权时必须通过 CSRF 校验。
+- 请求体：无。
+- 响应：`200 OK`
+
+```json
+{
+  "status": "ok"
+}
+```
+
+- 行为：清除 session Cookie 和 CSRF Cookie。
+- 错误：
+  - `401 Unauthorized`：缺少 token、token 无效、token 过期、token 对应用户不存在或用户已停用。
+  - `403 Forbidden`：Cookie 鉴权的请求缺少或提供错误的 CSRF token。
+
 ## 管理 API 通用认证与权限边界
 
-- `GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services`、`GET/POST /api/v1/projects/{project_id}/api-keys` 和 `POST /api/v1/projects/{project_id}/api-keys/{api_key_id}/revoke` 均需要 `Authorization: Bearer <access_token>`。
-- 最小认证要求：token 必须可验证、未过期，且 token 对应用户存在并处于启用状态。
+- `GET/POST /api/v1/projects`、`GET/POST /api/v1/environments`、`GET/POST /api/v1/services`、`GET/POST /api/v1/projects/{project_id}/api-keys` 和 `POST /api/v1/projects/{project_id}/api-keys/{api_key_id}/revoke` 均需要有效用户会话。
+- 浏览器主路径使用 HttpOnly Cookie session。Cookie 鉴权的非安全方法必须携带 `X-CSRF-Token`，值与 CSRF Cookie 一致；`GET/HEAD/OPTIONS/TRACE` 不要求 CSRF。
+- 非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`，该路径不作为浏览器前端主路径。浏览器不得从登录响应读取或持久化 access token。
+- 最小认证要求：Cookie session token 或兼容 Bearer token 必须可验证、未过期，且对应用户存在并处于启用状态。
 - 项目级角色：`viewer`、`editor`、`admin`；角色层级为 `admin > editor > viewer`。
 - 超级用户：`auth_users.is_superuser=true` 时绕过项目角色检查，可读取和管理全部项目资源。
 - 普通用户读取：只能读取自己拥有 `viewer`、`editor` 或 `admin` 的项目资源。未指定筛选条件的列表接口会自动过滤为可访问项目；指定无权限 `project_id` 或仅指定无权限环境时返回 `403`。
@@ -127,7 +177,7 @@
 
 - 方法：`GET`
 - 路径：`/api/v1/projects`
-- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；按本节项目级 RBAC 执行。
+- 权限：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`；按本节项目级 RBAC 执行。
 - 查询参数：暂无。
 - 分页：暂无；当前 SQLAlchemy repository 返回全部项目，后续数据量上来后补 `page`、`page_size` 或游标分页。
 - 响应：`200 OK`
@@ -147,7 +197,7 @@
 
 - 方法：`POST`
 - 路径：`/api/v1/projects`
-- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；按本节项目级 RBAC 执行。
+- 权限：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`；按本节项目级 RBAC 执行。
 - 请求体：
 
 ```json
@@ -173,7 +223,7 @@
 
 - 方法：`GET`
 - 路径：`/api/v1/environments`
-- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；按本节项目级 RBAC 执行。
+- 权限：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`；按本节项目级 RBAC 执行。
 - 查询参数：
   - `project_id`：可选，正整数；传入后只返回该项目下环境。
 - 分页：暂无；当前 SQLAlchemy repository 返回全部匹配环境。
@@ -195,7 +245,7 @@
 
 - 方法：`POST`
 - 路径：`/api/v1/environments`
-- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；按本节项目级 RBAC 执行。
+- 权限：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`；按本节项目级 RBAC 执行。
 - 请求体：
 
 ```json
@@ -224,7 +274,7 @@
 
 - 方法：`GET`
 - 路径：`/api/v1/services`
-- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；按本节项目级 RBAC 执行。
+- 权限：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`；按本节项目级 RBAC 执行。
 - 查询参数：
   - `project_id`：可选，正整数；传入后只返回该项目下服务。
   - `environment_id`：可选，正整数；传入后只返回该环境下服务。
@@ -248,7 +298,7 @@
 
 - 方法：`POST`
 - 路径：`/api/v1/services`
-- 权限：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用；按本节项目级 RBAC 执行。
+- 权限：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`；按本节项目级 RBAC 执行。
 - 请求体：
 
 ```json
@@ -280,7 +330,7 @@
 
 - 方法：`GET`
 - 路径：`/api/v1/projects/{project_id}/api-keys`
-- 权限：需要 `Authorization: Bearer <access_token>`，且用户必须拥有目标项目 `admin`；超级用户绕过项目成员检查。普通用户未处于目标项目权限范围内时与项目不存在一样返回 `404 项目不存在`，避免通过 API Key 管理端点枚举 `project_id`；已在项目内但不是 `admin` 的 `viewer`、`editor` 返回 `403`。
+- 权限：需要有效用户会话，且用户必须拥有目标项目 `admin`；超级用户绕过项目成员检查。普通用户未处于目标项目权限范围内时与项目不存在一样返回 `404 项目不存在`，避免通过 API Key 管理端点枚举 `project_id`；已在项目内但不是 `admin` 的 `viewer`、`editor` 返回 `403`。
 - 查询参数：暂无。
 - 分页：暂无；当前 SQLAlchemy repository 返回项目下全部 API Key 元数据。
 - 响应：`200 OK`
@@ -351,7 +401,7 @@
 
 ## API-0023 Dashboard CRUD
 
-- 鉴权：所有 dashboard 接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 鉴权：所有 dashboard 接口均需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 权限：
   - 列表/读取要求目标项目至少 `viewer`；全局列表不传 `project_id` 时自动过滤为当前用户可访问项目。
   - 创建/更新/删除要求目标项目至少 `editor`；`viewer` 返回 `403 无项目权限`。
@@ -421,7 +471,7 @@
 - 路径：
   - `/api/v1/dashboard-templates`
   - `/api/v1/dashboard-templates/{template_id}`
-- 权限：需要有效 Bearer token 和启用用户；内置模板读取不依赖项目角色。
+- 权限：需要有效用户会话和启用用户；内置模板读取不依赖项目角色。
 - 响应：列表返回 `{"items":[...]}`；读取返回单个模板对象。模板对象包含 `id`、`name`、`description`、`layout`、`config`。
 - 当前内置模板：
   - `service-overview` / `服务总览`：内置服务健康总览，`config.time_range` 默认为 `relative: 1h`，包含 `service_source`、`log_level`、`row_limit` 变量，以及 metrics/logs/traces/topology 四个最小 panel。
@@ -497,7 +547,7 @@ PATCH 请求体示例：
 
 ## API-0024 Dashboard panel 查询预览
 
-- 鉴权：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 权限：读取已保存 panel preview 要求目标项目至少 `viewer`；`viewer/editor/admin/superuser` 均可读取。普通用户没有目标项目成员关系、项目不存在、dashboard 不属于指定项目或 panel 不存在时返回隐藏式 `404`。
 - 方法：`GET`
 - 路径：`/api/v1/projects/{project_id}/dashboards/{dashboard_id}/panels/{panel_id}/preview`
@@ -561,7 +611,7 @@ PATCH 请求体示例：
 
 ## API-0025 告警规则 CRUD
 
-- 鉴权：所有告警规则接口均需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 鉴权：所有告警规则接口均需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 权限：
   - 列表/读取要求目标项目至少 `viewer`；全局列表不传 `project_id` 时自动过滤为当前用户可访问项目。
   - 创建/更新/删除要求目标项目至少 `editor`；`viewer` 返回 `403 无项目权限`。
@@ -673,7 +723,7 @@ PATCH 请求体示例：
 
 - 方法：`POST`
 - 路径：`/api/v1/projects/{project_id}/alerts/rules/{rule_id}/evaluate`
-- 鉴权：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 权限：
   - 目标项目至少 `viewer` 可手动评估规则。
   - 普通用户没有目标项目成员关系时返回 `404 项目不存在`；rule ID 不属于指定项目时返回 `404 告警规则不存在`。
@@ -743,7 +793,7 @@ PATCH 请求体示例：
 
 - 方法：`POST`
 - 路径：`/api/v1/alerts/evaluations/run-due`
-- 鉴权：需要 `Authorization: Bearer <access_token>`，且 token 对应用户必须启用。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 权限：仅超级用户可触发；非超级用户返回 `403 Forbidden`，`detail="需要超级用户权限"`。
 - 请求体：无。
 - 查询参数：当前不实现 `limit` 或 `project_id`，因此传入未声明 query 参数不会改变扫描范围；如后续引入必须补充明确校验和权限语义。
@@ -1011,7 +1061,7 @@ PATCH 请求体示例：
 ## API-0013 摄入统计查询
 
 - `GET /api/v1/ingest/stats`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目，无权项目返回 `404`。
   - `kind`：可选，`event`、`metric`、`log` 或 `trace`。
@@ -1022,7 +1072,7 @@ PATCH 请求体示例：
 ## API-0014 事件查询
 
 - `GET /api/v1/query/events`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `type`：可选，事件类型，长度 `1..128`。
@@ -1055,7 +1105,7 @@ PATCH 请求体示例：
 ## API-0015 日志查询
 
 - `GET /api/v1/query/logs`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `level`：可选，日志级别，长度 `1..32`。
@@ -1098,7 +1148,7 @@ PATCH 请求体示例：
 ## API-0016 指标查询
 
 - `GET /api/v1/query/metrics`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `name`：可选，指标名，长度 `1..128`。
@@ -1135,7 +1185,7 @@ PATCH 请求体示例：
 ## API-0021 Trace 查询
 
 - `GET /api/v1/query/traces`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `trace_id`：可选，长度 `1..128`；按 trace payload 顶层 `trace_id` 精确匹配，后端会去除前后空白，空白字符串按未传处理。
@@ -1181,7 +1231,7 @@ PATCH 请求体示例：
 ## API-0022 Trace 服务拓扑查询
 
 - `GET /api/v1/query/traces/topology`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：必填，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `occurred_from` / `occurred_to`：可选，ISO 8601 时间范围，按 trace span `occurred_at` 过滤；trace 摄入时该字段来自 span `start_time`。
@@ -1222,7 +1272,7 @@ PATCH 请求体示例：
 ## API-0018 日志上下文查询
 
 - `GET /api/v1/query/logs/{log_id}/context`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 路径参数：
   - `log_id`：正整数；目标必须是 `ingest_records.kind=log` 记录。
 - 查询参数：
@@ -1270,7 +1320,7 @@ PATCH 请求体示例：
 - 上下文边界：上下文限定与目标相同 `project_id` 且 `kind=log`；不要求同 `source` 或 `level`，不跨项目，不包含 events/metrics。
 - 排序规则：基于 `received_at` + `id` 作为稳定排序锚点，与日志列表分页字段一致。`before` 取早于目标的最多 `before` 条，`after` 取晚于目标的最多 `after` 条；同一 `received_at` 下使用 `id` 打破并列。
 - 错误：
-  - `401`：缺少或无效 Bearer 用户 token。
+  - `401`：缺少或无效用户会话。
   - `404 日志不存在`：目标日志不存在、不是日志或无目标项目权限。
   - `422`：`log_id` 非正整数，或 `before` / `after` 超出 `0..20`。
 - 当前查询来源：关系库 `ingest_records` 的 `kind=log` 记录，并由 `(project_id, kind, received_at, id)` 组合索引支撑前后窗口过滤与排序；ClickHouse 日志上下文、全文搜索窗口和更复杂字段过滤后续补齐。
@@ -1278,7 +1328,7 @@ PATCH 请求体示例：
 ## API-0019 指标聚合窗口查询
 
 - `GET /api/v1/query/metrics/aggregate`
-- 鉴权：`Authorization: Bearer <access_token>`，需为启用用户。
+- 鉴权：需要有效用户会话；浏览器使用 HttpOnly Cookie session，非浏览器/API 客户端暂时兼容 `Authorization: Bearer <token>`。
 - 查询参数：
   - `project_id`：可选，正整数；普通用户只能查询自己有项目角色的项目；显式指定不存在或无权项目返回 `404 项目不存在`，超级用户也必须指向已存在项目。
   - `name`：可选，指标名，长度 `1..128`。
@@ -1366,5 +1416,5 @@ PATCH 请求体示例：
   - `idx_events_expires_at_ttl`：`{ expires_at: 1 }`，`expireAfterSeconds=0` 且 `sparse=true`，用于可选临时事件过期清理。
 - Repository 完整性错误映射：唯一约束按具体约束映射为重复 key；外键约束按缺失项目、缺失环境或服务项目/环境归属冲突映射；无法识别的 `IntegrityError` 返回通用数据库完整性冲突，不再伪装为重复 key。创建项目和创建者 `admin` 授权通过 service 层事务边界整体提交或整体回滚。
 - 真实 MySQL 回归入口：`TELEMETRY_MYSQL_TEST_DATABASE_URL` 仅用于本地或专用测试环境，未设置时相关测试会 `skip`，不影响普通 CI。该 URL 需要可创建/删除数据库；测试会创建随机 `telemetry_test_<uuid>` 临时库、执行 Alembic `upgrade head`，并在结束后删除临时库。不得在日志、agent 记录或提交中输出真实连接串、密码或临时库详情。
-- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、HTTP Bearer OpenAPI 描述、当前用户依赖识别 token 用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、dashboard CRUD 成功路径、dashboard 项目权限隔离、viewer/editor/superuser 角色边界、无权限项目和跨项目 dashboard ID 隐藏、dashboard `layout/config` 对象或数组校验、大小/深度/复杂度限制、非有限数拒绝、partial update 未传 JSON 字段保持原值、空对象/空数组更新语义、空 patch 拒绝、limit/offset 分页、SQLite dashboard 迁移升降级和 MySQL dashboard JSON DDL 编译、告警规则 CRUD 成功路径、全局列表项目权限过滤、viewer/editor/superuser 角色边界、无权限项目和跨项目 rule ID 隐藏、viewer 写入 `403`、同项目名称重复 `409`、severity/signal/condition/evaluation/空 patch/limit/offset 校验 `422`、告警规则手动评估 firing/ok/no_data/disabled、非 metrics `422`、非法 condition `422`、viewer 可评估但不能写入、无权限/跨项目/不存在隐藏、SQLite alert_rules 迁移升降级、MySQL alert_rules JSON DDL 编译、缺失项目/无权限项目行为、events/metrics/logs/traces 摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、启用后摄入 API Key 固定窗口限流返回 `429`、成功摄入后统计聚合、已验证 API Key 后的验证失败/限流拒绝统计、trace spans 摄入绑定 API Key 项目、`kind=trace` 写入、trace payload/raw span 持久化、trace duration/time 校验、trace 非有限值拒绝、trace 验证失败/限流拒绝按 `kind=trace` 统计、统计查询项目权限过滤、事件/日志/指标/trace 查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、trace 查询从 payload 顶层关键字段展开 span、按 `trace_id`/`span_id`/`name`/`source`/时间范围过滤、trace cursor 筛选签名不匹配返回 `422`、SQLite/MySQL/MariaDB trace 顶层 JSON 字段 SQL 编译、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、name/source/time 组合筛选、空结果、非法 window/aggregation、limit 和未登录拒绝、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、`ingest_records.kind` 字符串列兼容 `trace` kind、非法/跨查询类型/不匹配筛选条件游标 `422`、payload/tags/attributes 校验错误返回 `422`、metrics 非有限 value 拒绝、logs message 长度限制、顶层 `project_id` 不能覆盖归属、嵌套业务载荷中的跨项目 `project_id` 不影响 API Key 项目上下文和 Alembic 升降级；真实 MySQL 联测已发现并修复指标窗口未显式下取整时 `00:00:59`、`00:04:59` 上浮到下一桶的问题；ClickHouse 已覆盖 compose 配置展开、init SQL 挂载路径和预期表名静态检查；MongoDB 已覆盖 compose 配置展开、init 脚本挂载路径、events 集合和预期索引静态检查。真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束、dashboard/alert_rules 迁移/API CRUD 和摄入记录写入/统计聚合/事件/日志/指标/trace 摄入查询分页/日志上下文/日志关键词搜索/日志结构化字段过滤/指标窗口聚合/告警手动评估的 MySQL 专项用例，尤其是 MySQL dashboard/alert_rules JSON 列读写、业务 payload 非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划、trace 真实 MySQL 写入/统计/查询执行计划、指标窗口聚合执行计划和告警评估单窗口聚合执行计划；真实 ClickHouse/MongoDB/Redis 容器初始化与写入链路仍需后续补验。
-- 安全边界：认证接口接收密码并返回 token，但代码未输出请求体日志；API Key 创建接口会返回一次性明文，后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志、API Key 使用审计和危险动作 `admin` 校验。
+- 验证边界：已用 SQLite 覆盖 API 契约、唯一约束错误映射、服务项目/环境复合外键归属约束、未知 `IntegrityError` 映射、密码非明文保存、登录成功/失败、未知用户 dummy hash 校验、未配置/弱/有效 `AUTH_SECRET_KEY`、Cookie 登录响应、CSRF 保护、Cookie 优先鉴权、Bearer 兼容路径和当前用户依赖识别会话用户、项目创建后创建者获得 `admin`、创建者授权失败时项目创建回滚、无权限跨项目环境 ID 不泄露且不能创建服务、未授权用户无法读取他人项目、`viewer` 只读、`editor` 可创建环境/服务、`admin`/superuser 可管理、停用用户被拒绝、API Key 明文只在创建响应出现、`key_hash` 不等于明文、列表/撤销不返回明文或哈希、无项目成员关系的普通用户无法通过 API Key 管理端点区分项目存在性、`viewer`/`editor` 被 API Key 创建/列表/撤销拒绝、撤销后 `verify_key()` 失败、dashboard CRUD 成功路径、dashboard 项目权限隔离、viewer/editor/superuser 角色边界、无权限项目和跨项目 dashboard ID 隐藏、dashboard `layout/config` 对象或数组校验、大小/深度/复杂度限制、非有限数拒绝、partial update 未传 JSON 字段保持原值、空对象/空数组更新语义、空 patch 拒绝、limit/offset 分页、SQLite dashboard 迁移升降级和 MySQL dashboard JSON DDL 编译、告警规则 CRUD 成功路径、全局列表项目权限过滤、viewer/editor/superuser 角色边界、无权限项目和跨项目 rule ID 隐藏、viewer 写入 `403`、同项目名称重复 `409`、severity/signal/condition/evaluation/空 patch/limit/offset 校验 `422`、告警规则手动评估 firing/ok/no_data/disabled、非 metrics `422`、非法 condition `422`、viewer 可评估但不能写入、无权限/跨项目/不存在隐藏、SQLite alert_rules 迁移升降级、MySQL alert_rules JSON DDL 编译、缺失项目/无权限项目行为、events/metrics/logs/traces 摄入 API 使用 `Authorization: Bearer <api_key>` 与 `X-API-Key` 绑定项目、缺失/无效/撤销 API Key 拒绝、启用后摄入 API Key 固定窗口限流返回 `429`、成功摄入后统计聚合、已验证 API Key 后的验证失败/限流拒绝统计、trace spans 摄入绑定 API Key 项目、`kind=trace` 写入、trace payload/raw span 持久化、trace duration/time 校验、trace 非有限值拒绝、trace 验证失败/限流拒绝按 `kind=trace` 统计、统计查询项目权限过滤、事件/日志/指标/trace 查询 API 权限过滤、基础筛选和基于 `received_at` + `id` 的游标分页、trace 查询从 payload 顶层关键字段展开 span、按 `trace_id`/`span_id`/`name`/`source`/时间范围过滤、trace cursor 筛选签名不匹配返回 `422`、SQLite/MySQL/MariaDB trace 顶层 JSON 字段 SQL 编译、日志关键词命中 message/业务 payload 值文本、业务 payload key-only 不命中、不命中 wrapper key 与 null 脚手架、SQLite 递归命中业务 payload 嵌套/数组值、LIKE 通配符按字面匹配、与 level/source/time/project 权限叠加、keyword 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `trace_id`/`span_id` 顶层结构化字段精确过滤、trim 后空白按未传处理、与 keyword/level/source/project 权限叠加，以及 trace/span 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志 `request_id`/`user_id` 结构化 `attributes` 白名单字段精确过滤、trim 后空白按未传处理、业务 `payload` 同名字段不误命中、与 keyword/level/source/trace/span/project 权限叠加，以及 request/user 筛选条件进入 cursor 签名并在不匹配时返回 `422`、日志上下文同项目前后文、无权限/不存在隐藏和 `before`/`after` 参数校验、指标聚合窗口 avg/sum/min/max/count、窗口分桶、权限过滤、name/source/time 组合筛选、空结果、非法 window/aggregation、limit 和未登录拒绝、MySQL/MariaDB 指标聚合窗口 SQL 编译为 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)` UTC epoch 秒差下取整且不使用 `UNIX_TIMESTAMP(occurred_at)`、`ingest_records(project_id, kind, received_at, id)` 组合索引元数据与 SQLite 迁移结果、`ingest_records.kind` 字符串列兼容 `trace` kind、非法/跨查询类型/不匹配筛选条件游标 `422`、payload/tags/attributes 校验错误返回 `422`、metrics 非有限 value 拒绝、logs message 长度限制、顶层 `project_id` 不能覆盖归属、嵌套业务载荷中的跨项目 `project_id` 不影响 API Key 项目上下文和 Alembic 升降级；真实 MySQL 联测已发现并修复指标窗口未显式下取整时 `00:00:59`、`00:04:59` 上浮到下一桶的问题；ClickHouse 已覆盖 compose 配置展开、init SQL 挂载路径和预期表名静态检查；MongoDB 已覆盖 compose 配置展开、init 脚本挂载路径、events 集合和预期索引静态检查。真实 MySQL 回归测试覆盖项目创建授权事务回滚、跨项目 environment_id 非泄露和临时库清理，后续仍可继续扩展 migration、外键、唯一索引、JSON 字段、用户唯一约束、RBAC 约束、API Key 约束、dashboard/alert_rules 迁移/API CRUD 和摄入记录写入/统计聚合/事件/日志/指标/trace 摄入查询分页/日志上下文/日志关键词搜索/日志结构化字段过滤/指标窗口聚合/告警手动评估的 MySQL 专项用例，尤其是 MySQL dashboard/alert_rules JSON 列读写、业务 payload 非字符串 JSON 标量值、日志 attributes 白名单字段 JSON 精确过滤执行计划、trace 真实 MySQL 写入/统计/查询执行计划、指标窗口聚合执行计划和告警评估单窗口聚合执行计划；真实 ClickHouse/MongoDB/Redis 容器初始化与写入链路仍需后续补验。
+- 安全边界：认证接口接收密码并设置后端托管 HttpOnly session Cookie；登录响应不返回可由 JS 读取或持久化的 access token，代码未输出请求体日志；API Key 创建接口会返回一次性明文，后续结构化日志必须脱敏 `password`、`access_token`、`Authorization`、Cookie、数据库连接串、API Key 和通知 Webhook 密钥。当前尚未开放团队/成员管理或项目授权 API，后续需补管理员授权入口、审计日志、API Key 使用审计和危险动作 `admin` 校验。

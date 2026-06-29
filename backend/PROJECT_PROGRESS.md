@@ -2,6 +2,41 @@
 
 本文件由后端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-29 T-0086 后端全面安全审计修复与 Cookie 会话迁移
+
+### 已完成
+
+- 修复 `ingest_stats` 并发首写：`SqlAlchemyIngestRepository` 按数据库方言使用 SQLite `ON CONFLICT DO UPDATE` 和 MySQL/MariaDB `ON DUPLICATE KEY UPDATE` 原子累加，覆盖 `accepted_count`、`rejected_count` 和 `bytes_count`，避免同 bucket/project/api_key/kind/source 并发插入暴露唯一约束 `500` 或丢计数。
+- 登录成功改为后端托管 HttpOnly Cookie 会话：`POST /api/v1/auth/login` 设置 session Cookie 和 double-submit CSRF Cookie，响应不再返回可由浏览器 JS 读取/持久化的 `access_token` 或 `token_type`；`GET /api/v1/auth/me` 与受保护 API 以 Cookie session 为浏览器主路径，暂时兼容非浏览器/API 客户端 `Authorization: Bearer <token>`。
+- 新增 `POST /api/v1/auth/logout` 清理 session/CSRF Cookie；Cookie 鉴权的非安全方法必须携带 `X-CSRF-Token`，且当 Cookie 与 Bearer 同时存在时优先按 Cookie 鉴权并执行 CSRF 校验，避免浏览器绕过 Cookie/CSRF 主链路。
+- 增加登录尝试限流，按客户端 IP + 用户名哈希固定窗口限制；增加摄入 API Key 入库验证前的 IP 粗限流，降低无效 key 探测造成 DB 查询 DoS 的风险，并保留有效 API Key 的现有限流和失败统计路径。
+- 收紧管理/API Key/auth/dashboard 写入 schema，创建、更新、导入和登录等主体请求未声明顶层字段返回 `422`。
+- 完成生产硬化：健康检查默认不公开 `environment`/`port`；非本地默认关闭 OpenAPI/docs，可配置显式开启；CORS 支持凭证请求和 `X-CSRF-Token` 且拒绝 credentials + wildcard origin；新增安全响应头中间件，覆盖 `X-Content-Type-Options`、`Referrer-Policy`、`X-Frame-Options`、`Permissions-Policy` 和可选 CSP。
+- 同步更新 `backend/README.md`、`backend/.env.example` 和 `agents/runtime/api-contracts/backend.md`，明确浏览器不得使用 `sessionStorage access token`，登录响应不暴露 access token，Bearer 仅作为非浏览器/API 兼容路径。
+- 后端版本保持 `0.5.0`，本轮不修改 `backend/VERSION`；未启动 Docker、后端服务、前端、浏览器或真实 MySQL/ClickHouse/MongoDB/Redis。
+
+### 验证
+
+- 已运行 `uv run pytest tests/test_auth_api.py tests/test_deployment_middleware.py tests/test_health.py tests/test_config.py tests/test_ingest_api.py tests/test_api_keys.py tests/test_management_api.py tests/test_dashboard_api.py -q`，结果：275 passed、2 skipped、1 条 Starlette TestClient 上游弃用 warning。
+- 已运行 `uv run pytest -q`，结果：383 passed、2 skipped、1 条 Starlette TestClient 上游弃用 warning。
+- 已运行 `uv run ruff format --check .`，结果：通过，97 个文件已符合格式。
+- 已运行 `uv run ruff check .`，结果：通过。
+- 已运行 `uv run mypy .`，结果：通过，97 个源文件无类型错误。
+- 已运行 `uv lock --check`，结果：通过，lock 未变。
+- 已运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`，结果：通过，`No tracked files start with a UTF-8 BOM.`。
+- 已运行 `git diff --check`，结果：通过。
+
+### 阻塞与风险
+
+- 暂无本轮提交阻塞。
+- 本地未启动 Docker，未连接真实 MySQL/ClickHouse/MongoDB/Redis；真实 MySQL 下 `ingest_stats` 原子 upsert 的高并发事务隔离、锁等待和连接池行为仍建议后续专项压测或集成环境补验。
+- OpenAPI 安全 scheme 仍保留 Bearer 兼容描述，Cookie session/CSRF 的浏览器主路径已在 README 和契约草案中明确；后续如要完全移除 Bearer 兼容，需要另行协调 API 客户端迁移窗口。
+
+### 下一步
+
+- 提交并推送到 `origin/feature/backend-dev`。
+- 推送后由总 agent 读取 GitHub Actions run，按流程触发代码审计和后续集成。
+
 ## 2026-06-27 T-0085 告警周期评估状态持久化审计修复
 
 ### 复审剩余 P3 修复

@@ -13,7 +13,7 @@ class ResourceStatus(StrEnum):
 
 
 class ManagementSchema(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 class ResourceResponse(BaseModel):

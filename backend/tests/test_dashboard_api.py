@@ -543,6 +543,53 @@ def test_dashboard_crud_success_path_with_pagination_and_audit_fields() -> None:
     assert missing_response.json()["detail"] == "仪表盘不存在"
 
 
+def test_dashboard_write_requests_reject_extra_body_fields() -> None:
+    client = build_client()
+    _, owner_headers = create_auth_headers(client, username="dashboard-extra-owner")
+    project = create_project(client, owner_headers)
+    project_id = cast(int, project["id"])
+
+    create_response = client.post(
+        "/api/v1/dashboards",
+        headers=owner_headers,
+        json={
+            "project_id": project_id,
+            "name": "服务总览",
+            "layout": {},
+            "config": {},
+            "unexpected": True,
+        },
+    )
+    assert create_response.status_code == 422
+
+    dashboard = create_dashboard(client, owner_headers, project_id=project_id)
+    update_response = client.patch(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}",
+        headers=owner_headers,
+        json={"name": "服务概览", "unexpected": True},
+    )
+    assert update_response.status_code == 422
+
+    template_response = client.post(
+        f"/api/v1/projects/{project_id}/dashboard-templates/service-overview/dashboards",
+        headers=owner_headers,
+        json={"name": "模板导入", "unexpected": True},
+    )
+    assert template_response.status_code == 422
+
+    export_response = client.get(
+        f"/api/v1/projects/{project_id}/dashboards/{dashboard['id']}/export",
+        headers=owner_headers,
+    )
+    assert export_response.status_code == 200
+    import_response = client.post(
+        f"/api/v1/projects/{project_id}/dashboards/import",
+        headers=owner_headers,
+        json={"document": export_response.json(), "unexpected": True},
+    )
+    assert import_response.status_code == 422
+
+
 def test_dashboard_permissions_hide_unscoped_projects_and_cross_project_ids() -> None:
     client = build_client()
     _, owner_headers = create_auth_headers(client, username="owner")

@@ -67,12 +67,14 @@ class RedisFixedWindowRateLimiter:
         window_seconds: int,
         client: RedisRateLimitClient,
         key_prefix: str = "telemetry",
+        unavailable_message: str = "限流服务不可用",
     ) -> None:
         self._enabled = enabled
         self._limit = limit
         self._window_seconds = window_seconds
         self._client = client
         self._key_prefix = key_prefix.rstrip(":")
+        self._unavailable_message = unavailable_message
 
     def check(self, *, key: str, now: float | None = None) -> None:
         if not self._enabled:
@@ -86,14 +88,14 @@ class RedisFixedWindowRateLimiter:
             if count == 1:
                 self._client.expire(redis_key, self._window_seconds)
         except RedisError as error:
-            raise RateLimiterUnavailableError("摄入限流服务不可用") from error
+            raise RateLimiterUnavailableError(self._unavailable_message) from error
 
         if count > self._limit:
             retry_after = ceil(self._window_seconds - (current_time - window_start))
             raise RateLimitExceededError(retry_after_seconds=max(retry_after, 1))
 
 
-def create_ingest_rate_limiter(
+def create_fixed_window_rate_limiter(
     *,
     enabled: bool,
     limit: int,
@@ -101,6 +103,7 @@ def create_ingest_rate_limiter(
     backend: str,
     redis_url: str,
     key_prefix: str = "telemetry",
+    unavailable_message: str = "限流服务不可用",
 ) -> RateLimiter:
     if backend == "memory":
         return InMemoryFixedWindowRateLimiter(
@@ -115,5 +118,26 @@ def create_ingest_rate_limiter(
             window_seconds=window_seconds,
             client=Redis.from_url(redis_url, decode_responses=True),
             key_prefix=key_prefix,
+            unavailable_message=unavailable_message,
         )
-    raise ValueError("unsupported ingest rate limit backend")
+    raise ValueError("unsupported rate limit backend")
+
+
+def create_ingest_rate_limiter(
+    *,
+    enabled: bool,
+    limit: int,
+    window_seconds: int,
+    backend: str,
+    redis_url: str,
+    key_prefix: str = "telemetry",
+) -> RateLimiter:
+    return create_fixed_window_rate_limiter(
+        enabled=enabled,
+        limit=limit,
+        window_seconds=window_seconds,
+        backend=backend,
+        redis_url=redis_url,
+        key_prefix=key_prefix,
+        unavailable_message="摄入限流服务不可用",
+    )

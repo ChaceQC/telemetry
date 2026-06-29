@@ -55,7 +55,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BACKEND_CORS_ALLOWED_METHODS", "CORS_ALLOWED_METHODS"),
     )
     cors_allowed_headers: str = Field(
-        default="Authorization,X-API-Key,Content-Type,Accept,Origin",
+        default="Authorization,X-API-Key,X-CSRF-Token,Content-Type,Accept,Origin",
         validation_alias=AliasChoices("BACKEND_CORS_ALLOWED_HEADERS", "CORS_ALLOWED_HEADERS"),
     )
     cors_allow_credentials: bool = Field(
@@ -88,6 +88,40 @@ class Settings(BaseSettings):
         ge=1,
         validation_alias="AUTH_ACCESS_TOKEN_EXPIRE_MINUTES",
     )
+    auth_session_cookie_name: str = Field(
+        default="telemetry_session",
+        validation_alias="AUTH_SESSION_COOKIE_NAME",
+    )
+    auth_csrf_cookie_name: str = Field(
+        default="telemetry_csrf",
+        validation_alias="AUTH_CSRF_COOKIE_NAME",
+    )
+    auth_csrf_header_name: str = Field(
+        default="X-CSRF-Token",
+        validation_alias="AUTH_CSRF_HEADER_NAME",
+    )
+    auth_cookie_path: str = Field(default="/", validation_alias="AUTH_COOKIE_PATH")
+    auth_cookie_secure: bool | None = Field(
+        default=None,
+        validation_alias="AUTH_COOKIE_SECURE",
+    )
+    auth_cookie_samesite: str = Field(
+        default="lax",
+        validation_alias="AUTH_COOKIE_SAMESITE",
+    )
+    auth_login_rate_limit_enabled: bool = Field(
+        default=True,
+        validation_alias="AUTH_LOGIN_RATE_LIMIT_ENABLED",
+    )
+    auth_login_rate_limit_per_minute: int = Field(
+        default=5,
+        ge=1,
+        validation_alias="AUTH_LOGIN_RATE_LIMIT_PER_MINUTE",
+    )
+    auth_login_rate_limit_backend: str = Field(
+        default="memory",
+        validation_alias="AUTH_LOGIN_RATE_LIMIT_BACKEND",
+    )
     ingest_rate_limit_enabled: bool = Field(
         default=False,
         validation_alias="INGEST_RATE_LIMIT_ENABLED",
@@ -105,19 +139,56 @@ class Settings(BaseSettings):
         default="telemetry",
         validation_alias="INGEST_RATE_LIMIT_KEY_PREFIX",
     )
+    ingest_api_key_precheck_rate_limit_enabled: bool = Field(
+        default=True,
+        validation_alias="INGEST_API_KEY_PRECHECK_RATE_LIMIT_ENABLED",
+    )
+    ingest_api_key_precheck_rate_limit_per_minute: int = Field(
+        default=1200,
+        ge=1,
+        validation_alias="INGEST_API_KEY_PRECHECK_RATE_LIMIT_PER_MINUTE",
+    )
+    ingest_api_key_precheck_rate_limit_backend: str = Field(
+        default="memory",
+        validation_alias="INGEST_API_KEY_PRECHECK_RATE_LIMIT_BACKEND",
+    )
     redis_url: str = Field(default="redis://127.0.0.1:26380/0", validation_alias="REDIS_URL")
     query_trace_topology_span_scan_limit: int = Field(
         default=10000,
         ge=1,
         validation_alias="QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT",
     )
+    health_include_runtime_details: bool = Field(
+        default=False,
+        validation_alias="HEALTH_INCLUDE_RUNTIME_DETAILS",
+    )
+    openapi_enabled: bool | None = Field(
+        default=None,
+        validation_alias="OPENAPI_ENABLED",
+    )
+    docs_enabled: bool | None = Field(
+        default=None,
+        validation_alias="DOCS_ENABLED",
+    )
+    security_headers_enabled: bool = Field(
+        default=True,
+        validation_alias="SECURITY_HEADERS_ENABLED",
+    )
+    security_headers_csp: str | None = Field(
+        default=None,
+        validation_alias="SECURITY_HEADERS_CSP",
+    )
 
-    @field_validator("ingest_rate_limit_backend")
+    @field_validator(
+        "auth_login_rate_limit_backend",
+        "ingest_rate_limit_backend",
+        "ingest_api_key_precheck_rate_limit_backend",
+    )
     @classmethod
-    def normalize_ingest_rate_limit_backend(cls, value: str) -> str:
+    def normalize_rate_limit_backend(cls, value: str) -> str:
         backend = value.strip().lower()
         if backend not in {"memory", "redis"}:
-            raise ValueError("ingest_rate_limit_backend 必须是 memory 或 redis")
+            raise ValueError("rate limit backend 必须是 memory 或 redis")
         return backend
 
     @field_validator("ingest_rate_limit_key_prefix")
@@ -140,12 +211,50 @@ class Settings(BaseSettings):
             path = f"/{path}"
         return path.rstrip("/")
 
+    @field_validator("auth_session_cookie_name", "auth_csrf_cookie_name")
+    @classmethod
+    def normalize_cookie_name(cls, value: str) -> str:
+        name = value.strip()
+        if not name:
+            raise ValueError("cookie name 不能为空")
+        if any(character in name for character in (";", ",", " ", "\t", "\r", "\n")):
+            raise ValueError("cookie name 包含非法字符")
+        return name
+
+    @field_validator("auth_csrf_header_name")
+    @classmethod
+    def normalize_csrf_header_name(cls, value: str) -> str:
+        header_name = value.strip()
+        if not header_name:
+            raise ValueError("csrf header name 不能为空")
+        return header_name
+
+    @field_validator("auth_cookie_path")
+    @classmethod
+    def normalize_cookie_path(cls, value: str) -> str:
+        path = value.strip() or "/"
+        if "://" in path:
+            raise ValueError("auth_cookie_path 必须是 path，不能是完整 URL")
+        if not path.startswith("/"):
+            path = f"/{path}"
+        return path
+
+    @field_validator("auth_cookie_samesite")
+    @classmethod
+    def normalize_cookie_samesite(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"lax", "strict", "none"}:
+            raise ValueError("auth_cookie_samesite 必须是 lax、strict 或 none")
+        return normalized
+
     @model_validator(mode="after")
-    def reject_wildcard_cors_with_credentials(self) -> Self:
+    def validate_security_combinations(self) -> Self:
         if self.cors_allow_credentials and "*" in split_csv(self.cors_allowed_origins):
             raise ValueError(
                 "cors_allowed_origins 不能在 cors_allow_credentials=true 时包含 wildcard '*'"
             )
+        if self.auth_cookie_samesite == "none" and not self.auth_cookie_secure_value:
+            raise ValueError("auth_cookie_samesite=none 时 auth_cookie_secure 必须为 true")
         return self
 
     @property
@@ -177,6 +286,30 @@ class Settings(BaseSettings):
         if self.is_local_environment:
             return list(LOCAL_TRUSTED_HOSTS)
         return list(NON_LOCAL_DEFAULT_TRUSTED_HOSTS)
+
+    @property
+    def auth_cookie_secure_value(self) -> bool:
+        if self.auth_cookie_secure is not None:
+            return self.auth_cookie_secure
+        return not self.is_local_environment
+
+    @property
+    def openapi_url(self) -> str | None:
+        if self.openapi_enabled is not None:
+            return "/openapi.json" if self.openapi_enabled else None
+        return "/openapi.json" if self.is_local_environment else None
+
+    @property
+    def docs_url(self) -> str | None:
+        if self.docs_enabled is not None:
+            return "/docs" if self.docs_enabled else None
+        return "/docs" if self.is_local_environment else None
+
+    @property
+    def redoc_url(self) -> str | None:
+        if self.docs_enabled is not None:
+            return "/redoc" if self.docs_enabled else None
+        return "/redoc" if self.is_local_environment else None
 
 
 @lru_cache

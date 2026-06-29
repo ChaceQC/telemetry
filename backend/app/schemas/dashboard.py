@@ -411,7 +411,7 @@ def _require_number(
 
 
 class DashboardSchema(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 class DashboardCreate(DashboardSchema):

@@ -9,5 +9,5 @@ class HealthCheckResponse(BaseModel):
     status: Literal["ok"]
     service: str
     version: str
-    environment: str
-    port: int
+    environment: str | None = None
+    port: int | None = None

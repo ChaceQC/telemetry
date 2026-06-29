@@ -380,6 +380,59 @@ def test_create_and_list_management_resources() -> None:
     ).json() == [service]
 
 
+def test_management_create_requests_reject_extra_body_fields() -> None:
+    client = build_client()
+    _, auth_headers = create_auth_headers(client)
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=auth_headers,
+        json={"name": "核心平台", "key": "core-platform", "unexpected": True},
+    )
+    assert project_response.status_code == 422
+
+    valid_project_response = client.post(
+        "/api/v1/projects",
+        headers=auth_headers,
+        json={"name": "核心平台", "key": "core-platform"},
+    )
+    assert valid_project_response.status_code == 201
+    project_id = valid_project_response.json()["id"]
+
+    environment_response = client.post(
+        "/api/v1/environments",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "name": "生产环境",
+            "key": "prod",
+            "unexpected": True,
+        },
+    )
+    assert environment_response.status_code == 422
+
+    valid_environment_response = client.post(
+        "/api/v1/environments",
+        headers=auth_headers,
+        json={"project_id": project_id, "name": "生产环境", "key": "prod"},
+    )
+    assert valid_environment_response.status_code == 201
+    environment_id = valid_environment_response.json()["id"]
+
+    service_response = client.post(
+        "/api/v1/services",
+        headers=auth_headers,
+        json={
+            "project_id": project_id,
+            "environment_id": environment_id,
+            "name": "API 服务",
+            "key": "api-service",
+            "unexpected": True,
+        },
+    )
+    assert service_response.status_code == 422
+
+
 def test_project_creator_gets_admin_permission() -> None:
     client = build_client()
     user, auth_headers = create_auth_headers(client)

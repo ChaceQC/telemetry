@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class AuthSchema(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 class LoginRequest(AuthSchema):
@@ -14,10 +15,8 @@ class LoginRequest(AuthSchema):
     password: SecretStr = Field(min_length=1, max_length=256)
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
+class LogoutResponse(BaseModel):
+    status: str = "ok"
 
 
 class CurrentUserResponse(BaseModel):
@@ -30,3 +29,10 @@ class CurrentUserResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     created_at: datetime
+
+
+class LoginResponse(BaseModel):
+    auth_scheme: Literal["cookie"] = "cookie"
+    expires_in: int
+    csrf_header_name: str
+    user: CurrentUserResponse

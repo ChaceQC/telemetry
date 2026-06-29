@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from secrets import compare_digest
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -25,6 +26,7 @@ from app.services.query import QueryService
 from app.services.rate_limit import RateLimiter, RateLimiterUnavailableError, RateLimitExceededError
 
 bearer_scheme = HTTPBearer(auto_error=False)
+SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 
 def ingest_kind_from_path(path: str) -> IngestKind | None:
@@ -123,11 +125,29 @@ def get_ingest_rate_limiter(request: Request) -> RateLimiter:
     return request.app.state.ingest_rate_limiter
 
 
+def get_auth_login_rate_limiter(request: Request) -> RateLimiter:
+    return request.app.state.auth_login_rate_limiter
+
+
+def get_ingest_api_key_precheck_rate_limiter(request: Request) -> RateLimiter:
+    return request.app.state.ingest_api_key_precheck_rate_limiter
+
+
+def _client_rate_limit_host(request: Request) -> str:
+    if request.client is None:
+        return "unknown"
+    return request.client.host
+
+
 def get_ingest_api_key_context(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     api_key_service: Annotated[ApiKeyService, Depends(get_api_key_service)],
     rate_limiter: Annotated[RateLimiter, Depends(get_ingest_rate_limiter)],
+    precheck_rate_limiter: Annotated[
+        RateLimiter,
+        Depends(get_ingest_api_key_precheck_rate_limiter),
+    ],
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
 ) -> ApiKeyVerification:
     raw_key = credentials.credentials if credentials is not None else x_api_key
@@ -138,7 +158,25 @@ def get_ingest_api_key_context(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    context = api_key_service.verify_key(raw_key.strip())
+    normalized_key = raw_key.strip()
+    try:
+        precheck_rate_limiter.check(
+            key=f"rate_limit:ingest_api_key_precheck:{_client_rate_limit_host(request)}",
+            now=getattr(request.state, "rate_limit_now", None),
+        )
+    except RateLimitExceededError as error:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="摄入认证尝试过于频繁",
+            headers={"Retry-After": str(error.retry_after_seconds)},
+        ) from error
+    except RateLimiterUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="摄入预验证限流服务不可用",
+        ) from error
+
+    context = api_key_service.verify_key(normalized_key)
     if context is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -171,18 +209,34 @@ def get_ingest_api_key_context(
 
 
 def get_current_user(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> UserRecord:
-    if credentials is None:
+    settings = request.app.state.settings
+    cookie_token = request.cookies.get(settings.auth_session_cookie_name)
+    if cookie_token is not None and cookie_token.strip():
+        token = cookie_token
+        token_source = "cookie"
+    elif credentials is not None and credentials.credentials.strip():
+        token = credentials.credentials
+        token_source = "bearer"
+    else:
+        token = None
+        token_source = "missing"
+
+    if token is None or token.strip() == "":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="缺少访问令牌",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if token_source == "cookie" and request.method.upper() not in SAFE_HTTP_METHODS:
+        _validate_csrf_token(request)
+
     try:
-        return auth_service.get_user_from_token(credentials.credentials)
+        return auth_service.get_user_from_token(token.strip())
     except AuthConfigurationError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -194,3 +248,18 @@ def get_current_user(
             detail=str(error),
             headers={"WWW-Authenticate": "Bearer"},
         ) from error
+
+
+def _validate_csrf_token(request: Request) -> None:
+    settings = request.app.state.settings
+    cookie_token = request.cookies.get(settings.auth_csrf_cookie_name)
+    header_token = request.headers.get(settings.auth_csrf_header_name)
+    if (
+        cookie_token is None
+        or header_token is None
+        or not compare_digest(cookie_token, header_token)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSRF token 无效",
+        )

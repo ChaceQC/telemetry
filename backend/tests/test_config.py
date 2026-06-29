@@ -109,6 +109,57 @@ def test_ingest_rate_limit_reads_from_environment(monkeypatch) -> None:
     assert settings.redis_url == "redis://127.0.0.1:26380/2"
 
 
+def test_auth_cookie_and_rate_limit_settings_read_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_SESSION_COOKIE_NAME", "session_id")
+    monkeypatch.setenv("AUTH_CSRF_COOKIE_NAME", "csrf_id")
+    monkeypatch.setenv("AUTH_CSRF_HEADER_NAME", "X-Alt-CSRF")
+    monkeypatch.setenv("AUTH_COOKIE_PATH", "api")
+    monkeypatch.setenv("AUTH_COOKIE_SECURE", "true")
+    monkeypatch.setenv("AUTH_COOKIE_SAMESITE", "Strict")
+    monkeypatch.setenv("AUTH_LOGIN_RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("AUTH_LOGIN_RATE_LIMIT_PER_MINUTE", "9")
+    monkeypatch.setenv("AUTH_LOGIN_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("INGEST_API_KEY_PRECHECK_RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("INGEST_API_KEY_PRECHECK_RATE_LIMIT_PER_MINUTE", "123")
+    monkeypatch.setenv("INGEST_API_KEY_PRECHECK_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("HEALTH_INCLUDE_RUNTIME_DETAILS", "true")
+    monkeypatch.setenv("OPENAPI_ENABLED", "true")
+    monkeypatch.setenv("DOCS_ENABLED", "true")
+    monkeypatch.setenv("SECURITY_HEADERS_ENABLED", "true")
+    monkeypatch.setenv("SECURITY_HEADERS_CSP", "default-src 'none'")
+
+    settings = Settings()
+
+    assert settings.auth_session_cookie_name == "session_id"
+    assert settings.auth_csrf_cookie_name == "csrf_id"
+    assert settings.auth_csrf_header_name == "X-Alt-CSRF"
+    assert settings.auth_cookie_path == "/api"
+    assert settings.auth_cookie_secure_value is True
+    assert settings.auth_cookie_samesite == "strict"
+    assert settings.auth_login_rate_limit_per_minute == 9
+    assert settings.auth_login_rate_limit_backend == "redis"
+    assert settings.ingest_api_key_precheck_rate_limit_per_minute == 123
+    assert settings.ingest_api_key_precheck_rate_limit_backend == "redis"
+    assert settings.health_include_runtime_details is True
+    assert settings.openapi_url == "/openapi.json"
+    assert settings.docs_url == "/docs"
+    assert settings.redoc_url == "/redoc"
+    assert settings.security_headers_csp == "default-src 'none'"
+
+
+def test_cookie_secure_defaults_to_false_locally_and_true_in_production(monkeypatch) -> None:
+    monkeypatch.delenv("AUTH_COOKIE_SECURE", raising=False)
+    monkeypatch.setenv("APP_ENV", "local")
+    local_settings = Settings()
+
+    monkeypatch.setenv("APP_ENV", "production")
+    production_settings = Settings()
+
+    assert local_settings.auth_cookie_secure_value is False
+    assert production_settings.auth_cookie_secure_value is True
+
+
 def test_query_trace_topology_scan_limit_reads_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("QUERY_TRACE_TOPOLOGY_SPAN_SCAN_LIMIT", "250")
 
@@ -127,7 +178,16 @@ def test_query_trace_topology_scan_limit_rejects_non_positive(monkeypatch) -> No
 def test_ingest_rate_limit_rejects_unknown_backend(monkeypatch) -> None:
     monkeypatch.setenv("INGEST_RATE_LIMIT_BACKEND", "unknown")
 
-    with pytest.raises(ValidationError, match="ingest_rate_limit_backend"):
+    with pytest.raises(ValidationError, match="INGEST_RATE_LIMIT_BACKEND"):
+        Settings()
+
+
+def test_auth_cookie_samesite_none_requires_secure(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("AUTH_COOKIE_SAMESITE", "none")
+    monkeypatch.setenv("AUTH_COOKIE_SECURE", "false")
+
+    with pytest.raises(ValidationError, match="auth_cookie_samesite"):
         Settings()
 
 
