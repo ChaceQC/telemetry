@@ -1325,20 +1325,23 @@
 - 已在 `AGENT_COMMUNICATION.md` 登记 `T-0086 全面安全审计修复`，当前状态为 doing，审计状态为 blocked；正式记录了 P1/P2/P3 问题、阻塞项、开工体检结果和后续分支集成预期。
 - 开工前已执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Test-AgentWorktreeState.ps1`，根 `dev`、后端 `feature/backend-dev`、前端 `feature/frontend-dev` 均干净并匹配远端；未发现敏感文件、运行日志、依赖目录或构建产物被跟踪。
 - 后端修复边界已明确：摄入统计写入改为原子 upsert 或等价并发安全实现；登录接口增加爆破/撞库限流；无效 API Key 探测增加验证前粗限流；外部写入 schema 改为拒绝未知字段；健康信息、OpenAPI/docs 和安全响应头做生产硬化。
-- 前端/CI 修复边界已明确：CI Node 版本对齐前端 `24.13.0` 声明；结合现有 `sessionStorage` token 方案补 CSP/安全头相关配置或文档硬化。
+- 前端/CI 第一阶段已由 Avicenna 在 `feature/frontend-dev` 提交并推送 `55e5caa`：CI Node 改为读取 `frontend/.node-version` 并对齐 Node `24.13.0`，根 README 与前端 README 补充生产 CSP/安全头和 `sessionStorage` token 风险说明；本地 `npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd test`、`git diff --check` 通过，feature CI run `28380120822` 通过。
+- 用户已确认现在即可迁移 `sessionStorage access token` 临时方案；T-0086 范围已扩大为生产级会话链路：后端设置 HttpOnly/Secure/SameSite 会话 cookie、支持 cookie 认证、增加 logout，并为 cookie 认证下的 unsafe methods 增加 CSRF 防护；前端停止持久化 access token，统一 `credentials: include`，读取非 HttpOnly CSRF cookie 并发送 `X-CSRF-Token`，适配登录、登出和会话恢复。
+- 旧前端文档硬化方案复审已停止；后续等待 Cookie 会话迁移实现完成后重新进行前端和后端代码审计。
 
 ### 阻塞与风险
 
 - 当前审计未通过，主要阻断项为：`ingest_stats` 并发写入非原子可能导致 500、回滚已接受摄入和统计丢失；登录接口缺少失败限流；无效 API Key 探测发生在 API Key 校验前且不受现有限流保护；CI Node 22 与前端声明 Node 24.13.0 不一致。
-- schema 严格性、公开健康元数据、默认 OpenAPI/docs、安全头/CSP 与 `sessionStorage` token 组合风险属于本轮一并收口的低风险硬化项。
+- schema 严格性、公开健康元数据、默认 OpenAPI/docs、安全头/CSP 与浏览器 Cookie 会话安全边界属于本轮一并收口的硬化项；其中 `sessionStorage` access token 不再作为可上线方案保留。
 - 本轮不启动本机 Docker；如后端并发修复需要真实 MySQL 补验，应使用本地 MySQL 服务、临时库或测试 agent 自有本地实例，并记录清理结果且不泄露凭据。
 
 ### 下一步
 
-- 在后端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 修复后端安全项，更新后端测试、README、进度和 API 契约；验证后提交并推送。
-- 在前端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 修复前端/CI 项，更新前端或根文档；验证后提交并推送。
+- 在后端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 修复后端安全项和 Cookie/CSRF 会话接口，更新后端测试、README、进度和 API 契约；验证后提交并推送。
+- 在前端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 迁移浏览器会话存储与请求封装，更新前端测试、文档和进度；验证后提交并推送。
 - 修复完成后启动代码审计 agent 复审；P1/P2 全部关闭后由总 agent 使用真实 merge 合入 `dev`，执行本地门禁、推送并读取 GitHub Actions。
 
 ### 验证
 
 - 开工前 worktree/Git 体检通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Test-AgentWorktreeState.ps1`。
+- 本次根进度提交前已通过 BOM guard 与 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md`；`scripts\Test-AgentWorktreeState.ps1 -AllowPendingChanges` 对根目录检查通过，但因 Raman 正在后端 worktree 实现 Cookie/CSRF 会话迁移，检测到后端活跃未提交改动并返回失败，该失败属于当前分派任务的预期进行中状态，待后端提交后复查。
