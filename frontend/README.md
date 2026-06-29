@@ -51,6 +51,23 @@ VITE_PREVIEW_PORT=25174
 生产 Nginx 需要与上述策略保持一致：`/api` 或 `/xxx/api` 作为公网代理入口时，转发到后端的实际路径仍应与后端契约一致，例如业务接口保持 `/api/v1/...`，健康检查保持 `/health`。
 `VITE_DEV_HOST` 和 `VITE_PREVIEW_HOST` 默认使用 `127.0.0.1`，如需局域网调试可在本地环境变量中显式调整。
 
+## 生产安全头与 CSP
+
+生产环境的 CSP 和安全响应头应由 Debian 宿主机 Nginx 下发，不放入 `index.html` 的 meta CSP。原因是 Vite dev server、Vitest/jsdom 和当前 React 页面中的少量 inline style 需要更宽松的开发边界；把强 CSP 写死在 HTML 内容易破坏本地开发、预览和测试。生产 Nginx 可从以下保守基线开始：
+
+```nginx
+add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; upgrade-insecure-requests" always;
+add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "same-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
+add_header Cross-Origin-Resource-Policy "same-origin" always;
+add_header X-Frame-Options "DENY" always;
+```
+
+如果生产 API 与前端同源挂载在 `/api` 或 `/xxx/api`，`connect-src 'self'` 即可覆盖前端请求；如果 `VITE_API_BASE_URL` 指向独立 HTTPS 域名，需要把该 API origin 显式加入 `connect-src`。`Strict-Transport-Security` 只应在真实 HTTPS 域名证书和回滚策略确认后启用，不用于本地 HTTP 开发入口。后续若引入外部图片、字体、脚本、WebSocket 或 worker，应先更新 CSP 白名单并做浏览器验证。
+
 ## 登录与认证状态
 
 `/login` 页面提供账号密码登录入口，当前按保守契约调用：
@@ -60,7 +77,7 @@ VITE_PREVIEW_PORT=25174
 
 登录成功后，API client 会为后续请求注入 `Authorization` 头；控制台侧栏显示当前账号和退出入口。会话恢复或刷新当前用户时，前端仅在 `/me` 返回 `401` 时清理本地 session；`403`、`503`、网络错误或超时会保留 token，并在认证状态区展示可恢复错误。普通表单/API 的 `401` 使用登录过期类文案，登录页单独展示账号或密码错误。
 
-临时安全边界：当前会话使用 `sessionStorage` 保存 access token、token type 和非敏感用户展示信息，仅用于本地会话恢复。`sessionStorage` 仍可被同源 XSS 读取，不是生产最终方案；后续优先评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 方案。前端不要把密码、token、cookie、API key 或真实 `.env` 写入日志、URL 或文档示例。
+临时安全边界：当前会话使用 `sessionStorage` 保存 access token、token type 和非敏感用户展示信息，仅用于本地会话恢复。`sessionStorage` 仍可被同源 XSS 读取；CSP 和安全响应头只能降低注入和外联风险，不能把 `sessionStorage` 变成安全的生产 token 容器。生产最终方案应优先评估 HttpOnly、Secure、SameSite Cookie、后端托管 refresh token、短 access token 过期时间和服务端会话撤销能力。前端不要把密码、token、cookie、API key 或真实 `.env` 写入日志、URL 或文档示例。
 
 ## Settings 基础管理页面
 

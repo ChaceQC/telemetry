@@ -149,8 +149,23 @@ http://127.0.0.1:28117
 1. 后端：`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv run pytest`。
 2. 前端：`npm ci`、`npm run lint`、`npm run typecheck`、`npm test`。
 
-工作流会先检测对应项目文件是否存在。当前 `dev` 分支的前后端骨架尚未完全合入时，对应 job 会跳过执行并输出原因。
+工作流会先检测对应项目文件是否存在。前端 job 使用 `actions/setup-node` 的 `node-version-file: frontend/.node-version`，与 `frontend/package.json` 的 `engines.node=24.13.0` 对齐；本地 Windows PowerShell 和 Debian/GitHub Actions 都应使用同一 Node 版本。
 
 ## 安全边界
 
 `.env.example` 只包含本地开发占位凭据，不包含真实密钥。真实 `.env`、证书私钥、数据库 dump、上传文件、依赖目录和构建产物不得提交。本地数据库只能绑定本机访问，不作为公网入口。
+
+生产环境的安全响应头由 Debian 宿主机 Nginx 下发，不写入前端 `index.html` 的 meta CSP，以免破坏 Vite 本地开发、预览和测试。当前前端基线建议包含：
+
+```nginx
+add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; upgrade-insecure-requests" always;
+add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "same-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
+add_header Cross-Origin-Resource-Policy "same-origin" always;
+add_header X-Frame-Options "DENY" always;
+```
+
+如果 API 独立域名部署，需把该 HTTPS origin 加入 CSP 的 `connect-src`；如果同源部署在 `/api` 或 `/xxx/api`，`connect-src 'self'` 即可。前端当前仍以 `sessionStorage` 保存 access token 作为本地会话恢复的临时方案；该 token 可被同源 XSS 读取，生产上线前应优先收敛到 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 等方案，并配合短 access token 过期和服务端撤销。

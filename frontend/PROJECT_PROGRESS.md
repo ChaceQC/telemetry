@@ -2,6 +2,27 @@
 
 本文件由前端开发 agent 维护。总 agent 会定时探测本文件，并将新增进展合并摘要到根目录 `PROJECT_PROGRESS.md`。
 
+## 2026-06-29 T-0086 前端/CI 安全审计修复
+
+### 已完成
+
+- 修复 GitHub Actions 前端 job 的 Node 版本来源：`.github/workflows/ci.yml` 不再硬编码 Node 22，改为通过 `actions/setup-node` 读取 `frontend/.node-version`，与 `frontend/package.json` 的 `engines.node=24.13.0` 对齐。
+- 在 `frontend/README.md` 增加生产 CSP 与安全响应头基线，明确生产由 Debian 宿主机 Nginx 下发，不在 `index.html` 写死 meta CSP，避免破坏 Vite dev server、Vitest/jsdom、preview 和当前 React inline style。
+- 在根 `README.md` 同步前端 CI Node 版本来源、生产 Nginx 安全头基线和 `connect-src` 同源/独立 API 域名边界。
+- 强化 token 存储风险说明：当前 `sessionStorage` access token 仅为临时会话恢复方案，CSP/安全头只能降低注入与外联风险，不能防止同源 XSS 读取 token；生产方案应优先评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token。
+
+### 验证
+
+- 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
+- 已在 `frontend/` 包目录执行：`npm.cmd test` 通过（35 个测试文件、256 个测试）。
+- 已在 worktree 根目录执行：`git diff --check` 通过。
+
+### 风险
+
+- 本轮未新增 `index.html` meta CSP，生产安全边界依赖部署时正确配置宿主机 Nginx 响应头。
+- 本轮只做 CI 和文档/配置边界修复，不迁移 token 存储机制；`sessionStorage` access token 的同源 XSS 暴露风险仍需后续认证架构任务关闭。
+
 ## 2026-06-26 T-0082 告警规则 CRUD 前端基础
 
 ### 已完成
