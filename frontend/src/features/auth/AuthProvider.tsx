@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
-import { getCurrentUser, login } from '../../api/auth';
+import { getCurrentUser, login, logoutSession } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
 import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
 import { clearAlertRuleQueryCache } from '../alerts/queryKeys';
@@ -16,31 +16,39 @@ import { clearStoredAuthSession, restoreStoredAuthSession, writeStoredAuthSessio
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
-  const [session, setSession] = useState<AuthSession | null>(() => restoreStoredAuthSession());
+  const [session, setSession] = useState<AuthSession | null>(() => restoreStoredAuthSession() ?? createPendingCookieSession());
   const [sessionRevision, setSessionRevision] = useState(0);
   const [sessionErrorMessage, setSessionErrorMessage] = useState<string | null>(null);
-  const isRestoring = Boolean(session && !session.user && !sessionErrorMessage);
-  const isAuthenticated = Boolean(session?.accessToken);
+  const isRestoring = Boolean(session && !session.isCookieSessionConfirmed && !sessionErrorMessage);
+  const isAuthenticated = Boolean(session?.isCookieSessionConfirmed);
   const canRequestAuthenticatedApi = resolveCanRequestAuthenticatedApi({ isAuthenticated, isRestoring });
 
   useEffect(() => {
     if (session) {
-      setApiAuthToken(session.accessToken, session.tokenType);
-      writeStoredAuthSession(session);
+      if (session.isCookieSessionConfirmed) {
+        writeStoredAuthSession(session);
+      }
       return;
     }
 
-    clearApiAuthToken();
     clearStoredAuthSession();
   }, [session]);
 
-  const logout = useCallback(() => {
+  const clearLocalSession = useCallback(() => {
     clearAuthenticatedQueryCaches(queryClient);
     clearApiAuthToken();
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
     setSession(null);
   }, [queryClient]);
+
+  const logout = useCallback(async () => {
+    try {
+      await logoutSession();
+    } finally {
+      clearLocalSession();
+    }
+  }, [clearLocalSession]);
 
   const refreshCurrentUser = useCallback(async () => {
     if (!session) {
@@ -54,20 +62,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setSessionRevision((current) => current + 1);
       }
       setSessionErrorMessage(null);
-      setSession((currentSession) => (currentSession ? { ...currentSession, user: currentUser } : currentSession));
+      setSession((currentSession) =>
+        currentSession ? { ...currentSession, user: currentUser, isCookieSessionConfirmed: true } : currentSession
+      );
       return currentUser;
     } catch (error) {
       if (shouldClearSessionForAuthError(error)) {
-        logout();
+        clearLocalSession();
       } else {
         setSessionErrorMessage(formatSessionErrorMessage(error));
       }
       throw error;
     }
-  }, [logout, queryClient, session]);
+  }, [clearLocalSession, queryClient, session]);
 
   useEffect(() => {
-    if (!session || session.user) {
+    if (!session || session.isCookieSessionConfirmed || sessionErrorMessage) {
       return;
     }
 
@@ -79,7 +89,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           clearAuthenticatedQueryCaches(queryClient);
           setSessionRevision((current) => current + 1);
           setSessionErrorMessage(null);
-          setSession((currentSession) => (currentSession ? { ...currentSession, user: currentUser } : currentSession));
+          setSession((currentSession) =>
+            currentSession ? { ...currentSession, user: currentUser, isCookieSessionConfirmed: true } : currentSession
+          );
         }
       })
       .catch((error: unknown) => {
@@ -88,7 +100,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (shouldClearSessionForAuthError(error)) {
-          logout();
+          clearLocalSession();
           return;
         }
 
@@ -98,27 +110,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       ignore = true;
     };
-  }, [logout, queryClient, session]);
+  }, [clearLocalSession, queryClient, session, sessionErrorMessage]);
 
   const loginWithPassword = useCallback(async (payload: LoginRequest) => {
     const response = await login(payload);
+    if (response.access_token) {
+      setApiAuthToken(response.access_token, response.token_type || 'Bearer');
+    }
+
+    const currentUser = response.user ?? (await getCurrentUser());
     const nextSession: AuthSession = {
-      accessToken: response.access_token,
-      tokenType: response.token_type || 'Bearer',
-      user: response.user ?? null
+      user: currentUser,
+      isCookieSessionConfirmed: true
     };
 
     clearAuthenticatedQueryCaches(queryClient);
-    setApiAuthToken(nextSession.accessToken, nextSession.tokenType);
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
     setSession(nextSession);
-    return nextSession.user ?? null;
+    return currentUser;
   }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: session?.user ?? null,
+      user: isAuthenticated ? (session?.user ?? null) : null,
       isAuthenticated,
       isRestoring,
       canRequestAuthenticatedApi,
@@ -150,4 +165,11 @@ function clearAuthenticatedQueryCaches(queryClient: Parameters<typeof clearTelem
   clearIngestStatsQueryCache(queryClient);
   clearDashboardQueryCache(queryClient);
   clearAlertRuleQueryCache(queryClient);
+}
+
+function createPendingCookieSession(): AuthSession {
+  return {
+    user: null,
+    isCookieSessionConfirmed: false
+  };
 }

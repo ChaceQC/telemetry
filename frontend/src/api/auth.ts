@@ -14,7 +14,7 @@ export type LoginRequest = {
 };
 
 export type LoginResponse = {
-  access_token: string;
+  access_token?: string;
   token_type?: string;
   expires_in?: number;
   user?: AuthUser;
@@ -35,4 +35,16 @@ export function login(payload: LoginRequest) {
 
 export function getCurrentUser() {
   return apiRequest<AuthUser>('/api/v1/auth/me');
+}
+
+export function logoutSession() {
+  return apiRequest<null>(
+    '/api/v1/auth/logout',
+    {
+      method: 'POST'
+    },
+    {
+      auth: false
+    }
+  );
 }

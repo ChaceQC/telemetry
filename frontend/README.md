@@ -72,12 +72,15 @@ add_header X-Frame-Options "DENY" always;
 
 `/login` 页面提供账号密码登录入口，当前按保守契约调用：
 
-- `POST /api/v1/auth/login`：提交 `username` 和 `password`，预期返回 `access_token`、可选 `token_type`、`expires_in` 和 `user`。
-- `GET /api/v1/auth/me`：携带 `Authorization: Bearer <token>` 读取当前用户。
+- `POST /api/v1/auth/login`：提交 `username` 和 `password`，预期由后端设置 HttpOnly session cookie；响应可返回 `user`，也兼容短期过渡期返回的 `access_token` 和 `token_type`。
+- `GET /api/v1/auth/me`：使用 cookie 会话读取当前用户。
+- `POST /api/v1/auth/logout`：清理后端 HttpOnly session cookie，前端随后清理本地认证状态和查询缓存。
 
-登录成功后，API client 会为后续请求注入 `Authorization` 头；控制台侧栏显示当前账号和退出入口。会话恢复或刷新当前用户时，前端仅在 `/me` 返回 `401` 时清理本地 session；`403`、`503`、网络错误或超时会保留 token，并在认证状态区展示可恢复错误。普通表单/API 的 `401` 使用登录过期类文案，登录页单独展示账号或密码错误。
+API client 默认对所有请求使用 `credentials: "include"`，认证主路径依赖后端 HttpOnly cookie。为兼容过渡期后端响应，前端仍保留内存级 `Authorization` 注入能力，但不会把 access token 或 token type 写入 `sessionStorage`。会话恢复时，前端先进入“正在确认登录状态”，调用 `/api/v1/auth/me` 验证 cookie；`401` 会清理前端状态，`403`、`503`、网络错误或超时会展示可恢复错误。普通表单/API 的 `401` 使用登录过期类文案，登录页单独展示账号或密码错误。
 
-临时安全边界：当前会话使用 `sessionStorage` 保存 access token、token type 和非敏感用户展示信息，仅用于本地会话恢复。`sessionStorage` 仍可被同源 XSS 读取；CSP 和安全响应头只能降低注入和外联风险，不能把 `sessionStorage` 变成安全的生产 token 容器。生产最终方案应优先评估 HttpOnly、Secure、SameSite Cookie、后端托管 refresh token、短 access token 过期时间和服务端会话撤销能力。前端不要把密码、token、cookie、API key 或真实 `.env` 写入日志、URL 或文档示例。
+CSRF 防护假设：后端设置非 HttpOnly CSRF cookie `telemetry.csrf`，前端会从该 cookie 读取值，并在 `POST`、`PUT`、`PATCH`、`DELETE` 请求中自动发送 `X-CSRF-Token`。如果后端最终采用不同 cookie 名或 header 名，需要同步更新 `frontend/src/api/http.ts` 中的 `CSRF_COOKIE_NAME` 和 `CSRF_HEADER_NAME` 常量及测试。
+
+本地安全边界：`sessionStorage` 只允许保存非敏感用户展示信息，用于刷新后的短暂 UI 恢复；不得保存 access token、token type、cookie、密码或 API key。CSP 和安全响应头可以降低注入与外联风险，但不能替代 HttpOnly cookie、CSRF 校验、短会话过期和服务端撤销能力。前端不要把密码、token、cookie、API key 或真实 `.env` 写入日志、URL 或文档示例。
 
 ## Settings 基础管理页面
 
@@ -89,13 +92,13 @@ add_header X-Frame-Options "DENY" always;
 
 列表响应兼容后端当前直接数组返回，也兼容 `{ items }`、`{ data }`、`{ results }` 包装。
 
-Settings 管理接口使用当前 session token 访问。登录成功或从会话恢复到 token 后，请求会携带 `Authorization: Bearer <token>`；没有 token 或 session 仍在确认时，页面会显示登录提示并暂停列表刷新和创建提交。本轮没有增加全站路由守卫，其他控制台页面仍可按原路径访问。
+Settings 管理接口使用当前 cookie 会话访问。登录成功或从 `/auth/me` 确认 cookie 后，请求会携带浏览器 cookie；非安全方法会自动附加 CSRF header。没有已确认会话或 session 仍在确认时，页面会显示登录提示并暂停列表刷新和创建提交。本轮没有增加全站路由守卫，其他控制台页面仍可按原路径访问。
 
 错误展示不要求后端服务已启动即可验证：API client 兼容 FastAPI `detail` 为字符串、校验错误数组或对象；`/settings` 列表读取错误按页面级展示，创建表单对 `404`、`409`、`422` 使用表单级提示并保留后端返回的具体原因。Settings 列表或创建请求返回 `401` 时统一展示页面级登录过期提示和登录入口，不复用登录表单的账号密码错误文案。
 
 ## Dashboard CRUD 页面
 
-`/dashboards` 页面提供阶段 5 的 dashboard 元数据管理基础，使用当前 session token 访问 Dashboard CRUD 后端接口：
+`/dashboards` 页面提供阶段 5 的 dashboard 元数据管理基础，使用当前 cookie 会话访问 Dashboard CRUD 后端接口：
 
 - 列表：调用 `GET /api/v1/dashboards`，支持可选 `project_id`、固定首屏 `limit=50` 和 `offset=0`；页面同时复用 `GET /api/v1/projects` 展示项目下拉，也允许手动输入项目 ID。
 - 创建：调用 `POST /api/v1/dashboards`，提交 `project_id`、`name`、可空 `description`、`layout` 和 `config`。
@@ -109,7 +112,7 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 
 ## 告警规则 CRUD 页面
 
-`/alerts` 页面提供阶段 6 的告警规则管理基础，使用当前 session token 访问 API-0025：
+`/alerts` 页面提供阶段 6 的告警规则管理基础，使用当前 cookie 会话访问 API-0025：
 
 - 列表：调用 `GET /api/v1/alerts/rules`，支持可选 `project_id`、`severity`、`signal`、`enabled`、固定 `limit=50` 和 `offset` 分页；页面复用 `GET /api/v1/projects` 展示项目下拉，也允许手动输入项目 ID。
 - 创建：调用 `POST /api/v1/alerts/rules`，提交 `project_id`、`name`、可空 `description`、`enabled`、`severity`、`signal`、`condition` 和 `evaluation`。
@@ -127,7 +130,7 @@ Settings 管理接口使用当前 session token 访问。登录成功或从会�
 
 ## 查询页基础
 
-`/metrics`、`/logs`、`/traces` 和 `/events` 页面已替换为查询工作台，使用当前 session token 访问查询接口：
+`/metrics`、`/logs`、`/traces` 和 `/events` 页面已替换为查询工作台，使用当前 cookie 会话访问查询接口：
 
 - `/metrics`：调用 `GET /api/v1/query/metrics`，支持项目 ID、指标名、来源、时间范围、数量和 `cursor` 筛选，并在当前页结果属于同一 `name`/`unit` 序列时展示 value 随 received_at 变化的轻量趋势图。
 - `/logs`：调用 `GET /api/v1/query/logs`，支持项目 ID、日志级别、关键词、Trace ID、Span ID、Request ID、User ID、来源、时间范围、数量和 `cursor` 筛选；访问 `/logs?trace_id=...&span_id=...` 时会用 URL 初始化 Trace ID / Span ID 筛选并查询或显示已应用筛选；每条日志可展开“查看上下文”，调用 `GET /api/v1/query/logs/{log_id}/context?before=5&after=5` 展示目标日志前后记录，`before`/`after` 可在 0 到 20 内调整。

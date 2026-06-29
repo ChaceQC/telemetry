@@ -16,6 +16,9 @@ export type ApiErrorDisplayContext = 'page' | 'form' | 'login';
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 const MAX_DETAIL_MESSAGES = 3;
+export const CSRF_COOKIE_NAME = 'telemetry.csrf';
+export const CSRF_HEADER_NAME = 'X-CSRF-Token';
+const CSRF_METHODS = new Set(['DELETE', 'PATCH', 'POST', 'PUT']);
 
 type ApiAuthToken = {
   accessToken: string;
@@ -74,6 +77,7 @@ export async function apiRequest<TResponse>(
     const response = await fetch(buildUrl(path), {
       ...init,
       headers: buildHeaders(init, options.auth !== false),
+      credentials: init.credentials ?? 'include',
       signal: controller.signal
     });
 
@@ -159,6 +163,7 @@ function buildUrl(path: string) {
 }
 
 function buildHeaders(init: RequestInit, includeAuth: boolean): Record<string, string> {
+  const requestMethod = normalizeMethod(init.method);
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(init.body ? { 'Content-Type': 'application/json' } : {}),
@@ -168,6 +173,12 @@ function buildHeaders(init: RequestInit, includeAuth: boolean): Record<string, s
 
   if (authHeader) {
     headers.Authorization = authHeader;
+  }
+
+  const csrfToken = shouldAttachCsrfHeader(requestMethod) ? readCookie(CSRF_COOKIE_NAME) : undefined;
+
+  if (csrfToken) {
+    headers[CSRF_HEADER_NAME] = csrfToken;
   }
 
   return {
@@ -202,6 +213,33 @@ function normalizeHeaders(headers: HeadersInit | undefined): Record<string, stri
   }
 
   return headers;
+}
+
+function normalizeMethod(method: string | undefined) {
+  return (method || 'GET').trim().toUpperCase();
+}
+
+function shouldAttachCsrfHeader(method: string) {
+  return CSRF_METHODS.has(method);
+}
+
+function readCookie(name: string) {
+  if (typeof document === 'undefined') {
+    return undefined;
+  }
+
+  const cookies = document.cookie ? document.cookie.split(';') : [];
+
+  for (const cookie of cookies) {
+    const [rawName, ...rawValue] = cookie.split('=');
+
+    if (rawName?.trim() === name) {
+      const value = rawValue.join('=').trim();
+      return value ? decodeURIComponent(value) : undefined;
+    }
+  }
+
+  return undefined;
 }
 
 async function readBody(response: Response) {

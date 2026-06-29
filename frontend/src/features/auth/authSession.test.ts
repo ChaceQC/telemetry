@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AuthSession } from './authContext';
 import { AUTH_SESSION_STORAGE_KEY } from './authSession';
 
 type SessionStorageLike = Pick<Storage, 'getItem' | 'removeItem' | 'setItem'>;
@@ -34,7 +33,7 @@ function createMemorySessionStorage(): SessionStorageLike {
   };
 }
 
-function installSessionStorage(initialSession?: Partial<AuthSession>) {
+function installSessionStorage(initialSession?: Record<string, unknown>) {
   const storage = createMemorySessionStorage();
 
   if (initialSession) {
@@ -55,7 +54,7 @@ describe('auth session hydration', () => {
     vi.restoreAllMocks();
   });
 
-  it('恢复本地 session 时同步注入 API token，logs 初始查询首包携带 Authorization', async () => {
+  it('恢复本地 session 只读取非敏感用户信息，不恢复持久化 token', async () => {
     installSessionStorage({
       accessToken: 'stored-token',
       tokenType: 'Bearer',
@@ -73,18 +72,46 @@ describe('auth session hydration', () => {
     const session = restoreStoredAuthSession();
     await listLogs({ trace_id: 'trace-url', span_id: 'span-url', limit: 100 });
 
-    expect(session).toMatchObject({ accessToken: 'stored-token' });
+    expect(session).toMatchObject({
+      isCookieSessionConfirmed: false,
+      user: expect.objectContaining({ username: 'operator' })
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/logs?trace_id=trace-url&span_id=span-url&limit=100',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer stored-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
   });
 
-  it('恢复本地 session 后 traces URL 初始查询首包携带 Authorization', async () => {
+  it('写入本地 session 时不会保存 access token 或 token type', async () => {
+    const storage = installSessionStorage();
+    const { writeStoredAuthSession } = await loadSessionAndQueryModules();
+
+    writeStoredAuthSession({
+      isCookieSessionConfirmed: true,
+      user: {
+        id: 1,
+        username: 'operator',
+        display_name: 'Operator',
+        email: null,
+        roles: []
+      }
+    });
+
+    const storedValue = JSON.parse(storage.getItem(AUTH_SESSION_STORAGE_KEY) || '{}') as Record<string, unknown>;
+
+    expect(storedValue).toMatchObject({
+      user: expect.objectContaining({ username: 'operator' })
+    });
+    expect(storedValue).not.toHaveProperty('accessToken');
+    expect(storedValue).not.toHaveProperty('tokenType');
+  });
+
+  it('恢复本地 session 后 traces URL 初始查询不携带旧 Authorization', async () => {
     installSessionStorage({
       accessToken: 'trace-token',
       tokenType: 'Token'
@@ -98,8 +125,9 @@ describe('auth session hydration', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/traces?trace_id=trace-url&limit=100',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Token trace-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );

@@ -1,5 +1,5 @@
 import type { AuthUser } from '../../api/auth';
-import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
+import { clearApiAuthToken } from '../../api/http';
 import type { AuthSession } from './authContext';
 
 export const AUTH_SESSION_STORAGE_KEY = 'telemetry.auth.session.v1';
@@ -9,10 +9,8 @@ export function restoreStoredAuthSession(): AuthSession | null {
 
   if (!session) {
     clearApiAuthToken();
-    return null;
   }
 
-  setApiAuthToken(session.accessToken, session.tokenType);
   return session;
 }
 
@@ -26,14 +24,15 @@ export function readStoredAuthSession(): AuthSession | null {
   try {
     const value = JSON.parse(storage.getItem(AUTH_SESSION_STORAGE_KEY) || 'null') as Partial<AuthSession> | null;
 
-    if (!value?.accessToken || typeof value.accessToken !== 'string') {
+    if (!value || typeof value !== 'object') {
       return null;
     }
 
+    const user = isAuthUser(value.user) ? value.user : null;
+
     return {
-      accessToken: value.accessToken,
-      tokenType: typeof value.tokenType === 'string' && value.tokenType.trim() ? value.tokenType : 'Bearer',
-      user: isAuthUser(value.user) ? value.user : null
+      user,
+      isCookieSessionConfirmed: false
     };
   } catch {
     clearStoredAuthSession();
@@ -51,8 +50,6 @@ export function writeStoredAuthSession(session: AuthSession) {
   storage.setItem(
     AUTH_SESSION_STORAGE_KEY,
     JSON.stringify({
-      accessToken: session.accessToken,
-      tokenType: session.tokenType,
       user: session.user ?? null
     })
   );
@@ -60,6 +57,7 @@ export function writeStoredAuthSession(session: AuthSession) {
 
 export function clearStoredAuthSession() {
   readSessionStorage()?.removeItem(AUTH_SESSION_STORAGE_KEY);
+  clearApiAuthToken();
 }
 
 function readSessionStorage() {

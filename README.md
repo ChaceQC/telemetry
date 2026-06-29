@@ -168,4 +168,4 @@ add_header Cross-Origin-Resource-Policy "same-origin" always;
 add_header X-Frame-Options "DENY" always;
 ```
 
-如果 API 独立域名部署，需把该 HTTPS origin 加入 CSP 的 `connect-src`；如果同源部署在 `/api` 或 `/xxx/api`，`connect-src 'self'` 即可。前端当前仍以 `sessionStorage` 保存 access token 作为本地会话恢复的临时方案；该 token 可被同源 XSS 读取，生产上线前应优先收敛到 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token 等方案，并配合短 access token 过期和服务端撤销。
+如果 API 独立域名部署，需把该 HTTPS origin 加入 CSP 的 `connect-src`，并同步确认 Cookie `SameSite=None; Secure`、CORS credentials 和可信 origin；如果同源部署在 `/api` 或 `/xxx/api`，`connect-src 'self'` 即可。前端认证主路径已迁移为 HttpOnly session cookie，不再把 access token 或 token type 持久化到 `sessionStorage`；`sessionStorage` 只允许保存非敏感用户展示信息。前端会读取非 HttpOnly CSRF cookie `telemetry.csrf`，并在 `POST`、`PUT`、`PATCH`、`DELETE` 请求中发送 `X-CSRF-Token`，最终 cookie/header 名称需与后端实现保持一致。

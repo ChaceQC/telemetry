@@ -25,14 +25,19 @@ describe('auth api client', () => {
     const { login } = await loadAuthClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({
-        access_token: 'token-value',
-        token_type: 'Bearer'
+        user: {
+          id: 1,
+          username: 'admin',
+          roles: ['owner']
+        }
       })
     );
 
     await expect(login({ username: 'admin', password: 'secret' })).resolves.toMatchObject({
-      access_token: 'token-value',
-      token_type: 'Bearer'
+      user: {
+        username: 'admin',
+        roles: ['owner']
+      }
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -43,7 +48,8 @@ describe('auth api client', () => {
         headers: expect.objectContaining({
           Accept: 'application/json',
           'Content-Type': 'application/json'
-        })
+        }),
+        credentials: 'include'
       })
     );
   });
@@ -68,7 +74,23 @@ describe('auth api client', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Accept: 'application/json'
-        })
+        }),
+        credentials: 'include'
+      })
+    );
+  });
+
+  it('调用登出接口清理后端 cookie 会话', async () => {
+    const { logoutSession } = await loadAuthClient();
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(logoutSession()).resolves.toBeNull();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/auth/logout',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include'
       })
     );
   });

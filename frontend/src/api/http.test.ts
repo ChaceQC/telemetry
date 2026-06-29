@@ -28,6 +28,7 @@ function jsonResponse(body: unknown, status = 200) {
 describe('apiRequest', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -43,7 +44,8 @@ describe('apiRequest', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Accept: 'application/json'
-        })
+        }),
+        credentials: 'include'
       })
     );
   });
@@ -62,6 +64,50 @@ describe('apiRequest', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Accept: 'application/json'
+        }),
+        credentials: 'include'
+      })
+    );
+  });
+
+  it('非 GET/HEAD/OPTIONS 请求从 CSRF cookie 自动附加 X-CSRF-Token', async () => {
+    const { apiRequest, CSRF_HEADER_NAME } = await loadApiClient();
+    vi.stubGlobal('document', {
+      cookie: 'telemetry.csrf=csrf%2Fvalue; other=value'
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ id: 1 }));
+
+    await apiRequest('/api/v1/projects', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Core' })
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/api/v1/projects',
+      expect.objectContaining({
+        credentials: 'include',
+        headers: expect.objectContaining({
+          [CSRF_HEADER_NAME]: 'csrf/value'
+        })
+      })
+    );
+  });
+
+  it('GET 请求不附加 CSRF header', async () => {
+    const { apiRequest, CSRF_HEADER_NAME } = await loadApiClient();
+    vi.stubGlobal('document', {
+      cookie: 'telemetry.csrf=csrf-value'
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ status: 'ok' }));
+
+    await apiRequest('/health');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:28117/health',
+      expect.objectContaining({
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          [CSRF_HEADER_NAME]: expect.any(String)
         })
       })
     );
@@ -169,7 +215,8 @@ describe('apiRequest', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer token-value'
-        })
+        }),
+        credentials: 'include'
       })
     );
 
@@ -198,7 +245,8 @@ describe('apiRequest', () => {
       expect.objectContaining({
         headers: expect.not.objectContaining({
           Authorization: expect.any(String)
-        })
+        }),
+        credentials: 'include'
       })
     );
   });

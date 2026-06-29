@@ -9,19 +9,25 @@
 - 修复 GitHub Actions 前端 job 的 Node 版本来源：`.github/workflows/ci.yml` 不再硬编码 Node 22，改为通过 `actions/setup-node` 读取 `frontend/.node-version`，与 `frontend/package.json` 的 `engines.node=24.13.0` 对齐。
 - 在 `frontend/README.md` 增加生产 CSP 与安全响应头基线，明确生产由 Debian 宿主机 Nginx 下发，不在 `index.html` 写死 meta CSP，避免破坏 Vite dev server、Vitest/jsdom、preview 和当前 React inline style。
 - 在根 `README.md` 同步前端 CI Node 版本来源、生产 Nginx 安全头基线和 `connect-src` 同源/独立 API 域名边界。
-- 强化 token 存储风险说明：当前 `sessionStorage` access token 仅为临时会话恢复方案，CSP/安全头只能降低注入与外联风险，不能防止同源 XSS 读取 token；生产方案应优先评估 HttpOnly、Secure、SameSite Cookie 或后端托管 refresh token。
+- 先强化 token 存储风险说明，随后按范围更新完成实现迁移：`sessionStorage` 不再保存 access token 或 token type。
+- 后续范围更新后已迁移前端认证主路径：`apiRequest` 默认使用 `credentials: "include"`，登录和 `/auth/me` 依赖后端 HttpOnly session cookie，不再把 access token 或 token type 写入 `sessionStorage`。
+- 保留内存级 `Authorization` 注入兼容过渡期后端响应，但只在当前页面生命周期内使用；`sessionStorage` 现在只写入非敏感 `user` 展示信息，恢复时必须通过 `/api/v1/auth/me` 重新确认 cookie。
+- 新增 CSRF header 支持：默认从非 HttpOnly cookie `telemetry.csrf` 读取 token，对 `POST`、`PUT`、`PATCH`、`DELETE` 自动发送 `X-CSRF-Token`。
+- 新增前端登出 API client，调用 `POST /api/v1/auth/logout` 清理后端 cookie 会话，并在前端清理认证状态、内存 token 兼容层和认证相关查询缓存。
+- 更新 `frontend/README.md`、根 `README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 HttpOnly cookie 会话、CSRF cookie/header 和 logout 路径假设。
 
 ### 验证
 
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
-- 已在 `frontend/` 包目录执行：`npm.cmd test` 通过（35 个测试文件、256 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd test` 通过（35 个测试文件、260 个测试）。
 - 已在 worktree 根目录执行：`git diff --check` 通过。
 
 ### 风险
 
 - 本轮未新增 `index.html` meta CSP，生产安全边界依赖部署时正确配置宿主机 Nginx 响应头。
-- 本轮只做 CI 和文档/配置边界修复，不迁移 token 存储机制；`sessionStorage` access token 的同源 XSS 暴露风险仍需后续认证架构任务关闭。
+- `telemetry.csrf`、`X-CSRF-Token` 和 `POST /api/v1/auth/logout` 是当前前端与后端协作假设；后端最终命名或路径若不同，需要同步更新常量、API client、测试和文档。
+- 本轮未做真实后端 cookie/CSRF/logout 联调；需等待后端 agent 完成 HttpOnly cookie、CSRF cookie/header 校验和 logout 后由总 agent 安排真实联测。
 
 ## 2026-06-26 T-0082 告警规则 CRUD 前端基础
 
