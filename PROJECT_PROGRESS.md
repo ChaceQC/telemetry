@@ -1328,20 +1328,22 @@
 - 前端/CI 第一阶段已由 Avicenna 在 `feature/frontend-dev` 提交并推送 `55e5caa`：CI Node 改为读取 `frontend/.node-version` 并对齐 Node `24.13.0`，根 README 与前端 README 补充生产 CSP/安全头和 `sessionStorage` token 风险说明；本地 `npm.cmd run lint`、`npm.cmd run typecheck`、`npm.cmd test`、`git diff --check` 通过，feature CI run `28380120822` 通过。
 - 用户已确认现在即可迁移 `sessionStorage access token` 临时方案；T-0086 范围已扩大为生产级会话链路：后端设置 HttpOnly/Secure/SameSite 会话 cookie、支持 cookie 认证、增加 logout，并为 cookie 认证下的 unsafe methods 增加 CSRF 防护；前端停止持久化 access token，统一 `credentials: include`，读取非 HttpOnly CSRF cookie 并发送 `X-CSRF-Token`，适配登录、登出和会话恢复。
 - 旧前端文档硬化方案复审已停止；后续等待 Cookie 会话迁移实现完成后重新进行前端和后端代码审计。
+- 后端安全修复已由 Raman 提交并推送 `e582362` 到 `feature/backend-dev`，feature CI run `28384416387` 通过；Herschel 只读审计结论为通过，未发现 P0/P1/P2/P3。审计确认 Cookie 登录不暴露 access token、Cookie/CSRF/Bearer 兼容边界、登录限流、API Key 预验证限流、`ingest_stats` 原子 upsert、schema 严格性、health/docs/security headers 和文档配置同步均满足本轮范围。
+- 前端 Cookie 会话迁移已由 Avicenna 提交并推送 `1919a48`、`1337949` 到 `feature/frontend-dev`，feature CI run `28383772857` 通过；Bacon 只读审计结论为未通过。跨端 P1 来自前端 worktree 内未合入的后端旧副本，已由后端 `e582362` 关闭，待集成复核；前端自身仍需修复 P2 登录后未经 `/auth/me` 确认 cookie 即标记会话已确认、P2 sessionStorage 持久化完整 user 未白名单裁剪、P3 前端契约草案旧 Bearer/sessionStorage 当前式描述和 Cookie 段落 draft 状态。
 
 ### 阻塞与风险
 
-- 当前审计未通过，主要阻断项为：`ingest_stats` 并发写入非原子可能导致 500、回滚已接受摄入和统计丢失；登录接口缺少失败限流；无效 API Key 探测发生在 API Key 校验前且不受现有限流保护；CI Node 22 与前端声明 Node 24.13.0 不一致。
+- 后端原 P1/P2/P3 已在 `e582362` 中关闭并通过审计；当前剩余阻断集中在前端 Cookie 会话确认语义、sessionStorage user 白名单裁剪和契约草案清理。
 - schema 严格性、公开健康元数据、默认 OpenAPI/docs、安全头/CSP 与浏览器 Cookie 会话安全边界属于本轮一并收口的硬化项；其中 `sessionStorage` access token 不再作为可上线方案保留。
 - 本轮不启动本机 Docker；如后端并发修复需要真实 MySQL 补验，应使用本地 MySQL 服务、临时库或测试 agent 自有本地实例，并记录清理结果且不泄露凭据。
 
 ### 下一步
 
-- 在后端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 修复后端安全项和 Cookie/CSRF 会话接口，更新后端测试、README、进度和 API 契约；验证后提交并推送。
-- 在前端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 迁移浏览器会话存储与请求封装，更新前端测试、文档和进度；验证后提交并推送。
-- 修复完成后启动代码审计 agent 复审；P1/P2 全部关闭后由总 agent 使用真实 merge 合入 `dev`，执行本地门禁、推送并读取 GitHub Actions。
+- 在前端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 修复 Bacon 审计 P2/P3：登录后必须用 `/auth/me` 确认 Cookie 会话、sessionStorage 只保存白名单非敏感展示字段、清理契约草案旧 Bearer/sessionStorage 当前式描述并将 Cookie 段落推进到已对齐状态；验证后提交并推送。
+- 前端修复完成后重新启动前端只读复审；P2/P3 全部关闭且集成前后端契约复核通过后，由总 agent 使用真实 merge 合入 `dev`，执行本地门禁、推送并读取 GitHub Actions。
 
 ### 验证
 
 - 开工前 worktree/Git 体检通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Test-AgentWorktreeState.ps1`。
 - 本次根进度提交前已通过 BOM guard 与 `git diff --check -- AGENT_COMMUNICATION.md PROJECT_PROGRESS.md`；`scripts\Test-AgentWorktreeState.ps1 -AllowPendingChanges` 对根目录检查通过，但因 Raman 正在后端 worktree 实现 Cookie/CSRF 会话迁移，检测到后端活跃未提交改动并返回失败，该失败属于当前分派任务的预期进行中状态，待后端提交后复查。
+- 暂停恢复后已执行 `scripts\Test-AgentWorktreeState.ps1`，根、前端、后端 worktree 均干净且匹配远端；根 `976ee3a` CI run `28384645171`、前端 `1337949` feature CI run `28383772857`、后端 `e582362` feature CI run `28384416387` 均通过。
