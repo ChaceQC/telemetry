@@ -3,8 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 async function loadQueryClient(apiBaseUrl = 'http://localhost:28117/') {
   vi.resetModules();
   vi.stubEnv('VITE_API_BASE_URL', apiBaseUrl);
-  const [query, http] = await Promise.all([import('./query'), import('./http')]);
-  return { ...query, ...http };
+  return import('./query');
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -22,13 +21,12 @@ describe('query api client', () => {
     vi.restoreAllMocks();
   });
 
-  it('指标查询会携带筛选参数和当前 session token', async () => {
-    const { listMetrics, setApiAuthToken } = await loadQueryClient();
+  it('指标查询会携带筛选参数和 cookie 会话', async () => {
+    const { listMetrics } = await loadQueryClient();
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(jsonResponse({ items: [], next_cursor: 'metric-cursor-2' }));
 
-    setApiAuthToken('query-token');
     const result = await listMetrics({
       project_id: 12,
       name: 'http.requests',
@@ -43,15 +41,16 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/metrics?project_id=12&name=http.requests&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&limit=50&cursor=metric-cursor-1',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer query-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
   });
 
   it('指标聚合查询会携带窗口和聚合参数但不使用 cursor', async () => {
-    const { listMetricAggregates, setApiAuthToken } = await loadQueryClient();
+    const { listMetricAggregates } = await loadQueryClient();
     const response = {
       items: [
         {
@@ -69,7 +68,6 @@ describe('query api client', () => {
     };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('query-token');
     await expect(
       listMetricAggregates({
         project_id: 12,
@@ -87,8 +85,9 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/metrics/aggregate?project_id=12&name=http.requests&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&window=5m&aggregation=avg&limit=20',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer query-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
@@ -124,12 +123,11 @@ describe('query api client', () => {
   });
 
   it('Trace 查询会携带 trace/span/name/source/time/limit/cursor 筛选参数', async () => {
-    const { listTraces, setApiAuthToken } = await loadQueryClient();
+    const { listTraces } = await loadQueryClient();
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(jsonResponse({ items: [], next_cursor: 'trace-cursor-2' }));
 
-    setApiAuthToken('query-token');
     const result = await listTraces({
       project_id: 12,
       trace_id: ' trace-abc ',
@@ -146,15 +144,16 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/traces?project_id=12&trace_id=trace-abc&span_id=span-def&name=GET+%2Fapi%2Forders&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&limit=50&cursor=trace-cursor-1',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer query-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
   });
 
   it('Trace 拓扑查询会携带必填 project_id 和拓扑筛选参数但不使用 cursor', async () => {
-    const { getTraceTopology, setApiAuthToken } = await loadQueryClient();
+    const { getTraceTopology } = await loadQueryClient();
     const response = {
       nodes: [
         {
@@ -179,7 +178,6 @@ describe('query api client', () => {
     };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('query-token');
     await expect(
       getTraceTopology({
         project_id: 12,
@@ -194,8 +192,9 @@ describe('query api client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/traces/topology?project_id=12&source=api&occurred_from=2026-06-20T10%3A00&occurred_to=2026-06-20T11%3A00&limit=25',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer query-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
@@ -266,8 +265,8 @@ describe('query api client', () => {
     });
   });
 
-  it('日志上下文查询会携带默认窗口和当前 session token', async () => {
-    const { getLogContext, setApiAuthToken } = await loadQueryClient();
+  it('日志上下文查询会携带默认窗口和 cookie 会话', async () => {
+    const { getLogContext } = await loadQueryClient();
     const response = {
       target: { id: 42, level: 'error', message: 'failed' },
       before: [],
@@ -275,14 +274,13 @@ describe('query api client', () => {
     };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('query-token');
-
     await expect(getLogContext(42)).resolves.toEqual(response);
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/logs/42/context?before=5&after=5',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer query-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );

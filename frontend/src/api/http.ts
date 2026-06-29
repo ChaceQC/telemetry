@@ -2,7 +2,6 @@ import { appConfig } from './config';
 import { joinApiUrl } from '../config/basePaths';
 
 export type ApiClientOptions = {
-  auth?: boolean;
   timeoutMs?: number;
 };
 
@@ -19,13 +18,6 @@ const MAX_DETAIL_MESSAGES = 3;
 export const CSRF_COOKIE_NAME = 'telemetry.csrf';
 export const CSRF_HEADER_NAME = 'X-CSRF-Token';
 const CSRF_METHODS = new Set(['DELETE', 'PATCH', 'POST', 'PUT']);
-
-type ApiAuthToken = {
-  accessToken: string;
-  tokenType: string;
-};
-
-let apiAuthToken: ApiAuthToken | null = null;
 
 const STATUS_MESSAGES: Record<ApiErrorDisplayContext, Partial<Record<number, string>>> = {
   page: {
@@ -76,7 +68,7 @@ export async function apiRequest<TResponse>(
   try {
     const response = await fetch(buildUrl(path), {
       ...init,
-      headers: buildHeaders(init, options.auth !== false),
+      headers: buildHeaders(init),
       credentials: init.credentials ?? 'include',
       signal: controller.signal
     });
@@ -117,24 +109,6 @@ export async function apiRequest<TResponse>(
   }
 }
 
-export function setApiAuthToken(accessToken: string, tokenType = 'Bearer') {
-  const normalizedToken = accessToken.trim();
-
-  if (!normalizedToken) {
-    clearApiAuthToken();
-    return;
-  }
-
-  apiAuthToken = {
-    accessToken: normalizedToken,
-    tokenType: tokenType.trim() || 'Bearer'
-  };
-}
-
-export function clearApiAuthToken() {
-  apiAuthToken = null;
-}
-
 export function formatApiErrorMessage(error: unknown, context: ApiErrorDisplayContext = 'page') {
   if (error instanceof ApiClientError) {
     const statusMessage = error.status ? STATUS_MESSAGES[context][error.status] : undefined;
@@ -162,18 +136,12 @@ function buildUrl(path: string) {
   return joinApiUrl(appConfig.apiBaseUrl, path);
 }
 
-function buildHeaders(init: RequestInit, includeAuth: boolean): Record<string, string> {
+function buildHeaders(init: RequestInit): Record<string, string> {
   const requestMethod = normalizeMethod(init.method);
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(init.body ? { 'Content-Type': 'application/json' } : {}),
   };
-
-  const authHeader = includeAuth ? readAuthHeader() : undefined;
-
-  if (authHeader) {
-    headers.Authorization = authHeader;
-  }
 
   const csrfToken = shouldAttachCsrfHeader(requestMethod) ? readCookie(CSRF_COOKIE_NAME) : undefined;
 
@@ -185,14 +153,6 @@ function buildHeaders(init: RequestInit, includeAuth: boolean): Record<string, s
     ...headers,
     ...normalizeHeaders(init.headers)
   };
-}
-
-function readAuthHeader(): string | undefined {
-  if (!apiAuthToken) {
-    return undefined;
-  }
-
-  return `${apiAuthToken.tokenType} ${apiAuthToken.accessToken}`;
 }
 
 function normalizeHeaders(headers: HeadersInit | undefined): Record<string, string> {

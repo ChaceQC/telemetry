@@ -1,16 +1,10 @@
 import type { AuthUser } from '../../api/auth';
-import { clearApiAuthToken } from '../../api/http';
 import type { AuthSession } from './authContext';
 
 export const AUTH_SESSION_STORAGE_KEY = 'telemetry.auth.session.v1';
 
 export function restoreStoredAuthSession(): AuthSession | null {
   const session = readStoredAuthSession();
-
-  if (!session) {
-    clearApiAuthToken();
-  }
-
   return session;
 }
 
@@ -57,7 +51,6 @@ export function writeStoredAuthSession(session: AuthSession) {
 
 export function clearStoredAuthSession() {
   readSessionStorage()?.removeItem(AUTH_SESSION_STORAGE_KEY);
-  clearApiAuthToken();
 }
 
 function readSessionStorage() {

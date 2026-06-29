@@ -6,8 +6,8 @@ type SessionStorageLike = Pick<Storage, 'getItem' | 'removeItem' | 'setItem'>;
 async function loadSessionAndQueryModules(apiBaseUrl = 'http://localhost:28117/') {
   vi.resetModules();
   vi.stubEnv('VITE_API_BASE_URL', apiBaseUrl);
-  const [session, query, http] = await Promise.all([import('./authSession'), import('../../api/query'), import('../../api/http')]);
-  return { ...session, ...query, ...http };
+  const [session, query] = await Promise.all([import('./authSession'), import('../../api/query')]);
+  return { ...session, ...query };
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -133,12 +133,11 @@ describe('auth session hydration', () => {
     );
   });
 
-  it('本地 session 缺失时清理 API token，避免未登录首屏误发旧 Authorization', async () => {
+  it('本地 session 缺失时不会误发 Authorization', async () => {
     installSessionStorage();
-    const { restoreStoredAuthSession, listLogs, setApiAuthToken } = await loadSessionAndQueryModules();
+    const { restoreStoredAuthSession, listLogs } = await loadSessionAndQueryModules();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: [], next_cursor: null }));
 
-    setApiAuthToken('stale-token');
     const session = restoreStoredAuthSession();
     await listLogs({ trace_id: 'trace-url', limit: 100 });
 
@@ -146,6 +145,7 @@ describe('auth session hydration', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/query/logs?trace_id=trace-url&limit=100',
       expect.objectContaining({
+        credentials: 'include',
         headers: expect.not.objectContaining({
           Authorization: expect.any(String)
         })

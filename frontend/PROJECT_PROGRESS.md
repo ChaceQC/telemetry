@@ -11,16 +11,17 @@
 - 在根 `README.md` 同步前端 CI Node 版本来源、生产 Nginx 安全头基线和 `connect-src` 同源/独立 API 域名边界。
 - 先强化 token 存储风险说明，随后按范围更新完成实现迁移：`sessionStorage` 不再保存 access token 或 token type。
 - 后续范围更新后已迁移前端认证主路径：`apiRequest` 默认使用 `credentials: "include"`，登录和 `/auth/me` 依赖后端 HttpOnly session cookie，不再把 access token 或 token type 写入 `sessionStorage`。
-- 保留内存级 `Authorization` 注入兼容过渡期后端响应，但只在当前页面生命周期内使用；`sessionStorage` 现在只写入非敏感 `user` 展示信息，恢复时必须通过 `/api/v1/auth/me` 重新确认 cookie。
+- 协调层只读契约检查后进一步收紧：即使后端过渡期仍返回 `access_token` 或 `token_type`，前端也会忽略这些字段，不写入内存认证状态，不自动发送 `Authorization`。
 - 新增 CSRF header 支持：默认从非 HttpOnly cookie `telemetry.csrf` 读取 token，对 `POST`、`PUT`、`PATCH`、`DELETE` 自动发送 `X-CSRF-Token`。
-- 新增前端登出 API client，调用 `POST /api/v1/auth/logout` 清理后端 cookie 会话，并在前端清理认证状态、内存 token 兼容层和认证相关查询缓存。
+- 新增前端登出 API client，调用 `POST /api/v1/auth/logout` 清理后端 cookie 会话，并在前端清理认证状态和认证相关查询缓存。
+- 更新前端测试，覆盖登录响应包含 legacy access token 时后续请求仍不发送 `Authorization`，并移除已失效的前端 `auth` 开关兼容测试路径。
 - 更新 `frontend/README.md`、根 `README.md` 和 `agents/runtime/api-contracts/frontend-requests.md`，记录 HttpOnly cookie 会话、CSRF cookie/header 和 logout 路径假设。
 
 ### 验证
 
 - 已在 `frontend/` 包目录执行：`npm.cmd run lint` 通过。
 - 已在 `frontend/` 包目录执行：`npm.cmd run typecheck` 通过。
-- 已在 `frontend/` 包目录执行：`npm.cmd test` 通过（35 个测试文件、260 个测试）。
+- 已在 `frontend/` 包目录执行：`npm.cmd test` 通过（35 个测试文件、261 个测试）。
 - 已在 worktree 根目录执行：`git diff --check` 通过。
 
 ### 风险

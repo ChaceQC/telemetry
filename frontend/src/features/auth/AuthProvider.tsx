@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { getCurrentUser, login, logoutSession } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
-import { clearApiAuthToken, setApiAuthToken } from '../../api/http';
 import { clearAlertRuleQueryCache } from '../alerts/queryKeys';
 import { clearDashboardQueryCache } from '../dashboards/queryKeys';
 import { clearIngestStatsQueryCache } from '../overview/queryKeys';
@@ -36,7 +35,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const clearLocalSession = useCallback(() => {
     clearAuthenticatedQueryCaches(queryClient);
-    clearApiAuthToken();
     setSessionRevision((current) => current + 1);
     setSessionErrorMessage(null);
     setSession(null);
@@ -114,10 +112,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const loginWithPassword = useCallback(async (payload: LoginRequest) => {
     const response = await login(payload);
-    if (response.access_token) {
-      setApiAuthToken(response.access_token, response.token_type || 'Bearer');
-    }
-
     const currentUser = response.user ?? (await getCurrentUser());
     const nextSession: AuthSession = {
       user: currentUser,

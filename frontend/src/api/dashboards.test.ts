@@ -3,8 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 async function loadDashboardClient(apiBaseUrl = 'http://localhost:28117/') {
   vi.resetModules();
   vi.stubEnv('VITE_API_BASE_URL', apiBaseUrl);
-  const [dashboards, http] = await Promise.all([import('./dashboards'), import('./http')]);
-  return { ...dashboards, ...http };
+  return import('./dashboards');
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -22,19 +21,19 @@ describe('dashboard api client', () => {
     vi.restoreAllMocks();
   });
 
-  it('列表请求携带 project_id、limit、offset 和当前 token', async () => {
-    const { listDashboards, setApiAuthToken } = await loadDashboardClient();
+  it('列表请求携带 project_id、limit、offset 和 cookie 会话', async () => {
+    const { listDashboards } = await loadDashboardClient();
     const response = { items: [], limit: 25, offset: 50, total: 0 };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('dashboard-token');
     await expect(listDashboards({ project_id: 12, limit: 25, offset: 50 })).resolves.toEqual(response);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/dashboards?project_id=12&limit=25&offset=50',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer dashboard-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
@@ -81,8 +80,7 @@ describe('dashboard api client', () => {
   });
 
   it('模板列表、详情和从模板创建使用后端模板路径', async () => {
-    const { listDashboardTemplates, getDashboardTemplate, createDashboardFromTemplate, setApiAuthToken } =
-      await loadDashboardClient();
+    const { listDashboardTemplates, getDashboardTemplate, createDashboardFromTemplate } = await loadDashboardClient();
     const template = {
       id: 'service-overview',
       name: '服务总览',
@@ -108,7 +106,6 @@ describe('dashboard api client', () => {
       .mockResolvedValueOnce(jsonResponse(template))
       .mockResolvedValueOnce(jsonResponse(dashboard, 201));
 
-    setApiAuthToken('template-token');
     await expect(listDashboardTemplates()).resolves.toEqual({ items: [template] });
     await expect(getDashboardTemplate('service overview')).resolves.toEqual(template);
     await expect(
@@ -122,8 +119,9 @@ describe('dashboard api client', () => {
       1,
       'http://localhost:28117/api/v1/dashboard-templates',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer template-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
@@ -131,8 +129,9 @@ describe('dashboard api client', () => {
       2,
       'http://localhost:28117/api/v1/dashboard-templates/service%20overview',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer template-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
@@ -144,8 +143,9 @@ describe('dashboard api client', () => {
         body: JSON.stringify({
           name: '支付服务总览'
         }),
-        headers: expect.objectContaining({
-          Authorization: 'Bearer template-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
@@ -236,8 +236,8 @@ describe('dashboard api client', () => {
     );
   });
 
-  it('panel 查询预览路径会编码 panel id 并携带当前 token', async () => {
-    const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
+  it('panel 查询预览路径会编码 panel id 并携带 cookie 会话', async () => {
+    const { previewDashboardPanel } = await loadDashboardClient();
     const response = {
       project_id: 12,
       dashboard_id: 7,
@@ -253,21 +253,21 @@ describe('dashboard api client', () => {
     };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('preview-token');
     await expect(previewDashboardPanel(12, 7, 'error logs')).resolves.toEqual(response);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/projects/12/dashboards/7/panels/error%20logs/preview',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer preview-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
   });
 
-  it('panel 查询预览空 variables 不生成查询串且保留当前 token', async () => {
-    const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
+  it('panel 查询预览空 variables 不生成查询串且使用 cookie 会话', async () => {
+    const { previewDashboardPanel } = await loadDashboardClient();
     const response = {
       project_id: 12,
       dashboard_id: 7,
@@ -283,21 +283,21 @@ describe('dashboard api client', () => {
     };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('preview-token');
     await expect(previewDashboardPanel(12, 7, 'logs', {})).resolves.toEqual(response);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/projects/12/dashboards/7/panels/logs/preview',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer preview-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );
   });
 
-  it('panel 查询预览 variables 会序列化为 URL encoded JSON 并携带当前 token', async () => {
-    const { previewDashboardPanel, setApiAuthToken } = await loadDashboardClient();
+  it('panel 查询预览 variables 会序列化为 URL encoded JSON 并使用 cookie 会话', async () => {
+    const { previewDashboardPanel } = await loadDashboardClient();
     const response = {
       project_id: 12,
       dashboard_id: 7,
@@ -313,14 +313,14 @@ describe('dashboard api client', () => {
     };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('preview-token');
     await expect(previewDashboardPanel(12, 7, 'logs', { service_name: 'checkout api', sample_rate: 0.5 })).resolves.toEqual(response);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/projects/12/dashboards/7/panels/logs/preview?variables=%7B%22service_name%22%3A%22checkout+api%22%2C%22sample_rate%22%3A0.5%7D',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer preview-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );

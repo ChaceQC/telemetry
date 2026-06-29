@@ -72,11 +72,11 @@ add_header X-Frame-Options "DENY" always;
 
 `/login` 页面提供账号密码登录入口，当前按保守契约调用：
 
-- `POST /api/v1/auth/login`：提交 `username` 和 `password`，预期由后端设置 HttpOnly session cookie；响应可返回 `user`，也兼容短期过渡期返回的 `access_token` 和 `token_type`。
+- `POST /api/v1/auth/login`：提交 `username` 和 `password`，预期由后端设置 HttpOnly session cookie；响应可返回 `user`，也允许后端过渡期返回 `access_token` 和 `token_type`，但前端会忽略这些 token 字段。
 - `GET /api/v1/auth/me`：使用 cookie 会话读取当前用户。
 - `POST /api/v1/auth/logout`：清理后端 HttpOnly session cookie，前端随后清理本地认证状态和查询缓存。
 
-API client 默认对所有请求使用 `credentials: "include"`，认证主路径依赖后端 HttpOnly cookie。为兼容过渡期后端响应，前端仍保留内存级 `Authorization` 注入能力，但不会把 access token 或 token type 写入 `sessionStorage`。会话恢复时，前端先进入“正在确认登录状态”，调用 `/api/v1/auth/me` 验证 cookie；`401` 会清理前端状态，`403`、`503`、网络错误或超时会展示可恢复错误。普通表单/API 的 `401` 使用登录过期类文案，登录页单独展示账号或密码错误。
+API client 默认对所有请求使用 `credentials: "include"`，浏览器认证主路径完全依赖后端 HttpOnly cookie。即使后端过渡期仍返回 `access_token` 或 `token_type`，前端也不会写入 `sessionStorage`、不会保存到内存认证状态、不会自动发送 `Authorization`。会话恢复时，前端先进入“正在确认登录状态”，调用 `/api/v1/auth/me` 验证 cookie；`401` 会清理前端状态，`403`、`503`、网络错误或超时会展示可恢复错误。普通表单/API 的 `401` 使用登录过期类文案，登录页单独展示账号或密码错误。
 
 CSRF 防护假设：后端设置非 HttpOnly CSRF cookie `telemetry.csrf`，前端会从该 cookie 读取值，并在 `POST`、`PUT`、`PATCH`、`DELETE` 请求中自动发送 `X-CSRF-Token`。如果后端最终采用不同 cookie 名或 header 名，需要同步更新 `frontend/src/api/http.ts` 中的 `CSRF_COOKIE_NAME` 和 `CSRF_HEADER_NAME` 常量及测试。
 

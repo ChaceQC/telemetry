@@ -203,42 +203,28 @@ describe('apiRequest', () => {
     ).toBe('接口或资源不存在，请确认后端基础管理接口已启用。 接口不存在。');
   });
 
-  it('支持为请求注入和清理认证头', async () => {
-    const { apiRequest, clearApiAuthToken, setApiAuthToken } = await loadApiClient();
+  it('认证主路径使用 cookie，不自动注入 Authorization', async () => {
+    const { apiRequest } = await loadApiClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(jsonResponse({ id: 1 })));
 
-    setApiAuthToken('token-value');
     await apiRequest('/api/v1/auth/me');
 
     expect(fetchMock).toHaveBeenLastCalledWith(
       'http://localhost:28117/api/v1/auth/me',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer token-value'
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         }),
         credentials: 'include'
       })
     );
-
-    clearApiAuthToken();
-    await apiRequest('/health');
-
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'http://localhost:28117/health',
-      expect.objectContaining({
-        headers: expect.not.objectContaining({
-          Authorization: expect.any(String)
-        })
-      })
-    );
   });
 
-  it('支持对公开接口禁用认证头', async () => {
-    const { apiRequest, setApiAuthToken } = await loadApiClient();
+  it('登录请求也不自动注入 Authorization', async () => {
+    const { apiRequest } = await loadApiClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(jsonResponse({ ok: true })));
 
-    setApiAuthToken('token-value');
-    await apiRequest('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({}) }, { auth: false });
+    await apiRequest('/api/v1/auth/login', { method: 'POST', body: JSON.stringify({}) });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/auth/login',

@@ -686,7 +686,7 @@
   - 建议新增 `/alerts` 管理入口，使用 restrained operational UI，不做 hero/营销式说明。
   - 必须覆盖 unauth、loading、empty、error、403/404/409/422、创建成功、编辑成功、启停成功和删除成功状态。
   - 不新增后端契约，不做规则评估调度、通知渠道、告警历史、静默/恢复、Webhook、真实后端联测或 ClickHouse/MongoDB/Redis 后台链路。
-- status: draft
+- status: frontend-ready
 
 ## API-FE-0006 Cookie 会话与 CSRF 前端认证迁移
 
@@ -700,10 +700,10 @@
 - frontend behavior:
   - `apiRequest` 默认使用 `credentials: "include"`，认证主路径依赖后端 HttpOnly session cookie。
   - 前端不再把 `access_token` 或 `token_type` 写入 `sessionStorage`；本地只允许保存非敏感 `user` 展示信息。
+  - 即使登录响应在过渡期仍返回 `access_token` 或 `token_type`，前端也会忽略这些字段：不持久化、不写入内存认证状态、不自动发送 `Authorization`。
   - 页面刷新或启动时，前端会先调用 `GET /api/v1/auth/me` 通过 cookie 确认会话；`401` 清理前端状态，`403/503/网络错误/超时` 保持可恢复错误提示。
   - 登录响应若返回 `user`，前端直接建立已确认会话；若缺少 `user`，前端会继续调用 `/api/v1/auth/me` 补齐。
-  - 登录响应若在过渡期仍返回 `access_token/token_type`，前端只注入内存兼容层，不持久化。
-  - 登出调用 `POST /api/v1/auth/logout`，无论请求成功或失败，前端都会清理本地认证状态、内存 token 兼容层和认证相关查询缓存。
+  - 登出调用 `POST /api/v1/auth/logout`，无论请求成功或失败，前端都会清理本地认证状态和认证相关查询缓存。
 - CSRF assumption:
   - 后端设置非 HttpOnly cookie：`telemetry.csrf`。
   - 前端对 `POST`、`PUT`、`PATCH`、`DELETE` 自动发送 header：`X-CSRF-Token: <telemetry.csrf cookie value>`。

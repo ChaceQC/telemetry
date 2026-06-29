@@ -3,8 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 async function loadAlertClient(apiBaseUrl = 'http://localhost:28117/') {
   vi.resetModules();
   vi.stubEnv('VITE_API_BASE_URL', apiBaseUrl);
-  const [alerts, http] = await Promise.all([import('./alerts'), import('./http')]);
-  return { ...alerts, ...http };
+  return import('./alerts');
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -22,12 +21,11 @@ describe('alert rules api client', () => {
     vi.restoreAllMocks();
   });
 
-  it('列表请求携带项目、severity、signal、enabled、分页和当前 token', async () => {
-    const { listAlertRules, setApiAuthToken } = await loadAlertClient();
+  it('列表请求携带项目、severity、signal、enabled、分页和 cookie 会话', async () => {
+    const { listAlertRules } = await loadAlertClient();
     const response = { items: [], limit: 25, offset: 50, total: 0 };
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(response));
 
-    setApiAuthToken('alerts-token');
     await expect(
       listAlertRules({
         project_id: 12,
@@ -42,8 +40,9 @@ describe('alert rules api client', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:28117/api/v1/alerts/rules?project_id=12&severity=critical&signal=metrics&enabled=false&limit=25&offset=50',
       expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer alerts-token'
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
         })
       })
     );

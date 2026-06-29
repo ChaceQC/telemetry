@@ -21,16 +21,10 @@ export type LoginResponse = {
 };
 
 export function login(payload: LoginRequest) {
-  return apiRequest<LoginResponse>(
-    '/api/v1/auth/login',
-    {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    },
-    {
-      auth: false
-    }
-  );
+  return apiRequest<LoginResponse>('/api/v1/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
 }
 
 export function getCurrentUser() {
@@ -38,13 +32,7 @@ export function getCurrentUser() {
 }
 
 export function logoutSession() {
-  return apiRequest<null>(
-    '/api/v1/auth/logout',
-    {
-      method: 'POST'
-    },
-    {
-      auth: false
-    }
-  );
+  return apiRequest<null>('/api/v1/auth/logout', {
+    method: 'POST'
+  });
 }

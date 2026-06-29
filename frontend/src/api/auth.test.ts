@@ -54,6 +54,44 @@ describe('auth api client', () => {
     );
   });
 
+  it('即使登录响应包含 access token，后续请求也不会发送 Authorization', async () => {
+    const { getCurrentUser, login } = await loadAuthClient();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        jsonResponse({
+          access_token: 'legacy-token',
+          token_type: 'Bearer',
+          user: {
+            id: 1,
+            username: 'admin',
+            roles: ['owner']
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 1,
+          username: 'admin',
+          roles: ['owner']
+        })
+      );
+
+    await login({ username: 'admin', password: 'secret' });
+    await getCurrentUser();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:28117/api/v1/auth/me',
+      expect.objectContaining({
+        credentials: 'include',
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String)
+        })
+      })
+    );
+  });
+
   it('调用当前用户接口', async () => {
     const { getCurrentUser } = await loadAuthClient();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
