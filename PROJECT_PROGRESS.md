@@ -1316,3 +1316,29 @@
 - Maxwell 复审验证 `uv run pytest tests/test_alert_rules_api.py -q` 为 45 passed、1 warning，未发现剩余 P0/P1/P2，P3 已由 `a1c1101` 关闭。
 - merge 后本地验证通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-NoUtf8Bom.ps1`、`git diff --check HEAD^..HEAD`、`uv run pytest tests/test_alert_rules_api.py -q` 为 45 passed、1 warning、`uv run alembic heads` 为 `20260627_0011`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv lock --check`。
 - dev CI run `28286821481` 成功：Repository format checks、Backend checks、Frontend checks 均通过；仅有既有官方 action Node.js runtime 弃用注解，不阻塞。
+
+## 2026-06-29 T-0086 全面安全审计修复
+
+### 已完成
+
+- 已按用户要求完成全面代码审计并先写入进度；本轮审计范围覆盖后端 API、鉴权/权限、摄入链路、前端会话、CI、依赖、部署配置和安全头边界。
+- 已在 `AGENT_COMMUNICATION.md` 登记 `T-0086 全面安全审计修复`，当前状态为 doing，审计状态为 blocked；正式记录了 P1/P2/P3 问题、阻塞项、开工体检结果和后续分支集成预期。
+- 开工前已执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Test-AgentWorktreeState.ps1`，根 `dev`、后端 `feature/backend-dev`、前端 `feature/frontend-dev` 均干净并匹配远端；未发现敏感文件、运行日志、依赖目录或构建产物被跟踪。
+- 后端修复边界已明确：摄入统计写入改为原子 upsert 或等价并发安全实现；登录接口增加爆破/撞库限流；无效 API Key 探测增加验证前粗限流；外部写入 schema 改为拒绝未知字段；健康信息、OpenAPI/docs 和安全响应头做生产硬化。
+- 前端/CI 修复边界已明确：CI Node 版本对齐前端 `24.13.0` 声明；结合现有 `sessionStorage` token 方案补 CSP/安全头相关配置或文档硬化。
+
+### 阻塞与风险
+
+- 当前审计未通过，主要阻断项为：`ingest_stats` 并发写入非原子可能导致 500、回滚已接受摄入和统计丢失；登录接口缺少失败限流；无效 API Key 探测发生在 API Key 校验前且不受现有限流保护；CI Node 22 与前端声明 Node 24.13.0 不一致。
+- schema 严格性、公开健康元数据、默认 OpenAPI/docs、安全头/CSP 与 `sessionStorage` token 组合风险属于本轮一并收口的低风险硬化项。
+- 本轮不启动本机 Docker；如后端并发修复需要真实 MySQL 补验，应使用本地 MySQL 服务、临时库或测试 agent 自有本地实例，并记录清理结果且不泄露凭据。
+
+### 下一步
+
+- 在后端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\backend` 的 `feature/backend-dev` 修复后端安全项，更新后端测试、README、进度和 API 契约；验证后提交并推送。
+- 在前端 worktree `C:\Users\q-lau\Documents\telemetry-worktrees\frontend` 的 `feature/frontend-dev` 修复前端/CI 项，更新前端或根文档；验证后提交并推送。
+- 修复完成后启动代码审计 agent 复审；P1/P2 全部关闭后由总 agent 使用真实 merge 合入 `dev`，执行本地门禁、推送并读取 GitHub Actions。
+
+### 验证
+
+- 开工前 worktree/Git 体检通过：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Test-AgentWorktreeState.ps1`。

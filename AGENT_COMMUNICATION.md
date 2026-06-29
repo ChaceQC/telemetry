@@ -114,6 +114,7 @@ closed      已关闭
 | T-0084 | 指标阈值告警评估后端基础 | 总 agent | todo | done | done | done | done |
 | T-0084-format | T-0084 后端格式化 CI 修复 | 总 agent | todo | done | done | done | done |
 | T-0085 | 告警周期评估状态持久化后端骨架 | 总 agent | todo | done | done | done | done |
+| T-0086 | 全面安全审计修复 | 总 agent | doing | doing | todo | blocked | doing |
 
 ## 4. API 契约登记
 
@@ -679,6 +680,7 @@ closed      已关闭
 | 2026-06-27 | T-0085-fix | 后端开发 agent / 总 agent | 告警周期评估审计问题修复完成 | Jason 已在后端 worktree 提交并推送 `ae92820` 到 `feature/backend-dev`：run-due 扫描 enabled 规则及已有状态的 disabled 规则，已有状态禁用后收敛为 `disabled`；error 写入保留上一轮成功 `last_result`；状态 upsert 遇到首次并发唯一约束冲突后 rollback、重新读取并复查 due；缺失 `next_evaluate_at` 时有 `last_evaluated_at` 则按 interval 计算。验证通过：BOM guard、alert 专项 45 passed、due/migration/DDL 专项 8 passed、`alembic heads`、ruff、format、mypy、`uv lock --check`、`git diff --check`；feature CI run `28286428661` 通过 | audit |
 | 2026-06-27 | T-0085-fix | 代码审计 agent / 总 agent | 告警周期评估修复复审与 P3 文档修复 | Maxwell 只读复审 `ae92820` 未发现 P0/P1/P2，确认 Newton 前三项已关闭；仅发现 P3：文档未明确 disabled 强制收敛是 `next_evaluate_at` 之外的 due/write 例外。Carver 已提交并推送 `a1c1101`，补充 README/API 契约和后端进度，说明旧状态非 disabled 的禁用规则会立即更新为 disabled、计入 evaluated/updated 且 `due=true`，disabled 无状态不创建，已是 disabled 且未到期则 skipped。文档修复通过 BOM guard、`git diff --check` 和 feature CI run `28286743006` | done |
 | 2026-06-27 | T-0085 | 总 agent | 告警周期评估状态合入 dev | 总 agent 已用真实 `git merge --no-ff origin/feature/backend-dev` 将 `a7ba54f`、`ae92820`、`a1c1101` 合入 `dev`，merge 提交 `596ac8b`。merge 后本地门禁通过：BOM guard、`git diff --check HEAD^..HEAD`、`uv run pytest tests/test_alert_rules_api.py -q` 为 45 passed、`uv run alembic heads` 为 `20260627_0011`、ruff、format、mypy、`uv lock --check`。`dev` GitHub Actions run `28286821481` 通过，Repository format checks、Backend checks、Frontend checks 均为 success；仅有既有官方 action Node.js runtime 弃用注解 | done |
+| 2026-06-29 | T-0086 | 总 agent | 登记全面安全审计修复 | 已完成只读全量安全审计并按用户要求先写入进度；审计阻断项包括 `ingest_stats` 并发写入非原子导致 500/丢计数、登录接口缺爆破限流、无效 API Key 探测不受预限流保护、CI Node 版本与前端声明不一致，以及 schema 严格性、健康信息/API docs/安全头/CSP 等生产硬化问题。开工前已通过 `scripts/Test-AgentWorktreeState.ps1`，根、前端、后端 worktree 均干净并匹配远端；下一步按后端、前端/CI 边界开始修复 | doing |
 
 ## 6. 测试记录
 
@@ -875,6 +877,7 @@ closed      已关闭
 | 2026-06-27 | T-0084 | 指标阈值告警评估 feature 门禁 | `feature/backend-dev` runs `28252777813`、`28252900674`；Newton 后端门禁 | 通过 | 实现提交 `27b832d` 和审计前同步提交 `c20d63d` 均通过 feature CI，Backend checks 与 Frontend checks 均为 success；Newton 本地后端全量 pytest 354 passed/2 skipped、ruff、format、mypy、`uv lock --check`、`git diff --check` 通过。后续审计发现 P2，当前需修复后复审 |
 | 2026-06-27 | T-0084-fix | 指标阈值告警评估 P2 修复门禁 | `feature/backend-dev` run `28253872254`；本地 alerts 专项与静态门禁 | 通过 | `db32e27` 上 feature CI 通过，Backend checks 与 Frontend checks 均为 success；总 agent 本地复审 `uv run pytest tests/test_alert_rules_api.py -q` 38 passed/1 warning，ruff、format、mypy、`uv lock --check`、`git diff --check` 通过 |
 | 2026-06-27 | T-0085 | 告警周期评估状态 feature 与 dev 门禁 | `feature/backend-dev` runs `28285487426`、`28286428661`、`28286743006`；dev run `28286821481`；merge 后本地后端门禁 | 通过 | 初版、审计修复、P3 文档修复三个 feature CI 均通过；merge 提交 `596ac8b` 的 dev CI 通过 Repository format checks、Backend checks、Frontend checks。merge 后本地验证：BOM guard、`git diff --check HEAD^..HEAD`、`uv run pytest tests/test_alert_rules_api.py -q` 45 passed/1 warning、`uv run alembic heads` 为 `20260627_0011`、`uv run ruff check .`、`uv run ruff format --check .`、`uv run mypy .`、`uv lock --check` 均通过 |
+| 2026-06-29 | T-0086 | 开工前 worktree/Git 体检 | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Test-AgentWorktreeState.ps1` | 通过 | 根工作树 `dev`、前端 worktree `feature/frontend-dev`、后端 worktree `feature/backend-dev` 均无未提交/未跟踪可提交改动，无敏感文件、运行日志、依赖目录或构建产物；三者均匹配远端。提示 `feature/frontend-dev` 尚有已知同步 merge 提交不在 `dev` 历史中，当前不阻塞 T-0086 开工 |
 
 ## 7. 审计记录
 
@@ -903,6 +906,7 @@ closed      已关闭
 | 2026-06-27 | T-0084-fix | 指标阈值告警评估 P2 修复（`db32e27`） | 通过 | Archimedes 修复后，超大 JSON integer threshold 已统一返回 `422 condition.threshold 必须是有限 JSON number`，并补回归测试；总 agent 本地复审未发现新增 P0/P1/P2/P3 阻断，可合入 `dev` | done |
 | 2026-06-27 | T-0085 | 告警周期评估状态后端骨架（`a7ba54f`） | 未通过 | Newton 发现 P1：禁用规则在周期路径不可达；P2：并发 run-due 缺少唯一约束冲突兜底和 due 复查；P2：error 状态会清空上一轮成功 `last_result`；P3：缺失 `next_evaluate_at` 的 due 语义文档与实现不一致。已由 `ae92820` 与 `a1c1101` 修复 | blocked |
 | 2026-06-27 | T-0085-fix | 告警周期评估状态审计修复（`ae92820`/`a1c1101`） | 通过 | Maxwell 复审确认 P1/P2 已关闭：已有状态的 disabled 规则会收敛为 `disabled`，并发首次创建唯一冲突会 rollback/re-fetch/recheck 避免 500，error 写入保留最近一次成功 `last_result`。剩余 P3 文档契约不一致已由 `a1c1101` 补充 disabled 强制 due/write 例外、计数和 `due` 响应语义；未发现新的 P0/P1/P2/P3 | done |
+| 2026-06-29 | T-0086 | 全面安全审计（`dev` `b21881c`） | 未通过 | 发现 P1：摄入统计 `select` 后 `insert/update` 非原子，存在并发唯一键 500、回滚已接受摄入和丢计数风险；P1：登录接口无爆破/撞库限流；P2：无效 API Key 探测发生在限流前，可能形成数据库查询型 DoS；P2：CI 使用 Node 22 而前端声明 Node 24.13.0；P3：部分外部写入 schema 静默忽略未知字段；P3：公共健康信息、默认 OpenAPI/docs、安全响应头、CSP 与 sessionStorage token 组合仍需生产硬化。已登记 T-0086 修复 | blocked |
 | 2026-06-24 | T-0067 | Dashboard 变量配置前端基础（`34f2b39`） | 未通过 | Beauvoir 审计发现 1 个 P3：编辑合法 text 变量且显式 `default: ""` 时，前端 draft 会把空字符串 default 与缺省 default 混同，保存后丢失 `default` key。未发现 P0/P1/P2 | blocked |
 | 2026-06-24 | T-0067-fix | Dashboard 变量空默认值修复（`81ebdc9`） | 通过 | Beauvoir 复审确认原 P3 已关闭：`hasDefault` 草稿状态能保留显式空字符串 default，也允许用户选择删除 default；新增测试覆盖空默认值编辑和保存 payload。未发现新的 P0/P1/P2/P3 | done |
 | 2026-06-24 | T-0068 | Dashboard preview 变量默认值替换后端基础（`92ec4e5`） | 通过 | Carson 审计未发现 P0/P1/P2/P3；确认只替换 panel query 顶层完整 `${变量名}`，不做部分拼接/深层模板/请求时覆盖，错误路径返回 `422`，权限隐藏、legacy 行为和 time range 优先级未回归。残余风险为未做真实 MySQL/真实后端/前端变量控件联调 | done |
@@ -949,6 +953,7 @@ closed      已关闭
 | 日期 | 任务 ID | 问题 | 影响 | 负责人 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | 暂无 | 暂无 | 暂无 | 暂无 | 暂无 | closed |
+| 2026-06-29 | T-0086 | 全面安全审计发现多个 P1/P2 阻断项 | 当前不得视为安全审计通过；需修复摄入统计并发写入、登录/无效 API Key 限流和 CI Node 版本漂移，低风险 schema/部署硬化随本轮收口 | 后端开发 agent / 前端开发 agent / 总 agent | doing |
 | 2026-06-23 | T-0049 | 已登录后硬导航/刷新查询页首个请求未带 Authorization | 已由 `3ed47cb`/`a86f559` 修复并由 Planck the 2nd 真实联测重跑确认关闭；`/logs?trace_id=...&span_id=...` 与 `/traces?trace_id=...` 首个业务请求均带 Authorization，无 401 | 前端开发 agent / 总 agent | closed |
 | 2026-06-23 | T-0049-fix2 | `/traces?trace_id=...` 未初始化 trace 查询筛选 | 已由 `a30e126` 修复并由 Godel the 2nd 真实联测确认关闭；valid trace 深链硬导航/刷新会带 trace_id 与 Authorization，129 字符 trace_id 返回 422/错误态且不展示既有 trace | 前端开发 agent / 总 agent | closed |
 | 2026-06-22 | T-0042 | 真实 MySQL 下 metrics aggregate `1m/5m` 边界秒分桶上偏 | 已由 Avicenna 在 `7120835` 修复为显式 `FLOOR(TIMESTAMPDIFF(...) / window_seconds)`，Hume 审计无 P0/P1/P2，Lorentz 真实 MySQL 专项复验通过，Parfit 完整真实前后端联测重跑通过 | 后端开发 agent Avicenna / 总 agent | closed |
@@ -1042,6 +1047,7 @@ closed      已关闭
 | 2026-06-27 | T-0084 | feature/backend-dev | dev | 总 agent | 后端实现 `27b832d` 与审计前同步 `c20d63d` 均通过 CI，但 Socrates 审计发现 P2，当前不得合入 `dev`；已派 Archimedes 在 `feature/backend-dev` 修复 threshold 超大整数溢出 422 语义 | blocked |
 | 2026-06-27 | T-0084-fix | feature/backend-dev | dev | 总 agent | P2 修复 `db32e27` 已通过 feature CI 和本地复审，准备真实 merge 到 `dev`，随后运行后端本地门禁、推送并读取 Actions | doing |
 | 2026-06-27 | T-0085 | feature/backend-dev | dev | 总 agent | 告警周期评估状态后端骨架 `a7ba54f`、审计修复 `ae92820` 和 P3 文档修复 `a1c1101` 已通过 feature CI、Maxwell 复审和 merge 后本地门禁；总 agent 已使用真实 `git merge --no-ff origin/feature/backend-dev` 合入 `dev`，merge 提交 `596ac8b`，dev CI run `28286821481` 通过 | done |
+| 2026-06-29 | T-0086 | feature/backend-dev / feature/frontend-dev | dev | 总 agent | 全面安全审计修复已登记；后端修复范围包括摄入统计原子 upsert、登录/无效 API Key 限流、schema 严格性和后端部署硬化；前端/CI 修复范围包括 Node 版本对齐和 CSP/安全头文档或配置。完成后需测试、审计通过，再由总 agent 真实 merge 到 `dev` | doing |
 
 ## 10. 决策记录
 
